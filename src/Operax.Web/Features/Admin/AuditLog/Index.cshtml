@@ -1,0 +1,120 @@
+@page "/admin/audit-log"
+@model Operax.Web.Features.Admin.AuditLog.IndexModel
+@{
+    ViewData["Title"] = "Denetim Kayıtları";
+}
+
+<div class="page-hdr">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Ayarlar
+            </a>
+            <span style="font-size:11px;color:#64748b">Sistem / Denetim Kayıtları</span>
+        </div>
+        <h1>Denetim Kayıtları</h1>
+        <p>Sistem üzerinde gerçekleştirilen tüm işlemlerin denetim geçmişi</p>
+    </div>
+</div>
+
+<!-- Filtre paneli -->
+<form method="get" class="card" style="padding:16px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
+        <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">
+                Kullanıcı
+            </label>
+            <input type="text" name="user" value="@Model.FilterUser"
+                   placeholder="Kullanıcı adı..."
+                   class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">
+                Aksiyon
+            </label>
+            <input type="text" name="action" value="@Model.FilterAction"
+                   placeholder="CREATE, UPDATE, DELETE..."
+                   class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">
+                Kayıt Tipi
+            </label>
+            <input type="text" name="entity" value="@Model.FilterEntity"
+                   placeholder="ReceivingHeader, SalesOrder..."
+                   class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div style="display:flex;gap:8px">
+            <button type="submit" class="btn btn-primary">Filtrele</button>
+            <a asp-page="./Index" class="btn btn-secondary">Temizle</a>
+        </div>
+    </div>
+</form>
+
+<!-- Kayıt listesi -->
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Tarih / Saat</th>
+                <th>Kullanıcı</th>
+                <th style="text-align:center">Aksiyon</th>
+                <th>Kayıt Tipi</th>
+                <th>Kayıt Id</th>
+                <th>Detay</th>
+                <th style="text-align:right">IP Adresi</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in Model.Entries)
+            {
+                <tr>
+                    <td style="white-space:nowrap;font-size:12px;color:#64748b">
+                        @e.CreatedAt.ToString("dd.MM.yyyy HH:mm:ss")
+                    </td>
+                    <td style="font-weight:600;font-size:13px">@e.UserName</td>
+                    <td style="text-align:center">
+                        @{
+                            var badgeClass = e.Action switch
+                            {
+                                "CREATE"  => "b-green",
+                                "UPDATE"  => "b-blue",
+                                "DELETE"  => "b-red",
+                                "POST"    => "b-purple",
+                                "LOGIN"   => "b-amber",
+                                _ => "b-gray"
+                            };
+                        }
+                        <span class="badge @badgeClass">@e.Action</span>
+                    </td>
+                    <td style="font-size:12px;font-family:monospace;color:#6366f1">@e.EntityType</td>
+                    <td style="font-size:11px;color:#94a3b8;font-family:monospace">
+                        @(e.EntityId?.ToString("D")[..8])...
+                    </td>
+                    <td style="font-size:12px;color:#475569;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        @e.Details
+                    </td>
+                    <td style="text-align:right;font-size:11px;color:#94a3b8">@e.IpAddress</td>
+                </tr>
+            }
+            @if (!Model.Entries.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <p>Denetim kaydı bulunamadı.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model.Entries.Any())
+{
+    <p style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:right">
+        Son 200 kayıt gösteriliyor
+    </p>
+}

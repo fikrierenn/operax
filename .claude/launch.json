@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Operax.Web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/Operax.Web", "--launch-profile", "http"],
+      "port": 5193
+    }
+  ]
+}

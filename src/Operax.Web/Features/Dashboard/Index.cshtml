@@ -1,0 +1,141 @@
+@page
+@model Operax.Web.Features.Dashboard.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-hdr">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Sistem özeti ve kritik canlı veriler</p>
+    </div>
+</div>
+
+<!-- KPI Özet Kartları -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Bekleyen Sevkiyat</span>
+        <div class="kpi-val text-indigo-600">@Model.PendingShipments</div>
+        <span class="kpi-sub">Bugün bekleyen sevkiyatlar</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Aktif Mal Kabul</span>
+        <div class="kpi-val text-amber-500">@Model.ActiveReceivings</div>
+        <span class="kpi-sub">Devam eden satın almalar</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Aktif Üretim</span>
+        <div class="kpi-val text-green-600">@Model.ActiveProductionOrders</div>
+        <span class="kpi-sub">İş emirleri ve hatlar</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Kritik Stok</span>
+        <div class="kpi-val text-red-500">@Model.LowStockItems</div>
+        <span class="kpi-sub">Acil besleme bekleyenler</span>
+    </div>
+</div>
+
+<div class="grid-2-1">
+
+    <!-- Son Hareketler -->
+    <div class="card">
+        <div class="card-hdr">
+            <span class="card-ttl">Son Hareketler</span>
+            <button class="btn btn-secondary btn-sm">Tümünü Gör</button>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Ürün</th>
+                    <th>İşlem</th>
+                    <th class="text-right">Miktar</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var act in Model.RecentActivities)
+                {
+                    <tr>
+                        <td class="text-slate-400 text-xs">@act.CreatedAt.ToString("HH:mm")</td>
+                        <td class="font-semibold">@act.ItemName</td>
+                        <td>
+                            @if (act.MovementType == "RECEIPT") { <span class="badge b-green">GİRİŞ</span> }
+                            else if (act.MovementType == "ISSUE") { <span class="badge b-red">ÇIKIŞ</span> }
+                            else { <span class="badge b-gray">@act.MovementType</span> }
+                        </td>
+                        <td class="text-right font-mono font-bold">@act.Qty.ToString("N0")</td>
+                    </tr>
+                }
+                @if (!Model.RecentActivities.Any())
+                {
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p>Henüz bir hareket kaydedilmemiş</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Sistem Sağlığı + Hızlı Aksiyonlar -->
+    <div class="flex flex-col gap-4">
+        <div class="card">
+            <div class="card-hdr">
+                <span class="card-ttl">Sistem Sağlığı</span>
+            </div>
+            <div class="card-body">
+                <!-- Veritabanı durumu -->
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-bold text-slate-800">Veritabanı</div>
+                        <div class="text-xs text-slate-400 truncate">BT-FIKRI\SQLEXPRESS</div>
+                    </div>
+                    <span class="badge b-green">AKTİF</span>
+                </div>
+
+                <!-- Hangfire durumu -->
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-sm font-bold text-slate-800">Hangfire</div>
+                        <div class="text-xs text-slate-400">Arkaplan İşleri</div>
+                    </div>
+                    <span class="badge b-blue">ÇALIŞIYOR</span>
+                </div>
+
+                <!-- Hızlı Aksiyonlar -->
+                <span class="section-label">Hızlı Aksiyonlar</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <a asp-page="/Receiving/Index" class="btn btn-secondary btn-sm justify-center">Yeni Kabul</a>
+                    <a asp-page="/Shipping/Index" class="btn btn-secondary btn-sm justify-center">Yeni Sevkiyat</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- İpucu -->
+        <div class="card bg-purple-50 border-purple-100">
+            <div class="card-body">
+                <div class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">İPUCU</div>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Hangfire paneline gitmek için <span class="font-bold text-slate-700">/hangfire</span> adresini kullanabilirsiniz.
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>

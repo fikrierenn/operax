@@ -1,0 +1,94 @@
+@page
+@model Operax.Web.Features.Admin.Settings.IndexModel
+@{
+    ViewData["Title"] = "Sistem Ayarları";
+}
+
+<div class="page-hdr">
+    <div>
+        <h1>Sistem Ayarları</h1>
+        <p>Platform parametreleri, kullanıcı yetkileri ve genel tanımlar</p>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+    <!-- Sistem Tanımları -->
+    <div class="card">
+        <div class="card-hdr" style="background:rgba(99,102,241,0.05)">
+            <div>
+                <span class="card-ttl">Sistem Tanımları</span>
+                <p class="card-sub">Global ve modül bazlı parametre yönetimi</p>
+            </div>
+            <div style="color:#818cf8">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+        </div>
+        <div class="card-body" style="padding:12px">
+            <a asp-page="/Admin/Dictionary/Index" class="nav-item" style="margin-bottom:4px;border:1px solid var(--border)">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <span>Sözlük (Dictionary) Yönetimi</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <a asp-page="/Admin/Parameters/Index" class="nav-item" style="border:1px solid var(--border)">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M1 12h2M21 12h2M12 1v2M12 21v2"/></svg>
+                <span>Sistem Parametreleri</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Personel & Güvenlik -->
+    <div class="card">
+        <div class="card-hdr" style="background:rgba(16,185,129,0.05)">
+            <div>
+                <span class="card-ttl">Personel & Güvenlik</span>
+                <p class="card-sub">Kullanıcı erişimi ve yetki seviyeleri</p>
+            </div>
+            <div style="color:#10b981">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+        </div>
+        <div class="card-body" style="padding:12px">
+            <a asp-page="/Admin/Users/Index" class="nav-item" style="margin-bottom:4px;border:1px solid var(--border)">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <span>Kullanıcı Yönetimi</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <a asp-page="/Admin/Roles/Index" class="nav-item" style="margin-bottom:4px;border:1px solid var(--border)">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Yetki Grupları (Roles)</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <a asp-page="/Admin/AuditLog/Index" class="nav-item" style="border:1px solid var(--border)">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M13 21l2 2 4-4"/><path d="M9 7h6M9 11h4"/></svg>
+                <span>Denetim Kayıtları</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Organizasyon -->
+    <div class="card">
+        <div class="card-hdr" style="background:rgba(245,158,11,0.05)">
+            <div>
+                <span class="card-ttl">Organizasyon</span>
+                <p class="card-sub">Şirket yapılandırması ve genel ayarlar</p>
+            </div>
+            <div style="color:#f59e0b">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+        </div>
+        <div class="card-body" style="padding:12px">
+            <a href="#" class="nav-item" style="margin-bottom:4px;border:1px solid var(--border);opacity:0.6;cursor:not-allowed">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M3 7v14M21 7v14M9 21V11h6v10m-8-14l5-5 5 5"/></svg>
+                <span>Şirket Bilgileri (Yakında)</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <a href="#" class="nav-item" style="border:1px solid var(--border);opacity:0.6;cursor:not-allowed">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>Şube & Lokasyonlar</span>
+                <svg style="margin-left:auto;width:12px;opacity:0.4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,69 @@
+@page
+@model Operax.Web.Features.Receiving.IndexModel
+@{
+    ViewData["Title"] = "Mal Kabul";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Mal Kabul</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Tedarikçilerden gelen mal kabulü ve giriş belgeleri</p>
+    </div>
+    <a asp-page="./Details" class="btn btn-primary" data-shortcut="Alt+N">+ Yeni Mal Kabul</a>
+</div>
+
+<div class="card">
+    <div class="flex gap-3 p-4 bg-slate-50 border-b border-slate-200">
+        <input type="text" placeholder="Belge no veya tedarikçi ara..." class="form-ctrl flex-1 max-w-xs">
+        <select class="form-ctrl w-44">
+            <option>Tüm Durumlar</option>
+            <option>DRAFT</option>
+            <option>POSTED</option>
+        </select>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Belge No</th>
+                <th>Tarih</th>
+                <th>Tedarikçi</th>
+                <th>Depo</th>
+                <th>Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model.Documents)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">@r.DocNo</td>
+                    <td class="text-slate-500">@r.DocDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-medium">@r.PartnerName</td>
+                    <td class="text-xs font-semibold text-slate-600">@r.WarehouseCode</td>
+                    <td>
+                        <span class="badge @(r.Status == "POSTED" ? "b-green" : "b-amber")">
+                            @r.Status
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@r.Id" class="btn btn-secondary btn-sm">Aç</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Documents.Any())
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-7 5 7M12 3v12"/>
+                            </svg>
+                            <p>Henüz mal kabul belgesi oluşturulmamış.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

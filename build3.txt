@@ -1,0 +1,63 @@
+﻿d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj : warning NU1903: 'Newtonsoft.Json' 11.0.1 paketinde ├Ânem derecesi y├╝ksek olan bilinen bir https://github.com/advisories/GHSA-5crp-9r3c-p9vr g├╝venlik a├ğ─▒─ş─▒ var
+d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj : warning NU1903: 'Newtonsoft.Json' 11.0.1 paketinde ├Ânem derecesi y├╝ksek olan bilinen bir https://github.com/advisories/GHSA-5crp-9r3c-p9vr g├╝venlik a├ğ─▒─ş─▒ var
+d:\Dev\Operax\src\Operax.Web\Features\Admin\Dictionary\Details.cshtml.cs(8,50): warning CS9113: 'company' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Admin\Users\Index.cshtml.cs(8,90): warning CS9113: 'roleManager' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\MasterData\Items\Details.cshtml.cs(27,20): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\CycleCount\Details.cshtml.cs(100,56): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\PurchaseOrders\Details.cshtml.cs(30,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(49,32): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\PurchaseOrders\Details.cshtml.cs(85,84): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Picking\Details.cshtml.cs(73,51): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Picking\Details.cshtml.cs(74,91): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(77,36): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(121,48): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(121,81): warning CS8629: Bo┼ş de─şer atanabilir de─şer t├╝r├╝ null olabilir. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\SalesOrders\Details.cshtml.cs(30,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\MasterData\Items\Details.cshtml(5,21): error CS0103: 'Context' ad─▒ ge├ğerli ba─şlamda yok [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\SalesOrders\Details.cshtml.cs(85,84): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Transfer\Details.cshtml.cs(79,67): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Transfer\Details.cshtml.cs(100,58): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\AutoTraceabilityService.cs(8,61): warning CS9113: 'company' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(34,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(91,28): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(130,59): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(146,17): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(33,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(69,36): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(173,28): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(212,59): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+
+Olu┼şturma BA┼ŞARISIZ OLDU.
+
+d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj : warning NU1903: 'Newtonsoft.Json' 11.0.1 paketinde ├Ânem derecesi y├╝ksek olan bilinen bir https://github.com/advisories/GHSA-5crp-9r3c-p9vr g├╝venlik a├ğ─▒─ş─▒ var
+d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj : warning NU1903: 'Newtonsoft.Json' 11.0.1 paketinde ├Ânem derecesi y├╝ksek olan bilinen bir https://github.com/advisories/GHSA-5crp-9r3c-p9vr g├╝venlik a├ğ─▒─ş─▒ var
+d:\Dev\Operax\src\Operax.Web\Features\Admin\Dictionary\Details.cshtml.cs(8,50): warning CS9113: 'company' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Admin\Users\Index.cshtml.cs(8,90): warning CS9113: 'roleManager' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\MasterData\Items\Details.cshtml.cs(27,20): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\CycleCount\Details.cshtml.cs(100,56): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\PurchaseOrders\Details.cshtml.cs(30,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(49,32): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\PurchaseOrders\Details.cshtml.cs(85,84): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Picking\Details.cshtml.cs(73,51): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Picking\Details.cshtml.cs(74,91): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(77,36): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(121,48): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Production\Details.cshtml.cs(121,81): warning CS8629: Bo┼ş de─şer atanabilir de─şer t├╝r├╝ null olabilir. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\SalesOrders\Details.cshtml.cs(30,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\SalesOrders\Details.cshtml.cs(85,84): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Transfer\Details.cshtml.cs(79,67): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Transfer\Details.cshtml.cs(100,58): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\AutoTraceabilityService.cs(8,61): warning CS9113: 'company' parametresi okunmam─▒┼ş. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(34,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(91,28): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(130,59): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Receiving\Details.cshtml.cs(146,17): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(33,22): warning CS8601: Olas─▒ null ba┼şvuru atamas─▒. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(69,36): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(173,28): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\Shipping\Details.cshtml.cs(212,59): warning CS8602: Olas─▒ bir null ba┼şvurunun ba┼şvurma i┼şlemi. [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+d:\Dev\Operax\src\Operax.Web\Features\MasterData\Items\Details.cshtml(5,21): error CS0103: 'Context' ad─▒ ge├ğerli ba─şlamda yok [d:\Dev\Operax\src\Operax.Web\Operax.Web.csproj]
+    27 Uyar─▒
+    1 Hata
+
+Ge├ğen S├╝re 00:00:04.25

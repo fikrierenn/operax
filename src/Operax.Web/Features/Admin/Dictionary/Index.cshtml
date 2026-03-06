@@ -1,0 +1,53 @@
+@page
+@model Operax.Web.Features.Admin.Dictionary.IndexModel
+@{
+    ViewData["Title"] = "Sözlük Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Ayarlar
+            </a>
+            <span style="font-size:11px;color:#64748b">Sistem / Sözlük</span>
+        </div>
+        <h1>Sözlük Tanımları (Dictionary)</h1>
+        <p>Sistem genelindeki tip tanımları, birimler ve statü değerleri</p>
+    </div>
+    <div class="page-hdr-r">
+        <button class="btn btn-primary" data-shortcut="Alt+N">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Tip
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Ad (TR)</th>
+                <th>Ad (EN)</th>
+                <th style="text-align:right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var type in Model.Types)
+            {
+                <tr class="group">
+                    <td><span style="font-family:monospace;font-size:12px;color:#818cf8;font-weight:700">@type.Code</span></td>
+                    <td style="font-weight:600">@type.NameTr</td>
+                    <td style="color:#94a3b8">@type.NameEn</td>
+                    <td style="text-align:right">
+                        <a asp-page="./Values" asp-route-typeId="@type.Id" class="btn btn-secondary btn-sm">
+                            Değerleri Yönet
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,63 @@
+@page
+@model Operax.Web.Features.MasterData.Partners.IndexModel
+@{
+    ViewData["Title"] = "Business Partners";
+}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold">Partners</h2>
+        <p class="text-slate-500 text-sm">Customers and Vendors management</p>
+    </div>
+    <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
+        + New Partner
+    </button>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="p-4 bg-slate-50 border-b flex gap-4">
+        <input type="text" placeholder="Search by name, tax no..." class="flex-1 bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+        <div class="flex border rounded-lg bg-white p-1">
+            <button class="px-3 py-1 rounded text-xs font-bold bg-indigo-600 text-white">All</button>
+            <button class="px-3 py-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-50">Vendors</button>
+            <button class="px-3 py-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-50">Customers</button>
+        </div>
+    </div>
+    <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b">
+            <tr>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Partner</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tax No</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y text-sm">
+            @foreach (var p in Model.Partners)
+            {
+                <tr class="hover:bg-slate-50 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="font-mono text-[10px] text-indigo-600 font-bold">@p.Code</div>
+                        <div class="font-bold">@p.Name</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="bg-slate-100 px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 uppercase">@p.Type</span>
+                    </td>
+                    <td class="px-6 py-4 font-mono text-slate-500">@p.TaxNumber</td>
+                    <td class="px-6 py-4 text-slate-500 text-xs">@p.Email</td>
+                    <td class="px-6 py-4 text-right">
+                        <button class="text-slate-400 hover:text-indigo-600 font-bold text-[10px] uppercase tracking-widest mr-4">Details</button>
+                        <button class="text-slate-400 hover:text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Edit</button>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Partners.Any())
+            {
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">No partners found. Add your first vendor or customer.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

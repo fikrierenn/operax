@@ -1,0 +1,81 @@
+@page "{code}"
+@model Operax.Web.Features.LPN.DetailsModel
+@{
+    ViewData["Title"] = $"Palet Sorgulama: {Model.Lpn.Code}";
+}
+
+<div class="flex justify-between items-start mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <h2 class="text-2xl font-bold">@Model.Lpn.Code</h2>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase 
+                @(Model.Lpn.Status == "IN_USE" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500")">
+                @Model.Lpn.Status
+            </span>
+        </div>
+        <p class="text-sm text-slate-500">Güncel Konum: <span class="font-bold text-slate-900 font-mono">@Model.Lpn.WhCode / @Model.Lpn.BinCode</span></p>
+    </div>
+    <div class="flex gap-2">
+        <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 text-sm">Paleti Taşı</button>
+        <button class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 text-sm">Yazdır</button>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-8">
+    <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Palet İçeriği (SKU Bazlı)</h3>
+        <span class="text-[10px] font-bold text-slate-400">@Model.Contents.Count() Kalem Mevcut</span>
+    </div>
+    <table class="w-full text-left border-collapse text-sm">
+        <thead class="bg-slate-50 border-b">
+            <tr>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Ürün</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Lot</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Miktar</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            @foreach (var line in Model.Contents)
+            {
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-indigo-600">@line.ItemName</div>
+                        <div class="text-[10px] text-slate-400 font-mono">@line.ItemCode</div>
+                    </td>
+                    <td class="px-6 py-4 font-mono text-slate-600">@(line.LotNo ?? "-")</td>
+                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-900 underline decoration-indigo-200">
+                        @line.Qty.ToString("N2")
+                    </td>
+                </tr>
+            }
+            @if (!Model.Contents.Any())
+            {
+                <tr>
+                    <td colspan="3" class="px-6 py-12 text-center text-slate-400 italic">Palet içeriği boş.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-indigo-900 rounded-2xl p-6 text-white text-center shadow-xl shadow-indigo-100 relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4 opacity-10">
+            <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M20 8h-3V4H3v12h2v4h16V8h-1zM5 14H5V6h10v8H5zm14 4H7v-2h10V10h2v8z"/></svg>
+        </div>
+        <div class="relative z-10">
+            <div class="text-[10px] uppercase font-bold text-indigo-300 tracking-widest mb-1">Palet Özeti</div>
+            <div class="text-4xl font-black mb-1">@Model.Contents.Sum(c => c.Qty).ToString("N0")</div>
+            <div class="text-xs text-indigo-200">Toplam Ürün Adedi</div>
+        </div>
+    </div>
+
+    <div class="bg-white border rounded-2xl p-6 flex flex-col justify-center gap-2">
+        <h4 class="font-bold text-slate-800 text-sm">Operasyonel Durum</h4>
+        <div class="flex items-center gap-2 text-xs">
+            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            <span class="text-slate-500">Mal Kabul Paleti (Ready for Putaway)</span>
+        </div>
+        <p class="text-[10px] text-slate-400 italic">Bu palet mal kabul alanında beklemektedir. Raf adresleme sırasındadır.</p>
+    </div>
+</div>

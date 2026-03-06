@@ -1,0 +1,74 @@
+@page
+@model Operax.Web.Features.Lot.IndexModel
+@{
+    ViewData["Title"] = "Lot / Batch Management";
+}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold italic tracking-tight uppercase text-indigo-900 leading-none">Lot & SKT Yönetimi</h2>
+        <p class="text-slate-500 text-sm">Track products by batch, expiry dates, and shelf life.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <table class="w-full text-left border-collapse text-sm">
+        <thead class="bg-slate-50 border-b">
+            <tr>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Product</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Lot / Batch No</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Expiry Date</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Qty On Hand</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Status</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            @foreach (var l in Model.Lots)
+            {
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-800">@l.ItemName</div>
+                        <div class="text-[10px] text-slate-400 font-mono">@l.ItemCode</div>
+                    </td>
+                    <td class="px-6 py-4 font-mono font-bold text-indigo-600">@l.LotNo</td>
+                    <td class="px-6 py-4">
+                        @if (l.ExpiryDate.HasValue)
+                        {
+                            <span class="@(l.ExpiryDate < DateTime.Now ? "text-red-600 font-bold" : "text-slate-600")">
+                                @l.ExpiryDate.Value.ToString("dd.MM.yyyy")
+                            </span>
+                            @if (l.ExpiryDate < DateTime.Now) { <span class="ml-2 text-[10px] bg-red-100 text-red-700 px-1 rounded font-black italic uppercase">Expired</span> }
+                        }
+                        else { <span class="text-slate-300">-</span> }
+                    </td>
+                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-900 underline decoration-indigo-100">
+                        @l.QtyOnHand.ToString("N2")
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase 
+                            @(l.Status == "AVAILABLE" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
+                            @l.Status
+                        </span>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Lots.Any())
+            {
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">No lot data found. Lots are created during receiving or production.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
+        <h4 class="font-bold text-indigo-900 text-sm mb-1 uppercase tracking-wider">FEFO Ready</h4>
+        <p class="text-[10px] text-indigo-600 leading-relaxed font-medium capitalize">Sistem toplama emirlerinde SKT'si en yakın olan ürünü otomatik önerecektir.</p>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+        <h4 class="font-bold text-slate-700 text-sm mb-1 uppercase tracking-wider">Karantina Yönetimi</h4>
+        <p class="text-[10px] text-slate-500 leading-relaxed">Şüpheli partiler 'BLOCKED' durumuna çekilerek sevkiyata kapatılabilir.</p>
+    </div>
+</div>

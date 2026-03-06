@@ -1,0 +1,72 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "New Partner" : $"Partner {Model.Partner.Code}";
+}
+
+<form method="post">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold">@(Model.IsNew ? "New Business Partner" : "Edit Partner")</h2>
+            <p class="text-slate-500 text-sm">Manage customers, vendors and tax identity</p>
+        </div>
+        <div class="flex gap-2">
+            <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
+                Cancel
+            </a>
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">
+                Save Partner
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+                <h3 class="font-bold text-slate-800 border-b pb-4">Identity & Contact</h3>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Partner Code / ERP Ref</label>
+                        <input asp-for="Partner.Code" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. V-001" required />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Account Type</label>
+                        <select asp-for="Partner.Type" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
+                            <option value="VENDOR">Vendor (Supplier)</option>
+                            <option value="CUSTOMER">Customer (Buyer)</option>
+                            <option value="BOTH">Both (Vendor & Customer)</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2 flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Legal Name / Title</label>
+                        <input asp-for="Partner.Name" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Full legal company name" required />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Tax Number / VAT</label>
+                        <input asp-for="Partner.TaxNumber" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Tax ID" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Contact Email</label>
+                        <input asp-for="Partner.Email" type="email" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="billing@partner.com" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+                <h3 class="font-bold text-slate-800 border-b pb-4 text-sm">Status & Settings</h3>
+                <div class="space-y-4">
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" asp-for="Partner.IsActive" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-600" />
+                        <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">Is Active Partner</span>
+                    </label>
+                </div>
+                <!-- Mini info box -->
+                <div class="mt-8 p-4 bg-slate-50 rounded-lg border border-dashed text-xs text-slate-500 leading-relaxed">
+                    Account types determine where this partner will appear (Purchasing or Sales modules). Use <b>Both</b> for companies you both buy from and sell to.
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

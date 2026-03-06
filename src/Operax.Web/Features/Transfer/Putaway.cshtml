@@ -1,0 +1,66 @@
+@page
+@model Operax.Web.Features.Transfer.PutawayModel
+@{
+    ViewData["Title"] = "Putaway Wizard";
+}
+
+<div class="mb-8">
+    <h2 class="text-2xl font-bold italic tracking-tight uppercase text-indigo-900">Raf Adresleme (Putaway)</h2>
+    <p class="text-slate-500 text-sm">Mal kabul alanındaki ürünleri uygun raf adreslerine yerleştirin.</p>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="p-4 bg-slate-50 border-b">
+        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Mal Kabul Alanındaki Bekleyen Ürünler</h3>
+    </div>
+    <table class="w-full text-left border-collapse text-sm">
+        <thead class="bg-slate-50 border-b font-bold text-slate-500 text-[10px] uppercase">
+            <tr>
+                <th class="px-6 py-4">Ürün / Palet</th>
+                <th class="px-6 py-4">Mevcut Raf</th>
+                <th class="px-6 py-4 text-right">Miktar</th>
+                <th class="px-6 py-4">Hedef Raf Seçimi</th>
+                <th class="px-6 py-4 text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            @foreach (var s in Model.ItemsAtReceiving)
+            {
+                <form method="post" asp-page-handler="Putaway">
+                    <input type="hidden" name="itemId" value="@s.ItemId" />
+                    <input type="hidden" name="fromBinId" value="@s.BinId" />
+                    <input type="hidden" name="lpnId" value="@s.LpnId" />
+                    <input type="hidden" name="qty" value="@s.Qty" />
+                    
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-indigo-600">@s.ItemName</div>
+                            <div class="text-[10px] text-slate-400 font-mono">
+                                @s.ItemCode @(string.IsNullOrEmpty(s.LpnCode) ? "" : $" | Palet: {s.LpnCode}")
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-slate-500 italic">@s.BinCode</td>
+                        <td class="px-6 py-4 text-right font-mono font-bold">@s.Qty.ToString("N2")</td>
+                        <td class="px-6 py-4">
+                            <select name="toBinId" class="bg-white border rounded-lg px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-indigo-600 w-full" required>
+                                <option value="">Raf Seç...</option>
+                                @foreach (var bin in Model.StorageBins) { <option value="@bin.Id">@bin.Code</option> }
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button type="submit" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-indigo-700 text-[10px] uppercase tracking-widest active:scale-95 transition-all">
+                                Adresle
+                            </button>
+                        </td>
+                    </tr>
+                </form>
+            }
+            @if (!Model.ItemsAtReceiving.Any())
+            {
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Mal kabul alanında bekleyen stok bulunmuyor.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

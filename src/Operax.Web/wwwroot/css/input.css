@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* Tailwind v4: Tüm Razor sayfalarındaki utility sınıflarını tara */
+@source "../../**/*.cshtml";
+
+@theme {
+  --color-brand: #4f46e5;
+}
+
+/* ===== COMPONENT CLASSES =====
+   Sayfalar bu sınıfları kullanır — her sayfada aynı şeyi tekrar yazmak yerine
+   bu component'lar tek yerden yönetilir (PHP include mantığı). */
+@layer components {
+
+  /* ----- Sidebar navigasyon ----- */
+  .nav-label {
+    @apply text-[10px] font-bold uppercase tracking-widest text-slate-400 px-3 pt-4 pb-1.5 block;
+  }
+  .nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium
+           text-slate-700 no-underline transition-all mb-0.5 hover:bg-slate-100;
+  }
+  .nav-item svg {
+    @apply w-4 h-4 opacity-60 shrink-0;
+  }
+  .nav-item.active {
+    @apply bg-indigo-50 text-indigo-600 font-semibold;
+  }
+  .nav-item.active svg {
+    @apply opacity-100;
+  }
+
+  /* ----- Sayfa başlığı (başlık + subtitle + sağda aksiyon) ----- */
+  .page-hdr {
+    @apply flex justify-between items-start mb-6;
+  }
+  .page-hdr-r {
+    @apply flex items-center gap-2 shrink-0;
+  }
+
+  /* ----- Kart (beyaz içerik kutusu) ----- */
+  .card {
+    @apply bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden;
+  }
+  .card-hdr {
+    @apply flex justify-between items-center px-5 py-3.5 border-b border-slate-200;
+  }
+  .card-ttl {
+    @apply font-bold text-slate-800 text-sm;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  /* ----- Butonlar ----- */
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold
+           cursor-pointer transition-all no-underline border-0 outline-none;
+  }
+  .btn-primary  { @apply bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95; }
+  .btn-secondary { @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50; }
+  .btn-danger   { @apply bg-red-600 text-white hover:bg-red-700; }
+  .btn-sm       { @apply px-3 py-1.5 text-xs; }
+
+  /* ----- Durum etiketleri ----- */
+  .badge { @apply inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase; }
+  .b-gray   { @apply bg-slate-100  text-slate-600; }
+  .b-green  { @apply bg-green-100  text-green-700; }
+  .b-red    { @apply bg-red-100    text-red-700; }
+  .b-blue   { @apply bg-blue-100   text-blue-700; }
+  .b-amber  { @apply bg-amber-100  text-amber-700; }
+  .b-purple { @apply bg-purple-100 text-purple-700; }
+  .b-indigo { @apply bg-indigo-100 text-indigo-700; }
+
+  /* ----- KPI Özet Kartları (Dashboard, Picking vb.) ----- */
+  .kpi-row { @apply grid grid-cols-2 md:grid-cols-4 gap-4 mb-6; }
+  .kpi     { @apply bg-white border border-slate-200 rounded-xl p-4 shadow-sm; }
+  .kpi-label { @apply text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block; }
+  .kpi-val   { @apply text-2xl font-black leading-none; }
+  .kpi-sub   { @apply text-xs text-slate-400 mt-1 block; }
+
+  /* ----- Veri tablosu ----- */
+  .data-table { @apply w-full text-sm text-left border-collapse; }
+  .data-table thead { @apply bg-slate-50; }
+  .data-table th {
+    @apply px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider
+           border-b border-slate-200;
+  }
+  .data-table td { @apply px-5 py-3.5 border-b border-slate-100; }
+  .data-table tbody tr:last-child td { @apply border-b-0; }
+  .data-table tbody tr { @apply hover:bg-slate-50 transition-colors; }
+
+  /* ----- Boş tablo durumu ----- */
+  .empty-state { @apply flex flex-col items-center justify-center py-14 text-slate-400; }
+  .empty-state svg { @apply w-10 h-10 mb-3 opacity-30; }
+  .empty-state p { @apply text-sm font-medium italic; }
+
+  /* ----- Form kontrolleri ----- */
+  .form-ctrl {
+    @apply px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none bg-white
+           focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all;
+  }
+
+  /* ----- 2/3 + 1/3 Grid (Dashboard) ----- */
+  .grid-2-1 { @apply grid gap-6; grid-template-columns: minmax(0, 1fr) 360px; }
+
+  /* ----- Alt bölüm etiketi ----- */
+  .section-label {
+    @apply text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 mt-4 block;
+  }
+}
+
+/* Kısayol tuşu balonu (Alt+N gibi) */
+[data-shortcut]:after {
+  content: attr(data-shortcut);
+  @apply hidden absolute -top-8 left-0 bg-black text-white text-[10px] px-1 rounded;
+}
+body.show-shortcuts [data-shortcut]:after {
+  @apply block;
+}

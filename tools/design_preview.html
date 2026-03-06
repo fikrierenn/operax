@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OPERAX — Design Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: #0d0f1a;
+            color: #e2e8f0;
+            overflow: hidden
+        }
+
+        :root {
+            --sidebar: #12141f;
+            --surface: #181b2a;
+            --surface2: #1e2133;
+            --border: rgba(255, 255, 255, 0.06);
+            --border2: rgba(255, 255, 255, 0.1);
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --muted2: #94a3b8;
+            --accent: #6366f1;
+            --accent2: #818cf8;
+            --green: #10b981;
+            --amber: #f59e0b;
+            --red: #ef4444;
+        }
+
+        .shell {
+            display: flex;
+            height: 100vh
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 240px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0
+        }
+
+        .logo-wrap {
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px
+        }
+
+        .logo-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 12px;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
+            flex-shrink: 0
+        }
+
+        .logo-name {
+            font-weight: 800;
+            font-size: 15px;
+            color: #fff;
+            letter-spacing: -0.5px;
+            line-height: 1
+        }
+
+        .logo-ver {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 1px
+        }
+
+        .nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-width: none
+        }
+
+        .nav::-webkit-scrollbar {
+            display: none
+        }
+
+        .nl {
+            font-size: 9.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.3px;
+            color: var(--muted);
+            padding: 12px 8px 4px
+        }
+
+        .ni {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            margin-bottom: 1px;
+            text-decoration: none;
+            color: var(--muted2);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.12s;
+            border: 1px solid transparent;
+            position: relative;
+            cursor: pointer
+        }
+
+        .ni svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            opacity: 0.65
+        }
+
+        .ni:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text)
+        }
+
+        .ni.active {
+            background: rgba(99, 102, 241, 0.12);
+            color: #a5b4fc;
+            border-color: rgba(99, 102, 241, 0.2)
+        }
+
+        .ni.active svg {
+            opacity: 1
+        }
+
+        .ni.active::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 0 2px 2px 0
+        }
+
+        .nsub {
+            padding-left: 20px
+        }
+
+        .nsub .ni {
+            font-size: 12px;
+            padding: 6px 9px
+        }
+
+        .uftr {
+            padding: 10px 8px;
+            border-top: 1px solid var(--border)
+        }
+
+        .urow {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            cursor: pointer
+        }
+
+        .urow:hover {
+            background: rgba(255, 255, 255, 0.05)
+        }
+
+        .uav {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0
+        }
+
+        .uname {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2
+        }
+
+        .urole {
+            font-size: 10.5px;
+            color: var(--muted)
+        }
+
+        /* MAIN */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            overflow: hidden
+        }
+
+        .topbar {
+            height: 56px;
+            background: rgba(18, 20, 31, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            flex-shrink: 0
+        }
+
+        .tb-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            flex: 1;
+            letter-spacing: -0.3px
+        }
+
+        .chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            border-radius: 20px;
+            font-size: 11.5px;
+            color: var(--muted2);
+            white-space: nowrap
+        }
+
+        .chip svg {
+            width: 12px;
+            height: 12px
+        }
+
+        .pulse {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.4
+            }
+        }
+
+        .tbtn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--muted2);
+            flex-shrink: 0
+        }
+
+        .tbtn svg {
+            width: 15px;
+            height: 15px
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #0d0f1a
+        }
+
+        .page {
+            display: none
+        }
+
+        .page.active {
+            display: block
+        }
+
+        .ph {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 16px
+        }
+
+        .ph h1 {
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.5px
+        }
+
+        .ph p {
+            font-size: 12.5px;
+            color: var(--muted);
+            margin-top: 2px
+        }
+
+        .ph-r {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0
+        }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 20px
+        }
+
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 18px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s
+        }
+
+        .kpi:hover {
+            transform: translateY(-2px)
+        }
+
+        .kpi::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--kc, var(--accent))
+        }
+
+        .kpi-l {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 8px
+        }
+
+        .kpi-v {
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--text);
+            letter-spacing: -1px;
+            line-height: 1;
+            margin-bottom: 4px
+        }
+
+        .kpi-s {
+            font-size: 11px;
+            color: var(--muted)
+        }
+
+        .up {
+            color: var(--green)
+        }
+
+        .dn {
+            color: var(--red)
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px
+        }
+
+        .ch {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .ct {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text)
+        }
+
+        .cs {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 1px
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px
+        }
+
+        thead th {
+            padding: 9px 14px;
+            text-align: left;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border)
+        }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+            transition: background 0.1s
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.025);
+            cursor: pointer
+        }
+
+        tbody td {
+            padding: 11px 14px;
+            color: var(--text);
+            vertical-align: middle
+        }
+
+        tbody tr:last-child {
+            border-bottom: none
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10.5px;
+            font-weight: 700
+        }
+
+        .b-green {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399
+        }
+
+        .b-amber {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24
+        }
+
+        .b-red {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171
+        }
+
+        .b-blue {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc
+        }
+
+        .b-gray {
+            background: rgba(100, 116, 139, 0.12);
+            color: #94a3b8
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 13px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap
+        }
+
+        .btn svg {
+            width: 13px;
+            height: 13px
+        }
+
+        .btn-p {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35)
+        }
+
+        .btn-p:hover {
+            background: #4f46e5;
+            transform: translateY(-1px)
+        }
+
+        .btn-s {
+            background: var(--surface2);
+            color: var(--muted2);
+            border: 1px solid var(--border2)
+        }
+
+        .btn-s:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text)
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 11.5px
+        }
+
+        .btn-d {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2)
+        }
+
+        input,
+        select {
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.15s
+        }
+
+        input::placeholder {
+            color: var(--muted)
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15)
+        }
+
+        /* Search + Filter bar */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center
+        }
+
+        .search-wrap {
+            position: relative;
+            flex: 1;
+            max-width: 320px
+        }
+
+        .search-wrap svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: var(--muted)
+        }
+
+        .search-wrap input {
+            padding-left: 32px
+        }
+
+        .grid2-1 {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 14px
+        }
+
+        /* Detail Page */
+        .dp-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 20px
+        }
+
+        .dp-sku {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent2);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: monospace;
+            margin-bottom: 8px
+        }
+
+        .dp-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.5px;
+            margin-bottom: 4px
+        }
+
+        .dp-desc {
+            font-size: 12.5px;
+            color: var(--muted);
+            max-width: 480px
+        }
+
+        .dp-tags {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap
+        }
+
+        .dp-tag {
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            color: var(--muted2)
+        }
+
+        .dp-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px
+        }
+
+        .dp-stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px
+        }
+
+        .dp-stat-l {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--muted);
+            margin-bottom: 6px
+        }
+
+        .dp-stat-v {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -1px;
+            line-height: 1
+        }
+
+        .form-row {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: 1fr 1fr
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px
+        }
+
+        label {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 4px;
+            letter-spacing: 0.3px
+        }
+
+        .cb-body {
+            padding: 18px
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px
+        }
+
+        .tab {
+            padding: 8px 16px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            cursor: pointer;
+            transition: all 0.12s
+        }
+
+        .tab:hover {
+            color: var(--text)
+        }
+
+        .tab.active {
+            color: var(--accent2);
+            border-color: var(--accent)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="shell">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo-wrap">
+                <div class="logo-icon">OX</div>
+                <div>
+                    <div class="logo-name">OPERAX</div>
+                    <div class="logo-ver">v2.5 · Enterprise ERP</div>
+                </div>
+            </div>
+            <nav class="nav">
+                <div class="nl">Platform</div>
+                <div class="ni active" onclick="showPage('dashboard',this)">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                    </svg>
+                    Dashboard
+                </div>
+                <div class="nl">Temel Veriler</div>
+                <div class="ni" onclick="showPage('products',this)">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                    Ürün Yönetimi
+                </div>
+                <div class="ni" onclick="showPage('products',this)">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    Depolar & Raflar
+                </div>
+                <div class="nl">Stok & Operasyon</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>Stok Bakiyesi</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>Mal Kabul</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <rect x="1" y="3" width="15" height="13" rx="1" />
+                        <path d="M16 8h4l3 5v3h-7V8z" />
+                        <circle cx="5.5" cy="18.5" r="2.5" />
+                        <circle cx="18.5" cy="18.5" r="2.5" />
+                    </svg>Sevkiyat</div>
+                <div class="nl">Depo Yönetimi</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <polyline points="9 11 12 14 22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>Picking</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <polyline points="17 1 21 5 17 9" />
+                        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                        <polyline points="7 23 3 19 7 15" />
+                    </svg>Stok Transferi</div>
+                <div class="nl">Üretim & Finans</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.07 4.93l-1.41 1.41A7 7 0 1 0 12 5V3" />
+                    </svg>Üretim</div>
+                <div class="ni" onclick="showPage('dashboard',this)"><svg fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24">
+                        <line x1="12" y1="1" x2="12" y2="23" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>Gider & Fatura</div>
+            </nav>
+            <div class="uftr">
+                <div class="urow">
+                    <div class="uav">FE</div>
+                    <div>
+                        <div class="uname">Fikri Eren</div>
+                        <div class="urole">Administrator</div>
+                    </div>
+                    <svg style="margin-left:auto;width:14px;height:14px;color:#64748b;flex-shrink:0" fill="none"
+                        stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <circle cx="12" cy="5" r="1" />
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="19" r="1" />
+                    </svg>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main">
+            <header class="topbar">
+                <div class="tb-title" id="page-title">Dashboard</div>
+                <div class="chip"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                    </svg>5 Mart 2026</div>
+                <div class="chip">
+                    <div class="pulse"></div>ACME Logistics HQ
+                </div>
+                <div class="tbtn"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg></div>
+            </header>
+
+            <div class="content">
+
+                <!-- ══ DASHBOARD ══ -->
+                <div id="page-dashboard" class="page active">
+                    <div class="ph">
+                        <div>
+                            <h1>Genel Bakış</h1>
+                            <p>Tüm operasyonel metriklerin özeti</p>
+                        </div>
+                        <div class="ph-r">
+                            <button class="btn btn-s btn-sm"><svg fill="none" stroke="currentColor" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                </svg>Rapor</button>
+                            <button class="btn btn-p btn-sm"><svg fill="none" stroke="currentColor" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>Yeni</button>
+                        </div>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi" style="--kc:#6366f1">
+                            <div class="kpi-l">Stok Değeri</div>
+                            <div class="kpi-v">₺4.87M</div>
+                            <div class="kpi-s"><span class="up">↑ %12.4</span> geçen ay</div>
+                        </div>
+                        <div class="kpi" style="--kc:#10b981">
+                            <div class="kpi-l">Açık Siparişler</div>
+                            <div class="kpi-v">348</div>
+                            <div class="kpi-s"><span class="dn">↓ 23</span> bekliyor</div>
+                        </div>
+                        <div class="kpi" style="--kc:#f59e0b">
+                            <div class="kpi-l">Üretimde</div>
+                            <div class="kpi-v">12</div>
+                            <div class="kpi-s">4 acil, 8 zamanında</div>
+                        </div>
+                        <div class="kpi" style="--kc:#ef4444">
+                            <div class="kpi-l">Kritik Stok</div>
+                            <div class="kpi-v">7</div>
+                            <div class="kpi-s"><span class="dn">İşlem gerekiyor</span></div>
+                        </div>
+                    </div>
+                    <div class="grid2-1">
+                        <div class="card">
+                            <div class="ch">
+                                <div>
+                                    <div class="ct">Son Satış Siparişleri</div>
+                                    <div class="cs">Aktif ve onay bekleyen</div>
+                                </div><button class="btn btn-s btn-sm">Tümü</button>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>Müşteri</th>
+                                        <th>Tutar</th>
+                                        <th>Durum</th>
+                                        <th>Tarih</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr onclick="showPage('products',document.querySelector('.ni:nth-child(4)'))">
+                                        <td><span
+                                                style="font-family:monospace;font-size:11px;color:#818cf8;font-weight:600">SO-0481</span>
+                                        </td>
+                                        <td>Tech Logistics A.Ş.</td>
+                                        <td style="font-weight:700">₺128.400</td>
+                                        <td><span class="badge b-amber">ONAY BEKLİYOR</span></td>
+                                        <td style="color:#64748b">5 Mar</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span
+                                                style="font-family:monospace;font-size:11px;color:#818cf8;font-weight:600">SO-0480</span>
+                                        </td>
+                                        <td>Global Freight Ltd.</td>
+                                        <td style="font-weight:700">₺73.200</td>
+                                        <td><span class="badge b-green">ONAYLANDI</span></td>
+                                        <td style="color:#64748b">4 Mar</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span
+                                                style="font-family:monospace;font-size:11px;color:#818cf8;font-weight:600">SO-0479</span>
+                                        </td>
+                                        <td>Mega Distribütör</td>
+                                        <td style="font-weight:700">₺246.000</td>
+                                        <td><span class="badge b-blue">SEVKİYATTA</span></td>
+                                        <td style="color:#64748b">3 Mar</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span
+                                                style="font-family:monospace;font-size:11px;color:#818cf8;font-weight:600">SO-0478</span>
+                                        </td>
+                                        <td>Rapid Supply Co.</td>
+                                        <td style="font-weight:700">₺91.500</td>
+                                        <td><span class="badge b-gray">TASLAK</span></td>
+                                        <td style="color:#64748b">2 Mar</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <div class="card" style="margin-bottom:14px">
+                                <div class="ch">
+                                    <div class="ct">⚠ Kritik Stok</div>
+                                </div>
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <div style="font-weight:600;font-size:12px">FIN-KABLO-3M</div>
+                                                <div style="font-size:10.5px;color:#64748b">A-03-02</div>
+                                            </td>
+                                            <td style="text-align:right"><span
+                                                    style="font-size:18px;font-weight:900;color:#ef4444">3</span>
+                                                <div style="font-size:10px;color:#64748b">adet</div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div style="font-weight:600;font-size:12px">VLV-BASINC-112</div>
+                                                <div style="font-size:10.5px;color:#64748b">B-12-01</div>
+                                            </td>
+                                            <td style="text-align:right"><span
+                                                    style="font-size:18px;font-weight:900;color:#f59e0b">8</span>
+                                                <div style="font-size:10px;color:#64748b">adet</div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div style="font-weight:600;font-size:12px">PCB-KONTROL-V2</div>
+                                                <div style="font-size:10.5px;color:#64748b">C-01-07</div>
+                                            </td>
+                                            <td style="text-align:right"><span
+                                                    style="font-size:18px;font-weight:900;color:#ef4444">1</span>
+                                                <div style="font-size:10px;color:#64748b">adet</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="card">
+                                <div class="ch">
+                                    <div class="ct">Üretim KPI</div><span class="badge b-blue">12 Aktif</span>
+                                </div>
+                                <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+                                    <div>
+                                        <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span
+                                                style="font-size:11.5px;color:#94a3b8">Verimlilik</span><span
+                                                style="font-size:12px;font-weight:700;color:#10b981">%87.4</span></div>
+                                        <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px">
+                                            <div
+                                                style="height:5px;width:87.4%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:3px">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span
+                                                style="font-size:11.5px;color:#94a3b8">Kalite</span><span
+                                                style="font-size:12px;font-weight:700;color:#6366f1">%94.1</span></div>
+                                        <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px">
+                                            <div
+                                                style="height:5px;width:94.1%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:3px">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span
+                                                style="font-size:11.5px;color:#94a3b8">Teslim</span><span
+                                                style="font-size:12px;font-weight:700;color:#f59e0b">%78.9</span></div>
+                                        <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px">
+                                            <div
+                                                style="height:5px;width:78.9%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:3px">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ ÜRÜN LİSTESİ ══ -->
+                <div id="page-products" class="page">
+                    <div class="ph">
+                        <div>
+                            <h1>Ürün Yönetimi</h1>
+                            <p>Tüm ürünler, UOM tanımları ve barkodlar</p>
+                        </div>
+                        <div class="ph-r">
+                            <button class="btn btn-s btn-sm"><svg fill="none" stroke="currentColor" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                </svg>Excel</button>
+                            <button class="btn btn-p" onclick="showPage('product-detail',null)">
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Yeni Ürün
+                            </button>
+                        </div>
+                    </div>
+                    <div class="toolbar">
+                        <div class="search-wrap">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            <input type="text" placeholder="Ürün kodu veya adı ile ara...">
+                        </div>
+                        <select style="width:160px">
+                            <option>Tüm Kategoriler</option>
+                            <option>Hammadde</option>
+                            <option>Yarı Mamül</option>
+                            <option>Mamül</option>
+                        </select>
+                        <select style="width:140px">
+                            <option>Tüm Durum</option>
+                            <option>Aktif</option>
+                            <option>Pasif</option>
+                        </select>
+                        <div style="margin-left:auto;font-size:12px;color:#64748b">124 ürün bulundu</div>
+                    </div>
+                    <div class="card">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>SKU / Kod</th>
+                                    <th>Ürün Adı</th>
+                                    <th>Baz Birim</th>
+                                    <th>Lot Takip</th>
+                                    <th>Seri Takip</th>
+                                    <th>Son. Alış ₺</th>
+                                    <th>Durum</th>
+                                    <th style="text-align:right">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr onclick="showPage('product-detail',null)" style="cursor:pointer">
+                                    <td><span
+                                            style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700">FIN-KABLO-3M</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600">Finyal Kablo 3 Metre</div>
+                                        <div style="font-size:10.5px;color:#64748b">Elektrik / Kablo</div>
+                                    </td>
+                                    <td><span class="badge b-gray">ADET</span></td>
+                                    <td><span style="color:#34d399;font-size:13px">✓</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td style="font-weight:700">₺142,50</td>
+                                    <td><span class="badge b-green">AKTİF</span></td>
+                                    <td style="text-align:right"><button class="btn btn-s btn-sm"
+                                            onclick="event.stopPropagation();showPage('product-detail',null)">Düzenle</button>
+                                    </td>
+                                </tr>
+                                <tr style="cursor:pointer" onclick="showPage('product-detail',null)">
+                                    <td><span
+                                            style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700">VLV-BASINC-112</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600">Basınç Valfi 1/2"</div>
+                                        <div style="font-size:10.5px;color:#64748b">Vana / Basınç</div>
+                                    </td>
+                                    <td><span class="badge b-gray">ADET</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td><span style="color:#34d399;font-size:13px">✓</span></td>
+                                    <td style="font-weight:700">₺387,00</td>
+                                    <td><span class="badge b-green">AKTİF</span></td>
+                                    <td style="text-align:right"><button class="btn btn-s btn-sm"
+                                            onclick="event.stopPropagation()">Düzenle</button></td>
+                                </tr>
+                                <tr style="cursor:pointer">
+                                    <td><span
+                                            style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700">PCB-KONTROL-V2</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600">Kontrol Kartı V2</div>
+                                        <div style="font-size:10.5px;color:#64748b">Elektronik / PCB</div>
+                                    </td>
+                                    <td><span class="badge b-gray">ADET</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td><span style="color:#34d399;font-size:13px">✓</span></td>
+                                    <td style="font-weight:700">₺2.140,00</td>
+                                    <td><span class="badge b-green">AKTİF</span></td>
+                                    <td style="text-align:right"><button class="btn btn-s btn-sm"
+                                            onclick="event.stopPropagation()">Düzenle</button></td>
+                                </tr>
+                                <tr style="cursor:pointer">
+                                    <td><span
+                                            style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700">HMD-CEL-001</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600">Çelik Profil 40x40</div>
+                                        <div style="font-size:10.5px;color:#64748b">Hammadde / Metal</div>
+                                    </td>
+                                    <td><span class="badge b-gray">MT</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td style="font-weight:700">₺48,20</td>
+                                    <td><span class="badge b-amber">PASIF</span></td>
+                                    <td style="text-align:right"><button class="btn btn-s btn-sm"
+                                            onclick="event.stopPropagation()">Düzenle</button></td>
+                                </tr>
+                                <tr style="cursor:pointer">
+                                    <td><span
+                                            style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700">GRE-YAG-IND50</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600">Endüstriyel Gres Yağı 50kg</div>
+                                        <div style="font-size:10.5px;color:#64748b">Kimyasal / Yağlayıcı</div>
+                                    </td>
+                                    <td><span class="badge b-gray">KG</span></td>
+                                    <td><span style="color:#34d399;font-size:13px">✓</span></td>
+                                    <td><span style="color:#64748b;font-size:13px">—</span></td>
+                                    <td style="font-weight:700">₺31,80</td>
+                                    <td><span class="badge b-green">AKTİF</span></td>
+                                    <td style="text-align:right"><button class="btn btn-s btn-sm"
+                                            onclick="event.stopPropagation()">Düzenle</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ══ ÜRÜN DETAY ══ -->
+                <div id="page-product-detail" class="page">
+                    <div class="ph">
+                        <div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                                <button class="btn btn-s btn-sm"
+                                    onclick="showPage('products',document.querySelectorAll('.ni')[1])">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <polyline points="15 18 9 12 15 6" />
+                                    </svg>
+                                    Geri
+                                </button>
+                                <span style="font-size:11px;color:#64748b">Ürün Yönetimi / Detay</span>
+                            </div>
+                            <h1>Finyal Kablo 3 Metre</h1>
+                            <p>Ürün tanımı, birim dönüşümleri ve barkod yönetimi</p>
+                        </div>
+                        <div class="ph-r">
+                            <button class="btn btn-d btn-sm">Pasif Yap</button>
+                            <button class="btn btn-p">
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                    <polyline points="17 21 17 13 7 13 7 21" />
+                                    <polyline points="7 3 7 8 15 8" />
+                                </svg>
+                                Kaydet
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dp-stats">
+                        <div class="dp-stat">
+                            <div class="dp-stat-l">Toplam Stok</div>
+                            <div class="dp-stat-v" style="color:#10b981">47</div>
+                            <div style="font-size:10.5px;color:#64748b;margin-top:3px">adet available</div>
+                        </div>
+                        <div class="dp-stat">
+                            <div class="dp-stat-l">Rezerve</div>
+                            <div class="dp-stat-v" style="color:#f59e0b">12</div>
+                            <div style="font-size:10.5px;color:#64748b;margin-top:3px">siparişlerde</div>
+                        </div>
+                        <div class="dp-stat">
+                            <div class="dp-stat-l">Son Alış Fiyatı</div>
+                            <div class="dp-stat-v">₺142<span style="font-size:14px">,50</span></div>
+                            <div style="font-size:10.5px;color:#64748b;margin-top:3px">ADET başına</div>
+                        </div>
+                        <div class="dp-stat">
+                            <div class="dp-stat-l">Açık PO</div>
+                            <div class="dp-stat-v" style="color:#818cf8">3</div>
+                            <div style="font-size:10.5px;color:#64748b;margin-top:3px">bekleyen sipariş</div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab(this,'tab-general')">Genel Bilgiler</div>
+                        <div class="tab" onclick="switchTab(this,'tab-uom')">Birim Dönüşümleri</div>
+                        <div class="tab" onclick="switchTab(this,'tab-barcodes')">Barkodlar</div>
+                        <div class="tab" onclick="switchTab(this,'tab-stock')">Stok Hareketleri</div>
+                    </div>
+
+                    <!-- Tab: Genel -->
+                    <div id="tab-general" class="tab-content">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                            <div class="card">
+                                <div class="ch">
+                                    <div class="ct">Temel Bilgiler</div>
+                                </div>
+                                <div class="cb-body">
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+                                        <div class="form-group"><label>Ürün Kodu *</label><input value="FIN-KABLO-3M">
+                                        </div>
+                                        <div class="form-group"><label>Baz Birim *</label><select>
+                                                <option selected>ADET</option>
+                                                <option>KG</option>
+                                                <option>MT</option>
+                                                <option>LT</option>
+                                            </select></div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:14px"><label>Ürün Adı *</label><input
+                                            value="Finyal Kablo 3 Metre"></div>
+                                    <div class="form-group"><label>Açıklama</label><input
+                                            value="Elektrik tesisatı için 3 metre finyal kablo, 2.5mm²"></div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="ch">
+                                    <div class="ct">Takip Ayarları</div>
+                                </div>
+                                <div class="cb-body" style="display:flex;flex-direction:column;gap:14px">
+                                    <div
+                                        style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.15)">
+                                        <div>
+                                            <div style="font-size:13px;font-weight:600;color:var(--text)">Lot Takibi
+                                            </div>
+                                            <div style="font-size:11px;color:var(--muted)">Her hareket için lot numarası
+                                                zorunlu</div>
+                                        </div>
+                                        <div
+                                            style="width:36px;height:20px;background:var(--accent);border-radius:20px;position:relative;cursor:pointer">
+                                            <div
+                                                style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;right:2px;top:2px">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border2)">
+                                        <div>
+                                            <div style="font-size:13px;font-weight:600;color:var(--text)">Seri No Takibi
+                                            </div>
+                                            <div style="font-size:11px;color:var(--muted)">Birim başına benzersiz seri
+                                                no</div>
+                                        </div>
+                                        <div
+                                            style="width:36px;height:20px;background:rgba(255,255,255,0.1);border-radius:20px;position:relative;cursor:pointer">
+                                            <div
+                                                style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;left:2px;top:2px;opacity:0.4">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border2)">
+                                        <div>
+                                            <div style="font-size:13px;font-weight:600;color:var(--text)">Aktif</div>
+                                            <div style="font-size:11px;color:var(--muted)">Ürünü sistemde aktif tut
+                                            </div>
+                                        </div>
+                                        <div
+                                            style="width:36px;height:20px;background:var(--green);border-radius:20px;position:relative;cursor:pointer">
+                                            <div
+                                                style="width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;right:2px;top:2px">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: UOM -->
+                    <div id="tab-uom" class="tab-content" style="display:none">
+                        <div class="card">
+                            <div class="ch">
+                                <div>
+                                    <div class="ct">Birim Dönüşümleri</div>
+                                    <div class="cs">Baz birim: ADET</div>
+                                </div>
+                                <button class="btn btn-p btn-sm"><svg fill="none" stroke="currentColor" stroke-width="2"
+                                        viewBox="0 0 24 24">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>Dönüşüm Ekle</button>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Birim</th>
+                                        <th>Oran (ADET bazında)</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge b-gray">KOLİ</span></td>
+                                        <td>1 KOLİ = 12 ADET</td>
+                                        <td style="text-align:right"><button class="btn btn-s btn-sm">Sil</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge b-gray">PALET</span></td>
+                                        <td>1 PALET = 144 ADET</td>
+                                        <td style="text-align:right"><button class="btn btn-s btn-sm">Sil</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div style="padding:14px 16px;display:flex;gap:10px;border-top:1px solid var(--border)">
+                                <select style="width:140px">
+                                    <option>Birim seç...</option>
+                                    <option>KOLİ</option>
+                                    <option>PALET</option>
+                                    <option>KG</option>
+                                </select>
+                                <input type="number" placeholder="Dönüşüm oranı" style="width:160px">
+                                <button class="btn btn-p btn-sm">Ekle</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Barkodlar -->
+                    <div id="tab-barcodes" class="tab-content" style="display:none">
+                        <div class="card">
+                            <div class="ch">
+                                <div>
+                                    <div class="ct">Barkodlar</div>
+                                </div>
+                                <button class="btn btn-p btn-sm"><svg fill="none" stroke="currentColor" stroke-width="2"
+                                        viewBox="0 0 24 24">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>Ekle</button>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Barkod</th>
+                                        <th>Birim</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span
+                                                style="font-family:monospace;font-size:13px;letter-spacing:1px">8690123456789</span>
+                                        </td>
+                                        <td><span class="badge b-gray">ADET</span></td>
+                                        <td style="text-align:right"><button class="btn btn-s btn-sm">Sil</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span
+                                                style="font-family:monospace;font-size:13px;letter-spacing:1px">8690123456796</span>
+                                        </td>
+                                        <td><span class="badge b-gray">KOLİ</span></td>
+                                        <td style="text-align:right"><button class="btn btn-s btn-sm">Sil</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Stock -->
+                    <div id="tab-stock" class="tab-content" style="display:none">
+                        <div class="card">
+                            <div class="ch">
+                                <div class="ct">Son Stok Hareketleri</div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Hareket Tipi</th>
+                                        <th>Miktar</th>
+                                        <th>Depo / Raf</th>
+                                        <th>Belge No</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="color:#64748b">4 Mar 2026</td>
+                                        <td><span class="badge b-green">MAL KABUL</span></td>
+                                        <td style="color:#34d399;font-weight:700">+50 ADET</td>
+                                        <td>Ana Depo / A-03-02</td>
+                                        <td style="font-family:monospace;font-size:11px;color:#818cf8">RCV-0089</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#64748b">3 Mar 2026</td>
+                                        <td><span class="badge b-red">SEVKİYAT</span></td>
+                                        <td style="color:#f87171;font-weight:700">-12 ADET</td>
+                                        <td>Ana Depo / A-03-02</td>
+                                        <td style="font-family:monospace;font-size:11px;color:#818cf8">SO-0479</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#64748b">1 Mar 2026</td>
+                                        <td><span class="badge b-blue">TRANSFER</span></td>
+                                        <td style="font-weight:700">+20 ADET</td>
+                                        <td>Şube / B-01-01</td>
+                                        <td style="font-family:monospace;font-size:11px;color:#818cf8">TRF-0024</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /content -->
+        </div><!-- /main -->
+    </div><!-- /shell -->
+
+    <script>
+        function showPage(id, navEl) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + id).classList.add('active');
+            document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+            if (navEl) navEl.classList.add('active');
+            const titles = { dashboard: 'Dashboard', products: 'Ürün Yönetimi', 'product-detail': 'Finyal Kablo 3 Metre' };
+            document.getElementById('page-title').textContent = titles[id] || id;
+        }
+        function switchTab(el, tabId) {
+            el.closest('.page').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            el.closest('.page').querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+            document.getElementById(tabId).style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

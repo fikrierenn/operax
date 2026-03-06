@@ -1,0 +1,109 @@
+@page
+@model Operax.Web.Features.Picking.IndexModel
+@{
+    ViewData["Title"] = "Toplama Görevleri";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Toplama Görevleri</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Depo toplama operasyonlarını izle ve ata</p>
+    </div>
+    <div class="page-hdr-r">
+        <button class="btn btn-secondary">Filtrele</button>
+        <button class="btn btn-primary">+ Yeni Toplama Görevi</button>
+    </div>
+</div>
+
+<!-- KPI Özet Kartları -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Aktif Görevler</span>
+        <div class="kpi-val text-indigo-600">@Model.Tasks.Count(x => x.Status != "COMPLETED")</div>
+        <span class="kpi-sub">Tamamlanmamış görevler</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Atama Bekliyor</span>
+        <div class="kpi-val text-amber-500">@Model.Tasks.Count(x => x.Status == "DRAFT")</div>
+        <span class="kpi-sub">Personel atanmamış</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Devam Ediyor</span>
+        <div class="kpi-val text-blue-500">@Model.Tasks.Count(x => x.Status == "IN_PROGRESS")</div>
+        <span class="kpi-sub">Aktif olarak toplanan</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Bugün Tamamlanan</span>
+        <div class="kpi-val text-green-600">@Model.Tasks.Count(x => x.Status == "COMPLETED" && x.CreatedAt.Date == DateTime.Today)</div>
+        <span class="kpi-sub">Bugün biten görevler</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Görev No</th>
+                <th>Durum</th>
+                <th>Atanan Personel</th>
+                <th>İlerleme</th>
+                <th>Oluşturulma</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var task in Model.Tasks)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600 tracking-tight">@task.DocNo</td>
+                    <td>
+                        <span class="badge @(task.Status switch {
+                            "COMPLETED"   => "b-green",
+                            "IN_PROGRESS" => "b-blue",
+                            "ASSIGNED"    => "b-indigo",
+                            _             => "b-gray"
+                        })">@task.Status</span>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center
+                                        text-[10px] font-bold text-slate-500 shrink-0">
+                                @((task.AssignedUserName ?? "?").Substring(0, 1).ToUpper())
+                            </div>
+                            <span class="@(task.AssignedUserName == null ? "text-slate-400 italic text-xs" : "font-medium text-sm")">
+                                @(task.AssignedUserName ?? "Atanmadı")
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-24">
+                                <div class="h-full bg-indigo-500 rounded-full transition-all" style="width:@(task.Progress)%"></div>
+                            </div>
+                            <span class="text-[10px] font-bold font-mono text-slate-400">
+                                @task.PickedLineCount/@task.LineCount
+                            </span>
+                        </div>
+                    </td>
+                    <td class="text-slate-500 text-xs">@task.CreatedAt.ToString("g")</td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@task.Id" class="btn btn-secondary btn-sm">Aç</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Tasks.Any())
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            <p>Henüz toplama görevi oluşturulmamış.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

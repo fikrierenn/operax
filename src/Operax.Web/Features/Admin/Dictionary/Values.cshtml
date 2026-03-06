@@ -1,0 +1,68 @@
+@page "{typeId:guid}"
+@model Operax.Web.Features.Admin.Dictionary.ValuesModel
+@{
+    ViewData["Title"] = $"{Model.Type?.NameTr} Değerleri";
+}
+
+<div class="page-hdr">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <a asp-page="./Index" class="btn btn-secondary btn-sm">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Geri (Sözlük)
+            </a>
+            <span style="font-size:11px;color:#64748b">Sistem / Sözlük / @Model.Type?.NameTr</span>
+        </div>
+        <h1>@Model.Type?.NameTr</h1>
+        <p>Tip Kodu: <span style="font-family:monospace;font-weight:700;color:#818cf8">@Model.Type?.Code</span></p>
+    </div>
+    <div class="page-hdr-r">
+        <button class="btn btn-primary" data-shortcut="Alt+N">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Değer
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th style="width:60px">Sıra</th>
+                <th>Kod</th>
+                <th>Ad (TR)</th>
+                <th>Ad (EN)</th>
+                <th>Durum</th>
+                <th style="text-align:right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var val in Model.Values)
+            {
+                <tr class="group">
+                    <td style="font-family:monospace;color:#64748b">@val.OrderNo</td>
+                    <td><span style="font-family:monospace;font-size:12px;color:#818cf8;font-weight:700">@val.Code</span></td>
+                    <td style="font-weight:600">@val.NameTr</td>
+                    <td style="color:#94a3b8">@val.NameEn</td>
+                    <td>
+                        @if (val.IsActive) { <span class="badge b-green">AKTİF</span> }
+                        else { <span class="badge b-gray">PASİF</span> }
+                    </td>
+                    <td style="text-align:right">
+                        <button class="btn btn-secondary btn-sm">Düzenle</button>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Values.Any())
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <p>Henüz değer tanımlanmamış</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

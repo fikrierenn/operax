@@ -1,0 +1,86 @@
+@page "{id:guid}"
+@model Operax.Web.Features.Admin.Dictionary.DetailsModel
+@{
+    ViewData["Title"] = $"Dictionary: {Model.Type.Code}";
+}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold">@Model.Type.NameTr</h2>
+        <p class="text-slate-500 text-sm">System category: <span class="font-mono text-indigo-600">@Model.Type.Code</span></p>
+    </div>
+    <div class="flex gap-2">
+        <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
+            Back to List
+        </a>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Dictionary Values</h3>
+        <button type="button" onclick="document.getElementById('value-modal').classList.remove('hidden')" class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">+ Add Value</button>
+    </div>
+    <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b">
+            <tr>
+                <th class="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase">Code</th>
+                <th class="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase">Name (TR)</th>
+                <th class="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase">Name (EN)</th>
+                <th class="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase text-center">Sort</th>
+                <th class="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y text-sm">
+            @foreach (var val in Model.Values)
+            {
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-3 font-mono font-bold text-indigo-600">@val.Code</td>
+                    <td class="px-6 py-3 font-medium">@val.NameTr</td>
+                    <td class="px-6 py-3 text-slate-400">@val.NameEn</td>
+                    <td class="px-6 py-3 text-center text-slate-400 font-mono">@val.SortNo</td>
+                    <td class="px-6 py-3 text-right">
+                        <button class="text-slate-300 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors">Del</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Value Modal -->
+<div id="value-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="font-bold text-lg text-slate-800">Add Dictionary Value</h3>
+            <button onclick="document.getElementById('value-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-2xl font-light">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="AddValue">
+            <input type="hidden" name="id" value="@Model.Type.Id" />
+            <div class="p-6 space-y-4">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Value Code (EN)</label>
+                    <input name="code" type="text" class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. DRAFT" required />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Display Name (TR)</label>
+                        <input name="nameTr" type="text" class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Taslak" required />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Display Name (EN)</label>
+                        <input name="nameEn" type="text" class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Draft" required />
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Sort Order</label>
+                    <input name="sortNo" type="number" class="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" value="10" />
+                </div>
+            </div>
+            <div class="p-6 bg-slate-50 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('value-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-slate-500 text-sm">Cancel</button>
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all text-sm">Save Value</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,60 @@
+@page
+@model Operax.Web.Features.CycleCount.IndexModel
+@{
+    ViewData["Title"] = "Döngüsel Sayım";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Döngüsel Sayım</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Fiziksel stok doğrulama ve düzeltme işlemleri</p>
+    </div>
+    <a asp-page="./Details" class="btn btn-primary">+ Yeni Sayım Oturumu</a>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Sayım No</th>
+                <th>Depo</th>
+                <th class="text-center">Satır</th>
+                <th class="text-center">Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Counts)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">@c.DocNo</td>
+                    <td class="font-semibold text-slate-700">@c.WarehouseCode</td>
+                    <td class="text-center text-slate-600">@c.LineCount</td>
+                    <td class="text-center">
+                        <span class="badge @(c.Status switch {
+                            "COMPLETED" => "b-green",
+                            "COUNTING"  => "b-indigo",
+                            _           => "b-gray"
+                        })">@c.Status</span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@c.Id" class="btn btn-secondary btn-sm">Detay</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Counts.Any())
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <p>Henüz sayım oturumu oluşturulmamış.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

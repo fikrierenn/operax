@@ -1,0 +1,78 @@
+@page
+@model Operax.Web.Features.MasterData.Locations.IndexModel
+@{
+    ViewData["Title"] = "Warehouse & Bins";
+}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold">Locations</h2>
+        <p class="text-slate-500 text-sm">Manage warehouses and storage bins</p>
+    </div>
+    <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
+        + New Warehouse
+    </button>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Warehouse Sidebar -->
+    <div class="lg:col-span-1 space-y-4">
+        @foreach (var wh in Model.Warehouses)
+        {
+            <a asp-page="./Index" asp-route-whId="@wh.Id" 
+               class="block p-4 rounded-xl border transition-all @(wh.Id == Model.SelectedWhId ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white text-slate-700 hover:border-indigo-300")">
+                <div class="text-[10px] font-bold uppercase tracking-widest @(wh.Id == Model.SelectedWhId ? "text-indigo-200" : "text-slate-400")">@wh.Code</div>
+                <div class="font-bold">@wh.Name</div>
+            </a>
+        }
+    </div>
+
+    <!-- Bins Table -->
+    <div class="lg:col-span-3">
+        <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Bins (Storage Locations)</h3>
+                <button class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">
+                    + Add Bins
+                </button>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 border-b">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bin Code</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Zone</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Picking</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Receiving</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y text-sm">
+                    @foreach (var bin in Model.Bins)
+                    {
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-mono font-bold">@bin.Code</td>
+                            <td class="px-6 py-4 text-slate-500">@bin.Zone</td>
+                            <td class="px-6 py-4 text-center">
+                                @if (bin.IsPickingArea) { <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> }
+                                else { <span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span> }
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                @if (bin.IsReceivingArea) { <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> }
+                                else { <span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span> }
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Bins.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Select a warehouse or add bins to see storage locations.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

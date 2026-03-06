@@ -1,0 +1,75 @@
+@page
+@model Operax.Web.Features.SalesOrders.IndexModel
+@{
+    ViewData["Title"] = "Satış Siparişleri";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Satış Siparişleri</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Müşteri siparişleri ve karşılama durumu</p>
+    </div>
+    <a asp-page="./Create" class="btn btn-primary" data-shortcut="Alt+N">+ Yeni Sipariş</a>
+</div>
+
+<div class="card">
+    <div class="flex gap-3 p-4 bg-slate-50 border-b border-slate-200">
+        <input type="text" placeholder="Sipariş no veya müşteri ara..." class="form-ctrl flex-1 max-w-xs">
+        <select class="form-ctrl w-44">
+            <option>Tüm Durumlar</option>
+            <option>DRAFT</option>
+            <option>APPROVED</option>
+            <option>SHIPPED</option>
+        </select>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Sipariş No</th>
+                <th>Tarih</th>
+                <th>Müşteri</th>
+                <th>Karşılama</th>
+                <th>Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var o in Model.Orders)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">@o.OrderNo</td>
+                    <td class="text-slate-500">@o.OrderDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-medium">@o.CustomerName</td>
+                    <td>
+                        <div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-indigo-500 rounded-full" style="width:@(o.FulfillmentRate)%"></div>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1 block">%@o.FulfillmentRate Gönderildi</span>
+                    </td>
+                    <td>
+                        <span class="badge @(o.Status == "SHIPPED" ? "b-green" : o.Status == "APPROVED" ? "b-blue" : "b-amber")">
+                            @o.Status
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@o.Id" class="btn btn-secondary btn-sm">Aç</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Orders.Any())
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <p>Henüz satış siparişi oluşturulmamış.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

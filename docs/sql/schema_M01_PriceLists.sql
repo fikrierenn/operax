@@ -1,0 +1,25 @@
+-- M01 — Fiyat Listeleri (Price Lists)
+CREATE TABLE PriceList (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(50) NOT NULL,
+    Name NVARCHAR(200) NOT NULL,
+    Currency NVARCHAR(10) DEFAULT 'TRY',
+    IsActive BIT DEFAULT 1,
+    
+    CONSTRAINT FK_PriceList_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+CREATE TABLE PriceListLine (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    PriceListId UNIQUEIDENTIFIER NOT NULL,
+    ItemId UNIQUEIDENTIFIER NOT NULL,
+    UnitPrice DECIMAL(18,4) NOT NULL,
+    MinQty DECIMAL(18,6) DEFAULT 0,
+    
+    CONSTRAINT FK_PriceLine_List FOREIGN KEY (PriceListId) REFERENCES PriceList(Id),
+    CONSTRAINT FK_PriceLine_Item FOREIGN KEY (ItemId) REFERENCES Item(Id)
+);
+
+CREATE INDEX IX_PriceList_Code ON PriceList(CompanyId, Code);
+GO

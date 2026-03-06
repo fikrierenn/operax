@@ -1,0 +1,56 @@
+@page
+@model Operax.Web.Features.Inventory.Balance.IndexModel
+@{
+    ViewData["Title"] = "Stok Bakiyesi";
+}
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold">Stok Bakiyesi</h2>
+    <p class="text-slate-500 text-sm">Tüm konumlardaki anlık stok seviyeleri</p>
+</div>
+
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
+    <div class="p-4 bg-slate-50 border-b flex gap-4">
+        <select class="bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all">
+            <option>Tüm Depolar</option>
+        </select>
+        <input type="text" placeholder="Ürün kodu veya adı ile ara..." class="flex-1 bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+    </div>
+
+    <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b">
+            <tr>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Raf / Konum</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">SKU / Ürün</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Depo</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Kullanılabilir</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Rezerve</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right font-bold text-indigo-600">Toplam Stok</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y text-sm">
+            @foreach (var line in Model.BalanceLines)
+            {
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-mono font-bold text-indigo-600 text-center">
+                        <span class="bg-indigo-50 px-2 py-1 rounded">@(line.BinCode ?? "UNASSIGNED")</span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="font-bold text-slate-900">@line.ItemCode</div>
+                        <div class="text-[10px] text-slate-400">@line.ItemName</div>
+                    </td>
+                    <td class="px-6 py-4 text-slate-600 text-center">@line.WarehouseName</td>
+                    <td class="px-6 py-4 text-right">@line.QtyOnHand.ToString("N2")</td>
+                    <td class="px-6 py-4 text-right text-slate-400">0.00</td>
+                    <td class="px-6 py-4 text-right font-bold text-indigo-600">@line.QtyOnHand.ToString("N2")</td>
+                </tr>
+            }
+            @if (!Model.BalanceLines.Any())
+            {
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic font-medium">Bu görünümde stok kaydı bulunamadı.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

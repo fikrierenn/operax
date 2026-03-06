@@ -1,0 +1,33 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node / Tailwind
+node_modules/
+npm-debug.log*
+
+# ASP.NET Core
+appsettings.Development.json
+appsettings.Local.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rider / JetBrains
+.idea/
+
+# SQL Server veritabanı dosyaları (localdb / attachdb)
+*.mdf
+*.ldf
+*.ndf
+
+# Output CSS (kaynak: input.css, build sırasında üretilir)
+# wwwroot/css/site.css  <- bunu commit ediyoruz (CD pipeline yok)

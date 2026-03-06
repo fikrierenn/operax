@@ -1,0 +1,125 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.CycleCount.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "New Count Session" : $"Count {Model.Header.DocNo}";
+}
+
+<form method="post">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold italic tracking-tighter uppercase text-slate-900 leading-none mb-1">
+                @(Model.IsNew ? "New Count Session" : $"Session: {Model.Header.DocNo}")
+            </h2>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded">@Model.Header.Status</span>
+                <p class="text-slate-400 text-xs">Verify your physical inventory against system records</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">Cancel</a>
+            @if (Model.IsNew)
+            {
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm shadow-lg shadow-indigo-100">Start Counting</button>
+            }
+            @if (!Model.IsNew && Model.Header.Status != "COMPLETED")
+            {
+                <button type="submit" asp-page-handler="PostAdjustments" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 active:scale-95 transition-all text-sm shadow-lg shadow-green-100">
+                    Post Adjustments & Close
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (Model.IsNew)
+    {
+        <div class="bg-white rounded-xl border shadow-sm p-8 max-w-lg mx-auto">
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Select Warehouse to Count</label>
+                    <select asp-for="Header.WarehouseId" class="bg-white border-2 border-slate-100 rounded-xl px-4 py-3 font-bold text-slate-800 outline-none focus:border-indigo-600 transition-colors" required>
+                        <option value="">Choose...</option>
+                        @foreach (var wh in Model.Warehouses) { <option value="@wh.Id">@wh.Code - @wh.Name</option> }
+                    </select>
+                </div>
+                <p class="text-xs text-slate-400 italic">Notice: Starting a count session will freeze system stock for the selected area.</p>
+            </div>
+        </div>
+    }
+</form>
+
+@if (!Model.IsNew)
+{
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-8">
+        <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+            <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Counting Lines</h3>
+            @if (Model.Header.Status != "COMPLETED")
+            {
+                <button onclick="document.getElementById('add-cnt-modal').classList.remove('hidden')" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-colors">+ Record Count</button>
+            }
+        </div>
+        <table class="w-full text-sm text-left border-collapse">
+            <thead class="bg-slate-50 border-b font-bold text-slate-400 text-[10px] uppercase">
+                <tr>
+                    <th class="px-6 py-4">Item</th>
+                    <th class="px-6 py-4">Bin (Raf)</th>
+                    <th class="px-6 py-4 text-right">System Qty</th>
+                    <th class="px-6 py-4 text-right">Counted Qty</th>
+                    <th class="px-6 py-4 text-right">Difference</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                @foreach (var line in Model.Lines)
+                {
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="font-bold">@line.ItemName</div>
+                            <div class="text-[10px] text-slate-400 font-mono text-indigo-500">@line.ItemCode</div>
+                        </td>
+                        <td class="px-6 py-4 font-mono font-bold tracking-widest">@line.BinCode</td>
+                        <td class="px-6 py-4 text-right font-mono italic text-slate-400">@line.QtySystem.ToString("N2")</td>
+                        <td class="px-6 py-4 text-right font-mono font-bold">@line.QtyCounted.ToString("N2")</td>
+                        <td class="px-6 py-4 text-right">
+                            <span class="font-mono font-bold px-2 py-0.5 rounded @(line.QtyDifference == 0 ? "text-slate-400" : (line.QtyDifference > 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"))">
+                                @(line.QtyDifference > 0 ? "+" : "")@line.QtyDifference.ToString("N2")
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal: Add Count Record -->
+    <div id="add-cnt-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-8 border-b">
+                <h3 class="font-black text-2xl text-slate-900 tracking-tight">Record Physical Count</h3>
+                <p class="text-xs text-slate-400 italic mt-1">Scan or select the bin and item to record quantity.</p>
+            </div>
+            <form method="post" asp-page-handler="AddLine">
+                <div class="p-8 space-y-6">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Storage Bin (Raf)</label>
+                        <select name="binId" class="bg-slate-50 border-0 rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600" required>
+                            @foreach (var bin in Model.Bins) { <option value="@bin.Id">@bin.Code</option> }
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Product (Product SKU)</label>
+                        <select name="itemId" class="bg-slate-50 border-0 rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600" required>
+                            @foreach (var item in Model.Items) { <option value="@item.Id">[@item.Code] @item.Name</option> }
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Counted Quantity (EACH)</label>
+                        <input name="qtyCounted" type="number" step="0.0001" class="bg-slate-50 border-0 rounded-2xl px-4 py-4 text-xl font-black outline-none focus:ring-2 focus:ring-indigo-600 text-center" required />
+                    </div>
+                </div>
+                <div class="p-8 bg-slate-50 flex gap-4">
+                    <button type="button" onclick="document.getElementById('add-cnt-modal').classList.add('hidden')" class="flex-1 bg-white border text-slate-700 py-3 rounded-2xl font-bold hover:bg-white transition-all text-sm">Cancel</button>
+                    <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm shadow-xl shadow-indigo-100">Add Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

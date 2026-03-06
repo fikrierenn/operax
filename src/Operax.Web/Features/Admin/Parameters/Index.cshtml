@@ -1,0 +1,63 @@
+@page
+@model Operax.Web.Features.Admin.Parameters.IndexModel
+@{
+    ViewData["Title"] = "Sistem Parametreleri";
+}
+
+<div class="page-hdr">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Ayarlar
+            </a>
+            <span style="font-size:11px;color:#64748b">Sistem / Parametreler</span>
+        </div>
+        <h1>Sistem Parametreleri</h1>
+        <p>Modül bazlı operasyonel kurallar ve global konfigürasyon</p>
+    </div>
+    <div class="page-hdr-r">
+        <button class="btn btn-primary" data-shortcut="Alt+N">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Parametre
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th style="width:120px">Modül</th>
+                <th>Parametre Kodu</th>
+                <th>Değer</th>
+                <th>Açıklama</th>
+                <th style="text-align:right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model.Parameters)
+            {
+                <tr class="group">
+                    <td><span class="badge b-gray">@p.ModuleCode</span></td>
+                    <td><span style="font-family:monospace;font-size:12.5px;color:#818cf8;font-weight:700">@p.Code</span></td>
+                    <td><span style="font-family:monospace;background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;color:#e2e8f0">@p.Value</span></td>
+                    <td style="color:#94a3b8;font-size:12px">@p.Description</td>
+                    <td style="text-align:right">
+                        <button class="btn btn-secondary btn-sm">Düzenle</button>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Parameters.Any())
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <p>Henüz parametre tanımlanmamış</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

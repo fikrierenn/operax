@@ -1,0 +1,80 @@
+@page
+@model Operax.Web.Features.Production.TerminalModel
+@{
+    Layout = "_TerminalLayout";
+    ViewData["Title"] = "Üretim Terminali";
+}
+
+<div class="p-4 space-y-6">
+    <!-- Aktif İş Kartı -->
+    @if (Model.CurrentActivity != null)
+    {
+        <div class="bg-indigo-900 text-white rounded-3xl p-6 shadow-2xl border-4 border-indigo-500 animate-pulse-slow">
+            <div class="flex justify-between items-start mb-4">
+                <span class="bg-indigo-500 text-[10px] font-black uppercase px-2 py-1 rounded">Şu An Devam Ediyor</span>
+                <span class="text-indigo-300 font-mono text-xs">@Model.CurrentActivity.StartTime.ToString("HH:mm") başladı</span>
+            </div>
+            <h1 class="text-3xl font-black mb-1 uppercase tracking-tighter">@Model.CurrentActivity.DocNo</h1>
+            <p class="text-xl font-bold opacity-80 mb-6">@Model.CurrentActivity.WorkCenterName — @Model.CurrentActivity.OperationName</p>
+            
+            <form method="post" asp-page-handler="Stop">
+                <input type="hidden" name="activityId" value="@Model.CurrentActivity.Id" />
+                <button type="submit" class="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white py-6 rounded-2xl text-2xl font-black uppercase shadow-xl transition-all flex items-center justify-center gap-3">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                    İşlemi Bitir
+                </button>
+            </form>
+        </div>
+    }
+    else
+    {
+        <div class="bg-slate-100 border-2 border-dashed border-slate-300 rounded-3xl p-8 text-center">
+            <p class="text-slate-500 font-bold uppercase tracking-widest text-sm">Şu an aktif bir işiniz yok</p>
+            <p class="text-slate-400 text-xs mt-1">Aşağıdaki listeden bir iş seçerek başlayabilirsiniz.</p>
+        </div>
+    }
+
+    <!-- Bekleyen İşler -->
+    <div class="space-y-4">
+        <h2 class="text-sm font-black text-slate-400 uppercase tracking-widest px-2">Hazır Bekleyen İşler</h2>
+        
+        @foreach (var task in Model.ActiveTasks)
+        {
+            <div class="bg-white border-2 border-slate-100 rounded-3xl p-5 shadow-sm hover:border-indigo-200 transition-all group">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">@task.WorkCenterName</span>
+                    <span class="text-indigo-600 font-black text-sm">@task.DocNo</span>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-1">@task.ItemName</h3>
+                <p class="text-slate-500 text-xs font-semibold mb-6">@task.OperationName</p>
+                
+                <form method="post" asp-page-handler="Start">
+                    <input type="hidden" name="orderId" value="@task.OrderId" />
+                    <input type="hidden" name="stepId" value="@task.RouteStepId" />
+                    <button type="submit" class="w-full bg-slate-900 group-hover:bg-indigo-600 text-white p-4 rounded-2xl font-black uppercase text-sm tracking-widest transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        İşi Başlat
+                    </button>
+                </form>
+            </div>
+        }
+
+        @if (!Model.ActiveTasks.Any())
+        {
+            <div class="text-center py-12">
+                <div class="text-4xl mb-2">🎈</div>
+                <p class="text-slate-400 font-bold italic">Tüm işler tamamlandı veya henüz hazır değil.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    @@keyframes pulse-slow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.95; }
+    }
+    .animate-pulse-slow {
+        animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+</style>

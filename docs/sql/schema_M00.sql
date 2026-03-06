@@ -1,0 +1,77 @@
+-- M00 — Platform Core Schema
+
+CREATE TABLE Company (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Name NVARCHAR(200) NOT NULL,
+    TaxNumber NVARCHAR(50),
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    CreatedBy UNIQUEIDENTIFIER,
+    UpdatedAt DATETIME2,
+    UpdatedBy UNIQUEIDENTIFIER,
+    IsDeleted BIT DEFAULT 0,
+    DeletedAt DATETIME2,
+    DeletedBy UNIQUEIDENTIFIER
+);
+
+CREATE TABLE DictionaryType (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(100) NOT NULL,
+    NameTr NVARCHAR(200) NOT NULL,
+    NameEn NVARCHAR(200),
+    IsSystem BIT DEFAULT 0,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_DictionaryType_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+CREATE TABLE DictionaryValue (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    TypeId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(100) NOT NULL,
+    NameTr NVARCHAR(200) NOT NULL,
+    NameEn NVARCHAR(200),
+    OrderNo INT DEFAULT 0,
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_DictionaryValue_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id),
+    CONSTRAINT FK_DictionaryValue_Type FOREIGN KEY (TypeId) REFERENCES DictionaryType(Id)
+);
+
+CREATE TABLE Parameter (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    ModuleCode NVARCHAR(50) NOT NULL, -- e.g., 'M03', 'M05'
+    Code NVARCHAR(100) NOT NULL,
+    Value NVARCHAR(MAX),
+    Description NVARCHAR(500),
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    UpdatedAt DATETIME2,
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_Parameter_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+CREATE TABLE Module (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Code NVARCHAR(50) UNIQUE NOT NULL, -- M00, M01, ...
+    NameTr NVARCHAR(200) NOT NULL,
+    NameEn NVARCHAR(200),
+    IsActive BIT DEFAULT 1
+);
+
+CREATE TABLE CompanyModule (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    ModuleId UNIQUEIDENTIFIER NOT NULL,
+    IsActive BIT DEFAULT 1,
+    ActivatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_CompanyModule_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id),
+    CONSTRAINT FK_CompanyModule_Module FOREIGN KEY (ModuleId) REFERENCES Module(Id)
+);
+
+-- Indexing
+CREATE INDEX IX_DictionaryValue_Type ON DictionaryValue(CompanyId, TypeId) WHERE IsDeleted = 0;
+CREATE INDEX IX_Parameter_Module ON Parameter(CompanyId, ModuleCode) WHERE IsDeleted = 0;

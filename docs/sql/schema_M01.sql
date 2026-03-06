@@ -1,0 +1,69 @@
+-- M01 — Master Data Schema
+
+CREATE TABLE Item (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(100) NOT NULL,
+    Name NVARCHAR(500) NOT NULL,
+    Barcode NVARCHAR(100),
+    CategoryId UNIQUEIDENTIFIER, -- From Dictionary
+    BaseUomId UNIQUEIDENTIFIER NOT NULL, -- From Dictionary (EACH, KG, etc.)
+    IsActive BIT DEFAULT 1,
+    IsLotTracked BIT DEFAULT 0,
+    IsSerialTracked BIT DEFAULT 0,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    CreatedBy UNIQUEIDENTIFIER,
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_Item_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+CREATE TABLE ItemUnit (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    ItemId UNIQUEIDENTIFIER NOT NULL,
+    UomId UNIQUEIDENTIFIER NOT NULL, -- From Dictionary
+    ConversionRate DECIMAL(18,6) NOT NULL, -- e.g., 1 BOX = 12 EACH
+    Barcode NVARCHAR(100),
+    IsDefault BIT DEFAULT 0,
+    CONSTRAINT FK_ItemUnit_Item FOREIGN KEY (ItemId) REFERENCES Item(Id)
+);
+
+CREATE TABLE Warehouse (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(50) NOT NULL,
+    Name NVARCHAR(200) NOT NULL,
+    IsActive BIT DEFAULT 1,
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_Warehouse_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+CREATE TABLE Bin (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    WarehouseId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(100) NOT NULL, -- e.g., A-01-01
+    Zone NVARCHAR(50),
+    SortNo INT DEFAULT 0,
+    IsPickingArea BIT DEFAULT 1,
+    IsReceivingArea BIT DEFAULT 0,
+    IsActive BIT DEFAULT 1,
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_Bin_Warehouse FOREIGN KEY (WarehouseId) REFERENCES Warehouse(Id)
+);
+
+CREATE TABLE Partner (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    Code NVARCHAR(100) NOT NULL,
+    Name NVARCHAR(500) NOT NULL,
+    Type NVARCHAR(20) NOT NULL, -- 'VENDOR', 'CUSTOMER', 'BOTH'
+    TaxNumber NVARCHAR(50),
+    Email NVARCHAR(200),
+    IsActive BIT DEFAULT 1,
+    IsDeleted BIT DEFAULT 0,
+    CONSTRAINT FK_Partner_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+);
+
+-- Indexing
+CREATE INDEX IX_Item_Code ON Item(CompanyId, Code) WHERE IsDeleted = 0;
+CREATE INDEX IX_Bin_Code ON Bin(WarehouseId, Code) WHERE IsDeleted = 0;
+CREATE INDEX IX_Partner_Code ON Partner(CompanyId, Code) WHERE IsDeleted = 0;

@@ -1,0 +1,108 @@
+@page
+@model Operax.Web.Features.MasterData.Items.IndexModel
+@{
+    ViewData["Title"] = "Ürün Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <h1>Ürün Yönetimi</h1>
+        <p>Tüm ürünler, birim tanımları ve barkod yönetimi</p>
+    </div>
+    <div class="page-hdr-r">
+        <button class="btn btn-secondary btn-sm">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
+            Excel
+        </button>
+        <a asp-page="./Details" class="btn btn-primary" data-shortcut="Alt+N">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Ürün
+        </a>
+    </div>
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+    <div style="position:relative;flex:1;max-width:320px">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#64748b" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Ürün kodu veya adı ile ara..." style="padding-left:32px">
+    </div>
+    <select style="width:160px">
+        <option>Tüm Kategoriler</option>
+        <option>Hammadde</option>
+        <option>Yarı Mamül</option>
+        <option>Mamül</option>
+    </select>
+    <select style="width:140px">
+        <option>Tüm Durum</option>
+        <option>Aktif</option>
+        <option>Pasif</option>
+    </select>
+    <div style="margin-left:auto;font-size:12px;color:#64748b">@Model.Items.Count() kayıt</div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>SKU / Ürün</th>
+                <th>Kategori</th>
+                <th>Baz Birim</th>
+                <th>KDV (%)</th>
+                <th>Takip</th>
+                <th>Durum</th>
+                <th style="text-align:right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr style="cursor:pointer" onclick="window.location='@Url.Page("./Details", new { id = item.Id })'">
+                    <td>
+                        <div style="font-family:monospace;font-size:11.5px;color:#818cf8;font-weight:700;margin-bottom:2px">@item.Code</div>
+                        <div style="font-weight:600;font-size:13px">@item.Name</div>
+                        @if (!string.IsNullOrEmpty(item.Barcode))
+                        {
+                            <div style="font-size:10.5px;color:#64748b;margin-top:2px">📦 @item.Barcode</div>
+                        }
+                    </td>
+                    <td><span style="font-size:12.5px;color:#e2e8f0">@(item.CategoryName ?? "—")</span></td>
+                    <td><span class="badge b-gray">@item.BaseUom</span></td>
+                    <td><span style="font-family:monospace;font-size:12px;font-weight:700">%@item.TaxRate.ToString("N0")</span></td>
+                    <td>
+                        <div style="display:flex;gap:5px">
+                            @if (item.IsLotTracked) { <span class="badge b-amber">LOT</span> }
+                            @if (item.IsSerialTracked) { <span class="badge b-blue">SERİ</span> }
+                            @if (!item.IsLotTracked && !item.IsSerialTracked) { <span style="font-size:11px;color:#475569">—</span> }
+                        </div>
+                    </td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge b-green">AKTİF</span>
+                        }
+                        else
+                        {
+                            <span class="badge b-gray">PASİF</span>
+                        }
+                    </td>
+                    <td style="text-align:right">
+                        <a asp-page="./Details" asp-route-id="@item.Id" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">
+                            Düzenle
+                        </a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Items.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <p>Henüz ürün tanımlanmamış</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

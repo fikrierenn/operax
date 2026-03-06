@@ -1,0 +1,168 @@
+@using Operax.Web.Lib
+@inject ICurrentUser CurrentUser
+@inject ICurrentCompany CurrentCompany
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — OPERAX</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        /* Inter font ailesi ve tam yükseklik zorunlu — Tailwind'e bırakılmıyor */
+        html, body { height: 100%; font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 overflow-hidden h-full">
+
+    <div class="flex h-screen">
+
+        <!-- ===================== SIDEBAR ===================== -->
+        <aside class="w-60 bg-white border-r border-slate-200 flex flex-col shrink-0">
+
+            <!-- Logo -->
+            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
+                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center
+                            text-white font-black text-sm shadow-lg shadow-indigo-200 shrink-0">OX</div>
+                <div>
+                    <div class="font-black text-slate-800 tracking-tighter text-sm leading-none">OPERAX</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5">v2.5 · Kurumsal ERP</div>
+                </div>
+            </div>
+
+            <!-- Navigasyon -->
+            <nav class="flex-1 overflow-y-auto py-2 px-2">
+                <span class="nav-label">Ana Menü</span>
+                <a asp-page="/Dashboard/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                    </svg>
+                    Panel
+                </a>
+
+                <span class="nav-label">Tanımlamalar</span>
+                <a asp-page="/MasterData/Items/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                    Ürün Yönetimi
+                </a>
+                <a asp-page="/Warehouses/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    Depolar & Raflar
+                </a>
+
+                <span class="nav-label">Stok & Operasyon</span>
+                <a asp-page="/Inventory/Balance/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    Stok Bakiyesi
+                </a>
+                <a asp-page="/Receiving/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Mal Kabul
+                </a>
+                <a asp-page="/Shipping/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="1" y="3" width="15" height="13" rx="1"/>
+                        <path d="M16 8h4l3 5v3h-7V8z"/>
+                        <circle cx="5.5" cy="18.5" r="2.5"/>
+                        <circle cx="18.5" cy="18.5" r="2.5"/>
+                    </svg>
+                    Sevkiyat
+                </a>
+
+                <span class="nav-label">Sistem</span>
+                <a asp-page="/Admin/Settings/Index" class="nav-item">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    Ayarlar
+                </a>
+            </nav>
+
+            <!-- Kullanıcı bilgisi -->
+            <div class="px-4 py-3 border-t border-slate-200 flex items-center gap-3">
+                @{
+                    // Kullanıcı adından en fazla 2 baş harf üretilir
+                    var parts = CurrentUser.UserName.Split(' ', '@').Where(p => p.Length > 0).ToArray();
+                    var initials = parts.Length >= 2
+                        ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                        : (parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant() : "?");
+                    // Admin rolü varsa "Yönetici", yoksa ilk rol gösterilir
+                    var adminRoles = new[] { "Admin", "Administrator" };
+                    var roleLabel = CurrentUser.Roles.Any(r => adminRoles.Contains(r)) ? "Yönetici"
+                        : CurrentUser.Roles.FirstOrDefault() ?? "Kullanıcı";
+                }
+                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center
+                            text-xs font-bold text-slate-600 shrink-0">@initials</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-800 truncate">@CurrentUser.UserName</div>
+                    <div class="text-[10px] text-slate-400">@roleLabel</div>
+                </div>
+            </div>
+
+        </aside>
+        <!-- ================== /SIDEBAR ================== -->
+
+        <!-- =================== ANA ALAN =================== -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+            <!-- Üst bar -->
+            <header class="h-14 bg-white border-b border-slate-200 flex items-center gap-3 px-5 shrink-0">
+                <div class="flex-1 font-bold text-slate-800 text-sm">@ViewData["Title"]</div>
+                <div class="flex items-center gap-2">
+                    <div class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-medium text-slate-500">
+                        @DateTime.Now.ToString("dd MMM yyyy")
+                    </div>
+                    @if (CurrentCompany.Id != Guid.Empty)
+                    {
+                        <!-- Aktif şirket adı cookie claim'inden gösterilir -->
+                        <div class="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-[11px] font-bold text-indigo-600">
+                            @CurrentCompany.Name
+                        </div>
+                    }
+                </div>
+            </header>
+
+            <!-- Sayfa içeriği -->
+            <main class="flex-1 overflow-y-auto p-6 bg-slate-50">
+                @RenderBody()
+            </main>
+
+        </div>
+        <!-- ================= /ANA ALAN ================= -->
+
+    </div>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/Shortcuts.js" asp-append-version="true"></script>
+    <script>
+        // URL path ile eşleşen nav item'a .active sınıfı eklenir
+        const p = window.location.pathname.toLowerCase();
+        document.querySelectorAll('a.nav-item').forEach(a => {
+            const h = (a.getAttribute('href') || '').toLowerCase();
+            if (h && (h === p || (h !== '/' && p.startsWith(h)))) a.classList.add('active');
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

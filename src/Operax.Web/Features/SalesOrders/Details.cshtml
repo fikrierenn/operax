@@ -1,0 +1,152 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.SalesOrders.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "New Sales Order" : $"Order {Model.Header.OrderNo}";
+}
+
+<form method="post">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold">@(Model.IsNew ? "New Order" : $"Order {Model.Header.OrderNo}")</h2>
+            <p class="text-slate-500 text-sm">@(Model.IsNew ? "Enter customer and shipping details" : Model.Header.CustomerName)</p>
+        </div>
+        <div class="flex gap-2">
+            <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
+                Back to List
+            </a>
+            @if (Model.IsNew || Model.Header.Status == "DRAFT")
+            {
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">
+                    Save Order
+                </button>
+            }
+            @if (!Model.IsNew && Model.Header.Status == "DRAFT")
+            {
+                <button type="submit" asp-page-handler="Approve" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 active:scale-95 transition-all text-sm">
+                    Approve Order
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Header Info -->
+    <div class="bg-white rounded-xl border shadow-sm p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase text-slate-400">Warehouse</label>
+            <select asp-for="Header.WarehouseId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
+                <option value="">Select Shipping Location...</option>
+                @foreach (var wh in Model.Warehouses)
+                {
+                    <option value="@wh.Id">@wh.Code - @wh.Name</option>
+                }
+            </select>
+        </div>
+        <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase text-slate-400">Customer</label>
+            <select asp-for="Header.PartnerId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
+                <option value="">Select Customer...</option>
+                @foreach (var p in Model.Customers)
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
+            </select>
+        </div>
+        <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase text-slate-400">Delivery Date</label>
+            <input asp-for="Header.RequestedDeliveryDate" type="date" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" />
+        </div>
+        <div class="flex flex-col gap-1 text-center md:text-right">
+            <label class="text-[10px] font-bold uppercase text-slate-400">Status</label>
+            <div class="mt-2">
+                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase @(Model.Header.Status == "SHIPPED" ? "bg-green-100 text-green-700" : Model.Header.Status == "APPROVED" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700")">
+                    @Model.Header.Status
+                </span>
+            </div>
+        </div>
+    </div>
+</form>
+
+@if (!Model.IsNew)
+{
+    <!-- Order Lines -->
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
+        <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+            <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Order Items</h3>
+            @if (Model.Header.Status == "DRAFT")
+            {
+                <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">
+                    + Add Item
+                </button>
+            }
+        </div>
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-50 border-b">
+                <tr>
+                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU / Name</th>
+                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ordered</th>
+                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Reserved</th>
+                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Shipped</th>
+                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                @foreach (var line in Model.Lines)
+                {
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="font-bold">@line.ItemName</div>
+                            <div class="text-[10px] font-mono text-slate-400">@line.ItemCode</div>
+                        </td>
+                        <td class="px-6 py-4 text-right font-medium">@line.QtyOrdered.ToString("N0") <span class="text-[10px] text-slate-400">EACH</span></td>
+                        <td class="px-6 py-4 text-right text-indigo-600 font-bold">@line.QtyReserved.ToString("N0")</td>
+                        <td class="px-6 py-4 text-right text-green-600 font-bold">@line.QtyShipped.ToString("N0")</td>
+                        <td class="px-6 py-4 text-right">
+                            @if (Model.Header.Status == "DRAFT")
+                            {
+                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Remove</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Lines.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Order is empty. Click "+ Add Item" to start.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Quick Add Modal -->
+    <div id="add-line-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800">Add Item to Order</h3>
+                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light">&times;</button>
+            </div>
+            <form method="post" asp-page-handler="AddLine">
+                <div class="p-6 space-y-4">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Product</label>
+                        <select name="itemId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
+                            <option value="">Select Item...</option>
+                            @foreach (var item in Model.AvailableItems)
+                            {
+                                <option value="@item.Id">[@item.Code] @item.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Quantity</label>
+                        <input name="qty" type="number" step="1" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required />
+                    </div>
+                </div>
+                <div class="p-6 bg-slate-50 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-100 transition-all text-sm">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Warehouses;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<WarehouseDto> Warehouses { get; set; } = [];

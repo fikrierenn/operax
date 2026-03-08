@@ -1,0 +1,126 @@
+@page "{id:guid}"
+@model Operax.Web.Features.Serial.DetailsModel
+@{
+    ViewData["Title"] = $"Seri No: {Model.Serial.SerialNo}";
+    var s = Model.Serial;
+}
+
+@if (s.Id == Guid.Empty)
+{
+    <div class="empty-state"><p>Seri numara bulunamadı.</p></div>
+    return;
+}
+
+<div class="page-hdr">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <h2 class="text-2xl font-bold font-mono tracking-tight">@s.SerialNo</h2>
+            <span class="badge @(s.Status switch {
+                "IN_STOCK"   => "b-green",
+                "SHIPPED"    => "b-gray",
+                "SCRAPPED"   => "b-red",
+                "QUARANTINE" => "b-amber",
+                _            => "b-gray"
+            })">@(s.Status switch {
+                "IN_STOCK"   => "Depoda",
+                "SHIPPED"    => "Sevk Edildi",
+                "SCRAPPED"   => "Hurda",
+                "QUARANTINE" => "Karantina",
+                _            => s.Status
+            })</span>
+        </div>
+        <p class="text-sm text-slate-500">
+            <span class="font-bold text-slate-800">@s.ItemCode</span> — @s.ItemName
+        </p>
+    </div>
+    <a asp-page="./Index" class="btn btn-secondary">← Listeye Dön</a>
+</div>
+
+<!-- Güncel Durum Kartı -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5">
+        <div class="text-xs font-bold uppercase text-slate-500 tracking-widest mb-2">Güncel Konum</div>
+        @if (s.WhCode != null)
+        {
+            <div class="text-lg font-mono font-bold text-indigo-600">@s.WhCode / @(s.BinCode ?? "—")</div>
+        }
+        else
+        {
+            <div class="text-lg text-slate-400 italic">Depo dışı</div>
+        }
+    </div>
+    <div class="card p-5">
+        <div class="text-xs font-bold uppercase text-slate-500 tracking-widest mb-2">Bağlı Lot</div>
+        <div class="text-lg font-mono font-bold text-slate-700">@(s.LotNo ?? "—")</div>
+    </div>
+    <div class="card p-5">
+        <div class="text-xs font-bold uppercase text-slate-500 tracking-widest mb-2">Sisteme Giriş</div>
+        <div class="text-lg font-bold text-slate-700">@s.CreatedAt.ToString("dd.MM.yyyy HH:mm")</div>
+    </div>
+</div>
+
+<!-- Yaşam Döngüsü Zaman Çizelgesi -->
+<div class="card">
+    <div class="px-4 py-3 border-b bg-slate-50">
+        <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest">Yaşam Döngüsü Geçmişi</h3>
+    </div>
+    <div class="divide-y">
+        @foreach (var mv in Model.Movements)
+        {
+            <div class="px-4 py-4 flex items-start gap-4">
+                <!-- Zaman çizelgesi noktası -->
+                <div class="flex flex-col items-center pt-1">
+                    <div class="w-3 h-3 rounded-full shrink-0 @(mv.MovementType switch {
+                        "RECEIPT"     => "bg-green-500",
+                        "ISSUE"       => "bg-red-400",
+                        "TRANSFER"    => "bg-blue-500",
+                        "CONSUMPTION" => "bg-orange-500",
+                        "COUNT_ADJ"   => "bg-amber-500",
+                        _             => "bg-slate-400"
+                    })"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <span class="badge @(mv.MovementType switch {
+                            "RECEIPT"     => "b-green",
+                            "ISSUE"       => "b-red",
+                            "TRANSFER"    => "b-blue",
+                            "CONSUMPTION" => "b-amber",
+                            _             => "b-gray"
+                        })">@(mv.MovementType switch {
+                            "RECEIPT"     => "Mal Kabul Girişi",
+                            "ISSUE"       => "Sevkiyat Çıkışı",
+                            "TRANSFER"    => "Transfer",
+                            "CONSUMPTION" => "Üretim Tüketimi",
+                            "PRODUCTION"  => "Üretim Kabulü",
+                            "COUNT_ADJ"   => "Sayım Düzeltmesi",
+                            _             => mv.MovementType
+                        })</span>
+                        @if (mv.SourceDoc != null)
+                        {
+                            <span class="text-xs font-mono text-slate-500">@mv.SourceDoc</span>
+                        }
+                    </div>
+                    <div class="flex items-center gap-4 text-xs text-slate-400">
+                        <span>@mv.CreatedAt.ToString("dd.MM.yyyy HH:mm")</span>
+                        @if (mv.WhCode != null)
+                        {
+                            <span class="font-mono">@mv.WhCode@(mv.BinCode != null ? $" / {mv.BinCode}" : "")</span>
+                        }
+                        @if (mv.LotNo != null)
+                        {
+                            <span>Lot: <span class="font-mono font-bold text-slate-600">@mv.LotNo</span></span>
+                        }
+                    </div>
+                </div>
+                <div class="font-mono font-bold @(mv.QtyBase >= 0 ? "text-green-600" : "text-red-500") text-sm shrink-0">
+                    @(mv.QtyBase >= 0 ? "+" : "")@mv.QtyBase.ToString("N2")
+                </div>
+            </div>
+        }
+        @if (!Model.Movements.Any())
+        {
+            <div class="empty-state"><p>Hareket kaydı bulunamadı.</p></div>
+        }
+    </div>
+</div>

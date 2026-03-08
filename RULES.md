@@ -76,6 +76,44 @@ src/Operax.Web/
 - **SARGable koşullar:** WHERE içinde fonksiyon kullanma
 - **Parametre:** Her zaman parametreli sorgu (SQL injection + plan cache)
 - **Transaction:** Kısa ve deterministik; POSTED işlemleri tek transaction
+- **CompanyId filtresi:** Her WHERE'de CompanyId bulunmak ZORUNLU (multi-tenant güvenlik)
+
+### DB Nesne Standardı (SP / FN / View)
+
+| Ne kullanılır | Ne zaman |
+|---|---|
+| **Stored Procedure** | Onay işlemleri (Post/Approve), çok adımlı iş mantığı |
+| **Scalar Function** | Tekrar eden hesaplamalar (`fn_GetConversionRate`) |
+| **View** | Raporlama, karmaşık JOIN'ler, DDL dropdown listeleri |
+| **Inline SQL** | Basit CRUD (tek tablo INSERT/UPDATE/SELECT) |
+
+- SP'ler `docs/sql/db_objects.sql` içinde `CREATE OR ALTER` ile tanımlanır
+- CLI: `operax-cli migrate` → `schema_all.sql` + `db_objects.sql` sırasıyla çalışır
+- SP parametreleri: `@HeaderId`, `@CompanyId`, `@UserId` zorunlu
+- SP içinde `SET XACT_ABORT ON` + `BEGIN TRANSACTION` zorunlu
+- C# SP çağrısı: `commandType: CommandType.StoredProcedure`
+
+### Durum Sabitleri (Magic String Yasak)
+
+```csharp
+// ❌ Yasak
+Status = "DRAFT"
+
+// ✅ Doğru — Operax.Web.Lib.DocStatus kullan
+Status = DocStatus.Draft
+```
+
+`DocStatus`, `MovementType`, `SourceDoc`, `DocPrefix` sabitleri → `src/Operax.Web/Lib/Dtos.cs`
+
+### Ortak DTO
+
+```csharp
+// ❌ Yasak — her dosyada DdlDto tanımlama
+public record DdlDto { ... }
+
+// ✅ Doğru — Operax.Web.Lib.DdlDto kullan (zaten using Operax.Web.Lib; var)
+IEnumerable<DdlDto> Warehouses { get; set; } = [];
+```
 
 ---
 
@@ -183,6 +221,19 @@ var bakiyeler = await conn.QueryAsync<StokBakiyeDto>(
 ```
 
 ---
+
+## YETKİLENDİRME STANDARDI
+
+- **Tüm PageModel'lara** `[Authorize]` zorunlu — Login.cshtml.cs hariç
+- **Admin/** altındaki sayfalar: `[Authorize(Roles = "Admin")]`
+- `using Microsoft.AspNetCore.Authorization;` eklenmeli
+- Program.cs'de `app.UseAuthorization()` zaten aktif
+
+## FORMÜL DEĞERLENDİRME
+
+- **DataTable.Compute() YASAK** — kullanıcı girdisi enjeksiyonuna açık
+- **NCalc kullan** — parametreler tip-güvenli geçirilir, string replace yok
+- Bkz: `DynamicBomService.cs` — referans implementasyon
 
 ## GENEL KURALLAR (AGENT.MD'DEN)
 

@@ -1,10 +1,12 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Users;
 
+[Authorize(Roles = "Admin")]
 public class CreateModel(UserManager<IdentityUser> userManager) : PageModel
 {
     [BindProperty]

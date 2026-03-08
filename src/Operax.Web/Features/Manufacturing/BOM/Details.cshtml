@@ -1,0 +1,209 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.Manufacturing.BOM.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Yeni Ürün Modeli" : $"BOM: {Model.Model.Code}";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">
+            @(Model.IsNew ? "Yeni Ürün Modeli" : Model.Model.Name)
+        </h2>
+        <p class="text-sm text-slate-500 mt-0.5">Parametrik BOM tanımı</p>
+    </div>
+    <a asp-page="./Index" class="btn btn-secondary">← Listeye Dön</a>
+</div>
+
+<!-- Model Başlık Formu -->
+<div class="card mb-6 p-5">
+    <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest mb-4">Model Bilgileri</h3>
+    <form method="post">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Model Kodu *</label>
+                <input asp-for="Model.Code" class="input w-full font-mono" placeholder="DUS-KAB-V1" required />
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Model Adı *</label>
+                <input asp-for="Model.Name" class="input w-full" placeholder="Standart Duşakabin Modeli" required />
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Ana Ürün (Opsiyonel)</label>
+                <select asp-for="Model.BaseItemId" class="input w-full">
+                    <option value="">— Seçiniz —</option>
+                    @foreach (var item in Model.Items)
+                    {
+                        <option value="@item.Id" selected="@(item.Id == Model.Model.BaseItemId)">@item.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="flex items-center gap-3 mt-4">
+                <input asp-for="Model.IsActive" type="checkbox" class="w-4 h-4 accent-indigo-600" id="IsActive" />
+                <label for="IsActive" class="text-sm font-medium text-slate-700">Aktif</label>
+            </div>
+        </div>
+        <div class="mt-4 flex gap-2">
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+        </div>
+    </form>
+</div>
+
+@if (!Model.IsNew)
+{
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+        <!-- Parametreler -->
+        <div class="card">
+            <div class="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest">Parametreler</h3>
+                <span class="text-[10px] text-slate-400">Formüllerde [KOD] şeklinde kullanılır</span>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Kod</th>
+                        <th>Ad</th>
+                        <th>Tip</th>
+                        <th>Varsayılan</th>
+                        <th>Birim</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Parameters)
+                    {
+                        <tr>
+                            <td class="font-mono font-bold text-indigo-600">[@p.Code]</td>
+                            <td class="text-slate-700">@p.Name</td>
+                            <td>
+                                <span class="badge b-gray text-[10px]">@(p.DataType switch {
+                                    "NUMBER" => "Sayı",
+                                    "STRING" => "Metin",
+                                    "OPTION" => "Seçenek",
+                                    _        => p.DataType
+                                })</span>
+                            </td>
+                            <td class="font-mono text-slate-500 text-xs">@(p.DefaultValue ?? "—")</td>
+                            <td class="text-slate-500 text-xs">@(p.Unit ?? "—")</td>
+                            <td>
+                                <form method="post" asp-page-handler="DeleteParam" asp-route-id="@Model.Model.Id" asp-route-paramId="@p.Id"
+                                      onsubmit="return confirm('Bu parametreyi silmek istiyor musunuz?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-bold">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Parameters.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-slate-400 text-xs italic py-4">Henüz parametre yok.</td></tr>
+                    }
+                </tbody>
+            </table>
+            <!-- Parametre Ekle Formu -->
+            <div class="p-4 bg-slate-50 border-t">
+                <form method="post" asp-page-handler="AddParam" asp-route-id="@Model.Model.Id" class="grid grid-cols-5 gap-2">
+                    <input name="code" class="input font-mono col-span-1" placeholder="WIDTH" required />
+                    <input name="name" class="input col-span-1" placeholder="Genişlik" required />
+                    <select name="dataType" class="input col-span-1">
+                        <option value="NUMBER">Sayı</option>
+                        <option value="STRING">Metin</option>
+                        <option value="OPTION">Seçenek</option>
+                    </select>
+                    <input name="defaultValue" class="input col-span-1" placeholder="Varsayılan" />
+                    <input name="unit" class="input col-span-1" placeholder="mm / m2" />
+                    <button type="submit" class="btn btn-secondary col-span-5 text-xs">+ Parametre Ekle</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- BOM Satırları -->
+        <div class="card">
+            <div class="px-4 py-3 border-b bg-slate-50">
+                <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest">Reçete Bileşenleri</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Bileşen Ürün</th>
+                        <th>Miktar Formülü</th>
+                        <th class="text-center">Fire %</th>
+                        <th>Koşul</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var b in Model.BomLines)
+                    {
+                        <tr>
+                            <td>
+                                <div class="font-bold text-sm text-slate-800">@b.ItemCode</div>
+                                <div class="text-[10px] text-slate-400">@b.ItemName</div>
+                            </td>
+                            <td>
+                                <code class="text-xs bg-slate-100 px-2 py-0.5 rounded font-mono text-indigo-700">
+                                    @b.QtyFormula
+                                </code>
+                            </td>
+                            <td class="text-center text-sm font-mono @(b.WastePercentage > 0 ? "text-amber-600 font-bold" : "text-slate-400")">
+                                %@b.WastePercentage.ToString("N1")
+                            </td>
+                            <td class="text-xs text-slate-500 font-mono">@(b.ConditionFormula ?? "—")</td>
+                            <td>
+                                <form method="post" asp-page-handler="DeleteBomLine" asp-route-id="@Model.Model.Id" asp-route-bomLineId="@b.Id"
+                                      onsubmit="return confirm('Bu BOM satırını silmek istiyor musunuz?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-bold">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.BomLines.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-slate-400 text-xs italic py-4">Henüz BOM satırı yok.</td></tr>
+                    }
+                </tbody>
+            </table>
+            <!-- BOM Satırı Ekle -->
+            <div class="p-4 bg-slate-50 border-t">
+                <form method="post" asp-page-handler="AddBomLine" asp-route-id="@Model.Model.Id" class="space-y-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Bileşen Ürün *</label>
+                            <select name="itemId" class="input w-full" required>
+                                <option value="">— Seçiniz —</option>
+                                @foreach (var item in Model.Items)
+                                {
+                                    <option value="@item.Id">@item.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Miktar Formülü *</label>
+                            <input name="qtyFormula" class="input w-full font-mono" placeholder="[WIDTH] * [HEIGHT] / 1000000" required />
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Fire Oranı (%)</label>
+                            <input name="wastePercentage" type="number" step="0.01" min="0" max="100" value="0" class="input w-full" />
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Koşul Formülü (Opsiyonel)</label>
+                            <input name="conditionFormula" class="input w-full font-mono" placeholder='[CAM_TIPI] == "BUZLU"' />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary w-full text-xs">+ BOM Satırı Ekle</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Formül Yardımı -->
+    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-800">
+        <div class="font-bold mb-1">Formül Yardımı (NCalc)</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div><code class="bg-amber-100 px-1 rounded">[WIDTH] * [HEIGHT]</code> → Çarpma</div>
+            <div><code class="bg-amber-100 px-1 rounded">[QTY] / 1000</code> → Bölme</div>
+            <div><code class="bg-amber-100 px-1 rounded">Ceiling([WIDTH] / 600)</code> → Yuvarla</div>
+            <div><code class="bg-amber-100 px-1 rounded">If([TIP] == 'A', 2, 3)</code> → Koşul</div>
+        </div>
+    </div>
+}

@@ -1,10 +1,12 @@
-using Dapper;
+﻿using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Users;
 
+[Authorize(Roles = "Admin")]
 public class IndexModel(Db db, UserManager<IdentityUser> userManager) : PageModel
 {
     public IEnumerable<UserDto> Users { get; set; } = [];

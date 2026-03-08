@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Inventory.Balance;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<BalanceDto> BalanceLines { get; set; } = [];
@@ -12,15 +14,14 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     {
         using var conn = db.Open();
 
+        // tvf_InventoryBalance: CompanyId yalıtılmış, sıfır bakiyeler zaten hariç
         const string sql = @"
-            SELECT i.Code as ItemCode, i.Name as ItemName, wh.Name as WarehouseName, b.Code as BinCode, SUM(sm.QtyBase) as QtyOnHand
-            FROM StockMovement sm
-            JOIN Item i ON i.Id = sm.ItemId
-            JOIN Warehouse wh ON wh.Id = sm.WarehouseId
-            LEFT JOIN Bin b ON b.Id = sm.BinId
-            WHERE sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
-            GROUP BY i.Code, i.Name, wh.Name, b.Code
-            HAVING SUM(sm.QtyBase) <> 0
+            SELECT i.Code as ItemCode, i.Name as ItemName, wh.Name as WarehouseName,
+                   b.Code as BinCode, inv.QtyBalance as QtyOnHand
+            FROM tvf_InventoryBalance(@CompanyId) inv
+            JOIN Item i ON i.Id = inv.ItemId
+            JOIN Warehouse wh ON wh.Id = inv.WarehouseId
+            LEFT JOIN Bin b ON b.Id = inv.BinId
             ORDER BY i.Code, wh.Name, b.Code";
 
         BalanceLines = await conn.QueryAsync<BalanceDto>(sql, new { CompanyId = company.Id });

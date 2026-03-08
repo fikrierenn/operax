@@ -1,0 +1,93 @@
+@page
+@model Operax.Web.Features.Expenses.IndexModel
+@{
+    ViewData["Title"] = "Gider Faturaları";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Gider Yönetimi</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Elektrik, doğalgaz, kira ve diğer gider faturalarını yönet</p>
+    </div>
+    <a asp-page="./Details" class="btn btn-primary">+ Yeni Fatura</a>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Taslak</span>
+        <div class="kpi-val text-slate-500">@Model.Invoices.Count(x => x.Status == "DRAFT")</div>
+        <span class="kpi-sub">@Model.TotalDraft.ToString("N2") ₺</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Onaylandı</span>
+        <div class="kpi-val text-indigo-600">@Model.Invoices.Count(x => x.Status == "POSTED")</div>
+        <span class="kpi-sub">@Model.TotalPosted.ToString("N2") ₺</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Ödendi</span>
+        <div class="kpi-val text-green-600">@Model.Invoices.Count(x => x.Status == "PAID")</div>
+        <span class="kpi-sub">@Model.TotalPaid.ToString("N2") ₺</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Vadesi Geçmiş</span>
+        <div class="kpi-val text-red-500">@Model.Invoices.Count(x => x.IsOverdue)</div>
+        <span class="kpi-sub">Ödeme bekleyen</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Fatura No</th>
+                <th>Tedarikçi</th>
+                <th>Fatura Tarihi</th>
+                <th>Vade</th>
+                <th class="text-right">Tutar</th>
+                <th class="text-center">Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var inv in Model.Invoices)
+            {
+                <tr class="@(inv.IsOverdue ? "bg-red-50" : "")">
+                    <td class="font-mono font-bold text-indigo-600">@inv.DocNo</td>
+                    <td class="font-medium text-slate-700">@(inv.PartnerName ?? "—")</td>
+                    <td class="text-slate-500 text-xs">@inv.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                    <td class="text-xs @(inv.IsOverdue ? "text-red-600 font-bold" : "text-slate-500")">
+                        @(inv.DueDate.HasValue ? inv.DueDate.Value.ToString("dd.MM.yyyy") : "—")
+                        @if (inv.IsOverdue) { <span class="ml-1 badge b-red">VADESİ GEÇMİŞ</span> }
+                    </td>
+                    <td class="text-right font-mono font-bold text-slate-900">
+                        @inv.TotalAmount.ToString("N2") <span class="text-slate-400 text-xs">@inv.Currency</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge @(inv.Status switch {
+                            "DRAFT"     => "b-gray",
+                            "POSTED"    => "b-indigo",
+                            "PAID"      => "b-green",
+                            "CANCELLED" => "b-red",
+                            _           => "b-gray"
+                        })">@(inv.Status switch {
+                            "DRAFT"     => "Taslak",
+                            "POSTED"    => "Onaylandı",
+                            "PAID"      => "Ödendi",
+                            "CANCELLED" => "İptal",
+                            _           => inv.Status
+                        })</span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@inv.Id" class="btn btn-secondary btn-sm">Aç</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Invoices.Any())
+            {
+                <tr><td colspan="7">
+                    <div class="empty-state"><p>Henüz gider faturası yok.</p></div>
+                </td></tr>
+            }
+        </tbody>
+    </table>
+</div>

@@ -1,54 +1,136 @@
 @page
 @model Operax.Web.Features.Dashboard.IndexModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Yönetim Paneli";
+    var today = DateTime.Now;
 }
 
 <div class="page-hdr">
     <div>
-        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p class="text-sm text-slate-500 mt-0.5">Sistem özeti ve kritik canlı veriler</p>
+        <h1 class="text-2xl font-bold text-slate-800">Yönetim Paneli</h1>
+        <p class="text-sm text-slate-500 mt-0.5">@today.ToString("dddd, dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR")) — Canlı operasyon özeti</p>
     </div>
 </div>
 
-<!-- KPI Özet Kartları -->
-<div class="kpi-row">
+<!-- Kritik Uyarılar (varsa) -->
+@if (Model.LowStockItems > 0 || Model.ExpiredLots > 0)
+{
+    <div class="flex gap-3 mb-6 flex-wrap">
+        @if (Model.ExpiredLots > 0)
+        {
+            <div class="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-red-700 font-bold text-xs">@Model.ExpiredLots LOT SKT GEÇMİŞ!</span>
+                <a asp-page="/Lot/Index" class="text-red-500 underline text-xs font-bold">Gör →</a>
+            </div>
+        }
+        @if (Model.LowStockItems > 0)
+        {
+            <div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+                <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                <span class="text-amber-700 font-bold text-xs">@Model.LowStockItems ürün kritik stok seviyesinde</span>
+                <a asp-page="/Inventory/Balance/Index" class="text-amber-600 underline text-xs font-bold">Gör →</a>
+            </div>
+        }
+        @if (Model.ExpiringSoonLots > 0)
+        {
+            <div class="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
+                <span class="text-orange-700 font-bold text-xs">@Model.ExpiringSoonLots lot 30 gün içinde SKT dolacak</span>
+            </div>
+        }
+    </div>
+}
+
+<!-- KPI Satırı 1 — Operasyon -->
+<div class="kpi-row mb-4">
     <div class="kpi">
         <span class="kpi-label">Bekleyen Sevkiyat</span>
         <div class="kpi-val text-indigo-600">@Model.PendingShipments</div>
-        <span class="kpi-sub">Bugün bekleyen sevkiyatlar</span>
+        <a asp-page="/Shipping/Index" class="kpi-sub hover:text-indigo-600">Sevkiyatları gör →</a>
     </div>
     <div class="kpi">
-        <span class="kpi-label">Aktif Mal Kabul</span>
+        <span class="kpi-label">Açık Satın Alma</span>
         <div class="kpi-val text-amber-500">@Model.ActiveReceivings</div>
-        <span class="kpi-sub">Devam eden satın almalar</span>
+        <a asp-page="/PurchaseOrders/Index" class="kpi-sub hover:text-amber-600">PO listesi →</a>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Açık Satış Siparişi</span>
+        <div class="kpi-val text-blue-600">@Model.OpenSalesOrders</div>
+        <a asp-page="/SalesOrders/Index" class="kpi-sub hover:text-blue-600">SO listesi →</a>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Açık Toplama Görevi</span>
+        <div class="kpi-val text-purple-600">@Model.OpenPickTasks</div>
+        <a asp-page="/Picking/Index" class="kpi-sub hover:text-purple-600">Görevleri gör →</a>
     </div>
     <div class="kpi">
         <span class="kpi-label">Aktif Üretim</span>
         <div class="kpi-val text-green-600">@Model.ActiveProductionOrders</div>
-        <span class="kpi-sub">İş emirleri ve hatlar</span>
+        <a asp-page="/Production/Index" class="kpi-sub hover:text-green-600">İş emirleri →</a>
     </div>
     <div class="kpi">
         <span class="kpi-label">Kritik Stok</span>
-        <div class="kpi-val text-red-500">@Model.LowStockItems</div>
-        <span class="kpi-sub">Acil besleme bekleyenler</span>
+        <div class="kpi-val @(Model.LowStockItems > 0 ? "text-red-500" : "text-slate-400")">@Model.LowStockItems</div>
+        <span class="kpi-sub">Bakiye &lt; 10 ürün</span>
     </div>
 </div>
 
-<div class="grid-2-1">
+<!-- Bugünkü Aktivite Bandı -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-green-50 border border-green-100 rounded-xl p-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-green-600 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="text-[10px] text-green-600 font-bold uppercase">Bugün Mal Kabul</div>
+            <div class="text-xl font-black text-green-700">@Model.TodayReceivingPosted</div>
+        </div>
+    </div>
+    <div class="bg-red-50 border border-red-100 rounded-xl p-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <div>
+            <div class="text-[10px] text-red-600 font-bold uppercase">Bugün Sevkiyat</div>
+            <div class="text-xl font-black text-red-700">@Model.TodayShippingPosted</div>
+        </div>
+    </div>
+    <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+        </div>
+        <div>
+            <div class="text-[10px] text-blue-600 font-bold uppercase">Bugün Transfer</div>
+            <div class="text-xl font-black text-blue-700">@Model.TodayTransferPosted</div>
+        </div>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        </div>
+        <div>
+            <div class="text-[10px] text-slate-500 font-bold uppercase">Toplam SKU</div>
+            <div class="text-xl font-black text-slate-700">@Model.TotalSkus <span class="text-xs font-normal text-slate-400">/ @Model.StockLocations konum</span></div>
+        </div>
+    </div>
+</div>
 
-    <!-- Son Hareketler -->
-    <div class="card">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- Son Hareketler (geniş) -->
+    <div class="card lg:col-span-2">
         <div class="card-hdr">
             <span class="card-ttl">Son Hareketler</span>
-            <button class="btn btn-secondary btn-sm">Tümünü Gör</button>
+            <a asp-page="/Inventory/Movements/Index" class="btn btn-secondary btn-sm">Tümünü Gör</a>
         </div>
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Tarih</th>
+                    <th>Saat</th>
                     <th>Ürün</th>
                     <th>İşlem</th>
+                    <th>Konum</th>
+                    <th>Belge</th>
                     <th class="text-right">Miktar</th>
                 </tr>
             </thead>
@@ -56,26 +138,42 @@
                 @foreach (var act in Model.RecentActivities)
                 {
                     <tr>
-                        <td class="text-slate-400 text-xs">@act.CreatedAt.ToString("HH:mm")</td>
-                        <td class="font-semibold">@act.ItemName</td>
+                        <td class="text-slate-400 text-xs whitespace-nowrap">@act.CreatedAt.ToString("HH:mm")</td>
                         <td>
-                            @if (act.MovementType == "RECEIPT") { <span class="badge b-green">GİRİŞ</span> }
-                            else if (act.MovementType == "ISSUE") { <span class="badge b-red">ÇIKIŞ</span> }
-                            else { <span class="badge b-gray">@act.MovementType</span> }
+                            <div class="font-bold text-slate-800 text-sm">@act.ItemCode</div>
+                            <div class="text-[10px] text-slate-400 truncate max-w-28">@act.ItemName</div>
                         </td>
-                        <td class="text-right font-mono font-bold">@act.Qty.ToString("N0")</td>
+                        <td>
+                            <span class="badge @(act.MovementType switch {
+                                "RECEIPT"     => "b-green",
+                                "ISSUE"       => "b-red",
+                                "TRANSFER"    => "b-blue",
+                                "CONSUMPTION" => "b-amber",
+                                "PRODUCTION"  => "b-indigo",
+                                "COUNT_ADJ"   => "b-amber",
+                                _             => "b-gray"
+                            })">@(act.MovementType switch {
+                                "RECEIPT"     => "GİRİŞ",
+                                "ISSUE"       => "ÇIKIŞ",
+                                "TRANSFER"    => "TRF",
+                                "CONSUMPTION" => "TÜKETİM",
+                                "PRODUCTION"  => "ÜRETİM",
+                                "COUNT_ADJ"   => "SAYIM",
+                                _             => act.MovementType
+                            })</span>
+                        </td>
+                        <td class="font-mono text-xs text-slate-500">@(act.WhCode != null ? $"{act.WhCode}/{act.BinCode}" : "—")</td>
+                        <td class="font-mono text-xs text-slate-400">@(act.SourceDoc ?? "—")</td>
+                        <td class="text-right font-mono font-bold @(act.Qty >= 0 ? "text-green-600" : "text-red-500")">
+                            @(act.Qty >= 0 ? "+" : "")@act.Qty.ToString("N0")
+                        </td>
                     </tr>
                 }
                 @if (!Model.RecentActivities.Any())
                 {
                     <tr>
-                        <td colspan="4">
-                            <div class="empty-state">
-                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                <p>Henüz bir hareket kaydedilmemiş</p>
-                            </div>
+                        <td colspan="6">
+                            <div class="empty-state"><p>Henüz hareket kaydedilmemiş</p></div>
                         </td>
                     </tr>
                 }
@@ -83,59 +181,105 @@
         </table>
     </div>
 
-    <!-- Sistem Sağlığı + Hızlı Aksiyonlar -->
+    <!-- Sağ Panel -->
     <div class="flex flex-col gap-4">
+
+        <!-- Kritik Stok Listesi -->
+        @if (Model.LowStockList.Any())
+        {
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="card-ttl text-red-600">⚠ Kritik Stok</span>
+                    <a asp-page="/Inventory/Balance/Index" class="btn btn-secondary btn-sm">Detay</a>
+                </div>
+                <div class="divide-y">
+                    @foreach (var s in Model.LowStockList)
+                    {
+                        <div class="px-4 py-2 flex items-center justify-between">
+                            <div class="min-w-0">
+                                <div class="text-sm font-bold text-slate-800 truncate">@s.ItemCode</div>
+                                <div class="text-[10px] text-slate-400 truncate">@s.ItemName</div>
+                            </div>
+                            <div class="font-mono font-black @(s.QtyBalance <= 0 ? "text-red-600" : "text-amber-600") text-sm shrink-0 ml-2">
+                                @s.QtyBalance.ToString("N0")
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- 7 Günlük Trend -->
+        @if (Model.WeeklyTrend.Any())
+        {
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="card-ttl">Son 7 Gün Hareketi</span>
+                </div>
+                <div class="p-3 space-y-1.5">
+                    @{
+                        var maxQty = Model.WeeklyTrend.Max(t => Math.Max(t.QtyIn, t.QtyOut));
+                        if (maxQty == 0) maxQty = 1;
+                    }
+                    @foreach (var day in Model.WeeklyTrend)
+                    {
+                        var inPct  = (int)(day.QtyIn  / maxQty * 100);
+                        var outPct = (int)(day.QtyOut / maxQty * 100);
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="text-slate-400 w-8 shrink-0 text-right">@day.TrendDate.ToString("dd/MM")</span>
+                            <div class="flex-1 space-y-0.5">
+                                <div class="h-1.5 bg-green-100 rounded-full">
+                                    <div class="h-full bg-green-500 rounded-full" style="width:@inPct%"></div>
+                                </div>
+                                <div class="h-1.5 bg-red-100 rounded-full">
+                                    <div class="h-full bg-red-400 rounded-full" style="width:@outPct%"></div>
+                                </div>
+                            </div>
+                            <span class="text-slate-400 w-12 shrink-0 text-right">@day.MoveCount hrt</span>
+                        </div>
+                    }
+                    <div class="flex gap-3 mt-2 text-[10px] text-slate-400">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full"></span>Giriş</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 bg-red-400 rounded-full"></span>Çıkış</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Hızlı Aksiyonlar -->
         <div class="card">
             <div class="card-hdr">
-                <span class="card-ttl">Sistem Sağlığı</span>
+                <span class="card-ttl">Hızlı Aksiyonlar</span>
             </div>
-            <div class="card-body">
-                <!-- Veritabanı durumu -->
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold text-slate-800">Veritabanı</div>
-                        <div class="text-xs text-slate-400 truncate">BT-FIKRI\SQLEXPRESS</div>
-                    </div>
-                    <span class="badge b-green">AKTİF</span>
-                </div>
+            <div class="card-body grid grid-cols-2 gap-2">
+                <a asp-page="/Receiving/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Mal Kabul</a>
+                <a asp-page="/Shipping/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Sevkiyat</a>
+                <a asp-page="/Transfer/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Transfer</a>
+                <a asp-page="/CycleCount/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Sayım</a>
+                <a asp-page="/PurchaseOrders/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Satın Alma</a>
+                <a asp-page="/SalesOrders/Details" class="btn btn-secondary btn-sm justify-center text-xs">+ Satış Siparişi</a>
+            </div>
+        </div>
 
-                <!-- Hangfire durumu -->
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <div class="text-sm font-bold text-slate-800">Hangfire</div>
-                        <div class="text-xs text-slate-400">Arkaplan İşleri</div>
-                    </div>
-                    <span class="badge b-blue">ÇALIŞIYOR</span>
+        <!-- Sistem Sağlığı -->
+        <div class="card">
+            <div class="card-hdr">
+                <span class="card-ttl">Sistem</span>
+                <a href="/hangfire" class="btn btn-secondary btn-sm">Hangfire →</a>
+            </div>
+            <div class="card-body space-y-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span class="text-xs text-slate-600 font-medium">SQL Server</span>
+                    <span class="ml-auto badge b-green text-[10px]">AKTİF</span>
                 </div>
-
-                <!-- Hızlı Aksiyonlar -->
-                <span class="section-label">Hızlı Aksiyonlar</span>
-                <div class="grid grid-cols-2 gap-2">
-                    <a asp-page="/Receiving/Index" class="btn btn-secondary btn-sm justify-center">Yeni Kabul</a>
-                    <a asp-page="/Shipping/Index" class="btn btn-secondary btn-sm justify-center">Yeni Sevkiyat</a>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-indigo-500"></div>
+                    <span class="text-xs text-slate-600 font-medium">Hangfire Jobs</span>
+                    <span class="ml-auto badge b-blue text-[10px]">ÇALIŞIYOR</span>
                 </div>
             </div>
         </div>
 
-        <!-- İpucu -->
-        <div class="card bg-purple-50 border-purple-100">
-            <div class="card-body">
-                <div class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">İPUCU</div>
-                <p class="text-xs text-slate-500 leading-relaxed">
-                    Hangfire paneline gitmek için <span class="font-bold text-slate-700">/hangfire</span> adresini kullanabilirsiniz.
-                </p>
-            </div>
-        </div>
     </div>
-
 </div>

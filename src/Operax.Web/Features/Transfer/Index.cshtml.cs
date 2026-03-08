@@ -1,10 +1,12 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Transfer;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<TransferDto> Transfers { get; set; } = [];

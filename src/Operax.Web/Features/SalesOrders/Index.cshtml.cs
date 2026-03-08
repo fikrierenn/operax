@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.SalesOrders;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<OrderDto> Orders { get; set; } = [];

@@ -1,10 +1,12 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.MasterData.Partners;
 
+[Authorize]
 public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 {
     [BindProperty]
@@ -17,8 +19,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (id.HasValue)
         {
             using var conn = db.Open();
+            // CompanyId zorunlu — başka şirket cari görüntülenemez
             Partner = await conn.QueryFirstOrDefaultAsync<PartnerDto>(
-                "SELECT * FROM Partner WHERE Id = @Id", new { Id = id }) ?? new();
+                "SELECT * FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId",
+                new { Id = id, CompanyId = company.Id }) ?? new();
         }
         else
         {
@@ -41,11 +45,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         }
         else
         {
+            // CompanyId zorunlu — başka şirket carisini güncelleyemez
             const string sql = @"
-                UPDATE Partner 
-                SET Code = @Code, Name = @Name, Type = @Type, TaxNumber = @TaxNumber, Email = @Email, IsActive = @IsActive 
-                WHERE Id = @Id";
-            await conn.ExecuteAsync(sql, Partner);
+                UPDATE Partner
+                SET Code = @Code, Name = @Name, Type = @Type, TaxNumber = @TaxNumber, Email = @Email, IsActive = @IsActive
+                WHERE Id = @Id AND CompanyId = @CompanyId";
+            await conn.ExecuteAsync(sql, new { Partner.Code, Partner.Name, Partner.Type, Partner.TaxNumber, Partner.Email, Partner.IsActive, Partner.Id, CompanyId = company.Id });
         }
 
         return RedirectToPage("./Index");

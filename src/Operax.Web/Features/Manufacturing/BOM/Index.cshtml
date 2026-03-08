@@ -1,0 +1,105 @@
+@page
+@model Operax.Web.Features.Manufacturing.BOM.IndexModel
+@{
+    ViewData["Title"] = "Reçete (BOM) Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Dinamik Reçete (BOM) Yönetimi</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Parametrik ürün modelleri ve formül tabanlı malzeme reçeteleri</p>
+    </div>
+    <div class="page-hdr-r">
+        <a asp-page="./Details" class="btn btn-primary">+ Yeni Model</a>
+    </div>
+</div>
+
+<!-- KPI Özet -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Toplam Model</span>
+        <div class="kpi-val text-indigo-600">@Model.Models.Count()</div>
+        <span class="kpi-sub">Kayıtlı ürün modeli</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Aktif</span>
+        <div class="kpi-val text-green-600">@Model.Models.Count(x => x.IsActive)</div>
+        <span class="kpi-sub">Kullanımda olan</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Pasif</span>
+        <div class="kpi-val text-slate-400">@Model.Models.Count(x => !x.IsActive)</div>
+        <span class="kpi-sub">Devre dışı bırakılan</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Model Kodu</th>
+                <th>Model Adı</th>
+                <th>Ana Ürün</th>
+                <th class="text-center">Parametre Sayısı</th>
+                <th class="text-center">BOM Satırı</th>
+                <th class="text-center">Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in Model.Models)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">@m.Code</td>
+                    <td class="font-medium text-slate-800">@m.Name</td>
+                    <td class="font-mono text-slate-600 text-xs">@(m.BaseItemCode ?? "—")</td>
+                    <td class="text-center">
+                        <span class="badge b-indigo">@m.ParamCount parametre</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge @(m.BomLineCount == 0 ? "b-gray" : "b-green")">@m.BomLineCount kalem</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge @(m.IsActive ? "b-green" : "b-gray")">
+                            @(m.IsActive ? "Aktif" : "Pasif")
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@m.Id" class="btn btn-secondary btn-sm">Düzenle</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Models.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+                            </svg>
+                            <p>Henüz ürün modeli tanımlanmamış. Dinamik BOM için yeni bir model oluşturun.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-6 bg-indigo-50 border border-indigo-100 rounded-xl p-5">
+    <h4 class="font-bold text-indigo-900 text-sm mb-2">Dinamik BOM Nasıl Çalışır?</h4>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-indigo-700">
+        <div>
+            <div class="font-bold mb-1">1. Model Tanımla</div>
+            <p>Ürün modelini oluştur: parametreler (En, Boy, Cam Tipi vb.) tanımla.</p>
+        </div>
+        <div>
+            <div class="font-bold mb-1">2. Reçete Formülleri Yaz</div>
+            <p>Her malzeme için formül: <code class="bg-indigo-100 px-1 rounded">[EN] * [BOY] / 1000000</code></p>
+        </div>
+        <div>
+            <div class="font-bold mb-1">3. İş Emrinde Kullan</div>
+            <p>İş emri oluştururken model seçilir, parametreler girilir, BOM otomatik hesaplanır.</p>
+        </div>
+    </div>
+</div>

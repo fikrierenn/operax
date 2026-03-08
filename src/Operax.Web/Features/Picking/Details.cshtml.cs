@@ -1,118 +1,91 @@
+using System.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Identity;
 using Dapper;
 using Operax.Web.Lib;
-using Microsoft.AspNetCore.Identity;
 
 namespace Operax.Web.Features.Picking;
 
+[Authorize]
 public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUser> userManager) : PageModel
 {
-    public PickTaskDto Task { get; set; } = new();
-    public IEnumerable<PickLineDto> Lines { get; set; } = [];
+    public PickTaskDto              Task           { get; set; } = new();
+    public IEnumerable<PickLineDto> Lines          { get; set; } = [];
     public IEnumerable<IdentityUser> WarehouseStaff { get; set; } = [];
 
     public async Task OnGetAsync(Guid id)
     {
+        // Pick task detayları ve satırlarını yükler
         using var conn = db.Open();
-        
+
         Task = await conn.QueryFirstOrDefaultAsync<PickTaskDto>(@"
-            SELECT t.*, u.UserName as AssignedUserName 
-            FROM PickTask t 
-            LEFT JOIN AspNetUsers u ON u.Id = t.AssignedUserId 
-            WHERE t.Id = @Id", new { Id = id }) ?? new();
+            SELECT t.*, u.UserName as AssignedUserName
+            FROM PickTask t
+            LEFT JOIN AspNetUsers u ON u.Id = t.AssignedUserId
+            WHERE t.Id = @Id AND t.CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id }) ?? new();
 
         Lines = await conn.QueryAsync<PickLineDto>(@"
-            SELECT l.*, i.Code as ItemCode, i.Name as ItemName, 
+            SELECT l.*, i.Code as ItemCode, i.Name as ItemName,
                    tb.Code as TargetBinCode, pb.Code as PickedBinCode,
                    u.UserName as PickedByUserName
             FROM PickTaskLine l
+            JOIN PickTask pt ON pt.Id = l.PickTaskId
             JOIN Item i ON i.Id = l.ItemId
             JOIN Bin tb ON tb.Id = l.TargetBinId
             LEFT JOIN Bin pb ON pb.Id = l.PickedBinId
             LEFT JOIN AspNetUsers u ON u.Id = l.PickedByUserId
-            WHERE l.PickTaskId = @Id", new { Id = id });
+            WHERE l.PickTaskId = @Id AND pt.CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id });
 
+        // Depo personeli: Warehouse rolü tercih edilir
         WarehouseStaff = await userManager.GetUsersInRoleAsync("Warehouse");
-        if (!WarehouseStaff.Any()) WarehouseStaff = userManager.Users.Take(10).ToList();
+        if (!WarehouseStaff.Any())
+            WarehouseStaff = userManager.Users.Take(10).ToList();
     }
 
     public async Task<IActionResult> OnPostAssignAsync(Guid id, string userId)
     {
+        // Görevi personele atar, durum ASSIGNED olur
         using var conn = db.Open();
-        await conn.ExecuteAsync("UPDATE PickTask SET AssignedUserId = @UserId, Status = 'ASSIGNED' WHERE Id = @Id", new { Id = id, UserId = userId });
+        await conn.ExecuteAsync(
+            "UPDATE PickTask SET AssignedUserId = @UserId, Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { UserId = userId, Status = DocStatus.Assigned, Id = id, CompanyId = company.Id });
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostPickLineAsync(Guid id, Guid lineId, decimal qty)
     {
-        var userId = userManager.GetUserId(User);
+        // sp_PickLinePost: satırı günceller, stok hareketi yazar, görev durumunu günceller
+        var userId = userManager.GetUserId(User) ?? "";
         using var conn = db.Open();
-        
-        // 1. Satırı güncelle (Kim, Ne Zaman, Ne Kadar)
-        const string updateLineSql = @"
-            UPDATE PickTaskLine 
-            SET QtyPicked = @Qty, 
-                QtyPickedBase = @Qty, 
-                PickedByUserId = @UserId, 
-                PickedAt = GETUTCDATE(),
-                PickedBinId = TargetBinId 
-            WHERE Id = @LineId";
-        
-        await conn.ExecuteAsync(updateLineSql, new { Qty = qty, UserId = userId, LineId = lineId });
-        
-        // 2. STOK HAREKETİ (Hammadde Sarfiyatı / Issue)
-        var line = await conn.QueryFirstOrDefaultAsync("SELECT * FROM PickTaskLine WHERE Id = @Id", new { Id = lineId });
-        var task = await conn.QueryFirstOrDefaultAsync("SELECT * FROM PickTask WHERE Id = @Id", new { Id = id });
-        // Satır veya görev bulunamadıysa yönlendir
-        if (line is null || task is null) return RedirectToPage(new { id });
-
-        const string moveSql = @"
-            INSERT INTO StockMovement (CompanyId, WarehouseId, BinId, ItemId, MovementType, QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
-            VALUES (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE', -@Qty, @UomId, @Qty, 'PICKING', @PickTaskId, @DocNo, @UserId)";
-        
-        await conn.ExecuteAsync(moveSql, new { 
-            CompanyId = company.Id, WarehouseId = line.TargetWarehouseId, BinId = line.TargetBinId, 
-            ItemId = line.ItemId, Qty = qty, UomId = line.UomId, PickTaskId = id, DocNo = task.DocNo, UserId = userId 
-        });
-
-        // 3. ÜRETİM GÜNCELLEME: Eğer bu bir hammadde toplamasıysa
-        if (task.DocNo.StartsWith("PRD-PCK-"))
-        {
-            await conn.ExecuteAsync(@"
-                UPDATE ProductionOrderLine 
-                SET QtyIssued = QtyIssued + @Qty 
-                WHERE ProductionOrderId = @PrdOrderId AND ItemId = @ItemId",
-                new { Qty = qty, PrdOrderId = task.SourceDocId, ItemId = line.ItemId });
-        }
-
-        // 4. Görev durumunu güncelle
-        await conn.ExecuteAsync(@"
-            UPDATE PickTask SET Status = 'IN_PROGRESS', StartedAt = ISNULL(StartedAt, GETUTCDATE()) WHERE Id = @Id;
-            IF NOT EXISTS (SELECT 1 FROM PickTaskLine WHERE PickTaskId = @Id AND QtyPicked = 0)
-                UPDATE PickTask SET Status = 'COMPLETED', CompletedAt = GETUTCDATE() WHERE Id = @Id;
-        ", new { Id = id });
-
+        await conn.ExecuteAsync("sp_PickLinePost",
+            new { LineId = lineId, TaskId = id, Qty = qty, CompanyId = company.Id, UserId = userId },
+            commandType: CommandType.StoredProcedure);
         return RedirectToPage(new { id });
     }
 
-    public record PickTaskDto { 
-        public Guid Id { get; set; } 
-        public string DocNo { get; set; } = ""; 
-        public string Status { get; set; } = ""; 
-        public string? AssignedUserId { get; set; }
+    public record PickTaskDto
+    {
+        public Guid    Id               { get; set; }
+        public string  DocNo            { get; set; } = "";
+        public string  Status           { get; set; } = DocStatus.Draft;
+        public string? AssignedUserId   { get; set; }
         public string? AssignedUserName { get; set; }
     }
 
-    public record PickLineDto { 
-        public Guid Id { get; set; } 
-        public string ItemCode { get; set; } = ""; 
-        public string ItemName { get; set; } = ""; 
-        public string TargetBinCode { get; set; } = ""; 
-        public string? PickedBinCode { get; set; }
-        public decimal QtyRequested { get; set; } 
-        public decimal QtyPicked { get; set; } 
-        public string? PickedByUserName { get; set; }
-        public DateTime? PickedAt { get; set; }
+    public record PickLineDto
+    {
+        public Guid      Id                { get; set; }
+        public string    ItemCode          { get; set; } = "";
+        public string    ItemName          { get; set; } = "";
+        public string    TargetBinCode     { get; set; } = "";
+        public string?   PickedBinCode     { get; set; }
+        public decimal   QtyRequested      { get; set; }
+        public decimal   QtyPicked         { get; set; }
+        public string?   PickedByUserName  { get; set; }
+        public DateTime? PickedAt          { get; set; }
     }
 }

@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Inventory.Movements;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<MovementDto> Movements { get; set; } = [];
@@ -12,14 +14,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     {
         using var conn = db.Open();
 
+        // TOP 500: büyük tablolarda performans koruması
         const string sql = @"
-            SELECT sm.CreatedAt, sm.MovementType, i.Name as ItemName, i.Code as ItemCode, 
-                   wh.Code as WarehouseCode, b.Code as BinCode, sm.QtyBase, 
+            SELECT TOP 500 sm.CreatedAt, sm.MovementType, i.Name as ItemName, i.Code as ItemCode,
+                   wh.Code as WarehouseCode, b.Code as BinCode, sm.QtyBase,
                    sm.SourceDocType, sm.SourceDocNo, u.UserName as OperatorName
             FROM StockMovement sm
             JOIN Item i ON i.Id = sm.ItemId
             JOIN Warehouse wh ON wh.Id = sm.WarehouseId
-            JOIN Bin b ON b.Id = sm.BinId
+            LEFT JOIN Bin b ON b.Id = sm.BinId
             LEFT JOIN AspNetUsers u ON u.Id = CAST(sm.CreatedBy AS NVARCHAR(450))
             WHERE sm.CompanyId = @CompanyId
             ORDER BY sm.CreatedAt DESC";

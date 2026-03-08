@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <!-- NCalc .NET Framework hedefler ama .NET 10'da runtime uyumlu; NU1701 suppress -->
+    <PackageReference Include="ncalc" Version="1.3.8" NoWarn="NU1701" />
     <!-- NU1903: Hangfire'ın transitive Newtonsoft.Json 11.0.1 güvenlik açığını override eder -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />

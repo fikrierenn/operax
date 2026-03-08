@@ -1,6 +1,7 @@
-using Dapper;
+﻿using Dapper;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.AuditLog;
 
@@ -9,6 +10,7 @@ namespace Operax.Web.Features.Admin.AuditLog;
 /// Son 200 işlemi tarih sırasına göre gösterir.
 /// Modül, kullanıcı ve aksiyon tipine göre filtreleme destekler.
 /// </summary>
+[Authorize(Roles = "Admin")]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<AuditLogDto> Entries { get; set; } = [];

@@ -1,7 +1,7 @@
 # OPERAX — Bug & Hata Takibi
 
 > Güncelleme: Mart 2026
-> Kaynak: build_log.txt (son build: 19 hata · 27 uyarı · BUILD FAIL)
+> Son build: **0 hata · 0 uyarı · BUILD SUCCESS** ✅ (commit: 694c2b4)
 > Format: `[ ]` açık · `[x]` çözüldü · Çözüldüğünde tarih + commit notu ekle
 
 ---
@@ -28,7 +28,7 @@ Sebep  : Microsoft.AspNetCore.Identity.UI paketi csproj'da var ama
 Çözüm  : using ekle veya AddIdentity<IdentityUser, IdentityRole>() kullan.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -44,7 +44,7 @@ Sebep  : Details.cshtml.cs satır 20'de IsNew tanımlı görünüyor ama
          Sorun muhtemelen ShippingHeaderDto.Id default değeri Guid.Empty değil.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -59,7 +59,7 @@ Sebep  : OnPostAsync metodu içinde IsNew doğrudan kullanılıyor,
 Çözüm  : if (IsNew) → if (Header.Id == Guid.Empty) ile değiştir
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -77,7 +77,7 @@ Sebep  : OnPostAddLineAsync metodunda anonim obje başlatılırken
          (explicit assignment kullan)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -92,7 +92,7 @@ Sebep  : ItemUOM veya ItemBarcode eklerken UomId değişkeni tanımlı değil
          DTO'dan oku.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -107,7 +107,7 @@ Sebep  : StockTransferLine DTO'sunda FromBinId ve ToBinId property'leri eksik
          veya metod parametresi olarak al.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -120,7 +120,7 @@ Sebep  : Putaway metodunda ItemId değişkeni scope dışında kalıyor.
 Çözüm  : Metod parametresi olarak Guid itemId ekle.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -135,7 +135,7 @@ Sebep  : ProductionLineDto record'unda ItemId property eksik.
          ve ilgili SQL SELECT'e l.ItemId sütununu ekle.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -150,7 +150,7 @@ Sebep  : 11.x sürümünde bilinen güvenlik açığı.
 Çözüm  : <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -163,7 +163,7 @@ Hata   : Şifre kaynak kodunda açık metin
 Çözüm  : appsettings.json veya environment variable'a taşı.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -177,7 +177,7 @@ Hata   : Kullanıcı girdisi doğrudan DataTable.Compute()'a veriliyor.
          <PackageReference Include="NCalc" Version="2.1.0" />
 Sprint : S8 (Manufacturing sprint'inde)
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -189,7 +189,7 @@ Satırlar: 34 (CS8601), 91 (CS8602), 130 (CS8602), 146 (CS8602)
 Çözüm  : item?.Property ?? default  veya  Guard.NotNull(item, "item") kullan
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-002 · Shipping/Details.cshtml.cs
 ```
@@ -197,56 +197,56 @@ Satırlar: 32 (CS8601), 68 (CS8602), 172 (CS8602), 211 (CS8602)
 Çözüm  : header null ise erken dön; stock null ise 0 kullan
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-003 · SalesOrders/Details.cshtml.cs
 ```
 Satırlar: 30 (CS8601), 85 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-004 · PurchaseOrders/Details.cshtml.cs
 ```
 Satırlar: 30 (CS8601), 85 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-005 · MasterData/Items/Details.cshtml.cs
 ```
 Satır  : 27 (CS8601)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-006 · Picking/Details.cshtml.cs
 ```
 Satırlar: 73 (CS8602), 74 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-007 · Transfer/Details.cshtml.cs
 ```
 Satırlar: 79 (CS8602), 100 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-008 · Production/Details.cshtml.cs
 ```
 Satırlar: 49 (CS8602), 77 (CS8602), 121 (CS8602), 121 (CS8629)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-009 · CycleCount/Details.cshtml.cs
 ```
 Satır  : 100 (CS8602) — line.QtyDifference null olabilir
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -260,7 +260,7 @@ Uyarı  : CS9113 — 'company' parametresi okunmuyor
 Çözüm  : Kullanılacaksa kompanyıya göre filtrele; kullanılmayacaksa kaldır
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### UNUSED-002 · Users/Index.cshtml.cs
 ```
@@ -270,7 +270,7 @@ Uyarı  : CS9113 — 'roleManager' parametresi okunmuyor
 Çözüm  : RoleManager kullanılıyorsa implement et, değilse kaldır
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### UNUSED-003 · AutoTraceabilityService.cs
 ```
@@ -280,7 +280,7 @@ Uyarı  : CS9113 — 'company' parametresi okunmuyor
 Çözüm  : Lot/Serial üretiminde CompanyId filtresi ekle (güvenlik için gerekli)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 

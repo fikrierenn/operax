@@ -1,0 +1,131 @@
+@page "{id:guid}"
+@model Operax.Web.Features.Manufacturing.WorkOrders.DetailsModel
+@{
+    ViewData["Title"] = $"Rota: {Model.Route.Code}";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">@Model.Route.Name</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Kod: <span class="font-mono font-bold">@Model.Route.Code</span></p>
+    </div>
+    <a asp-page="./Index" class="btn btn-secondary">← Rota Listesi</a>
+</div>
+
+@if (Model.Route.Id == Guid.Empty)
+{
+    <div class="alert alert-error">Rota bulunamadı veya bu şirkete ait değil.</div>
+    return;
+}
+
+<!-- Adım Ekle Formu -->
+<div class="card mb-6 p-5">
+    <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest mb-4">Yeni Operasyon Adımı</h3>
+    <form method="post" asp-page-handler="AddStep" asp-route-id="@Model.Route.Id">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+                <label class="label">Operasyon Kodu *</label>
+                <input name="operationCode" class="input w-full font-mono" placeholder="KESIM" required />
+            </div>
+            <div class="md:col-span-2">
+                <label class="label">Operasyon Adı *</label>
+                <input name="operationName" class="input w-full" placeholder="CNC Kesim" required />
+            </div>
+            <div class="md:col-span-2">
+                <label class="label">İş Merkezi *</label>
+                <select name="workCenterId" class="input w-full" required>
+                    <option value="">— Seçiniz —</option>
+                    @foreach (var wc in Model.WorkCenters)
+                    {
+                        <option value="@wc.Id">@wc.Name</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="label">Süre (dk)</label>
+                <input name="standardDurationMin" type="number" min="0" class="input w-full" value="0" />
+            </div>
+            <div>
+                <label class="label">İşçilik Maliyeti (₺)</label>
+                <input name="standardLaborCost" type="number" step="0.01" min="0" class="input w-full" value="0" />
+            </div>
+            <div>
+                <label class="label">Makine Maliyeti (₺)</label>
+                <input name="standardMachineCost" type="number" step="0.01" min="0" class="input w-full" value="0" />
+            </div>
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Adım Ekle</button>
+        </div>
+    </form>
+</div>
+
+<!-- Rota Adımları Tablosu -->
+<div class="card">
+    <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-slate-700">
+            Operasyon Adımları
+            <span class="badge b-blue ml-2">@Model.Steps.Count() adet</span>
+        </h3>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th class="text-center w-16">Sıra</th>
+                <th>Operasyon Kodu</th>
+                <th>Operasyon Adı</th>
+                <th>İş Merkezi</th>
+                <th class="text-right">Süre (dk)</th>
+                <th class="text-right">İşçilik (₺)</th>
+                <th class="text-right">Makine (₺)</th>
+                <th class="text-center">Sil</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var step in Model.Steps)
+            {
+                <tr>
+                    <td class="text-center">
+                        <span class="badge b-slate font-mono">@step.StepOrder</span>
+                    </td>
+                    <td class="font-mono font-bold text-indigo-600">@step.OperationCode</td>
+                    <td class="font-medium text-slate-800">@step.OperationName</td>
+                    <td class="text-slate-600">@step.WorkCenterName</td>
+                    <td class="text-right font-mono">@step.StandardDurationMin</td>
+                    <td class="text-right font-mono text-slate-700">@step.StandardLaborCost.ToString("N2")</td>
+                    <td class="text-right font-mono text-slate-700">@step.StandardMachineCost.ToString("N2")</td>
+                    <td class="text-center">
+                        <form method="post" asp-page-handler="DeleteStep"
+                              asp-route-id="@Model.Route.Id" asp-route-stepId="@step.Id"
+                              onsubmit="return confirm('Bu adımı silmek istiyor musunuz?')">
+                            <button type="submit" class="btn btn-xs btn-danger">Sil</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Steps.Any())
+            {
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+                            </svg>
+                            <p>Bu rotaya henüz operasyon adımı eklenmemiş.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.Steps.Any())
+    {
+        <div class="px-5 py-3 border-t border-slate-100 text-right text-sm text-slate-500">
+            Toplam süre: <span class="font-mono font-bold text-slate-700">@Model.Steps.Sum(s => s.StandardDurationMin) dk</span>
+            &nbsp;|&nbsp;
+            Toplam maliyet: <span class="font-mono font-bold text-indigo-600">
+                @((Model.Steps.Sum(s => s.StandardLaborCost + s.StandardMachineCost)).ToString("N2")) ₺
+            </span>
+        </div>
+    }
+</div>

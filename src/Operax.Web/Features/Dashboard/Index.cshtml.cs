@@ -38,44 +38,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         using var conn = db.Open();
 
         // — Operasyon sayaçları —
-        var tasks = new[]
-        {
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM ShippingHeader WHERE CompanyId = @CompanyId AND Status = 'DRAFT'",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM PurchaseOrderHeader WHERE CompanyId = @CompanyId AND Status = 'APPROVED'",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM ProductionOrder WHERE CompanyId = @CompanyId AND Status IN ('DRAFT','IN_PROGRESS')",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(DISTINCT ItemId) FROM tvf_InventoryBalance(@CompanyId) WHERE QtyBalance < 10",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM PickTask WHERE CompanyId = @CompanyId AND Status IN ('DRAFT','ASSIGNED','IN_PROGRESS')",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM SalesOrderHeader WHERE CompanyId = @CompanyId AND Status = 'APPROVED'",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM ItemLot WHERE CompanyId = @CompanyId AND ExpiryDate < GETUTCDATE() AND Status = 'AVAILABLE'",
-                new { CompanyId = company.Id }),
-            conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM ItemLot WHERE CompanyId = @CompanyId AND ExpiryDate >= GETUTCDATE() AND ExpiryDate <= DATEADD(DAY, 30, GETUTCDATE()) AND Status = 'AVAILABLE'",
-                new { CompanyId = company.Id }),
-        };
-
-        await Task.WhenAll(tasks);
-
-        PendingShipments       = await tasks[0];
-        ActiveReceivings       = await tasks[1];
-        ActiveProductionOrders = await tasks[2];
-        LowStockItems          = await tasks[3];
-        OpenPickTasks          = await tasks[4];
-        OpenSalesOrders        = await tasks[5];
-        ExpiredLots            = await tasks[6];
-        ExpiringSoonLots       = await tasks[7];
+        var p = new { CompanyId = company.Id };
+        PendingShipments       = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM ShippingHeader WHERE CompanyId = @CompanyId AND Status = 'DRAFT'", p);
+        ActiveReceivings       = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM PurchaseOrderHeader WHERE CompanyId = @CompanyId AND Status = 'APPROVED'", p);
+        ActiveProductionOrders = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM ProductionOrder WHERE CompanyId = @CompanyId AND Status IN ('DRAFT','IN_PROGRESS')", p);
+        LowStockItems          = await conn.ExecuteScalarAsync<int>("SELECT COUNT(DISTINCT ItemId) FROM tvf_InventoryBalance(@CompanyId) WHERE QtyBalance < 10", p);
+        OpenPickTasks          = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM PickTask WHERE CompanyId = @CompanyId AND Status IN ('DRAFT','ASSIGNED','IN_PROGRESS')", p);
+        OpenSalesOrders        = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM SalesOrderHeader WHERE CompanyId = @CompanyId AND Status = 'APPROVED'", p);
+        ExpiredLots            = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM ItemLot WHERE CompanyId = @CompanyId AND ExpiryDate < GETUTCDATE() AND Status = 'AVAILABLE'", p);
+        ExpiringSoonLots       = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM ItemLot WHERE CompanyId = @CompanyId AND ExpiryDate >= GETUTCDATE() AND ExpiryDate <= DATEADD(DAY, 30, GETUTCDATE()) AND Status = 'AVAILABLE'", p);
 
         // — Bugünkü aktivite (POSTED belgeler) —
         TodayReceivingPosted = await conn.ExecuteScalarAsync<int>(
@@ -85,7 +56,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             "SELECT COUNT(*) FROM ShippingHeader WHERE CompanyId = @CompanyId AND Status = 'POSTED' AND CAST(UpdatedAt AS DATE) = CAST(GETUTCDATE() AS DATE)",
             new { CompanyId = company.Id });
         TodayTransferPosted = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = 'POSTED' AND CAST(UpdatedAt AS DATE) = CAST(GETUTCDATE() AS DATE)",
+            "SELECT COUNT(*) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = 'POSTED' AND CAST(PostedAt AS DATE) = CAST(GETUTCDATE() AS DATE)",
             new { CompanyId = company.Id });
 
         // — Stok özet —
@@ -101,7 +72,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             SELECT TOP 20
                 sm.CreatedAt, i.Code AS ItemCode, i.Name AS ItemName,
                 sm.MovementType, sm.QtyBase AS Qty,
-                sm.SourceDoc, w.Code AS WhCode, b.Code AS BinCode
+                sm.SourceDocNo AS SourceDoc, w.Code AS WhCode, b.Code AS BinCode
             FROM StockMovement sm
             JOIN Item i ON i.Id = sm.ItemId
             LEFT JOIN Warehouse w ON w.Id = sm.WarehouseId

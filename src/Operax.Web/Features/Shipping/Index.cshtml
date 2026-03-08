@@ -40,7 +40,9 @@
                         <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">@s.VehiclePlate</div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="badge b-green">TAMAMLANDI</span>
+                        @{ var sBadge = s.Status == "POSTED" ? "badge b-green" : s.Status == "CANCELLED" ? "badge b-red" : "badge b-indigo";
+                           var sLabel = s.Status == "POSTED" ? "Tamamlandı" : s.Status == "CANCELLED" ? "İptal" : "Taslak"; }
+                        <span class="@sBadge">@sLabel</span>
                     </td>
                     <td class="px-6 py-4 text-right">
                         <a asp-page="./Details" asp-route-id="@s.Id" class="text-indigo-600 font-bold hover:underline">Detay</a>

@@ -4,8 +4,14 @@ namespace Operax.Web.Lib;
 // Ortak DTO — tüm modüllerde kullanılır
 // ============================================================
 
-/// <summary>Dropdown listesi için genel DTO</summary>
-public record DdlDto(Guid Id, string Code, string Name, Guid? BaseUomId = null);
+/// <summary>Dropdown listesi için genel DTO — Dapper property mapping ile kullanılır</summary>
+public class DdlDto
+{
+    public Guid    Id        { get; set; }
+    public string  Code      { get; set; } = "";
+    public string  Name      { get; set; } = "";
+    public Guid?   BaseUomId { get; set; }
+}
 
 // ============================================================
 // Sabitler — magic string yasak, buradan kullanılır

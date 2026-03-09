@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Dictionary;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Administrator")]
 public class DetailsModel(Db db) : PageModel
 {
     [BindProperty]

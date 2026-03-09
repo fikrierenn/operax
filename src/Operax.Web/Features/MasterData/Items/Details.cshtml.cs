@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
@@ -25,16 +25,20 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
         // Ürün formunu yükler: UOM listesi, kategori, vergi oranları ve ürün detayları
         using var conn = db.Open();
 
+        var p = new { CompanyId = company.Id };
+
         Uoms = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, NameTr as Name FROM DictionaryValue WHERE TypeId = (SELECT Id FROM DictionaryType WHERE Code = 'UOM') AND IsActive = 1");
+            "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'UOM' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0",
+            p);
 
         // Kategori — şirkete ait + aktif
         Categories = await conn.QueryAsync<DdlDto>(
             "SELECT Id, Code, Name FROM Category WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            p);
 
         TaxRates = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, NameTr as Name FROM DictionaryValue WHERE TypeId = (SELECT Id FROM DictionaryType WHERE Code = 'TAX_RATE') AND IsActive = 1 ORDER BY OrderNo");
+            "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'TAX_RATE' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0 ORDER BY dv.OrderNo",
+            p);
 
         if (id.HasValue)
         {
@@ -91,6 +95,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Item.BaseUomId, Item.CategoryId, Item.TaxRate,
                     Item.IsLotTracked, Item.IsSerialTracked, Item.IsActive, UserId = user.Id
                 });
+            await audit.LogAsync("CREATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
         else
         {
@@ -107,6 +112,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Item.IsSerialTracked, Item.IsActive, UserId = user.Id,
                     Item.Id, CompanyId = company.Id
                 });
+            await audit.LogAsync("UPDATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
 
         return RedirectToPage(new { id = Item.Id });

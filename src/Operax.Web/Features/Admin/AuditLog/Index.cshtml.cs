@@ -10,7 +10,7 @@ namespace Operax.Web.Features.Admin.AuditLog;
 /// Son 200 işlemi tarih sırasına göre gösterir.
 /// Modül, kullanıcı ve aksiyon tipine göre filtreleme destekler.
 /// </summary>
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Administrator")]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<AuditLogDto> Entries { get; set; } = [];

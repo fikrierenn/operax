@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Transfer;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
     [BindProperty]
     public TransferHeaderDto Header { get; set; } = new();
@@ -85,12 +85,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Header.FromWarehouseId, Header.ToWarehouseId, Header.Notes,
                     UserId = user.Id
                 });
+            await audit.LogAsync("CREATE", "StockTransfer", Header.Id, $"DocNo: {Header.DocNo}, Tür: {Header.TransferType}");
         }
         else
         {
             await conn.ExecuteAsync(
                 "UPDATE StockTransfer SET Notes=@Notes, TransferType=@TransferType WHERE Id=@Id AND CompanyId=@CompanyId",
                 new { Header.Notes, Header.TransferType, Header.Id, CompanyId = company.Id });
+            await audit.LogAsync("UPDATE", "StockTransfer", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -123,6 +125,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
         await conn.ExecuteAsync("sp_TransferPost",
             new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
             commandType: CommandType.StoredProcedure);
+        await audit.LogAsync("POST", "StockTransfer", id, "Transfer onaylandı, stok hareketi oluşturuldu");
         return RedirectToPage(new { id });
     }
 

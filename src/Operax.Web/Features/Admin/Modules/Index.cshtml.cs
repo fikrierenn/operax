@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Modules;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Administrator")]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<ModuleDto> Modules { get; set; } = [];

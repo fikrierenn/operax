@@ -22,7 +22,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         PendingTasks = await conn.QueryAsync<PendingTaskDto>(@"
             SELECT t.Id, t.DocNo, t.Status,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id) AS TotalLines,
-                   (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase >= QtyToPickBase) AS DoneLines
+                   (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase >= QtyRequestedBase) AS DoneLines
             FROM PickTask t
             WHERE t.CompanyId = @CompanyId AND t.Status IN ('DRAFT', 'ASSIGNED', 'IN_PROGRESS')
             ORDER BY t.CreatedAt ASC",
@@ -40,15 +40,15 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
         // Tamamlanmamış ilk satır — FIFO sırası
         CurrentLine = await conn.QueryFirstOrDefaultAsync<CurrentLineDto>(@"
-            SELECT TOP 1 l.Id, l.QtyToPickBase, l.QtyPickedBase,
+            SELECT TOP 1 l.Id, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase,
                    i.Code AS ItemCode, i.Name AS ItemName,
-                   b.Code AS BinCode, w.Code AS WhCode, l.LotNo
+                   b.Code AS BinCode, w.Code AS WhCode
             FROM PickTaskLine l
             JOIN PickTask pt ON pt.Id = l.PickTaskId
             JOIN Item i ON i.Id = l.ItemId
-            LEFT JOIN Bin b ON b.Id = l.FromBinId
-            LEFT JOIN Warehouse w ON w.Id = l.FromWarehouseId
-            WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyToPickBase
+            LEFT JOIN Bin b ON b.Id = l.TargetBinId
+            LEFT JOIN Warehouse w ON w.Id = l.TargetWarehouseId
+            WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyRequestedBase
               AND pt.CompanyId = @CompanyId
             ORDER BY l.Id",
             new { TaskId = taskId, CompanyId = company.Id });
@@ -62,7 +62,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         try
         {
             var line = await conn.QueryFirstOrDefaultAsync<dynamic>(@"
-                SELECT l.ItemId, l.QtyToPickBase, l.QtyPickedBase, i.Code AS ItemCode
+                SELECT l.ItemId, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase, i.Code AS ItemCode
                 FROM PickTaskLine l
                 JOIN PickTask pt ON pt.Id = l.PickTaskId
                 JOIN Item i ON i.Id = l.ItemId
@@ -86,7 +86,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
             // Satırı tamamla
             await conn.ExecuteAsync(
-                "UPDATE PickTaskLine SET QtyPickedBase = QtyToPickBase WHERE Id = @LineId",
+                "UPDATE PickTaskLine SET QtyPickedBase = QtyRequestedBase WHERE Id = @LineId",
                 new { LineId = lineId }, trans);
 
             // İş emri durumunu güncelle: IN_PROGRESS
@@ -96,7 +96,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
             // Tüm satırlar tamamlandıysa COMPLETED yap
             var remaining = await conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = @TaskId AND QtyPickedBase < QtyToPickBase",
+                "SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = @TaskId AND QtyPickedBase < QtyRequestedBase",
                 new { TaskId = taskId }, trans);
             if (remaining == 0)
                 await conn.ExecuteAsync(
@@ -121,7 +121,6 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         public decimal QtyPickedBase { get; set; }
         public string? BinCode { get; set; }
         public string? WhCode { get; set; }
-        public string? LotNo { get; set; }
         public decimal Remaining => QtyToPickBase - QtyPickedBase;
     }
 }

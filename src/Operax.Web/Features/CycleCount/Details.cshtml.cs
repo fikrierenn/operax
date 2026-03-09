@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.CycleCount;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
     [BindProperty]
     public CountHeaderDto Header { get; set; } = new();
@@ -78,6 +78,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Header.Id, CompanyId = company.Id, Header.DocNo,
                     Status = DocStatus.Draft, Header.WarehouseId, UserId = user.Id
                 });
+            await audit.LogAsync("CREATE", "CycleCount", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -115,6 +116,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
         await conn.ExecuteAsync("sp_CycleCountPost",
             new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
             commandType: CommandType.StoredProcedure);
+        await audit.LogAsync("POST", "CycleCount", id, "Stok sayımı kapatıldı, düzeltme hareketleri oluşturuldu");
         return RedirectToPage(new { id });
     }
 

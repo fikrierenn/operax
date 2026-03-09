@@ -35,7 +35,7 @@ public class PutawayModel(Db db, ICurrentCompany company, ICurrentUser user) : P
             FROM Bin b
             JOIN Warehouse w ON w.Id = b.WarehouseId
             WHERE w.CompanyId = @CompanyId
-              AND (b.IsPickingArea = 1 OR b.IsStorageArea = 1)
+              AND b.IsPickingArea = 1
               AND b.IsActive = 1",
             new { CompanyId = company.Id });
     }

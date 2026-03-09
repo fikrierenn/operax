@@ -1,4 +1,3 @@
-using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,10 +18,9 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
         using var conn = db.Open();
 
         PendingDocs = await conn.QueryAsync<PendingShipDto>(@"
-            SELECT h.Id, h.DocNo, p.Name AS PartnerName,
+            SELECT h.Id, h.DocNo,
                    (SELECT COUNT(*) FROM ShippingLine WHERE HeaderId = h.Id) AS LineCount
             FROM ShippingHeader h
-            LEFT JOIN Partner p ON p.Id = h.PartnerId
             WHERE h.CompanyId = @CompanyId AND h.Status = 'DRAFT'
             ORDER BY h.CreatedAt DESC",
             new { CompanyId = company.Id });
@@ -30,9 +28,8 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
         if (!docId.HasValue) return;
 
         ActiveDoc = await conn.QueryFirstOrDefaultAsync<ShipmentTermDto>(@"
-            SELECT h.Id, h.DocNo, p.Name AS PartnerName, h.Status
+            SELECT h.Id, h.DocNo, h.Status
             FROM ShippingHeader h
-            LEFT JOIN Partner p ON p.Id = h.PartnerId
             WHERE h.Id = @DocId AND h.CompanyId = @CompanyId",
             new { DocId = docId, CompanyId = company.Id });
 
@@ -40,10 +37,11 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
 
         ActiveDoc.Lines = (await conn.QueryAsync<ShipLineTermDto>(@"
             SELECT l.Id, i.Code AS ItemCode, i.Name AS ItemName,
-                   l.QtyToShip, l.QtyShipped
+                   dv.Code AS UomCode, l.QtyOriginal AS QtyToShip
             FROM ShippingLine l
             JOIN ShippingHeader h ON h.Id = l.HeaderId
             JOIN Item i ON i.Id = l.ItemId
+            JOIN DictionaryValue dv ON dv.Id = l.UomId
             WHERE l.HeaderId = @DocId AND h.CompanyId = @CompanyId
             ORDER BY i.Code",
             new { DocId = docId, CompanyId = company.Id })).ToList();
@@ -51,37 +49,28 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
 
     public async Task<IActionResult> OnPostScanAsync(Guid docId, string barcode, decimal qty)
     {
-        // Barkod okunan ürünü sevkiyat satırında doğrular ve sevk miktarını günceller
+        // Barkod okunan ürünü sevkiyat satırında doğrular
         using var conn = db.Open();
-        using var trans = conn.BeginTransaction();
-        try
-        {
-            var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
-                SELECT i.Id FROM ItemBarcode b
-                JOIN Item i ON i.Id = b.ItemId
-                WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
-                UNION
-                SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
-                new { Barcode = barcode, CompanyId = company.Id }, trans);
 
-            if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
+        var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
+            SELECT i.Id FROM ItemBarcode b
+            JOIN Item i ON i.Id = b.ItemId
+            WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
+            UNION
+            SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
+            new { Barcode = barcode, CompanyId = company.Id });
 
-            var lineId = await conn.ExecuteScalarAsync<Guid?>(@"
-                SELECT l.Id FROM ShippingLine l
-                JOIN ShippingHeader h ON h.Id = l.HeaderId
-                WHERE l.HeaderId = @DocId AND l.ItemId = @ItemId AND h.CompanyId = @CompanyId",
-                new { DocId = docId, ItemId = itemId }, trans);
+        if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
 
-            if (!lineId.HasValue) { TempData["Error"] = "Bu ürün sevkiyat belgesinde yok."; return RedirectToPage(new { docId }); }
+        var lineExists = await conn.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM ShippingLine l
+            JOIN ShippingHeader h ON h.Id = l.HeaderId
+            WHERE l.HeaderId = @DocId AND l.ItemId = @ItemId AND h.CompanyId = @CompanyId",
+            new { DocId = docId, ItemId = itemId });
 
-            await conn.ExecuteAsync(
-                "UPDATE ShippingLine SET QtyShipped = QtyShipped + @Qty WHERE Id = @LineId",
-                new { Qty = qty, LineId = lineId }, trans);
+        if (lineExists == 0) { TempData["Error"] = "Bu ürün sevkiyat belgesinde yok."; return RedirectToPage(new { docId }); }
 
-            trans.Commit();
-            TempData["Success"] = $"Paketlendi: {barcode} × {qty}";
-        }
-        catch { trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
+        TempData["Success"] = $"Doğrulandı: {barcode} × {qty}";
         return RedirectToPage(new { docId });
     }
 
@@ -89,26 +78,23 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
     {
         public Guid Id { get; set; }
         public string DocNo { get; set; } = "";
-        public string? PartnerName { get; set; }
         public string Status { get; set; } = "";
         public List<ShipLineTermDto> Lines { get; set; } = [];
     }
 
     public record ShipLineTermDto
     {
-        public Guid Id { get; set; }
-        public string ItemCode { get; set; } = "";
-        public string ItemName { get; set; } = "";
+        public Guid    Id        { get; set; }
+        public string  ItemCode  { get; set; } = "";
+        public string  ItemName  { get; set; } = "";
+        public string? UomCode   { get; set; }
         public decimal QtyToShip { get; set; }
-        public decimal QtyShipped { get; set; }
-        public bool IsComplete => QtyShipped >= QtyToShip;
     }
 
     public record PendingShipDto
     {
-        public Guid Id { get; set; }
-        public string DocNo { get; set; } = "";
-        public string? PartnerName { get; set; }
-        public int LineCount { get; set; }
+        public Guid   Id        { get; set; }
+        public string DocNo     { get; set; } = "";
+        public int    LineCount { get; set; }
     }
 }

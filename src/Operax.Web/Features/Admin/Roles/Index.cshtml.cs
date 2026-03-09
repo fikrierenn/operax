@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Roles;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Administrator")]
 public class IndexModel(Db db) : PageModel
 {
     public IEnumerable<IdentityRole> Roles { get; set; } = [];

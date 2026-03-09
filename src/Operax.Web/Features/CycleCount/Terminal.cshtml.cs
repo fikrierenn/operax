@@ -20,8 +20,8 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
         PendingCounts = await conn.QueryAsync<PendingCountDto>(@"
             SELECT c.Id, c.DocNo,
-                   (SELECT COUNT(*) FROM CycleCountLine WHERE CountId = c.Id) AS TotalLines,
-                   (SELECT COUNT(*) FROM CycleCountLine WHERE CountId = c.Id AND QtyCounted IS NOT NULL) AS CountedLines
+                   (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id) AS TotalLines,
+                   (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id AND QtyCounted > 0) AS CountedLines
             FROM CycleCount c
             WHERE c.CompanyId = @CompanyId AND c.Status = 'IN_PROGRESS'
             ORDER BY c.CreatedAt DESC",
@@ -38,17 +38,17 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
         if (ActiveCount == null) return;
 
-        // Sayılmamış (QtyCounted IS NULL) satırlar — önce bunlar
+        // Sayılmamış (QtyCounted = 0) satırlar — önce bunlar
         ActiveCount.Lines = (await conn.QueryAsync<CountLineTermDto>(@"
             SELECT l.Id, l.QtyCounted, l.QtySystem,
                    i.Code AS ItemCode, i.Name AS ItemName,
                    b.Code AS BinCode, l.LotNo
             FROM CycleCountLine l
-            JOIN CycleCount c ON c.Id = l.CountId
+            JOIN CycleCount c ON c.Id = l.CycleCountId
             JOIN Item i ON i.Id = l.ItemId
             LEFT JOIN Bin b ON b.Id = l.BinId
-            WHERE l.CountId = @CountId AND c.CompanyId = @CompanyId
-            ORDER BY (CASE WHEN l.QtyCounted IS NULL THEN 0 ELSE 1 END), b.Code, i.Code",
+            WHERE l.CycleCountId = @CountId AND c.CompanyId = @CompanyId
+            ORDER BY (CASE WHEN l.QtyCounted = 0 THEN 0 ELSE 1 END), b.Code, i.Code",
             new { CountId = countId, CompanyId = company.Id })).ToList();
     }
 
@@ -59,8 +59,8 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         await conn.ExecuteAsync(@"
             UPDATE l SET l.QtyCounted = @QtyCounted, l.CountedBy = @UserId, l.CountedAt = GETUTCDATE()
             FROM CycleCountLine l
-            JOIN CycleCount c ON c.Id = l.CountId
-            WHERE l.Id = @LineId AND l.CountId = @CountId AND c.CompanyId = @CompanyId",
+            JOIN CycleCount c ON c.Id = l.CycleCountId
+            WHERE l.Id = @LineId AND l.CycleCountId = @CountId AND c.CompanyId = @CompanyId",
             new { QtyCounted = qtyCounted, UserId = user.Id, LineId = lineId, CountId = countId, CompanyId = company.Id });
 
         TempData["Success"] = $"Sayım kaydedildi: {qtyCounted}";
@@ -75,7 +75,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         public string? WhCode { get; set; }
         public List<CountLineTermDto> Lines { get; set; } = [];
         public int TotalLines => Lines.Count;
-        public int CountedLines => Lines.Count(l => l.QtyCounted.HasValue);
+        public int CountedLines => Lines.Count(l => l.QtyCounted > 0);
     }
 
     public record CountLineTermDto
@@ -86,8 +86,8 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
         public string? BinCode { get; set; }
         public string? LotNo { get; set; }
         public decimal QtySystem { get; set; }
-        public decimal? QtyCounted { get; set; }
-        public bool IsCounted => QtyCounted.HasValue;
+        public decimal QtyCounted { get; set; }
+        public bool IsCounted => QtyCounted > 0;
     }
 
     public record PendingCountDto

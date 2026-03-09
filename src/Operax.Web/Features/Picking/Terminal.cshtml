@@ -58,7 +58,6 @@ else
             <div class="bg-slate-700 rounded-xl p-3 mb-4">
                 <div class="font-black text-white text-lg">@l.ItemCode</div>
                 <div class="text-slate-400 text-sm">@l.ItemName</div>
-                @if (l.LotNo != null) { <div class="text-indigo-300 text-xs font-mono mt-1">Lot: @l.LotNo</div> }
                 <div class="text-3xl font-black text-amber-400 mt-2">× @l.Remaining.ToString("N2")</div>
             </div>
 

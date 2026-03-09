@@ -17,7 +17,6 @@
                 <a href="?docId=@d.Id" class="flex items-center justify-between bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded-xl p-4 transition-colors">
                     <div>
                         <div class="font-black text-white">@d.DocNo</div>
-                        <div class="text-slate-400 text-xs">@(d.PartnerName ?? "—")</div>
                     </div>
                     <div class="text-right">
                         <div class="text-indigo-400 font-bold text-sm">@d.LineCount satır</div>
@@ -42,7 +41,6 @@ else
         <div>
             <div class="text-[10px] text-indigo-300 uppercase font-bold">Sevkiyat</div>
             <div class="text-2xl font-black text-white">@doc.DocNo</div>
-            <div class="text-indigo-300 text-sm">@(doc.PartnerName ?? "—")</div>
         </div>
         <a href="?" class="bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-bold">← Geri</a>
     </div>
@@ -71,18 +69,16 @@ else
         <div class="divide-y divide-slate-700">
             @foreach (var line in doc.Lines)
             {
-                <div class="px-4 py-3 flex items-center justify-between @(line.IsComplete ? "opacity-50" : "")">
+                <div class="px-4 py-3 flex items-center justify-between">
                     <div>
                         <div class="font-bold text-white text-sm">@line.ItemCode</div>
                         <div class="text-slate-400 text-xs">@line.ItemName</div>
                     </div>
                     <div class="text-right">
-                        <div class="font-mono font-bold @(line.IsComplete ? "text-green-400" : "text-amber-400")">
-                            @line.QtyShipped.ToString("N2") / @line.QtyToShip.ToString("N2")
+                        <div class="font-mono font-bold text-amber-400">
+                            @line.QtyToShip.ToString("N2") @line.UomCode
                         </div>
-                        <div class="text-[10px] @(line.IsComplete ? "text-green-500" : "text-slate-500")">
-                            @(line.IsComplete ? "✓ Paketlendi" : "Bekliyor")
-                        </div>
+                        <div class="text-[10px] text-slate-500">Sevk edilecek</div>
                     </div>
                 </div>
             }

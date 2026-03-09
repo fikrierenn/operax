@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Users;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Administrator")]
 public class CreateModel(UserManager<IdentityUser> userManager) : PageModel
 {
     [BindProperty]

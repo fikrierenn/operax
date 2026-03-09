@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.PurchaseOrders;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
     [BindProperty]
     public PurchaseOrderHeaderDto Header { get; set; } = new();
@@ -87,12 +87,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Header.OrderNo, Status = DocStatus.Draft, Header.OrderDate, Header.Notes,
                     UserId = user.Id
                 });
+            await audit.LogAsync("CREATE", "PurchaseOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
         }
         else
         {
             await conn.ExecuteAsync(
                 "UPDATE PurchaseOrderHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
                 new { Header.WarehouseId, Header.PartnerId, Header.Notes, Header.Id, CompanyId = company.Id });
+            await audit.LogAsync("UPDATE", "PurchaseOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -124,6 +126,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
         await conn.ExecuteAsync(
             "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
             new { Status = DocStatus.Approved, UserId = user.Id, Id = id, CompanyId = company.Id });
+        await audit.LogAsync("APPROVE", "PurchaseOrderHeader", id, "Satınalma siparişi onaylandı");
         return RedirectToPage(new { id });
     }
 

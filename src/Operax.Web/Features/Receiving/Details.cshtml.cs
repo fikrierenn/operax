@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Receiving;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
     [BindProperty]
     public ReceivingHeaderDto Header { get; set; } = new();
@@ -45,7 +45,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
             new { CompanyId = company.Id });
 
         AllUoms = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, NameTr as Name FROM DictionaryValue WHERE TypeId = (SELECT Id FROM DictionaryType WHERE Code = 'UOM') AND IsActive = 1");
+            "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'UOM' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0",
+            new { CompanyId = company.Id });
 
         if (id.HasValue)
         {
@@ -98,12 +99,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
                     Header.PurchaseOrderId, Header.DocNo, Status = DocStatus.Draft, Header.Notes,
                     UserId = user.Id
                 });
+            await audit.LogAsync("CREATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
         else
         {
             await conn.ExecuteAsync(
                 "UPDATE ReceivingHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, PurchaseOrderId=@PurchaseOrderId, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
                 new { Header.WarehouseId, Header.PartnerId, Header.PurchaseOrderId, Header.Notes, Header.Id, CompanyId = company.Id });
+            await audit.LogAsync("UPDATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -143,6 +146,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
         await conn.ExecuteAsync("sp_ReceivingPost",
             new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
             commandType: CommandType.StoredProcedure);
+        await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul irsaliyesi onaylandı");
         return RedirectToPage(new { id });
     }
 

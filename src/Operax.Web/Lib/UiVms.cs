@@ -48,3 +48,20 @@ public record StatusStepVm(
 /// </summary>
 public record StatusFlowVm(
     IReadOnlyList<StatusStepVm> Steps);
+
+/// <summary>
+/// Tek bir sekme (tab) — etiket, query-string değeri ve opsiyonel sayı rozeti.
+/// </summary>
+public record TabVm(
+    string Label,
+    string Value,
+    int?   Count = null);
+
+/// <summary>
+/// Liste sayfasındaki sekme grubu. ActiveValue mevcut seçili sekmedir.
+/// QueryParamName URL'de bu sekmenin hangi parametre adıyla taşındığını söyler (ör. "Tab").
+/// </summary>
+public record TabsVm(
+    IReadOnlyList<TabVm> Tabs,
+    string ActiveValue,
+    string QueryParamName = "tab");

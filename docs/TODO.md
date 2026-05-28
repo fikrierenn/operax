@@ -2,7 +2,7 @@
 
 > Kaynak: OPERAX_Platform_Master_Document_v2_2_TR.docx  
 > Sürüm: v2.2-TR | Güncelleme: Mart 2026  
-> Format: `[ ]` yapılacak · `[x]` devam ediyor · `[x]` tamamlandı
+> Format: `[ ]` yapılacak · `[/]` devam ediyor · `[x]` tamamlandı
 
 ---
 

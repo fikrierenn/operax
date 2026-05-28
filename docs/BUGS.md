@@ -390,4 +390,7 @@ Sprint : S1'den itibaren her sprint'te ilgili ekranlar → cross-cutting
 
 | Bug ID | Çözüm Tarihi | Çözen | Notlar |
 |---|---|---|---|
-| — | — | — | — |
+| BUG-001..009 + SEC-001..003 + NULL-001..009 + UNUSED-001..003 | Mart 2026 | Claude | Sprint 0 — commit 694c2b4 |
+| S1-ROL-001 | Mart 2026 | Claude | Users/Create+Edit rol dropdown + company claim ataması eklendi |
+| S1-ROL-002 | Mart 2026 | Claude | Roles/Create sayfası oluşturuldu (yeni dosyalar) |
+| S1-ROL-003 | Mart 2026 | Claude | Roles/Index Sil handler eklendi; Administrator rolü korumalı |

@@ -71,42 +71,27 @@
 ## SPRINT 0 — Foundation Fix
 > Hedef: Build geçiyor · Uygulama ayağa kalkıyor · 0 hata · 0 uyarı
 > Detay: `docs/BUGS.md` ve `docs/SPRINT_0.md`
+> **TAMAMLANDI ✅ — Mart 2026, commit 694c2b4**
 
-### Hatalar (19 hata — Build FAIL)
+- [x] Tüm 19 build hatası giderildi
+- [x] Güvenlik açıkları kapatıldı (Newtonsoft.Json 13.0.3, hardcoded credentials)
+- [x] 27 uyarı temizlendi (CS8602, CS8601, CS9113)
 
-- [ ] `Program.cs:16` — `AddDefaultIdentity` CS1061 — NuGet ref eksik
-- [ ] `Shipping/Details.cshtml:4,10,11,17,23,76` — `IsNew` CS1061
-- [ ] `Shipping/Details.cshtml.cs:140` — `IsNew` CS0103
-- [ ] `CycleCount/Details.cshtml.cs:73` — `BinId, ItemId, QtySystem, QtyCounted` CS0103
-- [ ] `CycleCount/Details.cshtml.cs:100` — `QtyDifference` null ref
-- [ ] `MasterData/Items/Details.cshtml.cs:83,90` — `UomId` CS0103
-- [ ] `Transfer/Details.cshtml.cs:79` — `FromBinId, ToBinId` CS0103
-- [ ] `Transfer/Putaway.cshtml.cs:57,64` — `ItemId` CS0103
-- [ ] `Production/Details.cshtml.cs:96` — `ProductionLineDto.ItemId` CS1061
-
-### Güvenlik
-
-- [ ] `Newtonsoft.Json 11.0.1` → `13.0.3` upgrade (GHSA-5crp-9r3c-p9vr)
-- [ ] `Operax.Cli/Program.cs` hardcoded credentials → appsettings.json
-
-### Uyarılar (27 uyarı)
-
-- [ ] 15x CS8602 null dereference — Receiving, Shipping, Transfer, Production, Picking
-- [ ] 5x CS8601 null assignment — Items, Shipping, SalesOrders, PurchaseOrders, Receiving
-- [ ] 3x CS9113 unused parameter — Dictionary/Details, Users/Index, AutoTraceabilityService
-
-**Kabul Kriteri:** `dotnet build src/Operax.Web/Operax.Web.csproj` → 0 hata, 0 uyarı
+**Kabul Kriteri:** `dotnet build src/Operax.Web/Operax.Web.csproj` → 0 hata, 0 uyarı ✅
 
 ---
 
 ## SPRINT 1 — M00 Platform Core Stabilize
 > Önkoşul: Sprint 0 tamamlandı
 > Hedef: Login, admin ekranları, role-based auth sorunsuz çalışıyor
+> **IN PROGRESS — Mart 2026**
 
 - [ ] Login akışı test — company claim düzgün set ediliyor mu?
 - [ ] `CurrentCompany.Id` middleware'i doğrula — Guid.Empty gelmiyor mu?
-- [ ] Rol bazlı sayfa yetkilendirmesi — `[Authorize(Roles="...")]` tutarlı mı?
-- [ ] `/admin/audit-log` ekranı — schema var, UI yok
+- [x] Rol bazlı kullanıcı yönetimi — Users/Create + Edit'e rol dropdown + company claim ataması eklendi
+- [x] Roles/Create sayfası implement edildi (yeni rol oluşturma)
+- [x] Roles/Index — Sil handler eklendi (Administrator rolü korumalı)
+- [ ] `/admin/audit-log` ekranı — schema var, UI yok → **SIRADAKI**
 - [ ] StatusTransition engine — Posted işlemlerinde çalışıyor mu?
 - [ ] Seed data kontrolü — `seed_core.sql` çalıştırıldı mı, eksik var mı?
 - [ ] Hangfire dashboard — `/admin/jobs` erişilebiliyor mu?

@@ -61,21 +61,33 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         return Page();
     }
 
-    // Bankaya verme — sadece çekte (senet SP'leri henüz yok, ileride sp_DepositNote)
+    // Bankaya verme — çek ve senet için ayrı SP (type'a göre)
     public async Task<IActionResult> OnPostDepositAsync(Guid accountId)
-        => await RunSpAsync("sp_DepositCheque",
-            new { ChequeId = Id, AccountId = accountId, DepositDate = (DateTime?)null, UserId = user.Id },
-            "Çek bankaya tahsile verildi.");
+        => IsNote
+            ? await RunSpAsync("sp_DepositNote",
+                new { NoteId = Id, AccountId = accountId, DepositDate = (DateTime?)null, UserId = user.Id },
+                "Senet bankaya tahsile verildi.")
+            : await RunSpAsync("sp_DepositCheque",
+                new { ChequeId = Id, AccountId = accountId, DepositDate = (DateTime?)null, UserId = user.Id },
+                "Çek bankaya tahsile verildi.");
 
     public async Task<IActionResult> OnPostCollectAsync()
-        => await RunSpAsync("sp_CollectCheque",
-            new { ChequeId = Id, CollectDate = (DateTime?)null, UserId = user.Id },
-            "Çek tahsil edildi, banka hesabına gelir işlendi.");
+        => IsNote
+            ? await RunSpAsync("sp_CollectNote",
+                new { NoteId = Id, CollectDate = (DateTime?)null, UserId = user.Id },
+                "Senet tahsil edildi, banka hesabına gelir işlendi.")
+            : await RunSpAsync("sp_CollectCheque",
+                new { ChequeId = Id, CollectDate = (DateTime?)null, UserId = user.Id },
+                "Çek tahsil edildi, banka hesabına gelir işlendi.");
 
     public async Task<IActionResult> OnPostReturnAsync(string reason)
-        => await RunSpAsync("sp_ReturnCheque",
-            new { ChequeId = Id, Reason = reason ?? "Karşılıksız", UserId = user.Id },
-            "Çek karşılıksız olarak işaretlendi.");
+        => IsNote
+            ? await RunSpAsync("sp_ReturnNote",
+                new { NoteId = Id, Reason = reason ?? "Karşılıksız", UserId = user.Id },
+                "Senet karşılıksız olarak işaretlendi.")
+            : await RunSpAsync("sp_ReturnCheque",
+                new { ChequeId = Id, Reason = reason ?? "Karşılıksız", UserId = user.Id },
+                "Çek karşılıksız olarak işaretlendi.");
 
     // Ortak SP çağrı + hata yakalama helper'ı
     private async Task<IActionResult> RunSpAsync(string sp, object args, string successMsg)

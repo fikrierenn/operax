@@ -437,6 +437,107 @@ END
 GO
 
 -- =============================================================================
+-- M11 SENET: sp_DepositNote — PORTFOLIO → IN_BANK (bankaya tahsile verme)
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_DepositNote
+    @NoteId      UNIQUEIDENTIFIER,
+    @AccountId   UNIQUEIDENTIFIER,
+    @DepositDate DATETIME2 = NULL,
+    @UserId      UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @Status NVARCHAR(20);
+    SELECT @Status = Status FROM PromissoryNote WHERE Id = @NoteId AND IsDeleted = 0;
+
+    IF @Status IS NULL THROW 51310, N'Senet bulunamadı.', 1;
+    IF @Status <> 'PORTFOLIO' THROW 51311, N'Sadece portföydeki senetler bankaya verilebilir.', 1;
+
+    UPDATE PromissoryNote
+    SET Status               = 'IN_BANK',
+        DepositedToAccountId = @AccountId,
+        DepositedAt          = ISNULL(@DepositDate, GETUTCDATE()),
+        UpdatedAt            = GETUTCDATE(),
+        UpdatedBy            = @UserId
+    WHERE Id = @NoteId;
+END
+GO
+
+-- =============================================================================
+-- M11 SENET: sp_CollectNote — IN_BANK → COLLECTED + FinancialTransaction (INCOME)
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_CollectNote
+    @NoteId      UNIQUEIDENTIFIER,
+    @CollectDate DATETIME2 = NULL,
+    @UserId      UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20), @Amount DECIMAL(18,2),
+                @AccountId UNIQUEIDENTIFIER, @PartnerId UNIQUEIDENTIFIER,
+                @CompanyId UNIQUEIDENTIFIER, @NoteNo NVARCHAR(50);
+
+        SELECT @Status = Status, @Amount = Amount, @AccountId = DepositedToAccountId,
+               @PartnerId = PartnerId, @CompanyId = CompanyId, @NoteNo = NoteNo
+        FROM PromissoryNote WHERE Id = @NoteId AND IsDeleted = 0;
+
+        IF @Status IS NULL THROW 51310, N'Senet bulunamadı.', 1;
+        IF @Status <> 'IN_BANK' THROW 51312, N'Sadece bankaya verilmiş senetler tahsil edilebilir.', 1;
+        IF @AccountId IS NULL THROW 51313, N'Senetin tahsile verildiği banka hesabı bulunamadı.', 1;
+
+        DECLARE @TxId UNIQUEIDENTIFIER = NEWID();
+        DECLARE @Now  DATETIME2        = ISNULL(@CollectDate, GETUTCDATE());
+
+        INSERT INTO FinancialTransaction (
+            Id, CompanyId, AccountId, TransactionDate, TransactionType,
+            Amount, Currency, AmountTRY, PartnerId, Description,
+            InstrumentType, InstrumentId, SourceDocType, SourceDocNo, CreatedBy)
+        VALUES (
+            @TxId, @CompanyId, @AccountId, @Now, 'INCOME',
+            @Amount, 'TRY', @Amount, @PartnerId, N'Senet tahsili: ' + @NoteNo,
+            'NOTE', @NoteId, 'NOTE_COLLECTION', @NoteNo, @UserId);
+
+        UPDATE PromissoryNote
+        SET Status = 'COLLECTED', CollectedAt = @Now, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @NoteId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- M11 SENET: sp_ReturnNote — karşılıksız (IN_BANK/PORTFOLIO → RETURNED)
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ReturnNote
+    @NoteId  UNIQUEIDENTIFIER,
+    @Reason  NVARCHAR(500),
+    @UserId  UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PromissoryNote
+    SET Status = 'RETURNED', ReturnReason = @Reason,
+        UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+    WHERE Id = @NoteId AND Status IN ('IN_BANK', 'PORTFOLIO');
+
+    IF @@ROWCOUNT = 0 THROW 51314, N'Senet karşılıksız olarak işaretlenemiyor (statü uygun değil).', 1;
+END
+GO
+
+-- =============================================================================
 -- M11 KREDİ: sp_CreateLoan (Plan 01 Faz 1)
 -- 7 kredi hesap yöntemi destekler:
 --   ANUITE           — taksit sabit (geleneksel), faiz azalır anapara artar

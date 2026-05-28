@@ -28,7 +28,7 @@
         <div class="card-hdr">
             <div class="card-title">Durum: @Html.Raw(UiHelpers.StatusBadge(c.Status))</div>
             <div class="row" style="gap:6px;">
-                @if (c.Status == "PORTFOLIO" && !Model.IsNote)
+                @if (c.Status == "PORTFOLIO")
                 {
                     <form method="post" asp-page-handler="Deposit" class="row" style="gap:4px;">
                         <select name="accountId" class="form-ctrl" style="height:30px;width:160px;" required>
@@ -41,7 +41,7 @@
                         <button class="btn btn-primary btn-sm">Bankaya Ver</button>
                     </form>
                 }
-                @if (c.Status == "IN_BANK" && !Model.IsNote)
+                @if (c.Status == "IN_BANK")
                 {
                     <form method="post" asp-page-handler="Collect">
                         <button class="btn btn-success btn-sm">Tahsil Et</button>
@@ -51,7 +51,7 @@
                 }
             </div>
         </div>
-        @if (c.Status == "IN_BANK" && !Model.IsNote)
+        @if (c.Status == "IN_BANK")
         {
             <div class="card-body" id="returnForm" style="display:none;">
                 <form method="post" asp-page-handler="Return" class="row" style="gap:8px;">

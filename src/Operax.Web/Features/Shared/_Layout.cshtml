@@ -24,7 +24,7 @@
         : L.T("Aktif Şirket", "Active Company");
 }
 <!DOCTYPE html>
-<html lang="@(L.IsEn ? "en" : "tr")">
+<html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -319,25 +319,7 @@
                     </form>
                 }
 
-                <!-- Language Switcher -->
-                <div style="display:flex;align-items:center;background:hsl(220,14%,96%);border:1px solid hsl(220,14%,90%);border-radius:9px;padding:3px;height:32px;">
-                    <button id="lang-tr" onclick="setLanguage('tr-TR')" title="Türkçe" style="
-                        padding:4px 9px;border-radius:6px;border:none;cursor:pointer;
-                        font-size:11px;font-weight:700;font-family:inherit;
-                        background:@(L.IsEn ? "transparent" : "white");
-                        color:@(L.IsEn ? "hsl(215,16%,55%)" : "hsl(243,75%,50%)" );
-                        box-shadow:@(L.IsEn ? "none" : "0 1px 3px hsl(0,0%,0%,0.08)");
-                        transition:all 150ms ease;
-                    ">TR</button>
-                    <button id="lang-en" onclick="setLanguage('en-US')" title="English" style="
-                        padding:4px 9px;border-radius:6px;border:none;cursor:pointer;
-                        font-size:11px;font-weight:700;font-family:inherit;
-                        background:@(L.IsEn ? "white" : "transparent");
-                        color:@(L.IsEn ? "hsl(243,75%,50%)" : "hsl(215,16%,55%)" );
-                        box-shadow:@(L.IsEn ? "0 1px 3px hsl(0,0%,0%,0.08)" : "none");
-                        transition:all 150ms ease;
-                    ">EN</button>
-                </div>
+                @* Dil değiştirici (TR/EN) kaldırıldı — arayüz tamamen Türkçe (turkish-ui.md kuralı) *@
 
                 <!-- Date chip -->
                 <div style="
@@ -374,14 +356,7 @@
 <script src="~/js/site.js" asp-append-version="true"></script>
 <script src="~/js/Shortcuts.js" asp-append-version="true"></script>
 <script>
-    // Language switcher (cookie-based)
-    function setLanguage(culture) {
-        const value = encodeURIComponent(`c=${culture}|uic=${culture}`);
-        document.cookie = `.AspNetCore.Culture=${value};path=/;max-age=31536000`;
-        window.location.reload();
-    }
-
-    // Active nav item detection — based on URL path
+    // Aktif menü öğesi tespiti — URL path'ine göre
     (function () {
         const p = window.location.pathname.toLowerCase();
         document.querySelectorAll('a.side-item, a.side-sub-item').forEach(function(a) {

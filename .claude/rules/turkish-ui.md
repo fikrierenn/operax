@@ -4,6 +4,25 @@ Bu dosya, Operax platformunun kullanıcı arayüzü (UI) dili ve yazılım dili 
 
 ---
 
+## 0. Karar (2026-05-28): Tek Dil — Türkçe
+
+Operax arayüzü **tamamen ve sadece Türkçe** olarak çalışır. İngilizce arayüz desteği bulunmaz:
+
+- `Program.cs` `RequestLocalization` tek desteklenen kültürle yapılandırılır: `tr-TR`
+- `_Layout.cshtml` `<html lang="tr">` sabit
+- Sidebar/Topbar'da dil değiştirici **YASAK** (UI'da gösterilmez)
+- `Lib/L.cs` `L.T(tr, en)` çağrı imzası geriye uyumluluk için korunur ancak **her zaman Türkçe** metni döner; İngilizce parametre yok sayılır
+- `L.IsEn` her zaman `false`
+- Tarih biçimi: `dd MMM yyyy` (örn. `28 May 2026`); kısa biçim `dd MMM`
+- Sayı/para: `tr-TR` kültürü — virgül ondalık, nokta binlik (`1.234,56 ₺`)
+- Para sembolü: `₺` (TL kısaltma kullanılmaz)
+
+**Sebep:** Tek hedef pazar Türkiye; çoklu dil bakım yükü olmadan UI Türkçe doğal akışta yazılır.
+
+**Gelecek i18n ihtiyacı:** `L.T(tr, en)` imzası korunduğu için ileride çok dilli pakete dönmek isterse tek yer (`Lib/L.cs`) revize edilir, çağrı yerleri değişmez.
+
+---
+
 ## 1. Kesin Dil Ayrımı Standartları
 
 | Katman | Dil Standardı | Örnek |

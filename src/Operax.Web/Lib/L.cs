@@ -1,30 +1,21 @@
-using System;
-using System.Globalization;
-using System.Threading;
-
 namespace Operax.Web.Lib;
 
 /// <summary>
-/// Çift dil (Türkçe/İngilizce) yerelleştirme yardımcısı.
-/// Arayüzdeki metinlerin hem Türkçe hem İngilizce olmasını sağlar.
+/// Türkçe arayüz yardımcısı.
+/// Karar (2026-05-28): Operax tamamen Türkçe arayüz olarak çalışır.
+/// L.T(tr, en) çağrı imzası geriye uyumluluk için korunmuştur ama
+/// her zaman Türkçe metni döndürür. İngilizce parametresi yok sayılır.
 /// </summary>
 public static class L
 {
     /// <summary>
-    /// Aktif kültüre göre Türkçe veya İngilizce metni döner.
-    /// Tarayıcı dili veya seçili kültüre göre çalışır.
+    /// Türkçe metni döner. İngilizce parametre geriye uyumluluk için
+    /// alınır ancak kullanılmaz (turkish-ui.md kuralı: arayüz tamamen Türkçe).
     /// </summary>
-    public static string T(string tr, string en)
-    {
-        if (string.IsNullOrEmpty(tr)) return en ?? string.Empty;
-        if (string.IsNullOrEmpty(en)) return tr;
-
-        var culture = Thread.CurrentThread.CurrentUICulture.Name;
-        return culture.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? en : tr;
-    }
+    public static string T(string tr, string en) => tr ?? string.Empty;
 
     /// <summary>
-    /// Aktif dilin İngilizce olup olmadığını döner.
+    /// Daima false — arayüz tamamen Türkçe.
     /// </summary>
-    public static bool IsEn => Thread.CurrentThread.CurrentUICulture.Name.StartsWith("en", StringComparison.OrdinalIgnoreCase);
+    public static bool IsEn => false;
 }

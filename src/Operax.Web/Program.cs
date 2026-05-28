@@ -60,8 +60,8 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
-// Çift Dil (TR/EN) Yerelleştirme Desteği
-var supportedCultures = new[] { "tr-TR", "en-US" };
+// Arayüz tamamen Türkçe (turkish-ui.md kuralı) — tek desteklenen kültür tr-TR
+var supportedCultures = new[] { "tr-TR" };
 var localizationOptions = new RequestLocalizationOptions()
     .SetDefaultCulture("tr-TR")
     .AddSupportedCultures(supportedCultures)

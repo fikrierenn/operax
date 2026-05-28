@@ -15,15 +15,17 @@ public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<Login
 
     public class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "E-posta adresi zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçersiz e-posta adresi formatı.")]
+        [Display(Name = "E-posta Adresi")]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "Şifre zorunludur.")]
         [DataType(DataType.Password)]
+        [Display(Name = "Şifre")]
         public string Password { get; set; } = string.Empty;
 
-        [Display(Name = "Remember me?")]
+        [Display(Name = "Beni Hatırla")]
         public bool RememberMe { get; set; }
     }
 
@@ -43,11 +45,11 @@ public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<Login
         
         if (result.Succeeded)
         {
-            logger.LogInformation("User logged in.");
+            logger.LogInformation("Kullanıcı başarıyla giriş yaptı.");
             return LocalRedirect(returnUrl);
         }
         
-        ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+        ModelState.AddModelError(string.Empty, "E-posta adresi veya şifre hatalı.");
         return Page();
     }
 }

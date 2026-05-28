@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-05-28
 **Yazan:** Claude
-**Durum:** `Taslak`
+**Durum:** `Uygulamada` (onay: 2026-05-28)
 **Modül:** M11 Finance
 **Paket:** STARTER
 

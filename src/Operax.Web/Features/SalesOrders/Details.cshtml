@@ -1,176 +1,313 @@
 @page "{id:guid?}"
+@using Operax.Web.Lib
 @model Operax.Web.Features.SalesOrders.DetailsModel
 @{
-    ViewData["Title"] = Model.IsNew ? "Yeni Satış Siparişi" : $"Satış Siparişi {Model.Header.OrderNo}";
+    var titleText = Model.IsNew
+        ? L.T("Yeni Satış Siparişi", "New Sales Order")
+        : Model.Header.OrderNo;
+    ViewData["Title"] = titleText;
+
+    var isDraft     = Model.Header.Status == DocStatus.Draft;
+    var isPosted    = Model.Header.Status == "APPROVED" || Model.Header.Status == DocStatus.Posted;
+    var isCancelled = Model.Header.Status == DocStatus.Cancelled;
+
+    var flowSteps = new List<StatusStepVm>
+    {
+        new(L.T("Oluşturuldu", "Created"), "done", Model.Header.CreatedAt?.ToString("dd MMM HH:mm")),
+        new(L.T("Taslak", "Draft"), isDraft ? "current" : "done", Model.Header.CreatedAt?.ToString("dd MMM HH:mm"))
+    };
+    if (isCancelled)
+        flowSteps.Add(new(L.T("İptal", "Cancelled"), "cancelled", Model.Header.UpdatedAt?.ToString("dd MMM HH:mm")));
+    else
+        flowSteps.Add(new(L.T("Onaylı", "Posted"), isPosted ? "current" : "pending", isPosted ? Model.Header.UpdatedAt?.ToString("dd MMM HH:mm") : null));
+
+    var flow = new StatusFlowVm(flowSteps);
+
+    var actions = $"<a href=\"/SalesOrders\" class=\"btn btn-ghost btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><polyline points=\"15 18 9 12 15 6\"/></svg>{L.T("Geri", "Back")}</a>" +
+                  $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>PDF</button>";
+    if (isDraft && !Model.IsNew)
+    {
+        actions += $"<button type=\"submit\" form=\"so-approve\" class=\"btn btn-success btn-sm\" data-shortcut=\"Alt+S\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\"/></svg>{L.T("Onayla", "Approve")}<span class=\"btn-kbd\">Alt+S</span></button>";
+    }
+    if (isPosted)
+    {
+        actions += $"<button type=\"submit\" form=\"so-cancel\" class=\"btn btn-secondary btn-sm\" style=\"color:var(--danger-text);border-color:var(--danger-border);\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>{L.T("İptal Et", "Cancel")}</button>";
+    }
+
+    var crumbs = Model.IsNew
+        ? new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Yeni", "New") }
+        : new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Siparişler", "Orders"), Model.Header.OrderNo };
+
+    var header = new PageHeaderVm(
+        Title: titleText,
+        Crumbs: crumbs,
+        Sub: Model.IsNew ? null : $"{Model.Header.CustomerName} · {L.T("Teslim", "Delivery")} <span class=\"mono\">{(Model.Header.RequestedDeliveryDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.RequestedDeliveryDate.Value) : "—")}</span>",
+        ActionsHtml: actions);
 }
 
-<form method="post" class="fade-in">
-    <div class="page-hdr">
-        <div>
-            <div class="flex items-center gap-2 mb-2 text-xs">
-                <a asp-page="./Index" class="btn btn-secondary btn-sm py-1 px-2.5 min-h-0">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3" viewBox="0 0 24 24">
-                        <polyline points="15 18 9 12 15 6"/>
-                    </svg>
-                    Satış Siparişleri
-                </a>
-                <span class="text-slate-400">/</span>
-                <span class="text-slate-600 font-semibold">Sipariş Girişi</span>
-            </div>
-            <h1>@(Model.IsNew ? "Yeni Satış Siparişi" : $"Sipariş: {Model.Header.OrderNo}")</h1>
-            <p class="page-hdr-sub">@(Model.IsNew ? "Satış işlemine başlamak için sipariş başlık bilgilerini giriniz" : Model.Header.CustomerName)</p>
-        </div>
-        <div class="page-hdr-r flex gap-2">
-            <a asp-page="./Index" class="btn btn-secondary">
-                Listeye Dön
-            </a>
-            @if (Model.IsNew || Model.Header.Status == "DRAFT")
-            {
-                <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
-                    Siparişi Kaydet
-                </button>
-            }
-            @if (!Model.IsNew && Model.Header.Status == "DRAFT")
-            {
-                <button type="submit" asp-page-handler="Approve" class="btn btn-success" data-shortcut="Alt+P">
-                    Siparişi Onayla
-                </button>
-            }
-        </div>
-    </div>
+<div class="page" data-screen-label="Sales Detail" style="max-width:1400px;">
 
-    <!-- Belge Başlığı -->
-    <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
-        <div class="form-group mb-0">
-            <label class="form-label">Depo</label>
-            <select asp-for="Header.WarehouseId" class="form-ctrl w-full" required>
-                <option value="">Depo Seçiniz...</option>
-                @foreach (var wh in Model.Warehouses)
+    <partial name="_PageHeader" model="header" />
+
+    @if (!Model.IsNew)
+    {
+        <div class="row" style="gap:10px;margin-top:-10px;margin-bottom:14px;">
+            <span class="mono text-strong" style="font-size:14px;">@Model.Header.OrderNo</span>
+            @Html.Raw(UiHelpers.StatusBadge(Model.Header.Status))
+        </div>
+
+        <partial name="_StatusFlow" model="flow" />
+    }
+
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;">
+
+        @* SOL *@
+        <div class="stack">
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">@L.T("Evrak Bilgileri", "Document Info")</div></div>
+                <form method="post" class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Header.Id" />
+
+                    <div>
+                        <div class="form-label">@L.T("Müşteri", "Customer") <span class="req">*</span></div>
+                        @if (isDraft || Model.IsNew)
+                        {
+                            <select class="form-ctrl" asp-for="Header.PartnerId" required>
+                                <option value="">@L.T("Seçiniz…", "Select…")</option>
+                                @foreach (var c in Model.Customers)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <div style="font-size:13px;font-weight:600;margin-top:4px;color:var(--brand-500);">@Model.Header.CustomerName</div>
+                            <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">
+                                @if (!string.IsNullOrEmpty(Model.Header.PartnerTaxNumber))
+                                {
+                                    <text>VKN <span class="mono">@Model.Header.PartnerTaxNumber</span></text>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div>
+                        <div class="form-label">@L.T("Şehir", "City")</div>
+                        <div style="font-size:13px;font-weight:600;margin-top:4px;">@(Model.Header.PartnerCity ?? "—")</div>
+                        <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">Türkiye</div>
+                    </div>
+
+                    <div>
+                        <div class="form-label">@L.T("Teslim Tarihi", "Delivery Date")</div>
+                        @if (isDraft || Model.IsNew)
+                        {
+                            <input class="form-ctrl mono" type="date" asp-for="Header.RequestedDeliveryDate" />
+                        }
+                        else
+                        {
+                            <div class="mono" style="font-size:13px;font-weight:600;margin-top:4px;">@(Model.Header.RequestedDeliveryDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.RequestedDeliveryDate.Value) : "—")</div>
+                        }
+                    </div>
+
+                    <div>
+                        <div class="form-label">@L.T("Depo", "Warehouse") <span class="req">*</span></div>
+                        @if (isDraft || Model.IsNew)
+                        {
+                            <select class="form-ctrl" asp-for="Header.WarehouseId" required>
+                                <option value="">@L.T("Seçiniz…", "Select…")</option>
+                                @foreach (var w in Model.Warehouses)
+                                {
+                                    <option value="@w.Id">@w.Name</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <div style="font-size:13px;font-weight:600;margin-top:4px;">@Model.Header.WarehouseName</div>
+                        }
+                    </div>
+
+                    <div style="grid-column:span 4;">
+                        <div class="form-label">@L.T("Notlar", "Notes")</div>
+                        @if (isDraft || Model.IsNew)
+                        {
+                            <textarea class="form-ctrl" asp-for="Header.Notes" rows="2"></textarea>
+                        }
+                        else
+                        {
+                            <div style="font-size:13px;font-weight:500;margin-top:4px;color:var(--text-2);">@(string.IsNullOrEmpty(Model.Header.Notes) ? "—" : Model.Header.Notes)</div>
+                        }
+                    </div>
+
+                    @if (isDraft || Model.IsNew)
+                    {
+                        <div style="grid-column:span 4;display:flex;gap:8px;justify-content:flex-end;">
+                            <button type="submit" class="btn btn-primary btn-sm">@L.T("Kaydet", "Save")</button>
+                        </div>
+                    }
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="card-hdr">
+                    <div>
+                        <div class="card-title">@L.T("Sipariş Kalemleri", "Order Lines")</div>
+                        <div class="card-sub">@Model.Lines.Count() @L.T("kalem", "lines")</div>
+                    </div>
+                    @if (isDraft && !Model.IsNew)
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('add-line-row').style.display='table-row'">
+                            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            @L.T("Kalem Ekle", "Add Line")
+                        </button>
+                    }
+                </div>
+                <div class="card-body-flush">
+                    @if (!Model.Lines.Any() && !isDraft)
+                    {
+                        var emptyLines = new EmptyStateVm(Title: L.T("Kalem yok", "No lines"));
+                        <partial name="_EmptyState" model="emptyLines" />
+                    }
+                    else
+                    {
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th class="num" style="width:40px;">#</th>
+                                    <th>SKU</th>
+                                    <th>@L.T("Ürün Adı", "Item")</th>
+                                    <th>@L.T("Birim", "UOM")</th>
+                                    <th class="num">@L.T("Miktar", "Qty")</th>
+                                    <th class="num">@L.T("Sevk", "Shipped")</th>
+                                    <th class="num">@L.T("Açık", "Open")</th>
+                                    <th class="num">@L.T("Birim Fiyat", "Unit Price")</th>
+                                    <th class="num">@L.T("Toplam", "Total")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{ int lineNo = 0; }
+                                @foreach (var l in Model.Lines)
+                                {
+                                    lineNo++;
+                                    <tr>
+                                        <td class="num muted mono">@lineNo</td>
+                                        <td><span class="mono row-strong" style="color:var(--brand-500);">@l.ItemCode</span></td>
+                                        <td>@l.ItemName</td>
+                                        <td><span class="badge badge-neutral" style="height:18px;">@l.UomCode</span></td>
+                                        <td class="num">@UiHelpers.FmtNum(l.QtyOrdered)</td>
+                                        <td class="num">@UiHelpers.FmtNum(l.QtyShipped)</td>
+                                        <td class="num"><span class="@(l.OpenQty > 0 ? "row-strong" : "muted")">@UiHelpers.FmtNum(l.OpenQty)</span></td>
+                                        <td class="num">@UiHelpers.FmtNum(l.Price ?? 0, 2)</td>
+                                        <td class="num"><span class="row-strong">@UiHelpers.FmtTL(l.LineTotal)</span></td>
+                                    </tr>
+                                }
+                                @if (isDraft && !Model.IsNew)
+                                {
+                                    <tr id="add-line-row" style="display:none;background:var(--surface-2);">
+                                        <td colspan="9">
+                                            <form method="post" asp-page-handler="AddLine" class="row" style="gap:8px;padding:6px;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@Model.Header.Id" />
+                                                <select name="itemId" class="form-ctrl" style="flex:2;" required>
+                                                    <option value="">@L.T("Ürün seçiniz…", "Select item…")</option>
+                                                    @foreach (var i in Model.AvailableItems)
+                                                    {
+                                                        <option value="@i.Id">@i.Code — @i.Name</option>
+                                                    }
+                                                </select>
+                                                <input name="qty" type="number" step="any" min="0.01" class="form-ctrl" placeholder="@L.T("Miktar", "Qty")" style="flex:1;" required />
+                                                <input name="price" type="number" step="any" min="0" class="form-ctrl" placeholder="@L.T("Birim Fiyat", "Price")" style="flex:1;" />
+                                                <button type="submit" class="btn btn-primary btn-sm">@L.T("Ekle", "Add")</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                @if (Model.Lines.Any())
                 {
-                    <option value="@wh.Id">@wh.Code - @wh.Name</option>
+                    <div class="card-foot">
+                        <div style="font-size:11.5px;color:var(--text-3);">@L.T("Tüm tutarlar TRY (₺) cinsindendir", "All amounts in TRY (₺)")</div>
+                        <div class="row" style="gap:24px;font-size:12.5px;">
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                                <span class="text-mute">@L.T("Ara Toplam", "Subtotal")</span>
+                                <span class="mono text-strong">@UiHelpers.FmtTL(Model.Subtotal)</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                                <span class="text-mute">KDV (%20)</span>
+                                <span class="mono text-strong">@UiHelpers.FmtTL(Model.Vat)</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                                <span style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">@L.T("Genel Toplam", "Grand Total")</span>
+                                <span class="mono" style="font-size:17px;font-weight:700;color:var(--brand-500);">@UiHelpers.FmtTL(Model.Grand)</span>
+                            </div>
+                        </div>
+                    </div>
                 }
-            </select>
+            </div>
         </div>
-        <div class="form-group mb-0">
-            <label class="form-label">Müşteri</label>
-            <select asp-for="Header.PartnerId" class="form-ctrl w-full" required>
-                <option value="">Müşteri Seçiniz...</option>
-                @foreach (var p in Model.Customers)
-                {
-                    <option value="@p.Id">@p.Name</option>
-                }
-            </select>
-        </div>
-        <div class="form-group mb-0">
-            <label class="form-label">İstenen Teslim Tarihi</label>
-            <input asp-for="Header.RequestedDeliveryDate" type="date" class="form-ctrl w-full" />
-        </div>
-        <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
-            <label class="form-label md:text-right">Sipariş Durumu</label>
-            <div class="mt-1">
-                @{
-                    var statusColor = Model.Header.Status == "SHIPPED" ? "b-green"
-                                    : Model.Header.Status == "APPROVED" ? "b-blue"
-                                    : "b-amber";
-                }
-                <span class="badge @statusColor font-mono font-bold">
-                    @Model.Header.Status
-                </span>
+
+        @* SAĞ *@
+        <div class="stack">
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">@L.T("Aktivite", "Activity")</div></div>
+                <div class="card-body" style="padding:14px 18px;">
+                    @if (!Model.Activities.Any())
+                    {
+                        <div class="text-mute" style="font-size:12px;">@L.T("Henüz aktivite yok.", "No activity yet.")</div>
+                    }
+                    else
+                    {
+                        var actList = Model.Activities.ToList();
+                        for (int i = 0; i < actList.Count; i++)
+                        {
+                            var a = actList[i];
+                            var color = a.Action switch
+                            {
+                                "CREATE"   => "var(--text-3)",
+                                "POST"     => "var(--success)",
+                                "APPROVE"  => "var(--success)",
+                                "CANCEL"   => "var(--danger)",
+                                "ADD_LINE" => "var(--brand-500)",
+                                _          => "var(--text-3)"
+                            };
+                            var notLast = i < actList.Count - 1;
+                            <div class="row" style="gap:10px;position:relative;margin-bottom:14px;align-items:flex-start;">
+                                <div style="position:relative;flex-shrink:0;">
+                                    <div class="avatar" style="width:26px;height:26px;font-size:9.5px;background:@color;">@UiHelpers.Initials(a.UserName)</div>
+                                    @if (notLast)
+                                    {
+                                        <div style="position:absolute;top:30px;left:12.5px;bottom:-14px;width:1.5px;background:var(--border);"></div>
+                                    }
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:12px;line-height:1.4;">
+                                        <span class="text-strong">@a.UserName</span>
+                                        <span class="text-mute">@a.ActionLabel</span>
+                                    </div>
+                                    <div class="mono" style="font-size:10.5px;color:var(--text-4);margin-top:1px;">@a.CreatedAt.ToString("dd MMM · HH:mm")</div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
         </div>
     </div>
-</form>
+</div>
 
 @if (!Model.IsNew)
 {
-    <!-- Sipariş Satırları -->
-    <div class="card mb-6">
-        <div class="card-hdr bg-slate-50/50">
-            <span class="card-ttl">SİPARİŞ EDİLEN ÜRÜNLER</span>
-            @if (Model.Header.Status == "DRAFT")
-            {
-                <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
-                    + Ürün Ekle
-                </button>
-            }
-        </div>
-        <div class="overflow-x-auto">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Ürün / SKU</th>
-                        <th class="text-right">Sipariş Miktarı</th>
-                        <th class="text-right">Rezerve Edilen</th>
-                        <th class="text-right">Sevk Edilen</th>
-                        <th class="text-right">İşlem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var line in Model.Lines)
-                    {
-                        <tr>
-                            <td>
-                                <div class="font-bold text-slate-800">@line.ItemName</div>
-                                <div class="text-xs text-slate-400 font-mono">@line.ItemCode</div>
-                            </td>
-                            <td class="text-right font-semibold text-slate-700">@line.QtyOrdered.ToString("N0") <span class="text-[10px] text-slate-400 font-bold ml-1">ADET</span></td>
-                            <td class="text-right font-bold text-indigo-600 font-mono">@line.QtyReserved.ToString("N0")</td>
-                            <td class="text-right font-bold text-green-600 font-mono">@line.QtyShipped.ToString("N0")</td>
-                            <td class="text-right">
-                                @if (Model.Header.Status == "DRAFT")
-                                {
-                                    <button class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition" type="button">Çıkar</button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Lines.Any())
-                    {
-                        <tr>
-                            <td colspan="5">
-                                <div class="empty-state">
-                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
-                                    </svg>
-                                    <p class="text-slate-400 font-medium">Bu siparişe henüz ürün eklenmemiş. Başlamak için "+ Ürün Ekle" düğmesine tıklayın.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Ürün Ekleme Modalı (Simple Modal) -->
-    <div id="add-line-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
-            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-base text-slate-800">Siparişe Ürün Ekle</h3>
-                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
-            </div>
-            <form method="post" asp-page-handler="AddLine">
-                <div class="p-6 space-y-4">
-                    <div class="form-group mb-0">
-                        <label class="form-label">Ürün</label>
-                        <select name="itemId" class="form-ctrl w-full" required>
-                            <option value="">Ürün Seçiniz...</option>
-                            @foreach (var item in Model.AvailableItems)
-                            {
-                                <option value="@item.Id">[@item.Code] @item.Name</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="form-group mb-0">
-                        <label class="form-label">Miktar</label>
-                        <input name="qty" type="number" step="1" class="form-ctrl w-full" required />
-                    </div>
-                </div>
-                <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
-                    <button type="submit" class="btn btn-primary">Ürün Ekle</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <form id="so-approve" method="post" asp-page-handler="Approve" style="display:none;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Header.Id" />
+    </form>
+    <form id="so-cancel" method="post" asp-page-handler="Cancel" style="display:none;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Header.Id" />
+    </form>
 }

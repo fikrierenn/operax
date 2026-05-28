@@ -1,65 +1,84 @@
 @page "{id:guid?}"
 @model Operax.Web.Features.PurchaseOrders.DetailsModel
 @{
-    ViewData["Title"] = Model.IsNew ? "New Purchase Order" : $"Order {Model.Header.OrderNo}";
+    ViewData["Title"] = Model.IsNew ? "Yeni Satın Alma Siparişi" : $"Satın Alma Siparişi {Model.Header.OrderNo}";
 }
 
-<form method="post">
-    <div class="flex justify-between items-center mb-6">
+<form method="post" class="fade-in">
+    <div class="page-hdr">
         <div>
-            <h2 class="text-2xl font-bold">@(Model.IsNew ? "New PO" : $"PO {Model.Header.OrderNo}")</h2>
-            <p class="text-slate-500 text-sm">@(Model.IsNew ? "Enter vendor and warehouse details" : Model.Header.PartnerName)</p>
+            <div class="flex items-center gap-2 mb-2 text-xs">
+                <a asp-page="./Index" class="btn btn-secondary btn-sm py-1 px-2.5 min-h-0">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3" viewBox="0 0 24 24">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    Satın Alma Siparişleri
+                </a>
+                <span class="text-slate-400">/</span>
+                <span class="text-slate-600 font-semibold">Sipariş Girişi</span>
+            </div>
+            <h1>@(Model.IsNew ? "Yeni Satın Alma Siparişi" : $"Sipariş: {Model.Header.OrderNo}")</h1>
+            <p class="page-hdr-sub">@(Model.IsNew ? "Tedarikçi ve depo detaylarını giriniz" : Model.Header.PartnerName)</p>
         </div>
-        <div class="flex gap-2">
-            <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
-                Back to List
+        <div class="page-hdr-r flex gap-2">
+            <a asp-page="./Index" class="btn btn-secondary">
+                Listeye Dön
             </a>
             @if (Model.IsNew || Model.Header.Status == "DRAFT")
             {
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">
-                    Save PO
+                <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
+                    Siparişi Kaydet
                 </button>
             }
             @if (!Model.IsNew && Model.Header.Status == "DRAFT")
             {
-                <button type="submit" asp-page-handler="Approve" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 active:scale-95 transition-all text-sm">
-                    Approve PO
+                <button type="submit" asp-page-handler="Approve" class="btn btn-success" data-shortcut="Alt+P">
+                    Siparişi Onayla
                 </button>
             }
         </div>
     </div>
 
-    <!-- Header Info -->
-    <div class="bg-white rounded-xl border shadow-sm p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] font-bold uppercase text-slate-400">Warehouse</label>
-            <select asp-for="Header.WarehouseId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
-                <option value="">Select Target Warehouse...</option>
+    <!-- Belge Başlığı -->
+    <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
+        <div class="form-group mb-0">
+            <label class="form-label">Hedef Depo</label>
+            <select asp-for="Header.WarehouseId" class="form-ctrl w-full" required>
+                <option value="">Hedef Depo Seçiniz...</option>
                 @foreach (var wh in Model.Warehouses)
                 {
                     <option value="@wh.Id">@wh.Code - @wh.Name</option>
                 }
             </select>
         </div>
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] font-bold uppercase text-slate-400">Vendor</label>
-            <select asp-for="Header.PartnerId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
-                <option value="">Select Vendor...</option>
+        <div class="form-group mb-0">
+            <label class="form-label">Tedarikçi</label>
+            <select asp-for="Header.PartnerId" class="form-ctrl w-full" required>
+                <option value="">Tedarikçi Seçiniz...</option>
                 @foreach (var p in Model.Vendors)
                 {
                     <option value="@p.Id">@p.Name</option>
                 }
             </select>
         </div>
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] font-bold uppercase text-slate-400">Note</label>
-            <input asp-for="Header.Notes" type="text" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Internal notes" />
+        <div class="form-group mb-0">
+            <label class="form-label">Açıklama</label>
+            <input asp-for="Header.Notes" type="text" class="form-ctrl w-full" placeholder="Dahili notlar..." />
         </div>
-        <div class="flex flex-col gap-1 text-center md:text-right">
-            <label class="text-[10px] font-bold uppercase text-slate-400">Status</label>
-            <div class="mt-2">
-                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase @(Model.Header.Status == "RECEIVED" ? "bg-green-100 text-green-700" : Model.Header.Status == "APPROVED" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700")">
-                    @Model.Header.Status
+        <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
+            <label class="form-label md:text-right">Sipariş Durumu</label>
+            <div class="mt-1">
+                @{
+                    var statusTr = Model.Header.Status == "RECEIVED" ? "TESLİM ALINDI"
+                                 : Model.Header.Status == "APPROVED" ? "ONAYLANDI"
+                                 : "TASLAK";
+                    
+                    var statusColor = Model.Header.Status == "RECEIVED" ? "b-green" 
+                                    : Model.Header.Status == "APPROVED" ? "b-blue" 
+                                    : "b-amber";
+                }
+                <span class="badge @statusColor font-mono font-bold">
+                    @statusTr
                 </span>
             </div>
         </div>
@@ -68,81 +87,90 @@
 
 @if (!Model.IsNew)
 {
-    <!-- Order Lines -->
-    <div class="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
-        <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-            <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Items to Purchase</h3>
+    <!-- Sipariş Satırları -->
+    <div class="card mb-6">
+        <div class="card-hdr bg-slate-50/50">
+            <span class="card-ttl">SATIN ALINACAK ÜRÜNLER</span>
             @if (Model.Header.Status == "DRAFT")
             {
-                <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">
-                    + Add Item
+                <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
+                    + Ürün Ekle
                 </button>
             }
         </div>
-        <table class="w-full text-left border-collapse">
-            <thead class="bg-slate-50 border-b">
-                <tr>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU / Name</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ordered</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Received</th>
-                    <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                @foreach (var line in Model.Lines)
-                {
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4">
-                            <div class="font-bold">@line.ItemName</div>
-                            <div class="text-[10px] font-mono text-slate-400">@line.ItemCode</div>
-                        </td>
-                        <td class="px-6 py-4 text-right font-medium">@line.QtyOrdered.ToString("N0") <span class="text-[10px] text-slate-400">EACH</span></td>
-                        <td class="px-6 py-4 text-right text-green-600 font-bold">@line.QtyReceived.ToString("N0")</td>
-                        <td class="px-6 py-4 text-right">
-                            @if (Model.Header.Status == "DRAFT")
-                            {
-                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Remove</button>
-                            }
-                        </td>
-                    </tr>
-                }
-                @if (!Model.Lines.Any())
-                {
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No items added to this PO yet.</td>
+                        <th>SKU / Ürün Adı</th>
+                        <th class="text-right">Sipariş Edilen</th>
+                        <th class="text-right">Teslim Alınan</th>
+                        <th class="text-right">İşlem</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var line in Model.Lines)
+                    {
+                        <tr>
+                            <td>
+                                <div class="font-bold text-slate-800">@line.ItemName</div>
+                                <div class="text-xs text-slate-400 font-mono mt-0.5">@line.ItemCode</div>
+                            </td>
+                            <td class="text-right font-semibold text-slate-700">@line.QtyOrdered.ToString("N0") <span class="text-[10px] text-slate-400 font-bold ml-1">ADET</span></td>
+                            <td class="text-right text-green-600 font-black">@line.QtyReceived.ToString("N0")</td>
+                            <td class="text-right">
+                                @if (Model.Header.Status == "DRAFT")
+                                {
+                                    <button class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition" type="button">Çıkar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Lines.Any())
+                    {
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
+                                    </svg>
+                                    <p class="text-slate-400 font-medium">Bu siparişe henüz ürün eklenmemiş. Başlamak için "+ Ürün Ekle" düğmesine tıklayın.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- Quick Add Modal -->
-    <div id="add-line-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="p-6 border-b flex justify-between items-center">
-                <h3 class="font-bold text-lg text-slate-800">Add Item to Purchase Order</h3>
-                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light">&times;</button>
+    <!-- Ürün Ekleme Modalı (Simple Modal) -->
+    <div id="add-line-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-base text-slate-800">Satın Alma Siparişine Ürün Ekle</h3>
+                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
             </div>
             <form method="post" asp-page-handler="AddLine">
                 <div class="p-6 space-y-4">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Item</label>
-                        <select name="itemId" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
-                            <option value="">Select Item...</option>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Ürün</label>
+                        <select name="itemId" class="form-ctrl w-full" required>
+                            <option value="">Ürün Seçiniz...</option>
                             @foreach (var item in Model.AvailableItems)
                             {
                                 <option value="@item.Id">[@item.Code] @item.Name</option>
                             }
                         </select>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Quantity</label>
-                        <input name="qty" type="number" step="1" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required />
+                    <div class="form-group mb-0">
+                        <label class="form-label">Miktar</label>
+                        <input name="qty" type="number" step="1" class="form-ctrl w-full" required />
                     </div>
                 </div>
-                <div class="p-6 bg-slate-50 flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-100 transition-all text-sm">Cancel</button>
-                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">Add Item</button>
+                <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
+                    <button type="submit" class="btn btn-primary">Ürün Ekle</button>
                 </div>
             </form>
         </div>

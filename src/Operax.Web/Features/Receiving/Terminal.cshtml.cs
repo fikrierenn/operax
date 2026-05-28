@@ -42,7 +42,7 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
 
         ActiveDoc.Lines = (await conn.QueryAsync<ReceivingLineTermDto>(@"
             SELECT l.Id, i.Code AS ItemCode, i.Name AS ItemName,
-                   l.QtyExpected, l.QtyReceived, l.LotNo
+                   l.QtyOriginal AS QtyExpected, l.QtyBase AS QtyReceived, l.LotNo
             FROM ReceivingLine l
             JOIN Item i ON i.Id = l.ItemId
             JOIN ReceivingHeader h ON h.Id = l.HeaderId
@@ -77,13 +77,13 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
             if (lineId.HasValue)
             {
                 await conn.ExecuteAsync(
-                    "UPDATE ReceivingLine SET QtyReceived = QtyReceived + @Qty WHERE Id = @LineId",
+                    "UPDATE ReceivingLine SET QtyBase = QtyBase + @Qty, QtyOriginal = QtyOriginal + @Qty WHERE Id = @LineId",
                     new { Qty = qty, LineId = lineId }, trans);
             }
             else
             {
                 await conn.ExecuteAsync(@"
-                    INSERT INTO ReceivingLine (Id, HeaderId, ItemId, LotNo, QtyExpected, QtyReceived, UomId)
+                    INSERT INTO ReceivingLine (Id, HeaderId, ItemId, LotNo, QtyOriginal, QtyBase, UomId)
                     SELECT NEWID(), @DocId, @ItemId, @LotNo, @Qty, @Qty, i.BaseUomId
                     FROM Item i WHERE i.Id = @ItemId",
                     new { DocId = docId, ItemId = itemId, LotNo = lotNo, Qty = qty }, trans);

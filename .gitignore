@@ -31,3 +31,10 @@ Thumbs.db
 
 # Output CSS (kaynak: input.css, build sırasında üretilir)
 # wwwroot/css/site.css  <- bunu commit ediyoruz (CD pipeline yok)
+
+# Local junk
+*.bak
+test_ps.txt
+tasarım/_extract*.js
+tasarım/_extracted_template.html
+

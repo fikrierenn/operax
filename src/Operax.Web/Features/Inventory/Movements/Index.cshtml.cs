@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
 using Microsoft.AspNetCore.Authorization;
@@ -9,6 +9,10 @@ namespace Operax.Web.Features.Inventory.Movements;
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<MovementDto> Movements { get; set; } = [];
+    
+    public int Last24hMovements { get; set; }
+    public decimal InflowVolume { get; set; }
+    public decimal OutflowVolume { get; set; }
 
     public async Task OnGetAsync()
     {
@@ -28,6 +32,18 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             ORDER BY sm.CreatedAt DESC";
 
         Movements = await conn.QueryAsync<MovementDto>(sql, new { CompanyId = company.Id });
+
+        Last24hMovements = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM StockMovement WHERE CompanyId = @CompanyId AND CreatedAt >= DATEADD(hour, -24, GETDATE())",
+            new { CompanyId = company.Id });
+
+        InflowVolume = await conn.ExecuteScalarAsync<decimal>(
+            "SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase > 0",
+            new { CompanyId = company.Id });
+
+        OutflowVolume = await conn.ExecuteScalarAsync<decimal>(
+            "SELECT ISNULL(SUM(ABS(QtyBase)), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase < 0",
+            new { CompanyId = company.Id });
     }
 
     public record MovementDto(DateTime CreatedAt, string MovementType, string ItemName, string ItemCode, string WarehouseCode, string BinCode, decimal QtyBase, string SourceDocType, string SourceDocNo, string? OperatorName);

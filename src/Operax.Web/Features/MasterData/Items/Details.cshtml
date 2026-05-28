@@ -6,27 +6,27 @@
     if (string.IsNullOrEmpty(activeTab)) activeTab = "general";
 }
 
-<div class="page-hdr">
+<div class="flex items-start justify-between mb-8">
     <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <a asp-page="./Index" class="btn btn-secondary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        <div class="flex items-center gap-2 mb-2">
+            <a asp-page="./Index" class="btn btn-secondary py-1 px-3 text-xs">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
                 Geri
             </a>
-            <span style="font-size:11px;color:#64748b">Ürün Yönetimi / @(Model.IsNew ? "Yeni" : Model.Item.Code)</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Ürün Yönetimi / @(Model.IsNew ? "Yeni" : Model.Item.Code)</span>
         </div>
-        <h1>@(Model.IsNew ? "Yeni Ürün" : Model.Item.Name)</h1>
-        <p>Ürün tanımı, birim dönüşümleri ve barkod yönetimi</p>
+        <h1 class="text-3xl font-black text-slate-800 tracking-tight">@(Model.IsNew ? "Yeni Ürün Kartı" : Model.Item.Name)</h1>
+        <p class="text-sm text-slate-500 mt-1">Ürün tanımı, birim dönüşümleri ve barkod yönetimi</p>
     </div>
-    <div class="page-hdr-r">
+    <div class="flex items-center gap-2 shrink-0">
         @if (!Model.IsNew)
         {
-            <button type="submit" form="item-form" class="btn btn-secondary btn-sm" style="color:#f87171;border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08)">
+            <button type="submit" form="item-form" class="btn btn-danger btn-sm px-4">
                 Pasif Yap
             </button>
         }
-        <button type="submit" form="item-form" class="btn btn-primary">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <button type="submit" form="item-form" class="btn btn-primary px-8">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Kaydet
         </button>
     </div>
@@ -34,28 +34,36 @@
 
 @if (!Model.IsNew)
 {
-    <!-- Stats -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-        <div class="card" style="margin-bottom:0;padding:16px 18px;border-radius:12px">
-            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;margin-bottom:6px">Baz Birim</div>
-            <div style="font-size:20px;font-weight:800;color:#818cf8">@Model.Item.BaseUomCode</div>
+    <!-- Smart Buttons & Base Stats -->
+    <div class="flex items-center justify-between gap-4 mb-6">
+        <div class="flex gap-4">
+            <div class="card p-4 py-3 flex flex-col justify-between min-w-[120px]">
+                <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Baz Birim</span>
+                <span class="text-lg font-black text-indigo-600">@Model.Item.BaseUomCode</span>
+            </div>
+            <div class="card p-4 py-3 flex flex-col justify-between min-w-[120px]">
+                <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Alternatif UOM</span>
+                <span class="text-lg font-black text-slate-700">@Model.UomConversions.Count() adet</span>
+            </div>
         </div>
-        <div class="card" style="margin-bottom:0;padding:16px 18px;border-radius:12px">
-            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;margin-bottom:6px">Birim Dönüşümleri</div>
-            <div style="font-size:20px;font-weight:800;color:#e2e8f0">@Model.UomConversions.Count()</div>
-        </div>
-        <div class="card" style="margin-bottom:0;padding:16px 18px;border-radius:12px">
-            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;margin-bottom:6px">Kategori</div>
-            <div style="font-size:20px;font-weight:800;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@(Model.Item.CategoryName ?? "Tanımsız")</div>
+        <div class="smart-btn-container">
+            <a href="/Inventory/Balance?ItemCode=@Model.Item.Code" class="smart-btn">
+                <span class="smart-btn-val">@Model.QtyOnHand.ToString("N0")</span>
+                <span class="smart-btn-lbl">Stokta Var</span>
+            </a>
+            <a href="/Inventory/Movements?ItemCode=@Model.Item.Code" class="smart-btn">
+                <span class="smart-btn-val">@Model.MovementCount</span>
+                <span class="smart-btn-lbl">Hareketler</span>
+            </a>
         </div>
     </div>
 }
 
 <!-- Tabs -->
-<div style="display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:16px">
+<div class="flex gap-2 border-b border-slate-200 mb-6">
     @foreach (var tab in new[]{("general","Genel Bilgiler"),("uom","Birim Dönüşümleri"),("barcodes","Barkodlar")})
     {
-        <a href="?tab=@tab.Item1" style="padding:10px 18px;font-size:12.5px;font-weight:600;text-decoration:none;border-bottom:2px solid @(activeTab==tab.Item1 ? "#6366f1" : "transparent");color:@(activeTab==tab.Item1 ? "#818cf8" : "#64748b");margin-bottom:-1px;transition:all 0.12s">
+        <a href="?tab=@tab.Item1" class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px @(activeTab == tab.Item1 ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-slate-800")">
             @tab.Item2
         </a>
     }
@@ -65,20 +73,21 @@
 @if (activeTab == "general")
 {
     <form id="item-form" method="post">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div class="card" style="margin-bottom:0">
-                <div class="card-header">
-                    <span class="card-title">Temel Bilgiler</span>
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Sol Kart: Temel Bilgiler -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="card-ttl">Temel Bilgiler</span>
                 </div>
-                <div class="card-body">
-                    <div class="form-row-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+                <div class="card-body space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label>Ürün Kodu *</label>
-                            <input asp-for="Item.Code" placeholder="örn. SKU-1001" required>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Ürün Kodu *</label>
+                            <input asp-for="Item.Code" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="örn. SKU-1001" required />
                         </div>
                         <div>
-                            <label>Baz Birim *</label>
-                            <select asp-for="Item.BaseUomId" required>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Baz Birim *</label>
+                            <select asp-for="Item.BaseUomId" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700" required>
                                 <option value="">Birim seçin...</option>
                                 @foreach (var uom in Model.Uoms)
                                 {
@@ -88,13 +97,13 @@
                         </div>
                     </div>
                     <div>
-                        <label>Ürün Adı *</label>
-                        <input asp-for="Item.Name" placeholder="Tam ürün adını girin" required>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Ürün Adı *</label>
+                        <input asp-for="Item.Name" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Tam ürün adını girin" required />
                     </div>
-                    <div class="form-row-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;margin-bottom:14px">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label>Kategori</label>
-                            <select asp-for="Item.CategoryId">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Kategori</label>
+                            <select asp-for="Item.CategoryId" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700">
                                 <option value="">Kategori seçin...</option>
                                 @foreach (var cat in Model.Categories)
                                 {
@@ -103,8 +112,8 @@
                             </select>
                         </div>
                         <div>
-                            <label>KDV Oranı (%)</label>
-                            <select asp-for="Item.TaxRate" required>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">KDV Oranı (%)</label>
+                            <select asp-for="Item.TaxRate" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700" required>
                                 <option value="">KDV seçin...</option>
                                 @foreach (var tax in Model.TaxRates)
                                 {
@@ -114,37 +123,74 @@
                         </div>
                     </div>
                     <div>
-                        <label>Açıklama</label>
-                        <input asp-for="Item.Description" placeholder="İsteğe bağlı açıklama">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Açıklama</label>
+                        <input asp-for="Item.ActualDescription" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="İsteğe bağlı açıklama" />
+                    </div>
+                    <div class="divider"></div>
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Lojistik Boyutları & Hacim</h3>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Hacim (m³)</label>
+                                <input asp-for="Item.Volume" type="number" step="0.000001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="0.000000" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Ağırlık (kg)</label>
+                                <input asp-for="Item.Weight" type="number" step="0.001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="0.000" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Sıcaklık Rejimi</label>
+                                <select asp-for="Item.TempRange" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700">
+                                    <option value="Normal">Normal (Ortam)</option>
+                                    <option value="Soğuk">Soğuk (+2°C / +8°C)</option>
+                                    <option value="Donuk">Donuk (-18°C)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Emniyet Stoğu & Stok Limitleri</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Minimum Stok (Emniyet)</label>
+                                <input asp-for="Item.MinQty" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Min limit" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Maksimum Stok</label>
+                                <input asp-for="Item.MaxQty" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Max limit" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:0">
-                <div class="card-header">
-                    <span class="card-title">Takip Ayarları</span>
+            <!-- Sağ Kart: Takip Ayarları -->
+            <div class="card">
+                <div class="card-hdr">
+                    <span class="card-ttl">Takip Ayarları</span>
                 </div>
-                <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
-                    <label style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(16,185,129,0.08);border-radius:8px;border:1px solid rgba(16,185,129,0.15);cursor:pointer;margin-bottom:0">
+                <div class="card-body space-y-4">
+                    <label class="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl border border-emerald-100 cursor-pointer group transition-colors hover:bg-emerald-100/50">
                         <div>
-                            <div style="font-size:13px;font-weight:600;color:#e2e8f0">Aktif</div>
-                            <div style="font-size:11px;color:#64748b;margin-top:1px">Ürün sistemde görünür</div>
+                            <div class="text-sm font-bold text-emerald-900 group-hover:text-emerald-950">Aktif</div>
+                            <div class="text-[11px] text-emerald-600 mt-0.5">Ürün sistemde görünür ve hareket görebilir</div>
                         </div>
-                        <input type="checkbox" asp-for="Item.IsActive" style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer">
+                        <input type="checkbox" asp-for="Item.IsActive" class="w-5 h-5 accent-emerald-600 rounded cursor-pointer">
                     </label>
-                    <label style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.15);cursor:pointer;margin-bottom:0">
+                    <label class="flex items-center justify-between p-4 bg-amber-50 rounded-2xl border border-amber-100 cursor-pointer group transition-colors hover:bg-amber-100/50">
                         <div>
-                            <div style="font-size:13px;font-weight:600;color:#e2e8f0">Lot Takibi</div>
-                            <div style="font-size:11px;color:#64748b;margin-top:1px">Her hareket için lot numarası zorunlu</div>
+                            <div class="text-sm font-bold text-amber-900 group-hover:text-amber-950">Lot Takibi</div>
+                            <div class="text-[11px] text-amber-600 mt-0.5">Her stok hareketi için parti (lot) numarası zorunlu kılınır</div>
                         </div>
-                        <input type="checkbox" asp-for="Item.IsLotTracked" style="width:16px;height:16px;accent-color:#f59e0b;cursor:pointer">
+                        <input type="checkbox" asp-for="Item.IsLotTracked" class="w-5 h-5 accent-amber-600 rounded cursor-pointer">
                     </label>
-                    <label style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.15);cursor:pointer;margin-bottom:0">
+                    <label class="flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100 cursor-pointer group transition-colors hover:bg-indigo-100/50">
                         <div>
-                            <div style="font-size:13px;font-weight:600;color:#e2e8f0">Seri No Takibi</div>
-                            <div style="font-size:11px;color:#64748b;margin-top:1px">Birim başına benzersiz seri no</div>
+                            <div class="text-sm font-bold text-indigo-900 group-hover:text-indigo-950">Seri No Takibi</div>
+                            <div class="text-[11px] text-indigo-600 mt-0.5">Her tekil ürün birimi için benzersiz seri numarası takip edilir</div>
                         </div>
-                        <input type="checkbox" asp-for="Item.IsSerialTracked" style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer">
+                        <input type="checkbox" asp-for="Item.IsSerialTracked" class="w-5 h-5 accent-indigo-600 rounded cursor-pointer">
                     </label>
                 </div>
             </div>
@@ -155,115 +201,145 @@
 <!-- TAB: Birim Dönüşümleri -->
 @if (activeTab == "uom" && !Model.IsNew)
 {
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <span class="card-title">Birim Dönüşümleri</span>
-                <div style="font-size:11px;color:#64748b;margin-top:1px">Baz birim: @Model.Item.BaseUomCode</div>
+    <div class="space-y-6">
+        <div class="card overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Birim Dönüşümleri</h3>
+                    <p class="text-[11px] text-slate-500">Baz birim: <span class="font-bold text-indigo-600">@Model.Item.BaseUomCode</span></p>
+                </div>
+                <button type="button" onclick="document.getElementById('uom-modal').style.display='flex'" class="btn btn-secondary hover:bg-white py-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                    Dönüşüm Ekle
+                </button>
             </div>
-            <button type="button" onclick="document.getElementById('uom-modal').style.display='flex'" class="btn btn-primary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Dönüşüm Ekle
-            </button>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Birim</th>
-                    <th>Dönüşüm (Baza göre)</th>
-                    <th style="text-align:right"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="opacity:0.7">
-                    <td><span class="badge b-blue">@Model.Item.BaseUomCode</span></td>
-                    <td style="font-family:monospace;font-size:12px">1.000000 (Baz)</td>
-                    <td style="text-align:right"><span style="font-size:11px;color:#64748b">—</span></td>
-                </tr>
-                @foreach (var uom in Model.UomConversions)
-                {
-                    <tr>
-                        <td>
-                            <span class="badge b-gray">@uom.UomCode</span>
-                            <span style="font-size:12px;color:#94a3b8;margin-left:6px">@uom.UomName</span>
+            <table class="data-table w-full">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
+                        <th class="px-6 py-3 text-left">Birim</th>
+                        <th class="px-6 py-3 text-left">Dönüşüm Oranı (Baz birim karşılığı)</th>
+                        <th class="px-6 py-3 text-right"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <tr class="opacity-70">
+                        <td class="px-6 py-4">
+                            <span class="badge b-indigo">@Model.Item.BaseUomCode</span>
                         </td>
-                        <td style="font-family:monospace;font-size:12px;font-weight:600">@uom.ConversionRate.ToString("N6")</td>
-                        <td style="text-align:right">
-                            <form method="post" asp-page-handler="DeleteUom" style="display:inline">
-                                <input type="hidden" name="uomConversionId" value="@uom.Id">
-                                <input type="hidden" name="id" value="@Model.Item.Id">
-                                <button type="submit" class="btn btn-sm" style="color:#f87171;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2)">Sil</button>
-                            </form>
+                        <td class="px-6 py-4 font-mono text-xs text-slate-600">
+                            1.000000 (Baz Birim)
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <span class="text-xs text-slate-400 italic">Varsayılan</span>
                         </td>
                     </tr>
-                }
-                @if (!Model.UomConversions.Any())
-                {
-                    <tr><td colspan="3" class="empty-state" style="padding:32px">Henüz birim dönüşümü tanımlanmamış</td></tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                    @foreach (var uom in Model.UomConversions)
+                    {
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <span class="badge b-gray">@uom.UomCode</span>
+                                <span class="text-xs text-slate-400 ml-2">@uom.UomName</span>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-xs text-slate-800 font-bold">
+                                @uom.ConversionRate.ToString("N6")
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <form method="post" asp-page-handler="DeleteUom" onsubmit="return confirm('Bu birim dönüşümünü silmek istediğinize emin misiniz?')">
+                                    <input type="hidden" name="uomConversionId" value="@uom.Id">
+                                    <input type="hidden" name="id" value="@Model.Item.Id">
+                                    <button type="submit" class="btn btn-sm btn-secondary hover:bg-red-50 hover:text-red-600 hover:border-red-200 py-1">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.UomConversions.Any())
+                    {
+                        <tr>
+                            <td colspan="3" class="px-6 py-12 text-center text-slate-400 italic">
+                                Tanımlı alternatif birim dönüşümü bulunmuyor.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
 
-    <!-- UOM Add Row -->
-    <div class="card">
-        <div class="card-header"><span class="card-title">Yeni Dönüşüm Ekle</span></div>
-        <form method="post" asp-page-handler="AddUom" class="card-body">
-            <input type="hidden" name="id" value="@Model.Item.Id">
-            <div style="display:flex;gap:10px;align-items:flex-end">
-                <div style="flex:1">
-                    <label>Birim</label>
-                    <select name="uomId">
-                        @foreach (var u in Model.Uoms) { <option value="@u.Id">@u.Name (@u.Code)</option> }
-                    </select>
-                </div>
-                <div style="flex:1">
-                    <label>Baza kaç @Model.Item.BaseUomCode eşit?</label>
-                    <input name="rate" type="number" step="0.000001" placeholder="örn. 12 (koli = 12 adet)" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="flex-shrink:0">Ekle</button>
+        <!-- UOM Quick Add Form -->
+        <div class="card">
+            <div class="card-hdr">
+                <span class="card-ttl">Hızlı Dönüşüm Ekle</span>
             </div>
-        </form>
+            <form method="post" asp-page-handler="AddUom" class="card-body">
+                <input type="hidden" name="id" value="@Model.Item.Id">
+                <div class="flex gap-4 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Birim</label>
+                        <select name="uomId" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700">
+                            @foreach (var u in Model.Uoms)
+                            {
+                                <option value="@u.Id">@u.Name (@u.Code)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Katsayı (Baz Birim Karşılığı)</label>
+                        <input name="rate" type="number" step="0.000001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="örn. 12 (1 koli = 12 adet)" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary px-8 py-2.5">Ekle</button>
+                </div>
+            </form>
+        </div>
     </div>
 }
 
 <!-- TAB: Barkodlar -->
 @if (activeTab == "barcodes" && !Model.IsNew)
 {
-    <div class="card">
-        <div class="card-header">
-            <span class="card-title">Barkodlar</span>
-            <button type="button" onclick="document.getElementById('barcode-modal').style.display='flex'" class="btn btn-primary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <div class="card overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-slate-800">Ürün Barkodları</h3>
+                <p class="text-[11px] text-slate-500">Alternatif paket barkodları</p>
+            </div>
+            <button type="button" onclick="document.getElementById('barcode-modal').style.display='flex'" class="btn btn-secondary hover:bg-white py-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                 Barkod Ekle
             </button>
         </div>
-        <table>
+        <table class="data-table w-full">
             <thead>
-                <tr>
-                    <th>Barkod</th>
-                    <th>Birim</th>
-                    <th style="text-align:right"></th>
+                <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
+                    <th class="px-6 py-3 text-left">Barkod</th>
+                    <th class="px-6 py-3 text-left">Temsil Ettiği Birim</th>
+                    <th class="px-6 py-3 text-right"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-slate-100">
                 @foreach (var bc in Model.Barcodes)
                 {
-                    <tr>
-                        <td><span style="font-family:monospace;font-size:13.5px;letter-spacing:1.5px;font-weight:700;color:#e2e8f0">@bc.Barcode</span></td>
-                        <td><span class="badge b-gray">@bc.UomCode</span></td>
-                        <td style="text-align:right">
-                            <form method="post" asp-page-handler="DeleteBarcode" style="display:inline">
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <span class="font-mono text-sm font-bold tracking-wider text-slate-800">@bc.Barcode</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="badge b-gray">@bc.UomCode</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <form method="post" asp-page-handler="DeleteBarcode" onsubmit="return confirm('Bu barkodu silmek istediğinize emin misiniz?')">
                                 <input type="hidden" name="barcodeId" value="@bc.Id">
                                 <input type="hidden" name="id" value="@Model.Item.Id">
-                                <button type="submit" class="btn btn-sm" style="color:#f87171;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2)">Sil</button>
+                                <button type="submit" class="btn btn-sm btn-secondary hover:bg-red-50 hover:text-red-600 hover:border-red-200 py-1">Sil</button>
                             </form>
                         </td>
                     </tr>
                 }
                 @if (!Model.Barcodes.Any())
                 {
-                    <tr><td colspan="3" class="empty-state" style="padding:32px">Henüz barkod tanımlanmamış</td></tr>
+                    <tr>
+                        <td colspan="3" class="px-6 py-12 text-center text-slate-400 italic">
+                            Tanımlanmış barkod bulunmuyor.
+                        </td>
+                    </tr>
                 }
             </tbody>
         </table>
@@ -272,66 +348,70 @@
 
 @if (Model.IsNew && activeTab != "general")
 {
-    <div class="card">
-        <div class="card-body empty-state">
-            <p>Bu sekmeyi kullanmak için önce ürünü kaydedin.</p>
-        </div>
+    <div class="card p-12 text-center">
+        <p class="text-slate-400 italic">Bu sekmeyi kullanmak için önce ürünü kaydedip genel bilgileri oluşturmalısınız.</p>
     </div>
 }
 
 <!-- UOM Modal -->
-<div id="uom-modal" class="modal-overlay" style="display:none">
-    <div class="modal">
-        <div class="modal-hdr">
-            <h3>Birim Dönüşümü Ekle</h3>
-            <p>Baz birim @Model.Item.BaseUomCode için dönüşüm tanımlayın</p>
+<div id="uom-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" style="display:none">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 bg-slate-50 border-b">
+            <h3 class="font-black text-slate-800 tracking-tight">Birim Dönüşümü Ekle</h3>
+            <p class="text-xs text-slate-500">Baz birim <span class="font-bold text-indigo-600">@Model.Item.BaseUomCode</span> için dönüşüm kuralı tanımlayın</p>
         </div>
         <form method="post" asp-page-handler="AddUom">
             <input type="hidden" name="id" value="@Model.Item.Id">
-            <div class="modal-body">
+            <div class="p-6 space-y-4">
                 <div>
-                    <label>Birim Seçin</label>
-                    <select name="uomId">
-                        @foreach (var u in Model.Uoms) { <option value="@u.Id">@u.Name (@u.Code)</option> }
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Birim Seçin</label>
+                    <select name="uomId" class="w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        @foreach (var u in Model.Uoms)
+                        {
+                            <option value="@u.Id">@u.Name (@u.Code)</option>
+                        }
                     </select>
                 </div>
                 <div>
-                    <label>Baza kaç @Model.Item.BaseUomCode eşit?</label>
-                    <input name="rate" type="number" step="0.000001" placeholder="örn. 24 → 1 koli = 24 adet" required>
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Katsayı (örn. 24 → 1 koli = 24 adet)</label>
+                    <input name="rate" type="number" step="0.000001" class="w-full px-4 py-2 border rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Katsayı değeri girin" required />
                 </div>
             </div>
-            <div class="modal-ftr">
-                <button type="button" onclick="document.getElementById('uom-modal').style.display='none'" class="btn btn-secondary">İptal</button>
-                <button type="submit" class="btn btn-primary">Ekle</button>
+            <div class="p-4 bg-slate-50 border-t flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('uom-modal').style.display='none'" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">İptal</button>
+                <button type="submit" class="btn btn-primary px-6">Ekle</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Barcode Modal -->
-<div id="barcode-modal" class="modal-overlay" style="display:none">
-    <div class="modal">
-        <div class="modal-hdr">
-            <h3>Barkod Ekle</h3>
-            <p>Bu barkod tarandığında hangi birimi temsil ediyor?</p>
+<div id="barcode-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" style="display:none">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 bg-slate-50 border-b">
+            <h3 class="font-black text-slate-800 tracking-tight">Barkod Ekle</h3>
+            <p class="text-xs text-slate-500">Yeni bir barkod tanımlayın ve birim eşleştirin</p>
         </div>
         <form method="post" asp-page-handler="AddBarcode">
             <input type="hidden" name="id" value="@Model.Item.Id">
-            <div class="modal-body">
+            <div class="p-6 space-y-4">
                 <div>
-                    <label>Barkod</label>
-                    <input name="barcode" type="text" placeholder="örn. 8690000123456" required>
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Barkod Numarası</label>
+                    <input name="barcode" type="text" class="w-full px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="örn. 8690000123456" required />
                 </div>
                 <div>
-                    <label>Bu barkod 1 adet hangi birimi temsil ediyor?</label>
-                    <select name="uomId">
-                        @foreach (var u in Model.Uoms) { <option value="@u.Id">@u.Name (@u.Code)</option> }
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Temsil Ettiği Birim</label>
+                    <select name="uomId" class="w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        @foreach (var u in Model.Uoms)
+                        {
+                            <option value="@u.Id">@u.Name (@u.Code)</option>
+                        }
                     </select>
                 </div>
             </div>
-            <div class="modal-ftr">
-                <button type="button" onclick="document.getElementById('barcode-modal').style.display='none'" class="btn btn-secondary">İptal</button>
-                <button type="submit" class="btn btn-primary">Kaydet</button>
+            <div class="p-4 bg-slate-50 border-t flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('barcode-modal').style.display='none'" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">İptal</button>
+                <button type="submit" class="btn btn-primary px-6">Kaydet</button>
             </div>
         </form>
     </div>

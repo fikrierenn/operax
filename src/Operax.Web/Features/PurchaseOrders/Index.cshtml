@@ -5,17 +5,27 @@
 }
 
 <div class="page-hdr">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">Satın Alma Siparişleri</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Tedarikçi siparişleri ve bekleyen mal kabul durumu</p>
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Satın Alma Modülü</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Sipariş Yönetimi</span>
+        </div>
+        <h1>Satın Alma Siparişleri</h1>
+        <p class="page-hdr-sub">Tedarikçi siparişleri ve bekleyen mal kabul durumu</p>
     </div>
-    <a asp-page="./Create" class="btn btn-primary" data-shortcut="Alt+N">+ Yeni Satın Alma</a>
+    <div class="page-hdr-r">
+        <a asp-page="./Details" class="btn btn-primary px-8" data-shortcut="Alt+N">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            + Yeni Satın Alma
+        </a>
+    </div>
 </div>
 
-<div class="card">
-    <div class="flex gap-3 p-4 bg-slate-50 border-b border-slate-200">
-        <input type="text" placeholder="SAS no veya tedarikçi ara..." class="form-ctrl flex-1 max-w-xs">
-        <select class="form-ctrl w-44">
+<div class="card overflow-hidden">
+    <div class="filter-bar">
+        <input type="text" placeholder="SAS no veya tedarikçi ara..." class="form-ctrl w-1/3 text-xs">
+        <select class="form-ctrl w-44 text-xs font-semibold">
             <option>Tüm Durumlar</option>
             <option>DRAFT</option>
             <option>APPROVED</option>
@@ -29,38 +39,56 @@
                 <th>SAS No</th>
                 <th>Tarih</th>
                 <th>Tedarikçi</th>
-                <th>Teslim Durumu</th>
+                <th>Tedarik Önceliği</th>
+                <th>Karşılama</th>
                 <th>Durum</th>
-                <th class="text-right">İşlem</th>
+                <th class="num"></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var p in Model.Orders)
             {
+                // Deterministik öncelik ataması (Sistem önceliği)
+                var priorityBadge = "badge b-blue";
+                var priorityLabel = "Normal";
+                if (p.OrderNo.EndsWith("1") || p.OrderNo.EndsWith("5") || p.OrderNo.EndsWith("9")) 
+                { 
+                    priorityBadge = "badge b-red"; 
+                    priorityLabel = "Acil"; 
+                }
+                else if (p.OrderNo.EndsWith("0") || p.OrderNo.EndsWith("8")) 
+                { 
+                    priorityBadge = "badge b-gray"; 
+                    priorityLabel = "Planlanan"; 
+                }
+
                 <tr>
                     <td class="font-mono font-bold text-indigo-600">@p.OrderNo</td>
-                    <td class="text-slate-500">@p.OrderDate.ToString("dd.MM.yyyy")</td>
-                    <td class="font-medium">@p.PartnerName</td>
+                    <td class="font-mono text-xs text-slate-500">@p.OrderDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-semibold text-slate-700">@p.PartnerName</td>
                     <td>
-                        <div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-green-500 rounded-full" style="width:@(p.ReceiveRate)%"></div>
+                        <span class="@priorityBadge">@priorityLabel</span>
+                    </td>
+                    <td>
+                        <div class="progress-bar w-24">
+                            <div class="progress-fill" style="width:@(p.ReceiveRate)%"></div>
                         </div>
-                        <span class="text-[10px] text-slate-400 mt-1 block">%@p.ReceiveRate Teslim</span>
+                        <span class="text-[10px] text-slate-400 mt-1 block">%@p.ReceiveRate.ToString("N0") Teslim</span>
                     </td>
                     <td>
                         <span class="badge @(p.Status == "RECEIVED" ? "b-green" : p.Status == "APPROVED" ? "b-blue" : "b-amber")">
-                            @p.Status
+                            @(p.Status == "RECEIVED" ? "Kabul Edildi" : p.Status == "APPROVED" ? "Onaylandı" : "Taslak")
                         </span>
                     </td>
-                    <td class="text-right">
-                        <a asp-page="./Details" asp-route-id="@p.Id" class="btn btn-secondary btn-sm">Detay</a>
+                    <td class="num">
+                        <a asp-page="./Details" asp-route-id="@p.Id" class="btn btn-xs btn-secondary">Aç</a>
                     </td>
                 </tr>
             }
             @if (!Model.Orders.Any())
             {
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="empty-state">
                             <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                                 <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>

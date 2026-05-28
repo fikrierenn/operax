@@ -18,6 +18,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public IEnumerable<DdlDto>           Categories     { get; set; } = [];
     public IEnumerable<DdlDto>           TaxRates       { get; set; } = [];
 
+    public decimal QtyOnHand { get; set; } = 0;
+    public int MovementCount { get; set; } = 0;
+
     public bool IsNew => Item.Id == Guid.Empty;
 
     public async Task OnGetAsync(Guid? id)
@@ -53,6 +56,41 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 WHERE i.Id = @Id AND i.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
+            // UDF JSON Deserialization
+            if (!string.IsNullOrEmpty(Item.Description) && Item.Description.TrimStart().StartsWith("{"))
+            {
+                try
+                {
+                    var udf = System.Text.Json.JsonSerializer.Deserialize<UdfDataDto>(Item.Description);
+                    if (udf != null)
+                    {
+                        Item.ActualDescription = udf.ActualDescription;
+                        Item.Volume = udf.Volume;
+                        Item.Weight = udf.Weight;
+                        Item.TempRange = udf.TempRange;
+                        Item.MinQty = udf.MinQty;
+                        Item.MaxQty = udf.MaxQty;
+                    }
+                }
+                catch
+                {
+                    Item.ActualDescription = Item.Description;
+                }
+            }
+            else
+            {
+                Item.ActualDescription = Item.Description;
+            }
+
+            // Odoo Smart Buttons için stok bilgilerini getir
+            QtyOnHand = await conn.QueryFirstOrDefaultAsync<decimal>(
+                "SELECT ISNULL(SUM(QtyBalance), 0) FROM tvf_InventoryBalance(@CompanyId) WHERE ItemId = @ItemId",
+                new { ItemId = id, CompanyId = company.Id });
+
+            MovementCount = await conn.QueryFirstOrDefaultAsync<int>(
+                "SELECT COUNT(*) FROM StockMovement WHERE ItemId = @ItemId AND CompanyId = @CompanyId",
+                new { ItemId = id, CompanyId = company.Id });
+
             UomConversions = await conn.QueryAsync<UomConversionDto>(@"
                 SELECT u.Id, dv.Code as UomCode, dv.NameTr as UomName, u.ConversionRate
                 FROM ItemUOM u
@@ -72,6 +110,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         else
         {
             Item.IsActive = true;
+            Item.TempRange = "Normal";
         }
     }
 
@@ -79,6 +118,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // Ürünü kaydeder veya günceller
         using var conn = db.Open();
+
+        // UDF JSON Serialization
+        var udfData = new UdfDataDto
+        {
+            ActualDescription = Item.ActualDescription,
+            Volume = Item.Volume,
+            Weight = Item.Weight,
+            TempRange = Item.TempRange ?? "Normal",
+            MinQty = Item.MinQty,
+            MaxQty = Item.MaxQty
+        };
+        Item.Description = System.Text.Json.JsonSerializer.Serialize(udfData);
 
         if (IsNew)
         {
@@ -168,6 +219,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public bool    IsLotTracked     { get; set; }
         public bool    IsSerialTracked  { get; set; }
         public bool    IsActive         { get; set; }
+
+        // JSON UDF Helper Fields
+        public string? ActualDescription { get; set; }
+        public decimal? Volume           { get; set; }
+        public decimal? Weight           { get; set; }
+        public string? TempRange         { get; set; } = "Normal";
+        public decimal? MinQty           { get; set; }
+        public decimal? MaxQty           { get; set; }
+    }
+
+    public class UdfDataDto
+    {
+        public string? ActualDescription { get; set; }
+        public decimal? Volume           { get; set; }
+        public decimal? Weight           { get; set; }
+        public string? TempRange         { get; set; } = "Normal";
+        public decimal? MinQty           { get; set; }
+        public decimal? MaxQty           { get; set; }
     }
 
     public record UomConversionDto(Guid Id, string UomCode, string UomName, decimal ConversionRate);

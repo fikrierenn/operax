@@ -4,45 +4,107 @@
     ViewData["Title"] = "Stok Bakiyesi";
 }
 
-<div class="mb-6">
-    <h2 class="text-2xl font-bold">Stok Bakiyesi</h2>
-    <p class="text-slate-500 text-sm">Tüm konumlardaki anlık stok seviyeleri</p>
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Stok Kontrol</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Anlık Bakiyeler</span>
+        </div>
+        <h1>Stok Bakiyesi</h1>
+        <p class="page-hdr-sub">Tüm konumlardaki anlık stok seviyeleri ve lojistik yerleşim durumu</p>
+    </div>
 </div>
 
-<div class="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
-    <div class="p-4 bg-slate-50 border-b flex gap-4">
-        <select class="bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all">
+<!-- KPI Grid (Stok Durumu) -->
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-glow brand"></div>
+        <span class="kpi-label">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            Toplam Stok Miktarı
+        </span>
+        <div class="kpi-value">
+            @Model.TotalStockQty.ToString("N0")
+            <span class="kpi-unit">adet</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">Aktif şirkete ait tüm depolar</span>
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow danger"></div>
+        <span class="kpi-label text-red-600">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Kritik SKU Sayısı (Min Stok)
+        </span>
+        <div class="kpi-value text-red-600">
+            @Model.CriticalItemCount
+            <span class="kpi-unit text-red-400">SKU</span>
+        </div>
+        <div class="kpi-foot">
+            @if (Model.CriticalItemCount > 0)
+            {
+                <span class="kpi-delta down">Emniyet Altı</span>
+            }
+            else
+            {
+                <span class="kpi-delta up">Güvenli Seviye</span>
+            }
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow success"></div>
+        <span class="kpi-label text-emerald-600">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Aktif Depolama Hücreleri
+        </span>
+        <div class="kpi-value text-emerald-600">
+            @Model.ActiveBinCount
+            <span class="kpi-unit text-emerald-400">raf</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">İçinde stok bulunan raf adetleri</span>
+        </div>
+    </div>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="filter-bar">
+        <select class="form-ctrl w-48 text-xs font-semibold">
             <option>Tüm Depolar</option>
         </select>
-        <input type="text" placeholder="Ürün kodu veya adı ile ara..." class="flex-1 bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+        <input type="text" placeholder="Ürün kodu veya adı ile ara..." class="form-ctrl flex-1 text-xs" />
     </div>
 
-    <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-50 border-b">
+    <table class="data-table">
+        <thead>
             <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Raf / Konum</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">SKU / Ürün</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Depo</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Kullanılabilir</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Rezerve</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right font-bold text-indigo-600">Toplam Stok</th>
+                <th>Raf / Konum</th>
+                <th>SKU / Ürün</th>
+                <th>Depo</th>
+                <th class="num">Kullanılabilir</th>
+                <th class="num">Rezerve</th>
+                <th class="num text-indigo-600">Toplam Stok</th>
             </tr>
         </thead>
-        <tbody class="divide-y text-sm">
+        <tbody>
             @foreach (var line in Model.BalanceLines)
             {
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-mono font-bold text-indigo-600 text-center">
-                        <span class="bg-indigo-50 px-2 py-1 rounded">@(line.BinCode ?? "UNASSIGNED")</span>
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">
+                        <span class="bg-indigo-50/70 border border-indigo-100/60 px-2 py-1 rounded text-xs">@(line.BinCode ?? "ATANMAMIŞ")</span>
                     </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="font-bold text-slate-900">@line.ItemCode</div>
-                        <div class="text-[10px] text-slate-400">@line.ItemName</div>
+                    <td>
+                        <div class="row-strong">@line.ItemCode</div>
+                        <div class="row-sub text-slate-400">@line.ItemName</div>
                     </td>
-                    <td class="px-6 py-4 text-slate-600 text-center">@line.WarehouseName</td>
-                    <td class="px-6 py-4 text-right">@line.QtyOnHand.ToString("N2")</td>
-                    <td class="px-6 py-4 text-right text-slate-400">0.00</td>
-                    <td class="px-6 py-4 text-right font-bold text-indigo-600">@line.QtyOnHand.ToString("N2")</td>
+                    <td class="text-slate-600">@line.WarehouseName</td>
+                    <td class="num">@line.QtyOnHand.ToString("N2")</td>
+                    <td class="num text-slate-300">0.00</td>
+                    <td class="num text-indigo-600 font-bold">@line.QtyOnHand.ToString("N2")</td>
                 </tr>
             }
             @if (!Model.BalanceLines.Any())

@@ -117,22 +117,57 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Satır ekler; UOM dönüşümünü fn_GetConversionRate ile hesaplar
         using var conn = db.Open();
 
+        // Eğer itemId boşsa ve soLineId (Satış Sipariş Başlık ID'si) verilmişse, siparişteki tüm açık satırları aktar
+        if (itemId == Guid.Empty && soLineId != Guid.Empty)
+        {
+            var soLines = await conn.QueryAsync<(Guid Id, Guid ItemId, Guid UomId, decimal QtyRemaining)>(@"
+                SELECT sol.Id, sol.ItemId, sol.UomId, (sol.QtyOrdered - sol.QtyShipped) as QtyRemaining
+                FROM SalesOrderLine sol
+                JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId
+                WHERE sol.HeaderId = @SalesOrderHeaderId AND soh.CompanyId = @CompanyId AND (sol.QtyOrdered - sol.QtyShipped) > 0",
+                new { SalesOrderHeaderId = soLineId, CompanyId = company.Id });
+
+            foreach (var sol in soLines)
+            {
+                var rate = await conn.ExecuteScalarAsync<decimal>(
+                    "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
+                    new { ItemId = sol.ItemId, UomId = sol.UomId });
+
+                if (rate == 0) rate = 1;
+
+                await conn.ExecuteAsync(@"
+                    INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
+                    VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
+                    new { 
+                        HeaderId = id, 
+                        SOLineId = sol.Id, 
+                        ItemId = sol.ItemId, 
+                        UomId = sol.UomId, 
+                        Qty = sol.QtyRemaining, 
+                        QtyBase = sol.QtyRemaining * rate, 
+                        LotNo = (string?)null 
+                    });
+            }
+
+            return RedirectToPage(new { id });
+        }
+
         var exists = await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1",
             new { ItemId = itemId, CompanyId = company.Id });
 
         if (exists == 0) return RedirectToPage(new { id });
 
-        var rate = await conn.ExecuteScalarAsync<decimal>(
+        var rateVal = await conn.ExecuteScalarAsync<decimal>(
             "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
             new { ItemId = itemId, UomId = uomId });
 
-        if (rate == 0) rate = 1;
+        if (rateVal == 0) rateVal = 1;
 
         await conn.ExecuteAsync(@"
             INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
             VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
-            new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rate, LotNo = lotNo });
+            new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rateVal, LotNo = lotNo });
 
         return RedirectToPage(new { id });
     }

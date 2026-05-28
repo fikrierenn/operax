@@ -1,79 +1,102 @@
 @page
 @model Operax.Web.Features.Inventory.Movements.IndexModel
 @{
-    ViewData["Title"] = "Stock Movements";
+    ViewData["Title"] = "Stok Hareketleri";
 }
 
-<div class="mb-6">
-    <h2 class="text-2xl font-bold">Stock Movements</h2>
-    <p class="text-slate-500 text-sm">Historical ledger of all inventory transactions</p>
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Raporlar & Analiz</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Stok Hareketleri</span>
+        </div>
+        <h1>Stok Hareket Raporu</h1>
+        <p class="page-hdr-sub">Depolarınızda gerçekleşen tüm stok giriş, çıkış ve transfer hareketleri</p>
+    </div>
 </div>
 
-<div class="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
-    <div class="p-4 bg-slate-50 border-b flex flex-wrap gap-4 font-medium">
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] uppercase text-slate-400">Date Range</label>
-            <input type="date" class="bg-white border rounded px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-600" />
-        </div>
-        <div class="flex flex-col gap-1">
-            <label class="text-[10px] uppercase text-slate-400">Movement Type</label>
-            <select class="bg-white border rounded px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-600">
-                <option>All Types</option>
-                <option>RECEIPT</option>
-                <option>ISSUE</option>
-                <option>TRANSFER</option>
-            </select>
-        </div>
-        <div class="flex flex-col gap-1 flex-1">
-            <label class="text-[10px] uppercase text-slate-400">Search</label>
-            <input type="text" placeholder="Search by SKU, Lot or Doc No..." class="bg-white border rounded px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-600" />
-        </div>
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-glow brand"></div>
+        <div class="kpi-icon bg-indigo-50 text-indigo-600">⚡</div>
+        <span class="kpi-label">Son 24 Saat</span>
+        <div class="kpi-val text-slate-800">@Model.Last24hMovements</div>
+        <span class="kpi-sub">Gerçekleşen işlem adedi</span>
+    </div>
+    <div class="kpi">
+        <div class="kpi-glow success"></div>
+        <div class="kpi-icon bg-emerald-50 text-emerald-600">📈</div>
+        <span class="kpi-label">Toplam Giriş Hacmi</span>
+        <div class="kpi-val text-slate-800">@Model.InflowVolume.ToString("N0")</div>
+        <span class="kpi-sub">Kabul edilen baz miktar</span>
+    </div>
+    <div class="kpi">
+        <div class="kpi-glow danger"></div>
+        <div class="kpi-icon bg-rose-50 text-rose-600">📉</div>
+        <span class="kpi-label">Toplam Çıkış Hacmi</span>
+        <div class="kpi-val text-slate-800">@Model.OutflowVolume.ToString("N0")</div>
+        <span class="kpi-sub">Sevk edilen baz miktar</span>
+    </div>
+</div>
+
+<div class="card overflow-hidden mt-6 text-sm">
+    <div class="filter-bar">
+        <input type="date" class="form-ctrl text-xs font-semibold" />
+        <select class="form-ctrl text-xs font-semibold w-44">
+            <option>Tüm Hareketler</option>
+            <option>RECEIPT</option>
+            <option>ISSUE</option>
+            <option>TRANSFER</option>
+        </select>
+        <input type="text" placeholder="SKU, Lot veya Belge ara..." class="form-ctrl text-xs w-1/3" />
     </div>
     
-    <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-50 border-b">
+    <table class="data-table">
+        <thead>
             <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Item</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Location</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Quantity</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Operator</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Source Doc</th>
+                <th>Tarih</th>
+                <th>İşlem Tipi</th>
+                <th>Ürün / SKU</th>
+                <th>Lokasyon</th>
+                <th class="text-right">Miktar</th>
+                <th>Operatör</th>
+                <th>Kaynak Belge</th>
             </tr>
         </thead>
-        <tbody class="divide-y text-[13px]">
+        <tbody>
             @foreach (var m in Model.Movements)
             {
-                <tr class="hover:bg-slate-50 transition-colors @(m.QtyBase < 0 ? "bg-red-50/10" : "bg-green-50/10")">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="font-bold text-xs uppercase">@m.CreatedAt.ToString("dd MMM yyyy")</div>
+                <tr class="hover:bg-slate-50 transition-colors @(m.QtyBase < 0 ? "bg-rose-50/20" : "bg-emerald-50/20")">
+                    <td>
+                        <div class="font-bold text-xs uppercase text-slate-700">@m.CreatedAt.ToString("dd MMM yyyy")</div>
                         <div class="text-[10px] text-slate-400 font-mono">@m.CreatedAt.ToString("HH:mm:ss")</div>
                     </td>
-                    <td class="px-6 py-4">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase @(m.MovementType == "RECEIPT" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600")">
-                            @m.MovementType
+                    <td>
+                        <span class="badge @(m.MovementType == "RECEIPT" ? "b-green" : m.MovementType == "ISSUE" ? "b-red" : "b-blue")">
+                            @(m.MovementType == "RECEIPT" ? "Giriş" : m.MovementType == "ISSUE" ? "Çıkış" : "Transfer")
                         </span>
                     </td>
-                    <td class="px-6 py-4">
-                        <div class="font-bold">@m.ItemName</div>
+                    <td>
+                        <div class="font-bold text-slate-800 text-sm">@m.ItemName</div>
                         <div class="text-[10px] text-slate-400 font-mono">@m.ItemCode</div>
                     </td>
-                    <td class="px-6 py-4">
-                        <div class="text-xs font-semibold">@m.WarehouseCode</div>
-                        <div class="text-[10px] font-mono text-slate-500 uppercase">@m.BinCode</div>
+                    <td>
+                        <div class="text-xs font-bold text-slate-700">@m.WarehouseCode</div>
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">@m.BinCode</div>
                     </td>
-                    <td class="px-6 py-4 text-right font-mono font-bold @(m.QtyBase < 0 ? "text-red-600" : "text-green-600")">
+                    <td class="text-right font-mono font-bold @(m.QtyBase < 0 ? "text-rose-600" : "text-emerald-600")">
                         @(m.QtyBase > 0 ? "+" : "")@m.QtyBase.ToString("N3")
                     </td>
-                    <td class="px-6 py-4">
+                    <td>
                         <div class="flex items-center gap-2">
                              <div class="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-500 ring-1 ring-slate-300">@((m.OperatorName ?? "S").Substring(0,1).ToUpper())</div>
-                             <span class="text-xs text-slate-600 font-medium">@(m.OperatorName ?? "System")</span>
+                             <span class="text-xs text-slate-600 font-semibold">@(m.OperatorName ?? "Sistem")</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4">
-                        <div class="text-xs font-bold">@m.SourceDocNo</div>
+                    <td>
+                        <div class="text-xs font-bold text-slate-700">@m.SourceDocNo</div>
                         <div class="text-[10px] text-slate-400 uppercase">@m.SourceDocType</div>
                     </td>
                 </tr>
@@ -81,7 +104,12 @@
             @if (!Model.Movements.Any())
             {
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic">No movements recorded yet.</td>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <svg class="w-12 h-12 text-slate-200 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <p>Henüz kayıtlı stok hareketi bulunmuyor.</p>
+                        </div>
+                    </td>
                 </tr>
             }
         </tbody>

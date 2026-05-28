@@ -5,17 +5,75 @@
 }
 
 <div class="page-hdr">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">Mal Kabul</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Tedarikçilerden gelen mal kabulü ve giriş belgeleri</p>
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Lojistik</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Mal Kabul</span>
+        </div>
+        <h1>Mal Kabul & Giriş İşlemleri</h1>
+        <p class="page-hdr-sub">Tedarikçilerden gelen mal kabulü, irsaliye ve depo giriş süreçleri</p>
     </div>
-    <a asp-page="./Details" class="btn btn-primary" data-shortcut="Alt+N">+ Yeni Mal Kabul</a>
+    <div class="page-hdr-r">
+        <a asp-page="./Details" class="btn btn-primary px-8" data-shortcut="Alt+N">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Mal Kabul
+        </a>
+    </div>
 </div>
 
-<div class="card">
-    <div class="flex gap-3 p-4 bg-slate-50 border-b border-slate-200">
-        <input type="text" placeholder="Belge no veya tedarikçi ara..." class="form-ctrl flex-1 max-w-xs">
-        <select class="form-ctrl w-44">
+<!-- Receiving KPI Grid -->
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-glow brand"></div>
+        <span class="kpi-label text-indigo-600">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Bekleyen Kabuller
+        </span>
+        <div class="kpi-value text-indigo-600">
+            @Model.DraftCount
+            <span class="kpi-unit">evrak</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">Onay bekleyen taslak girişler</span>
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow success"></div>
+        <span class="kpi-label text-emerald-600">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Tamamlanan Girişler
+        </span>
+        <div class="kpi-value text-emerald-600">
+            @Model.PostedCount
+            <span class="kpi-unit">post</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-delta up">Depoya Girdi</span>
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow danger"></div>
+        <span class="kpi-label text-red-600">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            İptal Edilenler
+        </span>
+        <div class="kpi-value text-red-600">
+            @Model.CancelledCount
+            <span class="kpi-unit">evrak</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">İptal edilen kabuller</span>
+        </div>
+    </div>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="filter-bar">
+        <input type="text" placeholder="Belge no veya tedarikçi ara..." class="form-ctrl w-1/3 text-xs">
+        <select class="form-ctrl w-44 text-xs font-semibold">
             <option>Tüm Durumlar</option>
             <option>DRAFT</option>
             <option>POSTED</option>
@@ -30,24 +88,24 @@
                 <th>Tedarikçi</th>
                 <th>Depo</th>
                 <th>Durum</th>
-                <th class="text-right">İşlem</th>
+                <th class="num"></th>
             </tr>
         </thead>
         <tbody>
             @foreach (var r in Model.Documents)
             {
                 <tr>
-                    <td class="font-mono font-bold text-indigo-600">@r.DocNo</td>
-                    <td class="text-slate-500">@r.DocDate.ToString("dd.MM.yyyy")</td>
-                    <td class="font-medium">@r.PartnerName</td>
-                    <td class="text-xs font-semibold text-slate-600">@r.WarehouseCode</td>
+                    <td class="font-mono font-bold text-indigo-600">#@r.DocNo</td>
+                    <td class="font-mono text-xs text-slate-500">@r.DocDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-semibold text-slate-700">@r.PartnerName</td>
+                    <td class="text-xs font-bold text-slate-500">@r.WarehouseCode</td>
                     <td>
-                        <span class="badge @(r.Status == "POSTED" ? "b-green" : "b-amber")">
-                            @r.Status
+                        <span class="badge @(r.Status == "POSTED" ? "b-green" : r.Status == "CANCELLED" ? "b-red" : "b-amber")">
+                            @(r.Status == "POSTED" ? "Tamamlandı" : r.Status == "CANCELLED" ? "İptal" : "Taslak")
                         </span>
                     </td>
-                    <td class="text-right">
-                        <a asp-page="./Details" asp-route-id="@r.Id" class="btn btn-secondary btn-sm">Aç</a>
+                    <td class="num">
+                        <a asp-page="./Details" asp-route-id="@r.Id" class="btn btn-xs btn-secondary">Aç</a>
                     </td>
                 </tr>
             }

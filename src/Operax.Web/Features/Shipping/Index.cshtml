@@ -4,49 +4,112 @@
     ViewData["Title"] = "Sevkiyat Yönetimi";
 }
 
-<div class="flex items-start justify-between mb-8">
-    <div>
-        <h1 class="text-2xl font-black text-slate-800 tracking-tight">Sevkiyat & Çıkış İşlemleri</h1>
-        <p class="text-sm text-slate-500 mt-1">Sipariş paketleme ve müşteriye gönderim süreçleri</p>
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Lojistik</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Sevkiyat Yönetimi</span>
+        </div>
+        <h1>Sevkiyat & Çıkış İşlemleri</h1>
+        <p class="page-hdr-sub">Sipariş paketleme, taşıma belgeleri ve lojistik çıkış süreçleri</p>
     </div>
-    <a asp-page="./Details" class="btn btn-primary px-8">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Yeni Sevkiyat
-    </a>
+    <div class="page-hdr-r">
+        <a asp-page="./Details" class="btn btn-primary px-8">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Sevkiyat
+        </a>
+    </div>
+</div>
+
+<!-- Logistics KPI Row -->
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-glow brand"></div>
+        <span class="kpi-label text-indigo-600">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+            Bekleyen Sevk Siparişleri
+        </span>
+        <div class="kpi-value text-indigo-600">
+            @Model.DraftCount
+            <span class="kpi-unit">evrak</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">Onay bekleyen taslak çıkışlar</span>
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow success"></div>
+        <span class="kpi-label text-emerald-600">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Tamamlanan Lojistik Çıkışlar
+        </span>
+        <div class="kpi-value text-emerald-600">
+            @Model.PostedCount
+            <span class="kpi-unit">sevk</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-delta up">Başarılı Post</span>
+        </div>
+    </div>
+    
+    <div class="kpi">
+        <div class="kpi-glow danger"></div>
+        <span class="kpi-label text-red-600">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            İptal Edilen Sevkiyatlar
+        </span>
+        <div class="kpi-value text-red-600">
+            @Model.CancelledCount
+            <span class="kpi-unit">evrak</span>
+        </div>
+        <div class="kpi-foot">
+            <span class="kpi-trend text-slate-400">İptal statüsündeki çıkışlar</span>
+        </div>
+    </div>
 </div>
 
 <div class="card overflow-hidden">
-    <div class="p-4 bg-slate-50 border-b">
-        <input type="text" placeholder="Sevkiyat No veya Plaka ara..." class="w-1/3 bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
+    <div class="filter-bar">
+        <input type="text" placeholder="Sevkiyat No veya Plaka ara..." class="form-ctrl w-1/3 text-xs" />
     </div>
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400">
+    <table class="data-table">
+        <thead>
             <tr>
-                <th class="px-6 py-4 text-left">Sevkiyat No</th>
-                <th class="px-6 py-4 text-left">Depo</th>
-                <th class="px-6 py-4 text-left">Taşıyıcı / Plaka</th>
-                <th class="px-6 py-4 text-center">Durum</th>
-                <th class="px-6 py-4 text-right"></th>
+                <th>Sevkiyat No</th>
+                <th>Depo</th>
+                <th>Taşıyıcı / Plaka</th>
+                <th>Durum</th>
+                <th>Tarih</th>
+                <th class="num"></th>
             </tr>
         </thead>
-        <tbody class="divide-y">
+        <tbody>
             @foreach (var s in Model.Shipments)
             {
-                <tr class="hover:bg-slate-50/50">
-                    <td class="px-6 py-4 font-bold text-slate-700">#@s.DocNo</td>
-                    <td class="px-6 py-4 font-semibold text-slate-600">@s.WarehouseCode</td>
-                    <td class="px-6 py-4">
-                        <div class="font-medium text-slate-700">@s.CarrierName</div>
-                        <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">@s.VehiclePlate</div>
+                <tr>
+                    <td class="font-bold text-slate-900">#@s.DocNo</td>
+                    <td class="font-semibold text-slate-600">@s.WarehouseCode</td>
+                    <td>
+                        <div class="row-strong">@s.CarrierName</div>
+                        <div class="row-sub text-slate-400">@s.VehiclePlate</div>
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td>
                         @{ var sBadge = s.Status == "POSTED" ? "badge b-green" : s.Status == "CANCELLED" ? "badge b-red" : "badge b-indigo";
                            var sLabel = s.Status == "POSTED" ? "Tamamlandı" : s.Status == "CANCELLED" ? "İptal" : "Taslak"; }
                         <span class="@sBadge">@sLabel</span>
                     </td>
-                    <td class="px-6 py-4 text-right">
-                        <a asp-page="./Details" asp-route-id="@s.Id" class="text-indigo-600 font-bold hover:underline">Detay</a>
+                    <td class="font-mono text-xs text-slate-500">@s.DocDate.ToString("dd.MM.yyyy")</td>
+                    <td class="num">
+                        <a asp-page="./Details" asp-route-id="@s.Id" class="btn btn-xs btn-secondary">Detay</a>
                     </td>
+                </tr>
+            }
+            @if (!Model.Shipments.Any())
+            {
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic font-medium">Sevkiyat kaydı bulunamadı.</td>
                 </tr>
             }
         </tbody>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Operax — Gerçek Zamanlı İşletme Kontrol Sistemi</title>
+    <meta name="description" content="Operax; işletmenizi kaydetmez, çalıştırır. Stok, üretim, finans ve lojistiği gerçek zamanlı yöneten, ne olacağını önceden gören operasyon beyni. Real-Time Enterprise Control System." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+    <!-- ───────── NAV ───────── -->
+    <header class="nav" id="nav">
+        <div class="container nav-inner">
+            <a href="#" class="brand">
+                <span class="brand-mark">O</span>
+                <span class="brand-name">Operax</span>
+            </a>
+            <nav class="nav-links" id="navLinks">
+                <a href="#katman">Fark</a>
+                <a href="#moduller">Modüller</a>
+                <a href="#ekranlar">Ekranlar</a>
+                <a href="#neden">Neden Operax</a>
+                <a href="#teknoloji">Teknoloji</a>
+                <a href="#paketler">Paketler</a>
+                <a href="#iletisim" class="btn btn-primary btn-sm">Demo İste</a>
+            </nav>
+            <button class="nav-toggle" id="navToggle" aria-label="Menü">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ───────── HERO ───────── -->
+    <section class="hero">
+        <div class="hero-glow"></div>
+        <div class="container hero-inner">
+            <div class="hero-copy reveal">
+                <span class="pill"><span class="pill-dot"></span>Real-Time Enterprise Control System</span>
+                <h1>İşletmenizi kaydetmeyin. <span class="grad-text">Çalıştırın.</span></h1>
+                <p class="hero-sub">
+                    Klasik ERP "ne oldu?" diye sorar. Operax "şu an ne oluyor ve 5 dakika sonra ne olacak?"
+                    diye sorar. Stok, üretim, finans ve lojistiği gerçek zamanlı yöneten operasyon beyni.
+                </p>
+                <div class="hero-cta">
+                    <a href="#iletisim" class="btn btn-primary">Ücretsiz Demo</a>
+                    <a href="#moduller" class="btn btn-ghost">Modülleri Keşfet →</a>
+                </div>
+                <div class="hero-trust">
+                    <span>✓ Tek tıkla kurulum</span>
+                    <span>✓ e-Belge uyumlu</span>
+                    <span>✓ Verileriniz size özel</span>
+                </div>
+            </div>
+
+            <!-- Dashboard mockup -->
+            <div class="hero-visual reveal">
+                <div class="mock-app">
+                    <div class="mock-side">
+                        <div class="mock-logo"><span>O</span> Operax</div>
+                        <div class="mock-nav">
+                            <span class="active">◧ Anasayfa</span>
+                            <span>▤ Satınalma</span>
+                            <span>◳ Stok</span>
+                            <span>⚙ Üretim</span>
+                            <span>₺ Finans</span>
+                        </div>
+                    </div>
+                    <div class="mock-main">
+                        <div class="mock-top">
+                            <div class="mock-bar"></div>
+                            <div class="mock-avatar"></div>
+                        </div>
+                        <div class="mock-kpis">
+                            <div class="mock-kpi"><small>Aylık Ciro</small><b>₺ 4.82M</b><i class="up">▲ %12</i></div>
+                            <div class="mock-kpi"><small>Açık Sipariş</small><b>238</b><i class="up">▲ %4</i></div>
+                            <div class="mock-kpi"><small>Stok Değeri</small><b>₺ 11.6M</b><i class="down">▼ %2</i></div>
+                        </div>
+                        <div class="mock-chart">
+                            <div class="bar" style="height:42%"></div>
+                            <div class="bar" style="height:60%"></div>
+                            <div class="bar" style="height:38%"></div>
+                            <div class="bar" style="height:78%"></div>
+                            <div class="bar" style="height:55%"></div>
+                            <div class="bar" style="height:88%"></div>
+                            <div class="bar" style="height:70%"></div>
+                        </div>
+                        <div class="mock-rows">
+                            <div class="mock-row"><span></span><span></span><span class="ok">ONAYLI</span></div>
+                            <div class="mock-row"><span></span><span></span><span class="warn">TASLAK</span></div>
+                            <div class="mock-row"><span></span><span></span><span class="ok">ONAYLI</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── İSTATİSTİK ───────── -->
+    <section class="stats">
+        <div class="container stats-grid">
+            <div class="stat reveal"><b data-count="9">0</b><small>Bütünleşik modül</small></div>
+            <div class="stat reveal"><b data-count="100">0</b><small>% Türkçe arayüz</small></div>
+            <div class="stat reveal"><b data-count="7">0</b><small>Kredi hesaplama yöntemi</small></div>
+            <div class="stat reveal"><b data-count="0" data-suffix="/7">0</b><small>Kesintisiz erişim</small></div>
+        </div>
+    </section>
+
+    <!-- ───────── KATMAN MODELİ ───────── -->
+    <section class="section section-alt" id="katman">
+        <div class="container">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Operax Farkı</span>
+                <h2>ERP işletmeyi <em>kaydeder</em>. Operax işletmeyi <em>çalıştırır</em>.</h2>
+                <p>Üç katman: değişmez resmi kayıt, canlı operasyon ve karar veren beyin.</p>
+            </div>
+            <div class="layers">
+                <div class="layer layer-erp reveal">
+                    <span class="layer-tag">Alt Katman</span>
+                    <h3>ERP — Truth System</h3>
+                    <p>Resmi kayıt, finans, muhasebe, e-belge. Değişmez güven katmanı.</p>
+                </div>
+                <div class="layer-arrow reveal">↑</div>
+                <div class="layer layer-ops reveal">
+                    <span class="layer-tag">Orta Katman</span>
+                    <h3>Operax — Canlı Sistem</h3>
+                    <p>Operasyon akışı, stok, üretim, lojistik. Gerçek zamanlı çalışan organizma.</p>
+                </div>
+                <div class="layer-arrow reveal">↑</div>
+                <div class="layer layer-brain reveal">
+                    <span class="layer-tag">Üst Katman</span>
+                    <h3>Decision Layer — Şirket Beyni</h3>
+                    <p>Analiz, öneri, otomasyon, aksiyon. Ne olacağını görür, ip çeker.</p>
+                </div>
+            </div>
+            <p class="layer-note reveal">Operax bir stok sistemi satmaz — <b>operasyon gecikmesini ortadan kaldırır.</b></p>
+        </div>
+    </section>
+
+    <!-- ───────── MODÜLLER ───────── -->
+    <section class="section" id="moduller">
+        <div class="container">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Modüller</span>
+                <h2>Tek platform, eksiksiz operasyon</h2>
+                <p>Her modül birbiriyle konuşur. Siparişten faturaya, üretimden ödemeye kesintisiz veri akışı.</p>
+            </div>
+            <div class="cards">
+                <article class="card reveal">
+                    <div class="card-ico">◳</div>
+                    <h3>Depo Yönetimi (WMS)</h3>
+                    <p>Hücre bazlı stok, dalga toplama, el terminali, FIFO/FEFO ve barkod doğrulama ile hatasız depo.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">▤</div>
+                    <h3>Satınalma</h3>
+                    <p>Sipariş → mal kabul → fatura → ödeme zinciri. Fiyat farkı onayı ve tedarikçi vade takibi.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">⤴</div>
+                    <h3>Satış &amp; Sevkiyat</h3>
+                    <p>Sipariş, sevkiyat, irsaliye ve satış faturası. Müşteri risk limiti ve vade kontrolü.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">⚙</div>
+                    <h3>Üretim (MRP)</h3>
+                    <p>Reçete (BOM), iş emri, hammadde sarfı ve mamul girişi. Parametrik formüllü dinamik reçeteler.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">₺</div>
+                    <h3>Finans</h3>
+                    <p>Kasa, banka, çek/senet, kredi ve kredi kartı. 7 farklı kredi hesaplama yöntemi otomatik.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">◴</div>
+                    <h3>Maliyet Muhasebesi</h3>
+                    <p>Hareketli ortalama maliyet, masraf merkezleri ve çok boyutlu maliyet dağıtımı (analitik).</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">▦</div>
+                    <h3>Vade &amp; Tahsilat</h3>
+                    <p>Otomatik vade kapama (FIFO), yaşlandırma raporu, ortalama tahsilat/ödeme süresi analizi.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">⎙</div>
+                    <h3>e-Belge</h3>
+                    <p>Ana ERP'den e-fatura/e-irsaliye numaralarını çeker, belgelerle eşleştirir. Uyum içinde çalışır.</p>
+                </article>
+                <article class="card reveal">
+                    <div class="card-ico">◫</div>
+                    <h3>Raporlama</h3>
+                    <p>Anlık KPI'lar, mali durum kapama tablosu ve modül bazlı detay raporları tek panelde.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── EKRANLAR ───────── -->
+    <section class="section section-alt" id="ekranlar">
+        <div class="container">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Ekranlar</span>
+                <h2>Sade, hızlı ve tamamen Türkçe arayüz</h2>
+                <p>Her ekran aynı tasarım dilini konuşur. Öğrenmesi kolay, kullanması hızlı.</p>
+            </div>
+
+            <div class="screens">
+                <div class="screen-tabs reveal">
+                    <button class="tab active" data-screen="dash">Anasayfa</button>
+                    <button class="tab" data-screen="fin">Finans / Mali Durum</button>
+                    <button class="tab" data-screen="po">Satınalma Siparişi</button>
+                    <button class="tab" data-screen="wms">Depo / Stok</button>
+                </div>
+
+                <div class="screen-stage reveal">
+                    <!-- DASH -->
+                    <div class="screen active" data-screen="dash">
+                        <div class="scr-head"><b>Anasayfa</b><span>Genel bakış · KPI · grafikler</span></div>
+                        <div class="scr-kpis">
+                            <div><small>Ciro</small><b>₺ 4.82M</b></div>
+                            <div><small>Gider</small><b>₺ 2.91M</b></div>
+                            <div><small>Net Kâr</small><b class="g">₺ 1.91M</b></div>
+                            <div><small>Açık Evrak</small><b>238</b></div>
+                        </div>
+                        <div class="scr-chart">
+                            <div class="b" style="height:50%"></div><div class="b" style="height:72%"></div>
+                            <div class="b" style="height:40%"></div><div class="b" style="height:85%"></div>
+                            <div class="b" style="height:64%"></div><div class="b" style="height:92%"></div>
+                        </div>
+                    </div>
+                    <!-- FIN -->
+                    <div class="screen" data-screen="fin">
+                        <div class="scr-head"><b>Mali Durum Kapama</b><span>Belirli tarih itibarıyla tüm hesaplar</span></div>
+                        <div class="scr-table">
+                            <div class="t-row t-h"><span>Hesap</span><span>Tür</span><span class="r">Bakiye</span></div>
+                            <div class="t-row"><span>Ziraat Vadesiz</span><span>Banka</span><span class="r">₺ 842.300</span></div>
+                            <div class="t-row"><span>Merkez Kasa</span><span>Kasa</span><span class="r">₺ 58.900</span></div>
+                            <div class="t-row"><span>İş Bankası Kredi</span><span>Kredi</span><span class="r neg">-₺ 1.250.000</span></div>
+                            <div class="t-row"><span>Çek Portföyü</span><span>Çek</span><span class="r">₺ 410.000</span></div>
+                            <div class="t-row t-sum"><span>Net Pozisyon</span><span></span><span class="r">₺ 61.200</span></div>
+                        </div>
+                    </div>
+                    <!-- PO -->
+                    <div class="screen" data-screen="po">
+                        <div class="scr-head"><b>Satınalma Siparişi · PO-2026-0184</b><span class="badge ok">ONAYLI</span></div>
+                        <div class="scr-table">
+                            <div class="t-row t-h"><span>Ürün</span><span>Miktar</span><span class="r">Tutar</span></div>
+                            <div class="t-row"><span>Rulman 6204</span><span>500 ad</span><span class="r">₺ 12.500</span></div>
+                            <div class="t-row"><span>Conta seti</span><span>120 ad</span><span class="r">₺ 4.320</span></div>
+                            <div class="t-row"><span>Hidrolik yağ</span><span>40 L</span><span class="r">₺ 6.800</span></div>
+                            <div class="t-row t-sum"><span>Toplam</span><span></span><span class="r">₺ 23.620</span></div>
+                        </div>
+                    </div>
+                    <!-- WMS -->
+                    <div class="screen" data-screen="wms">
+                        <div class="scr-head"><b>Stok Durumu</b><span>Hücre bazlı anlık bakiye</span></div>
+                        <div class="scr-table">
+                            <div class="t-row t-h"><span>Ürün</span><span>Hücre</span><span class="r">Bakiye</span></div>
+                            <div class="t-row"><span>Rulman 6204</span><span>A-01-03</span><span class="r">1.240</span></div>
+                            <div class="t-row"><span>Conta seti</span><span>A-02-11</span><span class="r">86</span></div>
+                            <div class="t-row"><span>Hidrolik yağ</span><span>B-05-02</span><span class="r warn">12</span></div>
+                            <div class="t-row"><span>Civata M8</span><span>C-01-09</span><span class="r">5.400</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── NEDEN ───────── -->
+    <section class="section" id="neden">
+        <div class="container">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Neden Operax</span>
+                <h2>Klasik ERP'lerin takıldığı yerde fark yaratır</h2>
+                <p>Türkiye'deki işletmelerin gerçek sorunlarına göre tasarlandı.</p>
+            </div>
+            <div class="why-grid">
+                <div class="why reveal"><b>Size özel kurulum</b><p>Her müşteri kendi sunucusunda, kendi verisiyle. Veri karışması yok, performans tam.</p></div>
+                <div class="why reveal"><b>Belge bütünlüğü</b><p>Mal kabul yapılan sipariş, faturası kesilen mal kabul değişmez. Denetim güvenli.</p></div>
+                <div class="why reveal"><b>Hızlı veri erişimi</b><p>Raw SQL + Dapper mimarisi. Ağır ORM yükü yok, büyük veride bile akıcı.</p></div>
+                <div class="why reveal"><b>Gerçek Türkçe</b><p>Çeviri değil, baştan Türkçe tasarlandı. Durum kodları bile Türkçe etiketli.</p></div>
+                <div class="why reveal"><b>Tek tıkla zincir</b><p>Sipariş → mal kabul → fatura → ödeme tek akışta, ön dolu, yetkiye bağlı.</p></div>
+                <div class="why reveal"><b>Müşteriye özel kural</b><p>İş kuralları veritabanı katmanında. Çekirdek kod bozulmadan size özel uyarlama.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── TEKNOLOJİ ───────── -->
+    <section class="section section-dark" id="teknoloji">
+        <div class="container tech-inner">
+            <div class="tech-copy reveal">
+                <span class="eyebrow light">Teknoloji</span>
+                <h2>Modern, güvenli ve hızlı temel</h2>
+                <p>Operax güncel .NET platformu ve SQL Server üzerinde çalışır. İş mantığı veritabanı katmanında atomik transaction'larla yürür; arayüz hafif ve hızlıdır.</p>
+                <ul class="tech-list">
+                    <li><b>.NET 10</b> · ASP.NET Core Razor Pages</li>
+                    <li><b>SQL Server 2022</b> · SQL-first iş mantığı</li>
+                    <li><b>Dapper</b> · yüksek performanslı veri erişimi</li>
+                    <li><b>Hangfire</b> · arka plan işleri &amp; otomasyon</li>
+                    <li><b>Tek müşteri / tek kurulum</b> · veri izolasyonu</li>
+                </ul>
+            </div>
+            <div class="tech-stack reveal">
+                <div class="chip">.NET 10</div>
+                <div class="chip">SQL Server</div>
+                <div class="chip">Dapper</div>
+                <div class="chip">Hangfire</div>
+                <div class="chip">Razor Pages</div>
+                <div class="chip">Zebra ZPL</div>
+                <div class="chip">e-Belge</div>
+                <div class="chip">El Terminali</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── PAKETLER ───────── -->
+    <section class="section section-alt" id="paketler">
+        <div class="container">
+            <div class="sec-head reveal">
+                <span class="eyebrow">Paketler</span>
+                <h2>İşletmenizin büyüklüğüne uygun seçenek</h2>
+                <p>Küçükten kurumsala, ihtiyacınız kadar modülle başlayın.</p>
+            </div>
+            <div class="plans">
+                <div class="plan reveal">
+                    <h3>Starter</h3>
+                    <p class="plan-desc">Temel ticari ve depo operasyonu.</p>
+                    <ul>
+                        <li>✓ Stok &amp; Depo</li>
+                        <li>✓ Satınalma &amp; Satış</li>
+                        <li>✓ Temel Finans</li>
+                        <li>✓ Faturalama</li>
+                    </ul>
+                    <a href="#iletisim" class="btn btn-ghost full">Teklif Al</a>
+                </div>
+                <div class="plan plan-feat reveal">
+                    <span class="plan-tag">En Popüler</span>
+                    <h3>Professional</h3>
+                    <p class="plan-desc">Üretim ve gelişmiş finans.</p>
+                    <ul>
+                        <li>✓ Starter'daki her şey</li>
+                        <li>✓ Üretim (MRP / BOM)</li>
+                        <li>✓ Çek / Senet / Kredi</li>
+                        <li>✓ Maliyet muhasebesi</li>
+                        <li>✓ e-Belge entegrasyonu</li>
+                    </ul>
+                    <a href="#iletisim" class="btn btn-primary full">Teklif Al</a>
+                </div>
+                <div class="plan reveal">
+                    <h3>Enterprise</h3>
+                    <p class="plan-desc">Tam otomasyon ve özel uyarlama.</p>
+                    <ul>
+                        <li>✓ Professional'daki her şey</li>
+                        <li>✓ Analitik maliyet dağıtımı</li>
+                        <li>✓ WMS tam otomasyon</li>
+                        <li>✓ Müşteriye özel iş kuralları</li>
+                        <li>✓ Öncelikli destek</li>
+                    </ul>
+                    <a href="#iletisim" class="btn btn-ghost full">Teklif Al</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───────── CTA / İLETİŞİM ───────── -->
+    <section class="cta" id="iletisim">
+        <div class="container cta-inner reveal">
+            <h2>Operax'ı işletmenizde görün</h2>
+            <p>Kısa bir demo planlayalım, modülleri kendi verinizle deneyimleyin.</p>
+            <form class="cta-form" id="demoForm" novalidate>
+                <input type="text" name="ad" placeholder="Ad Soyad" required />
+                <input type="text" name="firma" placeholder="Firma" required />
+                <input type="email" name="email" placeholder="E-posta" required />
+                <button type="submit" class="btn btn-primary">Demo İste</button>
+            </form>
+            <p class="cta-note" id="formNote"></p>
+        </div>
+    </section>
+
+    <!-- ───────── FOOTER ───────── -->
+    <footer class="footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <a href="#" class="brand"><span class="brand-mark">O</span><span class="brand-name">Operax</span></a>
+                <p>Depo, üretim ve finans yönetimini tek platformda birleştiren modern işletme yönetim sistemi.</p>
+            </div>
+            <div class="footer-cols">
+                <div>
+                    <b>Ürün</b>
+                    <a href="#moduller">Modüller</a>
+                    <a href="#ekranlar">Ekranlar</a>
+                    <a href="#paketler">Paketler</a>
+                </div>
+                <div>
+                    <b>Kaynaklar</b>
+                    <a href="#teknoloji">Teknoloji</a>
+                    <a href="#neden">Neden Operax</a>
+                    <a href="#iletisim">Demo</a>
+                </div>
+                <div>
+                    <b>İletişim</b>
+                    <a href="mailto:info@operax.com">info@operax.com</a>
+                    <a href="#">+90 (212) 000 00 00</a>
+                </div>
+            </div>
+        </div>
+        <div class="container footer-bot">
+            <span>© 2026 Operax. Tüm hakları saklıdır.</span>
+            <span>Türkiye'de tasarlandı ve geliştirildi.</span>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

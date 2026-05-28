@@ -38,3 +38,8 @@ test_ps.txt
 tasarım/_extract*.js
 tasarım/_extracted_template.html
 
+
+# Kod toplama yardimcilari (gecici)
+TUM_PROJE_KODLARI.txt
+kod_toplayici.ps1
+kodlari_topla_v2.bat

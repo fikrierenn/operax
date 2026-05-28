@@ -1,5 +1,73 @@
 # OPERAX Platform — Modül & Ekran Bazlı TODO
 
+---
+
+## 🚨 KOD REVIEW BULGULARI (2026-05-28 — 3 paralel agent: code-reviewer + security-reviewer + silent-failure-hunter)
+
+Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verification.md` kuralı gereği fix öncesi canlı koddan doğrulanmalı.
+
+### CRITICAL — Plan 02 adayı (Fix Sprint)
+
+- [ ] **CRIT-1 · SP THROW handler catch eksik** — PO/Details.cshtml.cs:166-179 (Approve), Receiving/Details.cshtml.cs:142-151 (Post), Shipping/Details.cshtml.cs:175-194 (CreatePickTask + Post), PO/Details.cshtml.cs:181-190 (Cancel — SP bypass).
+  - **Etki:** SP Türkçe iş kuralı mesajları (stok yetersiz, durum geçişi, vade plan) user'a 500 sayfası olarak iletiliyor, mesaj kayboluyor.
+  - **Fix:** `catch (SqlException sex) when (sex.Number is >= 50000 and < 60000) { TempData["Error"] = sex.Message; return RedirectToPage(new { id }); }`
+  - **Kural:** `.claude/rules/error-handling.md` "SP'lerden Gelen THROW"
+
+- [ ] **CRIT-2 · XSS — `_PageHeader.Sub` `@Html.Raw` + ham PartnerName interpolation** — Shared/_PageHeader.cshtml:33,38 + SalesInvoices/Details.cshtml:13, PO/Details.cshtml:46, SO/Details.cshtml:44.
+  - **Etki:** Partner.Name'de `<script>` → stored XSS tüm detay sayfalarında.
+  - **Fix:** PageHeaderVm'e `SubHtml` (raw) ayrı property + `Sub` encode-safe; veya partial'da `Html.Encode(Model.Sub)` + `Html.Raw(Model.SubHtml)` ayrımı. PartnerName her zaman encode'lu.
+  - **Kural:** `.claude/rules/security-principles.md` §2 XSS
+
+- [ ] **CRIT-3 · Magic string `"APPROVED"` + SQL `IN ('POSTED','APPROVED')`** — SO/Details.cshtml.cs:164, PO/Index.cshtml.cs:41,80, SO/Index.cshtml.cs paralel.
+  - **Fix:** `DocStatus.Posted` sabit kullan; SQL'de IN listesi `Dtos.cs`'te `DocStatus.PostedAliases = ["POSTED","APPROVED"]` array'i + parametre.
+  - **Kural:** `.claude/rules/architecture.md` §3 Magic String Yasağı
+
+- [ ] **CRIT-4 · `ILogger<T>` DI eksik** — Tüm yeni PageModel'ler: Finance/Accounts/Index+Details, Finance/Aging/Index, Finance/Cheques/Index, Finance/CreditCards/Index, Finance/Loans/Index, Finance/PaymentPlan/Index, SalesInvoices/Index+Details, PurchaseOrders/Index+Details, SalesOrders/Index+Details.
+  - **Etki:** SqlException sızar, log yok, production debug imkansız.
+  - **Fix:** Primary ctor `(Db db, ICurrentCompany company, ILogger<XModel> log)` + catch'lerde `log.LogError(sex, "...")`.
+  - **Kural:** `.claude/rules/csharp-conventions.md` Exception Handling
+
+### HIGH — sonraki sprint
+
+- [ ] **HIGH-1 · SP THROW kod aralığı kural dışı** — db_objects_starter.sql 60001-72001 aralığı kullanmış; kural 50000-59999.
+  - **Fix:** Modül slot tahsisi: M02: 51000-51099, M03: 51100-51199, M04: 51200-51299, M11: 51300-51399. `Lib/Errors.cs`'e kayıt sözleşmesi tablo.
+
+- [ ] **HIGH-2 · PO/SO Cancel direct UPDATE — `sp_ValidateStatusTransition` bypass** — PO/Details.cshtml.cs:181-190, SO/Details Cancel.
+  - **Etki:** yetkisiz geçişe açık (POSTED → DRAFT vb.).
+  - **Fix:** `sp_PoCancel`, `sp_SoCancel` SP'leri yaz, içlerinde `sp_ValidateStatusTransition` çağır + ters stok hareketi.
+
+### IMPORTANT — biriktir
+
+- [ ] **IMP-1 · Tablo adı SQL string interpolation** — Cheques/Index.cshtml.cs:37-52 `$"... FROM {table} ..."`. Whitelist'li injection yok ama kural ihlali. İki ayrı sabit SQL bloğu yaz.
+
+- [ ] **IMP-2 · Sync `ExecuteScalar<int>` async handler** — PO/Details.cshtml.cs:119, SO/Details.cshtml.cs:113. → `ExecuteScalarAsync<int>`.
+
+- [ ] **IMP-3 · Hardcoded 14-gün vade** — PO/Index.cshtml.cs:66 `DATEADD(DAY, 14, h.OrderDate)`, PO/Details.cshtml:114 Razor sabit. `Partner.PaymentTermDays` kolonu mevcut (`schema_M01_M04_StarterFields.sql`) — SQL ve UI'da bunu kullan.
+
+- [ ] **IMP-4 · `Guid.ToString()[..8]` substring** — SalesInvoices/Details.cshtml:35,159. Helper'a sar: `UiHelpers.ShortGuid(g)`.
+
+- [ ] **IMP-5 · View'larda CompanyId filtresi eksik** — `v_AccountBalance`, `v_PaymentPlanAging` (db_objects_starter.sql:547-593). Inline TVF pattern'e geç: `tvf_AccountBalance(@CompanyId)`.
+
+- [ ] **IMP-6 · `ActionLabel` switch DRY ihlali** — PO/SO Details.cshtml.cs aynı switch. `Lib/UiHelpers.cs`'e taşı: `UiHelpers.AuditActionLabel(string)`.
+
+- [ ] **IMP-7 · `'Sistem'` magic SQL içinde** — PO/SO Details SQL `ISNULL(NULLIF(a.UserName, ''), 'Sistem')`. SQL NULL döndürsün, view `@(a.UserName ?? L.T("Sistem","System"))`.
+
+### POSITIVE — koruyalım
+
+- ✅ Tek CSS katmanı (`parts/` parçalı) — ui-standard.md uygulanmış
+- ✅ `L.T("tr","en")` tüm yeni sayfalarda tutarlı
+- ✅ `<div class="page" data-screen-label>` + `_PageHeader` her sayfa
+- ✅ SP `SET XACT_ABORT ON` + BEGIN TRY/CATCH + Türkçe THROW (db_objects_starter)
+- ✅ CompanyId filtresi Dapper sorgularında tutarlı
+- ✅ AntiForgery temiz (Razor Pages default), `ex.Message` user'a sızıntı YOK
+
+### Inline Style Refactor (ayrı kategori — Plan 03 adayı)
+
+- [ ] **STYLE-1 · Inline style flood** — PurchaseOrders/Details.cshtml (42 oluşum), SalesInvoices/Details.cshtml (20+), Finance/Cheques/Index.cshtml (Razor expression dinamik renk). `.claude/rules/inline-style-guard.md` sıfır tolerans.
+  - **Fix:** `parts/_doc-summary.css` aç, `.summary-cell`, `.summary-label-strong`, `.due-overdue/.due-soon/.due-future` semantic class'lara migrate.
+
+---
+
 > Kaynak: OPERAX_Platform_Master_Document_v2_2_TR.docx  
 > Sürüm: v2.2-TR | Güncelleme: Mart 2026  
 > Format: `[ ]` yapılacak · `[/]` devam ediyor · `[x]` tamamlandı

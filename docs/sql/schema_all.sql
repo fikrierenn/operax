@@ -456,6 +456,7 @@ BEGIN
         Type      NVARCHAR(20)  NOT NULL, -- VENDOR, CUSTOMER, BOTH
         TaxNumber NVARCHAR(50),
         Email     NVARCHAR(200),
+        City      NVARCHAR(100),
         IsActive  BIT DEFAULT 1,
         IsDeleted BIT DEFAULT 0,
         CONSTRAINT FK_Partner_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)

@@ -100,12 +100,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             SELECT TOP 5
                 h.OrderNo,
                 p.Name AS SupplierName,
-                CASE 
-                    WHEN p.Code LIKE '%ELK%' OR p.Code LIKE '%FRT%' THEN 'Bursa'
-                    WHEN p.Code LIKE '%UZM%' THEN 'İzmir'
-                    WHEN p.Code LIKE '%TKB%' THEN 'Kocaeli'
-                    ELSE 'İstanbul' 
-                END AS SupplierCity,
+                p.City AS SupplierCity,
                 p.Code AS SupplierCode,
                 h.OrderDate,
                 ISNULL((SELECT SUM(QtyOrdered * Price) FROM PurchaseOrderLine WHERE HeaderId = h.Id), 0) AS TotalAmount,

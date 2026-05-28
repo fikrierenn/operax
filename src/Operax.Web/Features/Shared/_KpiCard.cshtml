@@ -1,0 +1,29 @@
+@*
+    Operax Ortak KPI Kartı Partial
+    Anasayfa ve rapor sayfalarında metrik kutucuğu olarak kullanılır.
+*@
+@model Operax.Web.Lib.KpiCardVm
+
+<div class="kpi">
+    <div class="kpi-glow @Model.Glow"></div>
+    <div class="kpi-label">@Model.Label</div>
+    <div class="kpi-value">
+        @Model.Value@if (!string.IsNullOrEmpty(Model.Unit))
+        {
+            <span class="kpi-unit">@Model.Unit</span>
+        }
+    </div>
+    @if (!string.IsNullOrEmpty(Model.DeltaText) || !string.IsNullOrEmpty(Model.TrendText))
+    {
+        <div class="kpi-foot">
+            @if (!string.IsNullOrEmpty(Model.DeltaText))
+            {
+                <span class="kpi-delta @Model.DeltaKind">@Html.Raw(Model.DeltaText)</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.TrendText))
+            {
+                <span class="kpi-trend">@Model.TrendText</span>
+            }
+        </div>
+    }
+</div>

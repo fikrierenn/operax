@@ -1,0 +1,40 @@
+@*
+    Operax Ortak Sayfa Başlığı Partial
+    Kullanım: <partial name="_PageHeader" model="new PageHeaderVm { Title = "...", Crumbs = new[] { ... } }" />
+    Standart: .claude/rules/ui-standard.md bölüm 4
+*@
+@model Operax.Web.Lib.PageHeaderVm
+
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        @if (Model.Crumbs is { Length: > 0 })
+        {
+            <div class="breadcrumb">
+                @for (int i = 0; i < Model.Crumbs.Length; i++)
+                {
+                    var isLast = i == Model.Crumbs.Length - 1;
+                    if (isLast)
+                    {
+                        <span class="breadcrumb-current">@Model.Crumbs[i]</span>
+                    }
+                    else
+                    {
+                        <span class="breadcrumb-item">@Model.Crumbs[i]</span>
+                        <svg class="breadcrumb-sep" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    }
+                }
+            </div>
+        }
+        <h1>@Model.Title</h1>
+        @if (!string.IsNullOrEmpty(Model.Sub))
+        {
+            <p>@Html.Raw(Model.Sub)</p>
+        }
+    </div>
+    @if (!string.IsNullOrEmpty(Model.ActionsHtml))
+    {
+        <div class="page-hdr-r">@Html.Raw(Model.ActionsHtml)</div>
+    }
+</div>

@@ -445,6 +445,20 @@ BEGIN
 END
 GO
 
+-- City
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'City')
+BEGIN
+    CREATE TABLE City (
+        Id        UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        Name      NVARCHAR(100) NOT NULL,
+        Code      NVARCHAR(20)  NULL,
+        IsActive  BIT DEFAULT 1,
+        IsDeleted BIT DEFAULT 0
+    );
+    PRINT 'City tablosu olusturuldu.';
+END
+GO
+
 -- Partner
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Partner')
 BEGIN
@@ -456,10 +470,12 @@ BEGIN
         Type      NVARCHAR(20)  NOT NULL, -- VENDOR, CUSTOMER, BOTH
         TaxNumber NVARCHAR(50),
         Email     NVARCHAR(200),
+        CityId    UNIQUEIDENTIFIER NULL,
         City      NVARCHAR(100),
         IsActive  BIT DEFAULT 1,
         IsDeleted BIT DEFAULT 0,
-        CONSTRAINT FK_Partner_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id)
+        CONSTRAINT FK_Partner_Company FOREIGN KEY (CompanyId) REFERENCES Company(Id),
+        CONSTRAINT FK_Partner_City FOREIGN KEY (CityId) REFERENCES City(Id)
     );
     CREATE INDEX IX_Partner_Code ON Partner(CompanyId, Code) WHERE IsDeleted = 0;
     PRINT 'Partner tablosu olusturuldu.';

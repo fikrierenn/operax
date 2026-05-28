@@ -31,6 +31,15 @@ Referans: `tasarım/OPERAX Platform Pure.standalone.html` ve çıkarılmış kay
 
 ---
 
+## 1.5 Veri Kaynağı Politikası — Sıfır Hardcoded Veri
+
+*   **Kod İçi Veri Yasak:** PageModel sınıflarında veya `.cshtml` dosyalarında demo amaçlı sabit veri (`new(...)` ile doldurulmuş listeler, `if (X == 0) X = 14;` gibi fallback değer atamaları, sahte tedarikçi/ürün/kullanıcı isimleri, hardcoded para tutarları, hardcoded ay/dönem rakamları) **kesinlikle yazılmaz**.
+*   **Tek Kaynak Veritabanı:** Tüm sayısal değer, liste ve metin Dapper sorguları üzerinden veritabanından gelir. Sorgu hiçbir kayıt döndürmüyorsa görünüm `_EmptyState` partial'ı ile yanıt verir.
+*   **Statik UI Etiketi İstisnası:** Sütun başlıkları, buton etiketleri, breadcrumb metinleri, validasyon hata mesajları gibi *gösterim* metinleri `L.T("tr", "en")` ile yazılır — bu "veri" değildir.
+*   **Şirket / Kullanıcı Adı:** "Aydın Endüstri A.Ş." gibi şirket adları, "Mehmet Yılmaz" gibi kişi adları hardcoded yazılmaz — daima `CurrentCompany.Name`, `CurrentUser.UserName` üzerinden okunur.
+*   **Aylık / Dönem Toplamları:** Aylık satınalma, satış, ciro gibi metrikler doğrudan SQL'de `GROUP BY DATEFROMPARTS(YEAR, MONTH, 1)` ile hesaplanır; C# tarafında hardcoded ay listesi tutulmaz.
+*   **Eksik Demo Veri:** Geliştirme sırasında bir ekrana ait veri yoksa `docs/sql/` altında ilgili `seed_*.sql` dosyası genişletilir; PageModel hiçbir koşulda fallback değer atamaz.
+
 ## 2. Inline Style Politikası
 
 *   **İzinli (Sadece Layout):** Tek seferlik grid ya da boyut kararları için inline style kullanılabilir.

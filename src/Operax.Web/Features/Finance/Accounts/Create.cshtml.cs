@@ -48,7 +48,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                      @BankName, @BranchName, @AccountNumber, @IBAN,
                      @CreditLimit, @InterestRate, @OpeningBalance, @Notes, @UserId)",
                 new {
-                    Id, CompanyId = company.Id, Form.Code, Form.Name, Form.AccountType, Form.Currency,
+                    Id = id, CompanyId = company.Id, Form.Code, Form.Name, Form.AccountType, Form.Currency,
                     Form.BankName, Form.BranchName, Form.AccountNumber, Form.IBAN,
                     Form.CreditLimit, Form.InterestRate, Form.OpeningBalance, Form.Notes,
                     UserId = user.Id

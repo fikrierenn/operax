@@ -19,6 +19,9 @@
 
     <partial name="_PageHeader" model="header" />
 
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info" style="margin-bottom:14px;">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger" style="margin-bottom:14px;">@err</div> }
+
     @* ───── KPI ───── *@
     <div class="kpi-grid">
         <div class="kpi">

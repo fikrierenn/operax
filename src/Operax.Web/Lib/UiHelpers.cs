@@ -58,6 +58,63 @@ public static class UiHelpers
     }
 
     /// <summary>
+    /// Finansal araç durum kodu → Türkçe rozet (çek/senet/kredi statüleri).
+    /// </summary>
+    public static string FinanceStatusBadge(string? code) => code switch
+    {
+        "PORTFOLIO"  => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖYDE</span>",
+        "IN_BANK"    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
+        "COLLECTED"  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL EDİLDİ</span>",
+        "RETURNED"   => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
+        "ENDORSED"   => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>CİROLANDI</span>",
+        "PAID"       => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+        "ACTIVE"     => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
+        "CLOSED"     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPANDI</span>",
+        "OVERDUE"    => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
+        _            => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{code}</span>",
+    };
+
+    /// <summary>
+    /// Kredi hesap yöntemi kodu → Türkçe etiket.
+    /// </summary>
+    public static string LoanMethodLabel(string? code) => code switch
+    {
+        "ANUITE"          => "Anüite",
+        "EQUAL_PRINCIPAL" => "Eşit Anapara",
+        "BALLOON"         => "Balon Ödemeli",
+        "SPOT"            => "Spot",
+        "ROTATIVE"        => "Rotatif",
+        "KMH"             => "KMH",
+        "DBS"             => "DBS",
+        _                 => code ?? "—",
+    };
+
+    /// <summary>
+    /// Finansal hesap tipi kodu → Türkçe etiket.
+    /// </summary>
+    public static string AccountTypeLabel(string? code) => code switch
+    {
+        "CASH"        => "Kasa",
+        "BANK"        => "Banka",
+        "CREDIT_CARD" => "Kredi Kartı",
+        "LOAN"        => "Kredi",
+        "POS"         => "POS",
+        _             => code ?? "—",
+    };
+
+    /// <summary>
+    /// Ürün tipi kodu → Türkçe etiket.
+    /// </summary>
+    public static string ItemTypeLabel(string? code) => code switch
+    {
+        "STOCK"       => "Stok",
+        "SERVICE"     => "Hizmet",
+        "EXPENSE"     => "Gider",
+        "FIXED_ASSET" => "Sabit Kıymet",
+        _             => code ?? "—",
+    };
+
+    /// <summary>
     /// Verilen bir isim için ilk iki harfin baş harfi (avatar için).
     /// </summary>
     public static string Initials(string? name)

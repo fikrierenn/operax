@@ -437,6 +437,115 @@ END
 GO
 
 -- =============================================================================
+-- M11 KART: sp_CloseStatement — dönem ekstre kapatma
+-- Periyot içi ekstresiz slipleri toplar, CreditCardStatement oluşturur,
+-- slipleri ekstreye bağlar, önceki dönem devrini ekler.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_CloseStatement
+    @CardId          UNIQUEIDENTIFIER,
+    @PeriodStart     DATE,
+    @PeriodEnd       DATE,
+    @UserId          UNIQUEIDENTIFIER = NULL,
+    @NewStatementId  UNIQUEIDENTIFIER OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @DueDay INT;
+        SELECT @DueDay = DueDay FROM CreditCard WHERE Id = @CardId;
+        IF @DueDay IS NULL THROW 51320, N'Kredi kartı bulunamadı.', 1;
+
+        -- Periyot içi ekstreye girmemiş slip toplamı
+        DECLARE @Total DECIMAL(18,2) = ISNULL((
+            SELECT SUM(Amount) FROM CreditCardTransaction
+            WHERE CardId = @CardId AND StatementId IS NULL
+              AND CAST(TransactionDate AS DATE) BETWEEN @PeriodStart AND @PeriodEnd), 0);
+
+        -- Önceki kapanmamış bakiye (devir)
+        DECLARE @Opening DECIMAL(18,2) = ISNULL((
+            SELECT TOP 1 ClosingBalance - PaidAmount FROM CreditCardStatement
+            WHERE CardId = @CardId ORDER BY PeriodEnd DESC), 0);
+
+        SET @NewStatementId = NEWID();
+        DECLARE @DueDate DATE = DATEFROMPARTS(
+            YEAR(DATEADD(MONTH, 1, @PeriodEnd)), MONTH(DATEADD(MONTH, 1, @PeriodEnd)), @DueDay);
+
+        INSERT INTO CreditCardStatement (
+            Id, CardId, PeriodStart, PeriodEnd, StatementDate, DueDate,
+            OpeningBalance, TotalDebit, TotalCredit, ClosingBalance,
+            MinPayment, PaidAmount, IsClosed)
+        VALUES (
+            @NewStatementId, @CardId, @PeriodStart, @PeriodEnd, @PeriodEnd, @DueDate,
+            @Opening, @Total, 0, @Opening + @Total,
+            (@Opening + @Total) * 0.20, 0, 1);
+
+        UPDATE CreditCardTransaction
+        SET StatementId = @NewStatementId
+        WHERE CardId = @CardId AND StatementId IS NULL
+          AND CAST(TransactionDate AS DATE) BETWEEN @PeriodStart AND @PeriodEnd;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- M11 KART: sp_PayCreditCardStatement — ekstre ödeme
+-- Banka hesabından gider yazar, ekstre PaidAmount günceller, kart limit iade.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PayCreditCardStatement
+    @StatementId    UNIQUEIDENTIFIER,
+    @FromAccountId  UNIQUEIDENTIFIER,
+    @Amount         DECIMAL(18,2),
+    @PayDate        DATETIME2 = NULL,
+    @UserId         UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @CardId UNIQUEIDENTIFIER, @Closing DECIMAL(18,2), @Paid DECIMAL(18,2),
+                @CompanyId UNIQUEIDENTIFIER, @CardName NVARCHAR(200);
+        SELECT @CardId = CardId, @Closing = ClosingBalance, @Paid = PaidAmount
+        FROM CreditCardStatement WHERE Id = @StatementId;
+        IF @CardId IS NULL THROW 51321, N'Ekstre bulunamadı.', 1;
+        IF @Amount <= 0 THROW 51322, N'Ödeme tutarı pozitif olmalıdır.', 1;
+        IF @Paid + @Amount > @Closing + 0.01 THROW 51323, N'Ödeme tutarı ekstre borcunu aşamaz.', 1;
+
+        SELECT @CompanyId = CompanyId, @CardName = CardNoMasked
+        FROM CreditCard WHERE Id = @CardId;
+
+        INSERT INTO FinancialTransaction (
+            Id, CompanyId, AccountId, TransactionDate, TransactionType,
+            Amount, Currency, AmountTRY, Description,
+            InstrumentType, InstrumentId, SourceDocType, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @FromAccountId, ISNULL(@PayDate, GETUTCDATE()), 'EXPENSE',
+            @Amount, 'TRY', @Amount, N'Kredi kartı ekstre ödemesi: ' + @CardName,
+            'CARD', @StatementId, 'CARD_STATEMENT_PAYMENT', @UserId);
+
+        UPDATE CreditCardStatement SET PaidAmount = PaidAmount + @Amount WHERE Id = @StatementId;
+        UPDATE CreditCard SET AvailableLimit = AvailableLimit + @Amount WHERE Id = @CardId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
 -- M11 SENET: sp_DepositNote — PORTFOLIO → IN_BANK (bankaya tahsile verme)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DepositNote

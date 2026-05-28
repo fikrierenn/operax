@@ -147,30 +147,31 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     // Aylık satınalma performansı: son 6 ay × (POSTED, DRAFT, CANCELLED) tutarları
     private async Task LoadMonthlyPerformanceAsync(System.Data.IDbConnection conn, object p)
     {
-        // İş kuralı: Bu ayı dahil et, son 6 ay boyunca evrak tutarlarını durum bazlı topla
+        // İş kuralı: Önce evrak başına satır toplamı CTE'de hesaplanır, sonra aylara dağıtılır.
+        // SQL'de SUM(CASE WHEN ... THEN (SELECT SUM...)) yasak olduğundan iki kademe yapılır.
         var rows = await conn.QueryAsync<MonthlyPerformBarDto>(@"
             WITH Months AS (
                 SELECT DATEFROMPARTS(YEAR(DATEADD(MONTH, n, GETUTCDATE())),
                                      MONTH(DATEADD(MONTH, n, GETUTCDATE())), 1) AS MonthStart
                 FROM (VALUES (-5),(-4),(-3),(-2),(-1),(0)) AS T(n)
+            ),
+            HeaderTotals AS (
+                SELECT h.Id, h.OrderDate, h.Status,
+                       ISNULL(SUM(l.QtyOrdered * l.Price), 0) AS LineTotal
+                FROM PurchaseOrderHeader h
+                LEFT JOIN PurchaseOrderLine l ON l.HeaderId = h.Id
+                WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0
+                GROUP BY h.Id, h.OrderDate, h.Status
             )
             SELECT
                 FORMAT(m.MonthStart, 'MMM', 'tr-TR') AS MonthName,
-                ISNULL(SUM(CASE WHEN h.Status IN ('POSTED','APPROVED')
-                                THEN (SELECT SUM(QtyOrdered * Price) FROM PurchaseOrderLine WHERE HeaderId = h.Id)
-                                ELSE 0 END), 0) AS PostedAmount,
-                ISNULL(SUM(CASE WHEN h.Status = 'DRAFT'
-                                THEN (SELECT SUM(QtyOrdered * Price) FROM PurchaseOrderLine WHERE HeaderId = h.Id)
-                                ELSE 0 END), 0) AS DraftAmount,
-                ISNULL(SUM(CASE WHEN h.Status = 'CANCELLED'
-                                THEN (SELECT SUM(QtyOrdered * Price) FROM PurchaseOrderLine WHERE HeaderId = h.Id)
-                                ELSE 0 END), 0) AS CancelledAmount
+                ISNULL(SUM(CASE WHEN ht.Status IN ('POSTED','APPROVED') THEN ht.LineTotal ELSE 0 END), 0) AS PostedAmount,
+                ISNULL(SUM(CASE WHEN ht.Status = 'DRAFT'                THEN ht.LineTotal ELSE 0 END), 0) AS DraftAmount,
+                ISNULL(SUM(CASE WHEN ht.Status = 'CANCELLED'            THEN ht.LineTotal ELSE 0 END), 0) AS CancelledAmount
             FROM Months m
-            LEFT JOIN PurchaseOrderHeader h
-                ON h.CompanyId = @CompanyId
-                AND h.IsDeleted = 0
-                AND h.OrderDate >= m.MonthStart
-                AND h.OrderDate <  DATEADD(MONTH, 1, m.MonthStart)
+            LEFT JOIN HeaderTotals ht
+                ON ht.OrderDate >= m.MonthStart
+               AND ht.OrderDate <  DATEADD(MONTH, 1, m.MonthStart)
             GROUP BY m.MonthStart
             ORDER BY m.MonthStart", p);
         MonthlyPerformance = rows.ToList();

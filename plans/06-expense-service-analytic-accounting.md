@@ -12,7 +12,19 @@
 
 İki bağlantılı eksik:
 
-**A. Hizmet/gider alım-satım akışı:** `Item.ItemType` (STOCK/SERVICE/FIXED_ASSET) kolonu var ama kullanılmıyor. Hizmet/gider kalemli sipariş stok hareketi yazmamalı, doğrudan gider faturasına/gelir kaydına gitmeli. Şu an her şey STOCK varsayılıyor.
+**A. Hizmet/gider alım-satım akışı (ItemType yönlendirmeli):** `Item.ItemType` kolonu var ama kullanılmıyor (hepsi STOCK). İki mekanizma tamamlayıcı çalışır:
+- **ItemType** → "stok hareketi olsun mu?" (STOCK=evet; SERVICE/EXPENSE/FIXED_ASSET=hayır → doğrudan gider/gelir)
+- **CostAllocation** → "maliyet/gelir hangi merkeze?" (boyutsal dağıtım)
+
+ItemType set'i genişletilir:
+| ItemType | Stok | Akış |
+|---|---|---|
+| STOCK | ✅ | PO→Receiving→stok→maliyet |
+| SERVICE | ❌ | hizmet alış→gider / hizmet satış→gelir |
+| EXPENSE | ❌ | sadece gider (kira/elektrik/yakıt) |
+| FIXED_ASSET | ❌ | sabit kıymet (amortisman ileride) |
+
+Referans: SAP CO Cost Center + CO-PA, IAS Canias boyut yapısı — enterprise standart, Operax çok-boyut + yüzde dağıtımla eşdeğer.
 
 **B. Analitik muhasebe (Odoo "sonsuz gider merkezi"):** Operax'ta sadece basit `CostCenter` var (tek boyut, dağıtımsız). Odoo'daki gibi sınırsız boyut (Masraf Merkezi/Proje/Departman/Şube) + her hareketi yüzdeyle çok-hesaba dağıtma yok. Gider → gider merkezi, gelir → gelir/proje merkezi esnek izlenemiyor.
 
@@ -26,7 +38,7 @@
 - ExpenseType'a Direction (GİDER/GELİR) + AccountCode
 
 **B. Analitik Muhasebe:**
-- `AnalyticPlan` — sınırsız boyut (Masraf Merkezi, Proje, Departman, Şube)
+- `CostDimension` — sınırsız boyut (Masraf Merkezi, Proje, Departman, Şube)
 - `AnalyticAccount` — plan altında sınırsız hesap, hiyerarşik (parent-child)
 - `AnalyticDistribution` — (SourceType, SourceLineId, AnalyticAccountId, Percent)
 - Bağ: ExpenseInvoiceLine, SalesInvoiceLine, FinancialTransaction
@@ -38,7 +50,7 @@
 - Otomatik dağıtım kuralları (auto-distribution rules) — sonra
 
 ### Etkilenen dosyalar
-- `docs/sql/schema_M_Analytic.sql` — AnalyticPlan/Account/Distribution (yeni)
+- `docs/sql/schema_M_Analytic.sql` — CostDimension/Account/Distribution (yeni)
 - `docs/sql/schema_*` — ExpenseType.Direction+AccountCode, Item.ItemType kullanımı
 - `docs/sql/db_objects.sql` — sp_ReceivingPost/ShippingPost SERVICE atlama
 - `docs/sql/db_objects_starter.sql` — sp_SaveAnalyticDistribution
@@ -66,7 +78,7 @@
 - 🔵 First Principles: "Gider hangi merkeze?" sorusu = analitik hesap; dağıtım = gerçek hayatta paylaşılan gider (kira 3 departman).
 - 🟢 Expansionist: Budget zaten var → analitik + budget = merkez bazlı bütçe takibi (güçlü kombinasyon).
 - ⚪ Outsider: SERVICE item stok yazmamalı — şu an yazıyor olabilir, bu bug riski.
-- 🟡 Executor: Pazartesi: AnalyticPlan/Account şeması + CostCenter migrate.
+- 🟡 Executor: Pazartesi: CostDimension/Account şeması + CostCenter migrate.
 
 ## 4. Riskler
 
@@ -81,7 +93,7 @@
 
 - [ ] Faz A1: Item.ItemType PO/SO satırında seçilebilir; SERVICE satır stok yazmaz
 - [ ] Faz A2: SERVICE PO → ExpenseInvoice; ExpenseType Direction+AccountCode
-- [ ] Faz B1: AnalyticPlan/Account CRUD + CostCenter migrate
+- [ ] Faz B1: CostDimension/Account CRUD + CostCenter migrate
 - [ ] Faz B2: AnalyticDistribution — gider/gelir satırına % dağıtım widget
 - [ ] Faz B3: Analitik rapor (hesap bazlı gider/gelir + budget karşılaştırma)
 - [ ] Dağıtım %toplam=100 validation
@@ -102,7 +114,7 @@
 5. [ ] Commit: feat(M03): hizmet/gider kalemli sipariş (plan: 06)
 
 ### Faz B1 — Analitik Şema + CRUD
-1. [ ] schema_M_Analytic.sql: AnalyticPlan, AnalyticAccount (hiyerarşik), AnalyticDistribution
+1. [ ] schema_M_Analytic.sql: CostDimension, AnalyticAccount (hiyerarşik), AnalyticDistribution
 2. [ ] CostCenter → AnalyticAccount migrate (Masraf Merkezi planı)
 3. [ ] Features/Finance/Analytic: Plan + Account yönetim ekranı
 4. [ ] Commit: feat: analitik muhasebe şema + CRUD (plan: 06)

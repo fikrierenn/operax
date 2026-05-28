@@ -8,7 +8,7 @@
         Title: L.T("Banka Kredileri", "Bank Loans"),
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Krediler", "Loans") },
         Sub: $"{L.T("Kalan anapara", "Outstanding")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalOutstanding)}</span> · {L.T("30 gün içinde", "Next 30 days")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.NextMonthDue)}</span>",
-        ActionsHtml: $"<button class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Kredi", "New Loan")}</button>"
+        ActionsHtml: $"<a href=\"/Finance/Loans/Create\" class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Kredi", "New Loan")}</a>"
     );
 
     var tabs = new TabsVm(

@@ -165,12 +165,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostApproveAsync(Guid id)
     {
-        // İş kuralı: DRAFT → POSTED geçişi. StatusTransition motoru tarafında doğrulanır.
+        // İş kuralı: DRAFT → POSTED geçişi. sp_PoPost StatusTransition doğrulamasını yapar,
+        // sonrasında sp_GeneratePaymentPlanFromPO ile tedarikçi vade planını otomatik üretir.
         using var conn = db.Open();
         await conn.ExecuteAsync(
-            "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-            new { Status = DocStatus.Posted, UserId = user.Id, Id = id, CompanyId = company.Id });
-        await audit.LogAsync("POST", "PurchaseOrderHeader", id, "Satınalma siparişi onaylandı");
+            "sp_PoPost",
+            new { PoHeaderId = id, CompanyId = company.Id, UserId = (Guid?)null },
+            commandType: System.Data.CommandType.StoredProcedure);
+
+        await audit.LogAsync("POST", "PurchaseOrderHeader", id,
+            "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");
         return RedirectToPage(new { id });
     }
 

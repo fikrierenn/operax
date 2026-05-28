@@ -593,6 +593,297 @@ GROUP BY pp.CompanyId, pp.PartnerId, p.Name, pp.Direction;
 GO
 
 -- =============================================================================
+-- WIRE: sp_ReceivingPost (override) — orijinal sp + maliyet güncelleme
+-- ItemCost.AvgCost'u her POSTED Receiving sonrasinda Moving Avg ile guncelle
+-- StockMovement.UnitCost da kaydedilir (gecmise donuk maliyet izi).
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ReceivingPost
+    @HeaderId  UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
+                @Status NVARCHAR(20), @POId UNIQUEIDENTIFIER;
+
+        SELECT @WarehouseId = WarehouseId, @DocNo = DocNo,
+               @Status = Status, @POId = PurchaseOrderId
+        FROM ReceivingHeader WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @HeaderId AND CompanyId = @CompanyId;
+
+        IF @WarehouseId IS NULL THROW 50001, N'Mal kabul belgesi bulunamadı.', 1;
+
+        EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'RECEIVING', @Status, 'POSTED', @UserId;
+
+        DECLARE @ReceivingBinId UNIQUEIDENTIFIER;
+        SELECT TOP 1 @ReceivingBinId = Id
+        FROM Bin WHERE WarehouseId = @WarehouseId AND IsReceivingArea = 1;
+
+        -- StockMovement: her satira PO'dan UnitCost ata
+        INSERT INTO StockMovement
+            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
+             QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo,
+             UnitCost, CreatedBy)
+        SELECT
+            @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
+            rl.QtyBase, rl.UomId, rl.QtyBase, 'RECEIVING', @HeaderId, @DocNo, rl.LotNo,
+            ISNULL(pol.Price, 0), @UserId
+        FROM ReceivingLine rl
+        LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        WHERE rl.HeaderId = @HeaderId;
+
+        UPDATE pol
+        SET pol.QtyReceived = pol.QtyReceived + rl.QtyBase
+        FROM PurchaseOrderLine pol
+        JOIN ReceivingLine rl ON rl.PurchaseOrderLineId = pol.Id
+        WHERE rl.HeaderId = @HeaderId;
+
+        IF @POId IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM PurchaseOrderLine
+               WHERE HeaderId = @POId AND QtyReceived < QtyOrdered
+           )
+            UPDATE PurchaseOrderHeader SET Status = 'RECEIVED' WHERE Id = @POId;
+
+        UPDATE ReceivingHeader
+        SET Status = 'POSTED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @HeaderId;
+
+        -- WIRE: Her urun icin maliyet guncelle (Moving Avg)
+        DECLARE @ItemId UNIQUEIDENTIFIER, @Qty DECIMAL(18,6), @UC DECIMAL(18,4);
+        DECLARE c_lines CURSOR LOCAL FAST_FORWARD FOR
+            SELECT rl.ItemId, SUM(rl.QtyBase),
+                   ISNULL(AVG(CAST(pol.Price AS DECIMAL(18,4))), 0)
+            FROM ReceivingLine rl
+            LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+            WHERE rl.HeaderId = @HeaderId
+            GROUP BY rl.ItemId;
+        OPEN c_lines;
+        FETCH NEXT FROM c_lines INTO @ItemId, @Qty, @UC;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC dbo.sp_UpdateItemCostMovingAvg
+                @CompanyId = @CompanyId, @ItemId = @ItemId,
+                @WarehouseId = @WarehouseId, @Qty = @Qty,
+                @UnitCost = @UC, @MovementType = 'RECEIPT';
+            FETCH NEXT FROM c_lines INTO @ItemId, @Qty, @UC;
+        END
+        CLOSE c_lines; DEALLOCATE c_lines;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF CURSOR_STATUS('local', 'c_lines') >= -1 BEGIN CLOSE c_lines; DEALLOCATE c_lines; END
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- WIRE: sp_ShippingPost (override) — orijinal sp + otomatik fatura
+-- Parameter.InvoiceMode='INSTANT' ise sp_GenerateSalesInvoiceFromShipping cagrilir
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ShippingPost
+    @HeaderId  UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
+        SELECT @WarehouseId = WarehouseId, @DocNo = DocNo, @Status = Status
+        FROM ShippingHeader WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @HeaderId AND CompanyId = @CompanyId;
+
+        IF @WarehouseId IS NULL THROW 50001, N'Sevkiyat belgesi bulunamadı.', 1;
+        EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'SHIPMENT', @Status, 'POSTED', @UserId;
+
+        DECLARE @PickingBinId UNIQUEIDENTIFIER;
+        SELECT TOP 1 @PickingBinId = Id
+        FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
+
+        -- Stok hareketi: her satir icin ISSUE (eksi tabanlanan QtyBase)
+        -- UnitCost ItemCost.AvgCost'tan alinir (satış maliyeti / COGS)
+        INSERT INTO StockMovement
+            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
+             QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo,
+             UnitCost, CreatedBy)
+        SELECT
+            @CompanyId, @WarehouseId, ISNULL(sl.BinId, @PickingBinId), sl.ItemId, 'ISSUE',
+            -sl.QtyBase, sl.UomId, -sl.QtyBase, 'SHIPMENT', @HeaderId, @DocNo, sl.LotNo,
+            ISNULL(ic.AvgCost, 0), @UserId
+        FROM ShippingLine sl
+        LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId
+        WHERE sl.HeaderId = @HeaderId;
+
+        -- SO satirlarini guncelle
+        UPDATE sol
+        SET sol.QtyShipped = sol.QtyShipped + sl.QtyBase
+        FROM SalesOrderLine sol
+        JOIN ShippingLine sl ON sl.SalesOrderLineId = sol.Id
+        WHERE sl.HeaderId = @HeaderId;
+
+        -- Shipping POSTED
+        UPDATE ShippingHeader
+        SET Status = 'POSTED', PostedAt = GETUTCDATE(),
+            UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @HeaderId;
+
+        -- WIRE: ItemCost OnHandQty dusur
+        DECLARE @ItemId UNIQUEIDENTIFIER, @Qty DECIMAL(18,6);
+        DECLARE c_lines CURSOR LOCAL FAST_FORWARD FOR
+            SELECT ItemId, SUM(QtyBase) FROM ShippingLine WHERE HeaderId = @HeaderId
+            GROUP BY ItemId;
+        OPEN c_lines;
+        FETCH NEXT FROM c_lines INTO @ItemId, @Qty;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC dbo.sp_UpdateItemCostMovingAvg
+                @CompanyId = @CompanyId, @ItemId = @ItemId,
+                @WarehouseId = @WarehouseId, @Qty = @Qty,
+                @UnitCost = NULL, @MovementType = 'ISSUE';
+            FETCH NEXT FROM c_lines INTO @ItemId, @Qty;
+        END
+        CLOSE c_lines; DEALLOCATE c_lines;
+
+        -- WIRE: Parameter.InvoiceMode = INSTANT ise otomatik fatura
+        DECLARE @InvoiceMode NVARCHAR(50);
+        SELECT @InvoiceMode = Value FROM Parameter
+        WHERE CompanyId = @CompanyId AND Code = 'InvoiceMode';
+
+        IF @InvoiceMode = 'INSTANT'
+        BEGIN
+            DECLARE @NewInvoiceId UNIQUEIDENTIFIER;
+            EXEC dbo.sp_GenerateSalesInvoiceFromShipping
+                @ShippingId = @HeaderId, @UserId = NULL,
+                @NewInvoiceId = @NewInvoiceId OUTPUT;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF CURSOR_STATUS('local', 'c_lines') >= -1 BEGIN CLOSE c_lines; DEALLOCATE c_lines; END
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- WIRE: sp_GeneratePaymentPlanFromPO
+-- PO POSTED olunca tedarikciye odeme planı uretilir
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_GeneratePaymentPlanFromPO
+    @PoHeaderId UNIQUEIDENTIFIER,
+    @UserId     UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @CompanyId UNIQUEIDENTIFIER, @PartnerId UNIQUEIDENTIFIER,
+                @OrderNo NVARCHAR(50), @OrderDate DATETIME2,
+                @PaymentTermDays INT, @Installments INT, @TotalAmount DECIMAL(18,2);
+
+        SELECT @CompanyId = h.CompanyId, @PartnerId = h.PartnerId,
+               @OrderNo = h.OrderNo, @OrderDate = h.OrderDate,
+               @PaymentTermDays = ISNULL(h.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)),
+               @Installments = ISNULL(h.PaymentInstallments, 1),
+               @TotalAmount = (SELECT SUM(QtyOrdered * Price) FROM PurchaseOrderLine WHERE HeaderId = @PoHeaderId)
+        FROM PurchaseOrderHeader h
+        JOIN Partner p ON p.Id = h.PartnerId
+        WHERE h.Id = @PoHeaderId;
+
+        IF @CompanyId IS NULL THROW 71001, N'Satınalma siparişi bulunamadı.', 1;
+        IF @TotalAmount IS NULL OR @TotalAmount = 0 THROW 71002, N'Sipariş toplamı sıfır.', 1;
+
+        -- Mevcut PaymentPlan kayıtları varsa sil
+        DELETE FROM PaymentPlan
+        WHERE SourceDocType = 'PURCHASE_ORDER' AND SourceDocId = @PoHeaderId;
+
+        -- Taksit bazli olusum
+        DECLARE @InstallmentAmount DECIMAL(18,2) = @TotalAmount / @Installments;
+        DECLARE @i INT = 1;
+        DECLARE @DueDate DATE;
+
+        WHILE @i <= @Installments
+        BEGIN
+            SET @DueDate = DATEADD(DAY, @PaymentTermDays * @i / @Installments, CAST(@OrderDate AS DATE));
+
+            INSERT INTO PaymentPlan
+                (Id, CompanyId, SourceDocType, SourceDocId, SourceDocNo,
+                 PartnerId, Direction, InstallmentNo, TotalInstallments,
+                 DueDate, Amount, Status)
+            VALUES
+                (NEWID(), @CompanyId, 'PURCHASE_ORDER', @PoHeaderId, @OrderNo,
+                 @PartnerId, 'PAYABLE', @i, @Installments,
+                 @DueDate, @InstallmentAmount, 'OPEN');
+
+            SET @i += 1;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION; THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- WIRE: sp_PoPost — PO'yu POSTED yapar + PaymentPlan uretir
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PoPost
+    @PoHeaderId UNIQUEIDENTIFIER,
+    @CompanyId  UNIQUEIDENTIFIER,
+    @UserId     UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20);
+        SELECT @Status = Status FROM PurchaseOrderHeader WITH (UPDLOCK)
+        WHERE Id = @PoHeaderId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL THROW 72001, N'Satınalma siparişi bulunamadı.', 1;
+
+        EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'PURCHASE_ORDER', @Status, 'POSTED', @UserId;
+
+        UPDATE PurchaseOrderHeader
+        SET Status = 'POSTED', PostedAt = GETUTCDATE(),
+            UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @PoHeaderId;
+
+        EXEC dbo.sp_GeneratePaymentPlanFromPO @PoHeaderId = @PoHeaderId, @UserId = @UserId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION; THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
 -- M11 OTOMATİK KAPATMA: sp_AutoClosePayments
 -- Yeni FinancialTransaction (INCOME/EXPENSE) ile aynı Partner'ın açık
 -- PaymentPlan kayıtlarını FIFO (vadeye göre) eşleştirerek kapatır.

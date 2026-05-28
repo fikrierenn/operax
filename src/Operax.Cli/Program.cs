@@ -76,7 +76,8 @@ class Program
                         "schema_M04_SalesInvoice.sql",       // Satış faturası
                         "schema_M11_Finance.sql",            // Kasa, banka, çek, senet, kredi, kart, ödeme planı
                         "schema_M01_M04_StarterFields.sql",  // Item/Partner/Header tablolarına STARTER eksik kolonlar
-                        "schema_M04_EBelge.sql"              // e-Fatura / e-Arşiv / e-İrsaliye altyapısı (UBL 2.1)
+                        "schema_M04_EBelge.sql",             // e-Fatura / e-Arşiv / e-İrsaliye altyapısı (inbound sync)
+                        "schema_M01_M11_RiskAndLoanTypes.sql" // Partner risk + Loan tipleri + Kart-Banka bağlantısı
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

@@ -386,20 +386,31 @@ END
 GO
 
 -- =============================================================================
--- M11 KREDİ: sp_CreateLoan
--- Yeni kredi açar, anüite formülüyle taksit takvimi üretir, banka hesabına gelir yazar
+-- M11 KREDİ: sp_CreateLoan (Plan 01 Faz 1)
+-- 7 kredi hesap yöntemi destekler:
+--   ANUITE           — taksit sabit (geleneksel), faiz azalır anapara artar
+--   EQUAL_PRINCIPAL  — anapara sabit (P/n), faiz azalan bakiye üzerinden
+--   BALLOON          — ilk n-1 küçük taksit (sadece faiz + min anapara), son taksit @BalloonAmount + kalan
+--   SPOT             — tek taksit vade sonunda: P + (P × r × t)
+--   ROTATIVE         — taksit tablosu yok; kullanım üzerinden günlük faiz işler
+--   KMH              — Kredili Mevduat Hesabı (revolving, taksit yok)
+--   DBS              — Doğrudan Borçlandırma Sistemi (taksit yok, otomatik tahsilat tetiklenir)
+-- THROW kodları: 51300-51399 aralığı M11 slot.
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CreateLoan
-    @CompanyId      UNIQUEIDENTIFIER,
-    @LoanNo         NVARCHAR(50),
-    @BankName       NVARCHAR(200),
-    @AccountId      UNIQUEIDENTIFIER,
-    @Principal      DECIMAL(18,2),
-    @InterestRate   DECIMAL(8,4),
-    @TermMonths     INT,
-    @StartDate      DATE,
-    @UserId         UNIQUEIDENTIFIER = NULL,
-    @NewLoanId      UNIQUEIDENTIFIER OUTPUT
+    @CompanyId        UNIQUEIDENTIFIER,
+    @LoanNo           NVARCHAR(50),
+    @BankName         NVARCHAR(200),
+    @AccountId        UNIQUEIDENTIFIER,
+    @Principal        DECIMAL(18,2),
+    @InterestRate     DECIMAL(8,4),
+    @TermMonths       INT,
+    @StartDate        DATE,
+    @CalcMethod       NVARCHAR(30) = 'ANUITE',
+    @GracePeriodMonths INT          = 0,
+    @BalloonAmount    DECIMAL(18,2) = NULL,
+    @UserId           UNIQUEIDENTIFIER = NULL,
+    @NewLoanId        UNIQUEIDENTIFIER OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -408,59 +419,174 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Guard'lar
+        IF @Principal <= 0
+            THROW 51301, N'Anapara tutarı pozitif olmalıdır.', 1;
+        IF @InterestRate < 0
+            THROW 51302, N'Faiz oranı negatif olamaz.', 1;
+        IF @CalcMethod NOT IN ('ANUITE','EQUAL_PRINCIPAL','BALLOON','SPOT','ROTATIVE','KMH','DBS')
+            THROW 51303, N'Geçersiz kredi hesap yöntemi.', 1;
+        IF @CalcMethod IN ('ANUITE','EQUAL_PRINCIPAL','BALLOON') AND (@TermMonths IS NULL OR @TermMonths <= 0)
+            THROW 51304, N'Bu kredi tipinde vade ay sayısı pozitif olmalıdır.', 1;
+        IF @CalcMethod = 'BALLOON' AND (@BalloonAmount IS NULL OR @BalloonAmount <= 0)
+            THROW 51305, N'Balon ödemeli kredide @BalloonAmount belirtilmelidir.', 1;
+        IF @CalcMethod = 'BALLOON' AND @BalloonAmount >= @Principal
+            THROW 51306, N'Balon tutarı anaparadan büyük veya eşit olamaz.', 1;
+        IF @GracePeriodMonths < 0 OR @GracePeriodMonths >= ISNULL(@TermMonths, 0)
+            THROW 51307, N'Geçersiz ödemesiz dönem süresi.', 1;
+
         SET @NewLoanId = NEWID();
 
-        DECLARE @MonthlyRate DECIMAL(18,8) = @InterestRate / 100.0 / 12.0;
-        DECLARE @MonthlyPayment DECIMAL(18,2) =
-            CASE WHEN @MonthlyRate = 0
-                 THEN @Principal / @TermMonths
-                 ELSE @Principal * (@MonthlyRate * POWER(1 + @MonthlyRate, @TermMonths)) /
-                      (POWER(1 + @MonthlyRate, @TermMonths) - 1)
-            END;
+        DECLARE @MonthlyRate    DECIMAL(18,8) = @InterestRate / 100.0 / 12.0;
+        DECLARE @MonthlyPayment DECIMAL(18,2) = 0;
+        DECLARE @EndDate        DATE;
 
+        -- ── Taksit hesap dağıtımı ─────────────────────────────────────
+        IF @CalcMethod = 'ANUITE'
+        BEGIN
+            -- M = P * (r(1+r)^n) / ((1+r)^n - 1)
+            SET @MonthlyPayment =
+                CASE WHEN @MonthlyRate = 0
+                     THEN @Principal / @TermMonths
+                     ELSE @Principal * (@MonthlyRate * POWER(1 + @MonthlyRate, @TermMonths)) /
+                          (POWER(1 + @MonthlyRate, @TermMonths) - 1)
+                END;
+            SET @EndDate = DATEADD(MONTH, @TermMonths, @StartDate);
+        END
+        ELSE IF @CalcMethod = 'EQUAL_PRINCIPAL'
+        BEGIN
+            -- Anapara payı sabit = P/n; faiz azalan bakiye üzerinden; MonthlyPayment 1. taksit referansı
+            SET @MonthlyPayment = @Principal / @TermMonths + (@Principal * @MonthlyRate);
+            SET @EndDate = DATEADD(MONTH, @TermMonths, @StartDate);
+        END
+        ELSE IF @CalcMethod = 'BALLOON'
+        BEGIN
+            -- İlk n-1 küçük + son taksit @BalloonAmount + kalan
+            -- Aylık faiz: @Principal * @MonthlyRate; aylık anapara minimum (P - balon) / (n-1)
+            SET @MonthlyPayment = (@Principal * @MonthlyRate) + ((@Principal - @BalloonAmount) / (@TermMonths - 1));
+            SET @EndDate = DATEADD(MONTH, @TermMonths, @StartDate);
+        END
+        ELSE IF @CalcMethod = 'SPOT'
+        BEGIN
+            -- Tek taksit vade sonunda: P + (P * r * t/12)
+            DECLARE @SpotInterest DECIMAL(18,2) = @Principal * (@InterestRate / 100.0) * (@TermMonths / 12.0);
+            SET @MonthlyPayment = @Principal + @SpotInterest;
+            SET @EndDate = DATEADD(MONTH, @TermMonths, @StartDate);
+        END
+        ELSE  -- ROTATIVE, KMH, DBS — taksit tablosu yok
+        BEGIN
+            SET @MonthlyPayment = 0;
+            SET @EndDate = CASE WHEN @TermMonths IS NULL OR @TermMonths = 0
+                                THEN DATEADD(YEAR, 1, @StartDate)
+                                ELSE DATEADD(MONTH, @TermMonths, @StartDate)
+                           END;
+        END
+
+        -- ── Loan başlık kaydı ─────────────────────────────────────────
         INSERT INTO Loan (
-            Id, CompanyId, LoanNo, BankName, AccountId, Principal, InterestRate,
-            TermMonths, StartDate, EndDate, MonthlyPayment, OutstandingBalance,
+            Id, CompanyId, LoanNo, BankName, AccountId, LoanType, CalcMethod,
+            Principal, InterestRate, TermMonths, StartDate, EndDate,
+            MonthlyPayment, OutstandingBalance, GracePeriodMonths, BalloonAmount,
             Status, CreatedBy
         )
         VALUES (
-            @NewLoanId, @CompanyId, @LoanNo, @BankName, @AccountId, @Principal, @InterestRate,
-            @TermMonths, @StartDate, DATEADD(MONTH, @TermMonths, @StartDate),
-            @MonthlyPayment, @Principal, 'ACTIVE', @UserId
+            @NewLoanId, @CompanyId, @LoanNo, @BankName, @AccountId, 'COMMERCIAL', @CalcMethod,
+            @Principal, @InterestRate, @TermMonths, @StartDate, @EndDate,
+            @MonthlyPayment, @Principal, @GracePeriodMonths, @BalloonAmount,
+            'ACTIVE', @UserId
         );
 
-        -- Taksit takvimi
-        DECLARE @i INT = 1, @Bal DECIMAL(18,2) = @Principal;
-        DECLARE @InterestThisMonth DECIMAL(18,2), @PrincipalThisMonth DECIMAL(18,2);
-
-        WHILE @i <= @TermMonths
+        -- ── Taksit takvimi üretimi (sadece anüite/eşit-anapara/balon/spot) ──
+        IF @CalcMethod IN ('ANUITE','EQUAL_PRINCIPAL','BALLOON','SPOT')
         BEGIN
-            SET @InterestThisMonth  = @Bal * @MonthlyRate;
-            SET @PrincipalThisMonth = @MonthlyPayment - @InterestThisMonth;
+            DECLARE @i INT = 1;
+            DECLARE @Bal DECIMAL(18,2) = @Principal;
+            DECLARE @InterestThisMonth  DECIMAL(18,2);
+            DECLARE @PrincipalThisMonth DECIMAL(18,2);
+            DECLARE @TotalThisMonth     DECIMAL(18,2);
 
-            INSERT INTO LoanPayment (
-                Id, LoanId, InstallmentNo, DueDate, PrincipalAmount, InterestAmount, TotalAmount
-            )
-            VALUES (
-                NEWID(), @NewLoanId, @i, DATEADD(MONTH, @i, @StartDate),
-                @PrincipalThisMonth, @InterestThisMonth, @MonthlyPayment
-            );
+            WHILE @i <= @TermMonths
+            BEGIN
+                SET @InterestThisMonth = @Bal * @MonthlyRate;
 
-            SET @Bal -= @PrincipalThisMonth;
-            SET @i  += 1;
+                IF @i <= @GracePeriodMonths
+                BEGIN
+                    -- Ödemesiz dönem: sadece faiz ödenir, anapara değişmez
+                    SET @PrincipalThisMonth = 0;
+                    SET @TotalThisMonth     = @InterestThisMonth;
+                END
+                ELSE IF @CalcMethod = 'ANUITE'
+                BEGIN
+                    SET @PrincipalThisMonth = @MonthlyPayment - @InterestThisMonth;
+                    SET @TotalThisMonth     = @MonthlyPayment;
+                END
+                ELSE IF @CalcMethod = 'EQUAL_PRINCIPAL'
+                BEGIN
+                    SET @PrincipalThisMonth = @Principal / @TermMonths;
+                    SET @TotalThisMonth     = @PrincipalThisMonth + @InterestThisMonth;
+                END
+                ELSE IF @CalcMethod = 'BALLOON'
+                BEGIN
+                    IF @i < @TermMonths
+                    BEGIN
+                        -- Standart küçük taksit
+                        SET @PrincipalThisMonth = (@Principal - @BalloonAmount) / (@TermMonths - 1);
+                        SET @TotalThisMonth     = @PrincipalThisMonth + @InterestThisMonth;
+                    END
+                    ELSE
+                    BEGIN
+                        -- Son taksit: balon + kalan
+                        SET @PrincipalThisMonth = @Bal;
+                        SET @TotalThisMonth     = @PrincipalThisMonth + @InterestThisMonth;
+                    END
+                END
+                ELSE IF @CalcMethod = 'SPOT'
+                BEGIN
+                    IF @i < @TermMonths
+                    BEGIN
+                        -- SPOT'ta tek taksit son ayda
+                        SET @PrincipalThisMonth = 0;
+                        SET @InterestThisMonth  = 0;
+                        SET @TotalThisMonth     = 0;
+                    END
+                    ELSE
+                    BEGIN
+                        SET @PrincipalThisMonth = @Principal;
+                        SET @InterestThisMonth  = @MonthlyPayment - @Principal;
+                        SET @TotalThisMonth     = @MonthlyPayment;
+                    END
+                END
+
+                INSERT INTO LoanPayment (
+                    Id, LoanId, InstallmentNo, DueDate, PrincipalAmount, InterestAmount, TotalAmount
+                )
+                VALUES (
+                    NEWID(), @NewLoanId, @i, DATEADD(MONTH, @i, @StartDate),
+                    @PrincipalThisMonth, @InterestThisMonth, @TotalThisMonth
+                );
+
+                SET @Bal -= @PrincipalThisMonth;
+                SET @i  += 1;
+            END
         END
+        -- ROTATIVE / KMH / DBS: taksit tablosu üretilmez; kullanım anında işlenir
 
-        -- Kredi tutarı banka hesabına gelir olarak işlenir
-        IF @AccountId IS NOT NULL
+        -- ── Kredi tutarı banka hesabına gelir olarak işlenir ──────────
+        -- KMH ve ROTATIVE'de açılışta para gelmez; limit tahsisi sayılır
+        IF @AccountId IS NOT NULL AND @CalcMethod NOT IN ('ROTATIVE','KMH','DBS')
+        BEGIN
             INSERT INTO FinancialTransaction (
                 Id, CompanyId, AccountId, TransactionDate, TransactionType,
-                Amount, Currency, AmountTRY, Description, InstrumentType, InstrumentId, CreatedBy
+                Amount, Currency, AmountTRY, Description,
+                InstrumentType, InstrumentId, CreatedBy
             )
             VALUES (
                 NEWID(), @CompanyId, @AccountId, @StartDate, 'INCOME',
-                @Principal, 'TRY', @Principal, N'Kredi açılışı: ' + @LoanNo,
+                @Principal, 'TRY', @Principal,
+                N'Kredi açılışı: ' + @LoanNo + N' (' + @CalcMethod + N')',
                 'LOAN', @NewLoanId, @UserId
             );
+        END
 
         COMMIT TRANSACTION;
     END TRY

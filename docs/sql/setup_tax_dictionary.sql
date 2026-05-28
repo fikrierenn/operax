@@ -2,14 +2,14 @@
 DECLARE @CompId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000000';
 DECLARE @TypeId UNIQUEIDENTIFIER = NEWID();
 
-IF NOT EXISTS (SELECT * FROM DictionaryType WHERE Code = 'TAX_RATE')
+IF NOT EXISTS (SELECT * FROM DictionaryType WHERE Code = 'TAX_RATE' AND CompanyId = @CompId)
 BEGIN
     INSERT INTO DictionaryType (Id, CompanyId, Code, NameTr, NameEn, IsSystem)
     VALUES (@TypeId, @CompId, 'TAX_RATE', 'KDV Oranı', 'Tax Rate', 1);
 END
 ELSE
 BEGIN
-    SET @TypeId = (SELECT Id FROM DictionaryType WHERE Code = 'TAX_RATE');
+    SET @TypeId = (SELECT TOP 1 Id FROM DictionaryType WHERE Code = 'TAX_RATE' AND CompanyId = @CompId);
 END
 
 -- 2. KDV Değerleri (Temizle ve Ekle)

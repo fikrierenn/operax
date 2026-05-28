@@ -182,6 +182,38 @@ GO
 -- STORED PROCEDURES
 -- ============================================================
 
+-- Durum Geçiş Doğrulama Motoru (StatusTransition Engine)
+-- Belirtilen şirket, evrak tipi ve durum geçişi için aktif bir kural olup olmadığını kontrol eder.
+-- Geçiş yetkisi ve kuralı yoksa hata fırlatır.
+CREATE OR ALTER PROCEDURE dbo.sp_ValidateStatusTransition
+    @CompanyId    UNIQUEIDENTIFIER,
+    @DocumentType NVARCHAR(100),
+    @FromStatus   NVARCHAR(100),
+    @ToStatus     NVARCHAR(100),
+    @UserId       NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Eğer transition kuralı yoksa hata fırlat
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM StatusTransition 
+        WHERE CompanyId = @CompanyId 
+          AND DocumentType = @DocumentType 
+          AND FromStatusCode = @FromStatus 
+          AND ToStatusCode = @ToStatus 
+          AND IsActive = 1 
+          AND IsDeleted = 0
+    )
+    BEGIN
+        DECLARE @ErrMsg NVARCHAR(500);
+        SET @ErrMsg = N'Gecersiz durum gecisi: ' + ISNULL(@FromStatus, 'NULL') + N' -> ' + ISNULL(@ToStatus, 'NULL') + N' (' + @DocumentType + N')';
+        THROW 51000, @ErrMsg, 1;
+    END
+END
+GO
+
 -- Mal Kabul Onay
 -- Stok hareketi (RECEIPT) yazar, PO satırlarını günceller,
 -- PO tamamen teslim alındıysa PO durumunu RECEIVED yapar.
@@ -208,8 +240,9 @@ BEGIN
     IF @WarehouseId IS NULL
         THROW 50001, 'Mal kabul belgesi bulunamadı.', 1;
 
-    IF @Status <> 'DRAFT'
-        THROW 50002, 'Sadece DRAFT durumdaki belgeler onaylanabilir.', 1;
+    -- Durum Geçiş Motoru (StatusTransition Engine) doğrulaması
+    EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'RECEIVING', @Status, 'POSTED', @UserId;
+
 
     -- Alım alanı bin
     DECLARE @ReceivingBinId UNIQUEIDENTIFIER;
@@ -271,8 +304,9 @@ BEGIN
     IF @WarehouseId IS NULL
         THROW 50001, 'Sevkiyat belgesi bulunamadı.', 1;
 
-    IF @Status <> 'DRAFT'
-        THROW 50002, 'Sadece DRAFT durumdaki belgeler onaylanabilir.', 1;
+    -- Durum Geçiş Motoru (StatusTransition Engine) doğrulaması
+    EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'SHIPMENT', @Status, 'POSTED', @UserId;
+
 
     -- Picking alanı bin
     DECLARE @PickingBinId UNIQUEIDENTIFIER;
@@ -426,8 +460,9 @@ BEGIN
     IF @FromWarehouseId IS NULL
         THROW 50001, 'Transfer belgesi bulunamadı.', 1;
 
-    IF @Status <> 'DRAFT'
-        THROW 50002, 'Sadece DRAFT durumdaki belgeler onaylanabilir.', 1;
+    -- Durum Geçiş Motoru (StatusTransition Engine) doğrulaması
+    EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'TRANSFER', @Status, 'POSTED', @UserId;
+
 
     -- Çıkış hareketi (kaynak depo, eksi)
     INSERT INTO StockMovement
@@ -468,14 +503,18 @@ BEGIN
 
     BEGIN TRANSACTION;
 
-    DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50);
+    DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
 
-    SELECT @WarehouseId = WarehouseId, @DocNo = DocNo
+    SELECT @WarehouseId = WarehouseId, @DocNo = DocNo, @Status = Status
     FROM CycleCount WITH (UPDLOCK, ROWLOCK)
     WHERE Id = @HeaderId AND CompanyId = @CompanyId;
 
     IF @WarehouseId IS NULL
         THROW 50001, 'Sayım belgesi bulunamadı.', 1;
+
+    -- Durum Geçiş Motoru (StatusTransition Engine) doğrulaması
+    EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'CYCLE_COUNT', @Status, 'COMPLETED', @UserId;
+
 
     -- Fark olan satırlar için düzeltme hareketi
     INSERT INTO StockMovement

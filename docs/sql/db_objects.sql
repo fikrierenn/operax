@@ -226,59 +226,105 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    BEGIN TRANSACTION;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-    -- Belgeyi kilitle ve bilgileri al
-    DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
-            @Status NVARCHAR(20), @POId UNIQUEIDENTIFIER;
+        -- Belgeyi kilitle ve bilgilerini al
+        DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
+                @Status NVARCHAR(20), @POId UNIQUEIDENTIFIER;
 
-    SELECT @WarehouseId = WarehouseId, @DocNo = DocNo,
-           @Status = Status, @POId = PurchaseOrderId
-    FROM ReceivingHeader WITH (UPDLOCK, ROWLOCK)
-    WHERE Id = @HeaderId AND CompanyId = @CompanyId;
+        SELECT @WarehouseId = WarehouseId, @DocNo = DocNo,
+               @Status = Status, @POId = PurchaseOrderId
+        FROM ReceivingHeader WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @HeaderId AND CompanyId = @CompanyId;
 
-    IF @WarehouseId IS NULL
-        THROW 50001, 'Mal kabul belgesi bulunamadı.', 1;
+        IF @WarehouseId IS NULL
+            THROW 50001, N'Mal kabul belgesi bulunamadı.', 1;
 
-    -- Durum Geçiş Motoru (StatusTransition Engine) doğrulaması
-    EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'RECEIVING', @Status, 'POSTED', @UserId;
+        -- Durum Geçiş Motoru doğrulaması
+        EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'RECEIVING', @Status, 'POSTED', @UserId;
 
+        -- Alım alanı bin
+        DECLARE @ReceivingBinId UNIQUEIDENTIFIER;
+        SELECT TOP 1 @ReceivingBinId = Id
+        FROM Bin WHERE WarehouseId = @WarehouseId AND IsReceivingArea = 1;
 
-    -- Alım alanı bin
-    DECLARE @ReceivingBinId UNIQUEIDENTIFIER;
-    SELECT TOP 1 @ReceivingBinId = Id
-    FROM Bin WHERE WarehouseId = @WarehouseId AND IsReceivingArea = 1;
+        -- İş kuralı: Her satır için maliyetli StockMovement INSERT
+        -- UnitCost: PurchaseOrderLine.Price (varsa); yoksa 0 (PO bağlantısız satırda)
+        INSERT INTO StockMovement
+            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
+             QtyBase, UomId, QtyOriginal, UnitCost,
+             SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
+        SELECT
+            @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
+            rl.QtyBase, rl.UomId, rl.QtyBase, ISNULL(pol.Price, 0),
+            'RECEIVING', @HeaderId, @DocNo, rl.LotNo, @UserId
+        FROM ReceivingLine rl
+        LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        WHERE rl.HeaderId = @HeaderId;
 
-    -- Her satır için stok hareketi
-    INSERT INTO StockMovement
-        (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
-    SELECT
-        @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
-        rl.QtyBase, rl.UomId, rl.QtyBase, 'RECEIVING', @HeaderId, @DocNo, rl.LotNo, @UserId
-    FROM ReceivingLine rl
-    WHERE rl.HeaderId = @HeaderId;
+        -- PO satırlarını güncelle
+        UPDATE pol
+        SET pol.QtyReceived = pol.QtyReceived + rl.QtyBase
+        FROM PurchaseOrderLine pol
+        JOIN ReceivingLine rl ON rl.PurchaseOrderLineId = pol.Id
+        WHERE rl.HeaderId = @HeaderId;
 
-    -- PO satırlarını güncelle
-    UPDATE pol
-    SET pol.QtyReceived = pol.QtyReceived + rl.QtyBase
-    FROM PurchaseOrderLine pol
-    JOIN ReceivingLine rl ON rl.PurchaseOrderLineId = pol.Id
-    WHERE rl.HeaderId = @HeaderId;
+        -- PO tamamen alındıysa kapat
+        IF @POId IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM PurchaseOrderLine
+               WHERE HeaderId = @POId AND QtyReceived < QtyOrdered
+           )
+            UPDATE PurchaseOrderHeader SET Status = 'RECEIVED' WHERE Id = @POId;
 
-    -- PO tamamen alındıysa kapat
-    IF @POId IS NOT NULL
-       AND NOT EXISTS (
-           SELECT 1 FROM PurchaseOrderLine
-           WHERE HeaderId = @POId AND QtyReceived < QtyOrdered
-       )
-        UPDATE PurchaseOrderHeader SET Status = 'RECEIVED' WHERE Id = @POId;
+        -- ──────────────────────────────────────────────────────────────
+        -- M02 Maliyet: Her satır için Moving Average güncellemesi
+        -- (cursor — toplu UPDATE'in atomik olmamasını engelliyor)
+        -- ──────────────────────────────────────────────────────────────
+        DECLARE @rItemId UNIQUEIDENTIFIER, @rQty DECIMAL(18,6), @rUnitCost DECIMAL(18,4);
 
-    UPDATE ReceivingHeader
-    SET Status = 'POSTED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
-    WHERE Id = @HeaderId;
+        DECLARE cur_lines CURSOR LOCAL FAST_FORWARD FOR
+            SELECT rl.ItemId, rl.QtyBase, ISNULL(pol.Price, 0)
+            FROM ReceivingLine rl
+            LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+            WHERE rl.HeaderId = @HeaderId;
 
-    COMMIT TRANSACTION;
+        OPEN cur_lines;
+        FETCH NEXT FROM cur_lines INTO @rItemId, @rQty, @rUnitCost;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC dbo.sp_UpdateItemCostMovingAvg
+                @CompanyId    = @CompanyId,
+                @ItemId       = @rItemId,
+                @WarehouseId  = @WarehouseId,
+                @Qty          = @rQty,
+                @UnitCost     = @rUnitCost,
+                @MovementType = 'RECEIPT';
+
+            FETCH NEXT FROM cur_lines INTO @rItemId, @rQty, @rUnitCost;
+        END
+
+        CLOSE cur_lines;
+        DEALLOCATE cur_lines;
+
+        -- Mal kabul evrağı kapat
+        UPDATE ReceivingHeader
+        SET Status = 'POSTED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @HeaderId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF CURSOR_STATUS('local', 'cur_lines') >= -1
+        BEGIN
+            CLOSE cur_lines;
+            DEALLOCATE cur_lines;
+        END
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 

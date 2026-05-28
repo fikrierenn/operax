@@ -154,13 +154,53 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         if (baseUomId is null) return RedirectToPage(new { id });
 
-        await conn.ExecuteAsync(@"
+        // İş kuralı: Yeni satır Id'si geri alınır (fiyat farkı kontrolü için gerekli)
+        var newLineId = await conn.ExecuteScalarAsync<Guid>(@"
             INSERT INTO PurchaseOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
+            OUTPUT INSERTED.Id
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",
             new { HeaderId = id, ItemId = itemId, UomId = baseUomId, Qty = qty, Price = price ?? 0 });
 
         await audit.LogAsync("ADD_LINE", "PurchaseOrderHeader", id, $"Item: {itemId} Qty: {qty}");
+
+        // İş kuralı: Fiyat farkı kontrolü — tedarikçi fiyat listesinden sapma eşik üstü ise PriceVariance kaydı
+        await CheckPriceVarianceAsync(conn, id, newLineId, itemId, price ?? 0);
+
         return RedirectToPage(new { id });
+    }
+
+    // Satır fiyatını tedarikçi liste fiyatıyla karşılaştırır; sapma eşik üstü ise
+    // sp_CheckPriceVariance bir PriceVariance (DRAFT) kaydı açar, kullanıcıya uyarı gösterilir.
+    private async Task CheckPriceVarianceAsync(
+        System.Data.IDbConnection conn, Guid headerId, Guid lineId, Guid itemId, decimal actualPrice)
+    {
+        // Tedarikçi (PartnerId) header'dan okunur
+        var partnerId = await conn.ExecuteScalarAsync<Guid?>(
+            "SELECT PartnerId FROM PurchaseOrderHeader WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = headerId, CompanyId = company.Id });
+
+        if (partnerId is null) return;
+
+        var prm = new DynamicParameters();
+        prm.Add("CompanyId",  company.Id);
+        prm.Add("PoHeaderId", headerId);
+        prm.Add("PoLineId",   lineId);
+        prm.Add("ItemId",     itemId);
+        prm.Add("PartnerId",  partnerId.Value);
+        prm.Add("ActualPrice", actualPrice);
+        prm.Add("UserId",     user.Id);
+        prm.Add("VarianceId", dbType: System.Data.DbType.Guid, direction: System.Data.ParameterDirection.Output);
+
+        await conn.ExecuteAsync("sp_CheckPriceVariance", prm,
+            commandType: System.Data.CommandType.StoredProcedure);
+
+        var varianceId = prm.Get<Guid?>("VarianceId");
+        if (varianceId.HasValue)
+        {
+            // İş kuralı: Sapma tespit edildi — kullanıcı detayı PriceVariance ekranında görür
+            TempData["PriceWarning"] =
+                "Bu satırın fiyatı tedarikçi liste fiyatından saptı. Fiyat farkı onaya gönderildi.";
+        }
     }
 
     public async Task<IActionResult> OnPostApproveAsync(Guid id)

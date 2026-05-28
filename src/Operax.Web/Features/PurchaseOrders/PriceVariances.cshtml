@@ -1,0 +1,105 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.PurchaseOrders.PriceVariancesModel
+@{
+    ViewData["Title"] = "Fiyat Farkları";
+
+    var header = new PageHeaderVm(
+        Title: "Fiyat Farkları",
+        Crumbs: new[] { "Anasayfa", "Satınalma", "Fiyat Farkları" },
+        Sub: $"Bekleyen <span class=\"mono text-strong\">{Model.DraftCount}</span> · " +
+             $"Onaylı <span class=\"mono text-strong\">{Model.ApprovedCount}</span> · " +
+             $"Reddedilen <span class=\"mono text-strong\">{Model.RejectedCount}</span>"
+    );
+
+    var tabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm("Bekleyen",   "DRAFT",    Model.DraftCount),
+            new TabVm("Onaylı",     "APPROVED", Model.ApprovedCount),
+            new TabVm("Reddedilen", "REJECTED", Model.RejectedCount),
+        },
+        ActiveValue: Model.Tab,
+        QueryParamName: "tab"
+    );
+}
+
+<div class="page" data-screen-label="Price Variances">
+
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+        <partial name="_Tabs" model="tabs" />
+
+        @if (Model.Variances.Count == 0)
+        {
+            var empty = new EmptyStateVm("Fiyat farkı yok", "Bu durumda tedarikçi liste fiyatından sapan satınalma satırı bulunmuyor.");
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Evrak No</th>
+                        <th>Tedarikçi</th>
+                        <th>Ürün</th>
+                        <th class="num">Liste Fiyatı</th>
+                        <th class="num">Girilen Fiyat</th>
+                        <th class="num">Fark</th>
+                        <th class="num">Sapma %</th>
+                        <th>Tarih</th>
+                        @if (Model.Tab == "DRAFT")
+                        {
+                            <th style="width:160px;">İşlem</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model.Variances)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/PurchaseOrders/Details?id=@v.PoHeaderId" class="mono row-strong" style="color:var(--brand-500);">@v.OrderNo</a>
+                            </td>
+                            <td>@v.PartnerName</td>
+                            <td>
+                                <span class="mono muted">@v.ItemCode</span>
+                                <span style="margin-left:8px;">@v.ItemName</span>
+                            </td>
+                            <td class="num">@UiHelpers.FmtTL(v.ExpectedPrice)</td>
+                            <td class="num"><span class="row-strong">@UiHelpers.FmtTL(v.ActualPrice)</span></td>
+                            <td class="num">
+                                <span class="@(v.Variance >= 0 ? "text-danger" : "text-success")">
+                                    @UiHelpers.FmtTL(v.Variance)
+                                </span>
+                            </td>
+                            <td class="num">
+                                <span class="badge @(System.Math.Abs(v.VariancePercent) > 10 ? "badge-danger" : "badge-warn")" style="height:18px;">
+                                    <span class="badge-dot"></span>%@v.VariancePercent.ToString("0.0")
+                                </span>
+                            </td>
+                            <td class="mono muted">@v.CreatedAt.ToString("dd MMM yyyy")</td>
+                            @if (Model.Tab == "DRAFT")
+                            {
+                                <td>
+                                    <div class="row" style="gap:4px;">
+                                        <form method="post" asp-page-handler="Approve" style="display:inline;">
+                                            <input type="hidden" name="id" value="@v.Id" />
+                                            <button class="btn btn-success btn-xs">Onayla</button>
+                                        </form>
+                                        <form method="post" asp-page-handler="Reject" style="display:inline;">
+                                            <input type="hidden" name="id" value="@v.Id" />
+                                            <button class="btn btn-secondary btn-xs">Reddet</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+</div>

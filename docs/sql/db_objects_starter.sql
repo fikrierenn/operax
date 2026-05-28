@@ -144,6 +144,57 @@ END
 GO
 
 -- =============================================================================
+-- M03 SATINALMA: sp_ApprovePriceVariance
+-- Fiyat farkı onayı — PriceVariance DRAFT → APPROVED.
+-- PO satır fiyatı gerçek (ActualPrice) değere güncellenir.
+-- THROW kodları: 51100-51199 (M03 slot).
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ApprovePriceVariance
+    @VarianceId UNIQUEIDENTIFIER,
+    @UserId     UNIQUEIDENTIFIER = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20), @SourceLineId UNIQUEIDENTIFIER,
+                @ActualPrice DECIMAL(18,4), @SourceDocType NVARCHAR(50);
+
+        SELECT @Status = Status, @SourceLineId = SourceLineId,
+               @ActualPrice = ActualPrice, @SourceDocType = SourceDocType
+        FROM PriceVariance WHERE Id = @VarianceId AND IsDeleted = 0;
+
+        IF @Status IS NULL
+            THROW 51101, N'Fiyat farkı kaydı bulunamadı.', 1;
+        IF @Status <> 'DRAFT'
+            THROW 51102, N'Sadece bekleyen (DRAFT) fiyat farkları onaylanabilir.', 1;
+
+        -- PO satır fiyatını gerçek değere güncelle
+        IF @SourceDocType = 'PURCHASE_ORDER'
+            UPDATE PurchaseOrderLine
+            SET Price = @ActualPrice
+            WHERE Id = @SourceLineId;
+
+        -- Variance kaydını onayla
+        UPDATE PriceVariance
+        SET Status     = 'APPROVED',
+            ApprovedBy = @UserId,
+            ApprovedAt = GETUTCDATE()
+        WHERE Id = @VarianceId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
 -- M04 SATIŞ FATURASI: sp_GenerateSalesInvoiceFromShipping
 -- Sevkiyat POSTED olunca otomatik fatura üretir, PaymentPlan kaydı oluşturur
 -- =============================================================================

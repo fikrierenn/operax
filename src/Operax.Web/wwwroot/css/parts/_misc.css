@@ -111,8 +111,12 @@
 .spacer { flex: 1; }
 
 .divider { height: 1px; background: var(--border); margin: 10px 0; }
-.text-mute   { color: var(--text-3); }
-.text-strong { color: var(--text); font-weight: 600; }
+.text-mute    { color: var(--text-3); }
+.text-strong  { color: var(--text); font-weight: 600; }
+.text-danger  { color: var(--danger-text); }
+.text-success { color: var(--success-text); }
+.text-warn    { color: var(--warn-text); }
+.text-brand   { color: var(--brand-500); }
 .scroll-x { overflow-x: auto; }
 .no-wrap  { white-space: nowrap; }
 .elevated { box-shadow: var(--shadow-md); }

@@ -68,9 +68,20 @@ class Program
             {
                 case "migrate":
                     var sqlDir = FindDir("docs/sql") ?? ".";
-                    // 1. Şema (tablolar, index'ler, seed)
+                    // 1. Çekirdek şema (tablolar, index'ler, seed)
                     await ExecuteScriptAsync(Path.Combine(sqlDir, "schema_all.sql"), tolerant: true);
-                    // 2. DB nesneleri (SP, FN, View) — ayrı dosya, CREATE OR ALTER
+                    // 2. Ek modül şemaları (alt parçalar — idempotent IF NOT EXISTS koruması var)
+                    foreach (var addonSchema in new[] {
+                        "schema_M02_Costing.sql",       // ItemCost + PriceVariance + StockMovement.UnitCost
+                        "schema_M04_SalesInvoice.sql",  // Satış faturası
+                        "schema_M11_Finance.sql"        // Kasa, banka, çek, senet, kredi, kart, ödeme planı
+                    })
+                    {
+                        var addon = Path.Combine(sqlDir, addonSchema);
+                        if (File.Exists(addon)) await ExecuteScriptAsync(addon, tolerant: true);
+                        else Console.WriteLine($"  [SKIP] {addonSchema} bulunamadi");
+                    }
+                    // 3. DB nesneleri (SP, FN, View) — ayrı dosya, CREATE OR ALTER
                     await ExecuteScriptAsync(Path.Combine(sqlDir, "db_objects.sql"), tolerant: false);
                     break;
 

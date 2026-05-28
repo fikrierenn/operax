@@ -130,7 +130,20 @@
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(Start-Process \"D:\\\\Dev\\\\Operax\\\\tasarım\\\\OPERAX Platform Pure.standalone.html\")",
       "Bash(grep -o '\\\\-\\\\-[a-z][a-z0-9-]*: [^;\\\\\\\\n\\\\\"]*' \"D:/Dev/Operax/tasarım/OPERAX Platform Pure.standalone.html\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(cmd.exe /c \"del test_ps.txt & del src\\\\Operax.Cli\\\\Program.cs.bak & del tasarım\\\\_extract.js & del tasarım\\\\_extract_all.js\")",
+      "Bash(cmd.exe /c \"del test_ps.txt\")",
+      "Bash(cmd.exe /c \"del src\\\\Operax.Cli\\\\Program.cs.bak\")",
+      "Bash(cmd.exe /c \"del tasarım\\\\_extract.js\")",
+      "Bash(cmd.exe /c \"del tasarım\\\\_extract_all.js\")",
+      "Bash(cmd.exe /c \"del tasarım\\\\_extracted_template.html\")",
+      "Bash(git rm *)",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Dev\\\\Operax && del /f test_ps.txt 2>nul & del /f src\\\\Operax.Cli\\\\Program.cs.bak 2>nul & del /f tasarım\\\\_extract.js 2>nul & del /f tasarım\\\\_extract_all.js 2>nul & del /f tasarım\\\\_extracted_template.html 2>nul\")",
+      "Bash(grep -E \"bak$|test_ps\")",
+      "Bash(git reset *)",
+      "Bash(awk 'NR>=478' \"D:/Dev/Operax/tasarım/_unbundled/_template.css\")",
+      "Bash(awk 'NR==478,NR==486' \"D:/Dev/Operax/tasarım/_unbundled/_template.css\")",
+      "Bash(awk 'NR>=400' \"D:/Dev/Operax/tasarım/_unbundled/_template.css\")"
     ]
   }
 }

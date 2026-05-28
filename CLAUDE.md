@@ -5,10 +5,15 @@ Bu dosya her Claude/Antigravity oturumunun başında okunur. **Değişmez kurall
 - `.claude/rules/*.md` — davranış ve yazılım kuralları (yeni kod yazmadan önce mutlaka okunur)
 - `docs/CONTEXT_MANAGEMENT.md` — bağlam yönetimi anayasası (ilkeler bütünü)
 - `docs/journal/YYYY-MM-DD.md` — günlük oturum kayıtları (nerede kalındığı buraya işlenir)
-- `PLAN.md` — master sprint planı ve durumları
+- `docs/MASTER_ROADMAP.md` — modül öncelik sıralaması ve faz tanımları
+- `docs/COMPETITOR_ANALYSIS.md` — rakip karşılaştırma matrisi (Logo/Mikro/Netsis/SAP B1/Odoo)
+- `docs/MODULE_SPECS/M*.md` — modül detay spec dosyaları
+- `plans/NN-<slug>.md` — Tier 3 işlerin plan dokümanları (plan-first kuralı — bkz. `.claude/rules/plan-first.md`)
 - `docs/TODO.md` — aktif modül/ekran todo'ları (durum sembolleri: `[ ]` yapılacak · `[/]` devam ediyor · `[x]` tamamlandı)
 - `docs/BUGS.md` — bug ve hata takip kayıtları
 - `docs/ARCHITECTURE.md` — projenin detaylı mimari tasarım belgesi
+
+**Plan-First Disiplini:** 3+ dosya / yeni pattern / schema değişikliği / UI değişikliği gibi Tier 3 işler için **önce `plans/NN-<slug>.md` yazılır, kullanıcı onayı alınır, sonra kod yazılır**. Detay: [`.claude/rules/plan-first.md`](file:///d:/Dev/Operax/.claude/rules/plan-first.md).
 
 ---
 

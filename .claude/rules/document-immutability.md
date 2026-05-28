@@ -37,6 +37,41 @@ ProductionOrder
   └── ProductionReceipt (Mamul Girişi → StockMovement RECEIPT)
 ```
 
+### 2.4 Finans Zinciri — Banka / Çek / Senet / Kredi
+
+Finansal araçlar da "evrak" sayılır. Aynı immutability kuralı uygulanır:
+
+```
+FinancialTransaction (Kasa/Banka hareketi)
+  └── PaymentPlan eşleşmesi (FinancialTransactionId set edildi → ödeme kapatıldı)
+
+Cheque PORTFOLIO ──→ IN_BANK ──→ COLLECTED → FinancialTransaction INCOME
+                  │              │
+                  │              └── RETURNED (karşılıksız) — ters hareket gerekmez
+                  └── ENDORSED (ciro) — ters hareket gerekmez
+
+PromissoryNote — Cheque ile aynı zincir
+
+Loan
+  └── LoanPayment (her taksit)
+        └── FinancialTransaction EXPENSE (taksit ödendi)
+
+CreditCard
+  └── CreditCardStatement (aylık ekstre)
+        ├── CreditCardTransaction (slip işlemleri — ekstreye dahil edilince kilitli)
+        └── FinancialTransaction EXPENSE (ekstre ödendi)
+```
+
+### 2.5 Sipariş Zinciri (PO/SO satır seviyesi)
+
+Sipariş satırı (PurchaseOrderLine / SalesOrderLine) de evraktır:
+
+| Belge | Durum | Bağlı Aşağı Kayıt | Düzenlenebilir mi? |
+|---|---|---|---|
+| PurchaseOrderLine | PO POSTED | ReceivingLine var | ❌ Hiçbir şey |
+| SalesOrderLine | SO POSTED | ShippingLine var | ❌ Hiçbir şey |
+| SalesOrderLine | SO POSTED | Hiç sevkiyat yok | ⚠️ Sadece Cancel |
+
 ---
 
 ## 3. Kilit Matrisi
@@ -53,6 +88,22 @@ ProductionOrder
 | ExpenseInvoice | POSTED | Ödeme yok | ⚠️ Sadece **Cancel** |
 | ExpenseInvoice | POSTED | En az 1 ödeme | ❌ Hiçbir şey |
 | SO / Shipping / SalesInvoice | (aynı mantık) | | |
+| **FinancialTransaction** | herhangi | IsReconciled=1 (banka mutabakat) | ❌ Hiçbir şey, ters tx aç |
+| **FinancialTransaction** | herhangi | IsReconciled=0 | ⚠️ Sadece açıklama düzenleme; tutar/tarih/hesap değişmez |
+| **Cheque** | PORTFOLIO | — | ✅ Tüm alan |
+| **Cheque** | IN_BANK | — | ⚠️ Sadece ReturnReason (karşılıksız durumunda) |
+| **Cheque** | COLLECTED/PAID/RETURNED/ENDORSED | — | ❌ Hiçbir şey, sadece görüntüleme |
+| **PromissoryNote** | Cheque ile aynı matriks | | |
+| **Loan** | ACTIVE | LoanPayment yok (yeni açıldı) | ⚠️ Sadece Notes |
+| **Loan** | ACTIVE | En az 1 ödenmiş LoanPayment | ❌ Anapara/faiz/vade değişmez (yapılandırma → yeni Loan açılır) |
+| **Loan** | CLOSED/RESTRUCTURED | — | ❌ Hiçbir şey |
+| **LoanPayment** | IsPaid=1 | — | ❌ Hiçbir şey (ödeme yapılmış) |
+| **CreditCardStatement** | IsClosed=1 | — | ❌ Hiçbir şey (ekstre kapandı) |
+| **CreditCardTransaction** | StatementId NULL | — | ✅ Tüm alan (henüz ekstreye düşmedi) |
+| **CreditCardTransaction** | StatementId set | — | ❌ Hiçbir şey (ekstreye dahil) |
+| **PaymentPlan** | OPEN | — | ✅ Tüm alan |
+| **PaymentPlan** | PARTIAL | — | ⚠️ Sadece DueDate (vade ertelemesi) ve Notes |
+| **PaymentPlan** | PAID/OVERDUE → PAID | — | ❌ Hiçbir şey (ters için sp_CancelPayment) |
 
 ---
 

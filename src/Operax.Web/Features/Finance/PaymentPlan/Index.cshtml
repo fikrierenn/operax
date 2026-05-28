@@ -1,0 +1,115 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.PaymentPlan.IndexModel
+@{
+    ViewData["Title"] = L.T("Ödeme Planı", "Payment Plan");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Vade Planı (Açık)", "Payment Plan (Open)"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Ödeme Planı", "Payment Plan") },
+        Sub: $"{L.T("Alacak", "Receivable")} <span class=\"mono text-strong\" style=\"color:var(--success-text)\">{UiHelpers.FmtTL(Model.TotalReceivable)}</span> · {L.T("Borç", "Payable")} <span class=\"mono text-strong\" style=\"color:var(--danger-text)\">{UiHelpers.FmtTL(Model.TotalPayable)}</span>",
+        ActionsHtml: $"<a href=\"/Finance/Aging\" class=\"btn btn-secondary btn-sm\">{L.T("Yaşlandırma", "Aging Report")}</a>"
+    );
+
+    var dirTabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),             "all",         Model.DirCounts.Total),
+            new TabVm(L.T("Alacaklar", "Receivable"), "RECEIVABLE",  Model.DirCounts.Receivable),
+            new TabVm(L.T("Borçlar", "Payable"),      "PAYABLE",     Model.DirCounts.Payable),
+        },
+        ActiveValue: Model.Direction,
+        QueryParamName: "direction"
+    );
+}
+
+<div class="page" data-screen-label="Payment Plan">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+        <partial name="_Tabs" model="dirTabs" />
+
+        <div class="data-table-toolbar">
+            <a href="?direction=@Model.Direction&status=OPEN"
+               class="chip @(Model.Status == "OPEN" ? "active" : "")">@L.T("Açık", "Open")</a>
+            <a href="?direction=@Model.Direction&status=PARTIAL"
+               class="chip @(Model.Status == "PARTIAL" ? "active" : "")">@L.T("Kısmi", "Partial")</a>
+            <a href="?direction=@Model.Direction&status=PAID"
+               class="chip @(Model.Status == "PAID" ? "active" : "")">@L.T("Ödendi", "Paid")</a>
+            <a href="?direction=@Model.Direction&status=OVERDUE"
+               class="chip @(Model.Status == "OVERDUE" ? "active" : "")">@L.T("Gecikmiş", "Overdue")</a>
+            <a href="?direction=@Model.Direction&status=all"
+               class="chip @(Model.Status == "all" ? "active" : "")">@L.T("Hepsi", "All")</a>
+        </div>
+
+        @if (Model.Plans.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Plan kaydı yok", "No plan record"),
+                Message: L.T("Bu filtreyle eşleşen vade planı bulunamadı.", "No plan matches this filter."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Yön", "Direction")</th>
+                        <th>@L.T("Kaynak Belge", "Source Doc")</th>
+                        <th>@L.T("Cari", "Partner")</th>
+                        <th>@L.T("Taksit", "Installment")</th>
+                        <th>@L.T("Vade", "Due Date")</th>
+                        <th class="num">@L.T("Tutar", "Amount")</th>
+                        <th class="num">@L.T("Ödenen", "Paid")</th>
+                        <th class="num">@L.T("Kalan", "Remaining")</th>
+                        <th>@L.T("Durum", "Status")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pp in Model.Plans)
+                    {
+                        var dirBadge = pp.Direction == "RECEIVABLE"
+                            ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALACAK</span>"
+                            : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BORÇ</span>";
+
+                        string statusBadge = pp.Status switch
+                        {
+                            "OPEN"    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AÇIK</span>",
+                            "PARTIAL" => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KISMİ</span>",
+                            "PAID"    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+                            "OVERDUE" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
+                            _         => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{pp.Status}</span>"
+                        };
+
+                        var remaining = pp.Amount - pp.PaidAmount;
+                        var vadeColor = pp.DaysOverdue > 0 && pp.Status != "PAID" ? "var(--danger-text)"
+                            : pp.DaysOverdue >= -7 && pp.Status != "PAID" ? "var(--warn-text)" : "var(--text-2)";
+
+                        <tr>
+                            <td>@Html.Raw(dirBadge)</td>
+                            <td>
+                                <div class="row-strong"><span class="mono">@pp.SourceDocNo</span></div>
+                                <div class="row-sub">@pp.SourceDocType</div>
+                            </td>
+                            <td>@(pp.PartnerName ?? "—")</td>
+                            <td class="mono muted">@pp.InstallmentNo / @pp.TotalInstallments</td>
+                            <td class="mono" style="color:@vadeColor;">
+                                @UiHelpers.FmtDateShort(pp.DueDate)
+                                @if (pp.DaysOverdue > 0 && pp.Status != "PAID")
+                                {
+                                    <div class="row-sub" style="color:var(--danger-text);">+@pp.DaysOverdue @L.T("gün", "day")</div>
+                                }
+                            </td>
+                            <td class="num">@UiHelpers.FmtTL(pp.Amount)</td>
+                            <td class="num muted">@UiHelpers.FmtTL(pp.PaidAmount)</td>
+                            <td class="num">
+                                <span class="row-strong" style="color:@vadeColor;">@UiHelpers.FmtTL(remaining)</span>
+                            </td>
+                            <td>@Html.Raw(statusBadge)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

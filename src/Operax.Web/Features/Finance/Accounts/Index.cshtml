@@ -1,0 +1,107 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Accounts.IndexModel
+@{
+    ViewData["Title"] = L.T("Finansal Hesaplar", "Financial Accounts");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Finansal Hesaplar", "Financial Accounts"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Hesaplar", "Accounts") },
+        Sub: $"{L.T("Toplam bakiye", "Total balance")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalBalance)}</span> · {Model.Counts.Total} {L.T("hesap", "accounts")}",
+        ActionsHtml: $"<button class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Hesap", "New Account")}</button>"
+    );
+
+    var tabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),          "all",         Model.Counts.Total),
+            new TabVm(L.T("Kasa", "Cash"),         "CASH",        Model.Counts.Cash),
+            new TabVm(L.T("Banka", "Bank"),        "BANK",        Model.Counts.Bank),
+            new TabVm(L.T("Kredi Kartı", "Card"),  "CREDIT_CARD", Model.Counts.Card),
+            new TabVm(L.T("Kredi", "Loan"),        "LOAN",        Model.Counts.Loan),
+        },
+        ActiveValue: Model.Type,
+        QueryParamName: "type"
+    );
+}
+
+<div class="page" data-screen-label="Finance Accounts">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+        <partial name="_Tabs" model="tabs" />
+
+        @if (Model.Accounts.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Hesap bulunamadı", "No account found"),
+                Message: L.T("Henüz kasa veya banka hesabı tanımlanmamış. Yeni Hesap butonu ile başlayın.", "Define a cash or bank account to start."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Kod", "Code")</th>
+                        <th>@L.T("Hesap Adı", "Account Name")</th>
+                        <th>@L.T("Tip", "Type")</th>
+                        <th>@L.T("Banka / IBAN", "Bank / IBAN")</th>
+                        <th class="num">@L.T("Bakiye", "Balance")</th>
+                        <th class="num">@L.T("Hareket", "Tx")</th>
+                        <th>@L.T("Son Hareket", "Last Tx")</th>
+                        <th style="width:36px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Accounts/Details?id=@a.AccountId'">
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@a.Code</span></td>
+                            <td class="row-strong">@a.Name</td>
+                            <td>
+                                @{
+                                    string tBadge = a.AccountType switch
+                                    {
+                                        "CASH"        => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KASA</span>",
+                                        "BANK"        => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>BANKA</span>",
+                                        "CREDIT_CARD" => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KART</span>",
+                                        "LOAN"        => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KREDİ</span>",
+                                        _             => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{a.AccountType}</span>"
+                                    };
+                                }
+                                @Html.Raw(tBadge)
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(a.BankName))
+                                {
+                                    <div class="row-strong">@a.BankName</div>
+                                    <div class="row-sub mono">@a.IBAN</div>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="num">
+                                @{
+                                    var balanceColor = a.Balance < 0 ? "var(--danger-text)" : "var(--text)";
+                                }
+                                <span class="row-strong" style="color:@balanceColor;">@UiHelpers.FmtTL(a.Balance)</span>
+                                @if (a.CreditLimit.HasValue && a.CreditLimit.Value > 0)
+                                {
+                                    <div class="row-sub">/ @UiHelpers.FmtTL(a.CreditLimit.Value) @L.T("limit", "limit")</div>
+                                }
+                            </td>
+                            <td class="num muted">@a.TransactionCount</td>
+                            <td class="mono muted">@(a.LastMovementDate.HasValue ? UiHelpers.FmtDateShort(a.LastMovementDate.Value) : "—")</td>
+                            <td>
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

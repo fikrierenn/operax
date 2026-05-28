@@ -72,22 +72,27 @@ class Program
                     await ExecuteScriptAsync(Path.Combine(sqlDir, "schema_all.sql"), tolerant: true);
                     // 2. Ek modül şemaları (alt parçalar — idempotent IF NOT EXISTS koruması var)
                     foreach (var addonSchema in new[] {
-                        "schema_M02_Costing.sql",       // ItemCost + PriceVariance + StockMovement.UnitCost
-                        "schema_M04_SalesInvoice.sql",  // Satış faturası
-                        "schema_M11_Finance.sql"        // Kasa, banka, çek, senet, kredi, kart, ödeme planı
+                        "schema_M02_Costing.sql",            // ItemCost + PriceVariance + StockMovement.UnitCost
+                        "schema_M04_SalesInvoice.sql",       // Satış faturası
+                        "schema_M11_Finance.sql",            // Kasa, banka, çek, senet, kredi, kart, ödeme planı
+                        "schema_M01_M04_StarterFields.sql",  // Item/Partner/Header tablolarına STARTER eksik kolonlar
+                        "schema_M04_EBelge.sql"              // e-Fatura / e-Arşiv / e-İrsaliye altyapısı (UBL 2.1)
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);
                         if (File.Exists(addon)) await ExecuteScriptAsync(addon, tolerant: true);
                         else Console.WriteLine($"  [SKIP] {addonSchema} bulunamadi");
                     }
-                    // 3. DB nesneleri (SP, FN, View) — ayrı dosya, CREATE OR ALTER
+                    // 3. DB nesneleri (SP, FN, View) — CREATE OR ALTER
                     await ExecuteScriptAsync(Path.Combine(sqlDir, "db_objects.sql"), tolerant: false);
+                    // 4. STARTER paketi için ek SP'ler (M02 maliyet, M03 fiyat farkı, M04 fatura, M11 finans)
+                    var starter = Path.Combine(sqlDir, "db_objects_starter.sql");
+                    if (File.Exists(starter)) await ExecuteScriptAsync(starter, tolerant: false);
                     break;
 
                 case "seed":
                     var seedDir = FindDir("docs/sql") ?? ".";
-                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql" })
+                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql", "seed_finance_starter.sql" })
                     {
                         var p = Path.Combine(seedDir, seedFile);
                         if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);

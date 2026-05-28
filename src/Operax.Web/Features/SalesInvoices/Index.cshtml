@@ -1,0 +1,111 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.SalesInvoices.IndexModel
+@{
+    ViewData["Title"] = L.T("Satış Faturaları", "Sales Invoices");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Satış Faturaları", "Sales Invoices"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Faturalar", "Invoices") },
+        Sub: $"{L.T("Toplam", "Total")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalAmount)}</span> · {L.T("Tahsil", "Collected")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalPaid)}</span>",
+        ActionsHtml: $"<button class=\"btn btn-secondary btn-sm\">{L.T("Toplu e-Fatura Gönder", "Bulk e-Invoice Send")}</button><button class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Fatura", "New Invoice")}</button>"
+    );
+
+    var tabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),              "all",       Model.Counts.Total),
+            new TabVm(L.T("Taslak", "Draft"),          "DRAFT",     Model.Counts.Draft),
+            new TabVm(L.T("Onaylı", "Posted"),         "POSTED",    Model.Counts.Posted),
+            new TabVm(L.T("İptal", "Cancelled"),       "CANCELLED", Model.Counts.Cancelled),
+        },
+        ActiveValue: Model.Status,
+        QueryParamName: "status"
+    );
+}
+
+<div class="page" data-screen-label="Sales Invoices">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+        <partial name="_Tabs" model="tabs" />
+
+        <div class="data-table-toolbar">
+            <form method="get" style="position:relative;flex:0 0 280px;display:flex;align-items:center;">
+                <input type="hidden" name="status" value="@Model.Status" />
+                <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-4);" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input name="q" value="@Model.Q" class="form-ctrl" style="padding-left:34px;height:34px;" placeholder="@L.T("Fatura no, müşteri ara…", "Invoice no, customer…")" />
+            </form>
+        </div>
+
+        @if (Model.Invoices.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Fatura bulunamadı", "No invoice found"),
+                Message: L.T("Sevkiyat onaylanınca otomatik fatura kesilir. İlk faturayı manuel oluşturmak için Yeni Fatura butonuna tıklayın.", "Auto invoice on shipping posting. Click New Invoice to create manually."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Fatura No", "Invoice No")</th>
+                        <th>@L.T("Müşteri", "Customer")</th>
+                        <th>@L.T("Tarih", "Date")</th>
+                        <th>@L.T("Vade", "Due")</th>
+                        <th class="num">@L.T("Kalem", "Lines")</th>
+                        <th class="num">@L.T("Ara Toplam", "Subtotal")</th>
+                        <th class="num">@L.T("KDV", "Tax")</th>
+                        <th class="num">@L.T("Toplam", "Grand")</th>
+                        <th>@L.T("e-Belge", "e-Doc")</th>
+                        <th>@L.T("Durum", "Status")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in Model.Invoices)
+                    {
+                        string statusBadge = i.Status switch
+                        {
+                            "DRAFT"     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
+                            "POSTED"    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
+                            "PAID"      => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>TAHSİL</span>",
+                            "CANCELLED" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
+                            _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{i.Status}</span>"
+                        };
+
+                        string eBadge = i.EBelgeStatus switch
+                        {
+                            null        => "<span class=\"muted\">—</span>",
+                            "DRAFT"     => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>BEKLEMEDE</span>",
+                            "SENT"      => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>GÖNDERİLDİ</span>",
+                            "ACCEPTED"  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KABUL</span>",
+                            "REJECTED"  => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>RED</span>",
+                            _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{i.EBelgeStatus}</span>"
+                        };
+
+                        var dueColor = i.DueDate.HasValue && i.DaysOverdue > 0 && i.Status != "CANCELLED"
+                            ? "var(--danger-text)" : "var(--text-2)";
+
+                        <tr style="cursor:pointer;" onclick="window.location.href='/SalesInvoices/Details?id=@i.Id'">
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@i.InvoiceNo</span></td>
+                            <td class="row-strong">@i.PartnerName</td>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(i.InvoiceDate)</td>
+                            <td class="mono" style="color:@dueColor;">
+                                @(i.DueDate.HasValue ? UiHelpers.FmtDateShort(i.DueDate.Value) : "—")
+                            </td>
+                            <td class="num muted">@i.LineCount</td>
+                            <td class="num">@UiHelpers.FmtTL(i.Subtotal)</td>
+                            <td class="num muted">@UiHelpers.FmtTL(i.TaxAmount)</td>
+                            <td class="num row-strong">@UiHelpers.FmtTL(i.GrandTotal)</td>
+                            <td>@Html.Raw(eBadge)</td>
+                            <td>@Html.Raw(statusBadge)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

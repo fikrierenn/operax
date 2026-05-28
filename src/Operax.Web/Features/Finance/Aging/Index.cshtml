@@ -1,0 +1,88 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Aging.IndexModel
+@{
+    ViewData["Title"] = L.T("Yaşlandırma", "Aging Report");
+
+    var noun = Model.Direction == "PAYABLE" ? L.T("Borç", "Payable") : L.T("Alacak", "Receivable");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Yaşlandırma Raporu", "Aging Report") + " — " + noun,
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Yaşlandırma", "Aging") },
+        Sub: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>",
+        ActionsHtml: ""
+    );
+}
+
+<div class="page" data-screen-label="Aging">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+        <a class="btn @(Model.Direction == "RECEIVABLE" ? "btn-primary" : "btn-secondary") btn-sm"
+           href="?direction=RECEIVABLE">@L.T("Alacaklar", "Receivable")</a>
+        <a class="btn @(Model.Direction == "PAYABLE" ? "btn-primary" : "btn-secondary") btn-sm"
+           href="?direction=PAYABLE">@L.T("Borçlar", "Payable")</a>
+    </div>
+
+    @* Özet kutucukları *@
+    <div class="grid-3" style="grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;">
+        @{
+            var buckets = new[]
+            {
+                (L.T("Vade Gelmedi", "Not Due"),     Model.Totals.NotDue,    "var(--success)"),
+                (L.T("1-30 Gün", "1-30 Days"),       Model.Totals.Days1_30,  "var(--info-text)"),
+                (L.T("31-60 Gün", "31-60 Days"),     Model.Totals.Days31_60, "var(--warn)"),
+                (L.T("61-90 Gün", "61-90 Days"),     Model.Totals.Days61_90, "hsl(28 80% 50%)"),
+                (L.T("90+ Gün", "90+ Days"),         Model.Totals.Over90,    "var(--danger)"),
+            };
+            foreach (var (label, value, color) in buckets)
+            {
+                <div class="kpi">
+                    <div class="kpi-label">@label</div>
+                    <div class="kpi-value" style="color:@color;font-size:18px;">@UiHelpers.FmtTL(value)</div>
+                </div>
+            }
+        }
+    </div>
+
+    @* Cari bazlı detay *@
+    <div class="card">
+        @if (Model.Rows.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Açık kayıt yok", "No open records"),
+                Message: L.T("Bu yön için açık vade planı bulunamadı.", "No open payment plan for this direction."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Cari", "Partner")</th>
+                        <th class="num">@L.T("Vade Gelmedi", "Not Due")</th>
+                        <th class="num">1-30</th>
+                        <th class="num">31-60</th>
+                        <th class="num">61-90</th>
+                        <th class="num">90+</th>
+                        <th class="num">@L.T("Toplam", "Total")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr>
+                            <td class="row-strong">@r.PartnerName</td>
+                            <td class="num muted">@UiHelpers.FmtTL(r.NotDue)</td>
+                            <td class="num">@UiHelpers.FmtTL(r.Days1_30)</td>
+                            <td class="num" style="color:var(--warn-text);">@UiHelpers.FmtTL(r.Days31_60)</td>
+                            <td class="num" style="color:hsl(28 80% 38%);">@UiHelpers.FmtTL(r.Days61_90)</td>
+                            <td class="num" style="color:var(--danger-text);font-weight:600;">@UiHelpers.FmtTL(r.Over90)</td>
+                            <td class="num"><span class="row-strong">@UiHelpers.FmtTL(r.TotalOpen)</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

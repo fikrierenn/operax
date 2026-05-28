@@ -60,14 +60,23 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
+// Çift Dil (TR/EN) Yerelleştirme Desteği
+var supportedCultures = new[] { "tr-TR", "en-US" };
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("tr-TR")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+app.UseRequestLocalization(localizationOptions);
+
 // HTTP pipeline yapılandırması
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
@@ -82,6 +91,28 @@ app.MapGet("/", (HttpContext ctx) =>
     ctx.User.Identity?.IsAuthenticated == true
         ? Results.Redirect("/Dashboard")
         : Results.Redirect("/login"));
+
+// Aktif Şirket Değiştirme (Company Switcher) API Endpoint
+app.MapPost("/api/switch-company", async (HttpContext ctx, Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser> userManager, Microsoft.AspNetCore.Identity.SignInManager<Microsoft.AspNetCore.Identity.IdentityUser> signInManager) =>
+{
+    var companyIdStr = ctx.Request.Form["companyId"].ToString();
+    if (System.Guid.TryParse(companyIdStr, out var companyId))
+    {
+        var user = await userManager.GetUserAsync(ctx.User);
+        if (user != null)
+        {
+            var claims = await userManager.GetClaimsAsync(user);
+            var oldCompanyClaims = claims.Where(c => c.Type == "company").ToList();
+            foreach (var oldClaim in oldCompanyClaims)
+            {
+                await userManager.RemoveClaimAsync(user, oldClaim);
+            }
+            await userManager.AddClaimAsync(user, new System.Security.Claims.Claim("company", companyId.ToString()));
+            await signInManager.RefreshSignInAsync(user);
+        }
+    }
+    return Results.Redirect("/Dashboard");
+}).DisableAntiforgery();
 
 // Başlangıç seed: Admin kullanıcısı + şirket yoksa oluşturur (geliştirme ve ilk kurulum için)
 // Tablolar mevcut değilse hata loglanır, uygulama çalışmaya devam eder

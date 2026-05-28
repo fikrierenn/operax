@@ -114,7 +114,23 @@
       "Bash(node /tmp/fix_bi2.js)",
       "Bash(node /tmp/fix_bi3.js)",
       "Bash(node /tmp/fix_bd2.js)",
-      "Bash(node /tmp/fix_bd3.js)"
+      "Bash(node /tmp/fix_bd3.js)",
+      "Bash(operax-cli script docs/sql/seed_demo.sql)",
+      "Bash(1:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000)",
+      "Bash(powershell -Command \"\\(Get-Item ''D:\\\\Dev\\\\Operax\\\\src\\\\Operax.Web\\\\bin\\\\Release\\\\net10.0\\\\Operax.Web.dll''\\).LastWriteTime\")",
+      "Bash(tail -5 powershell -Command \"\\(Get-Item ''D:\\\\Dev\\\\Operax\\\\src\\\\Operax.Web\\\\bin\\\\Release\\\\net10.0\\\\Operax.Web.dll''\\).LastWriteTime\")",
+      "Bash(powershell -Command \"Get-Item ''D:\\\\Dev\\\\Operax\\\\src\\\\Operax.Web\\\\Features\\\\CycleCount\\\\Terminal.cshtml.cs'' | Select-Object Name, LastWriteTime, Length\")",
+      "Bash(powershell -Command \"Get-Item ''D:\\\\Dev\\\\Operax\\\\src\\\\Operax.Web\\\\Features\\\\Shipping\\\\Terminal.cshtml.cs'' | Select-Object Name, LastWriteTime, Length\")",
+      "Bash(powershell -Command \"Get-Date -Format ''yyyy-MM-dd HH:mm:ss zzz''\")",
+      "Bash(grep -v \"//.*Authorize\")",
+      "Bash(taskkill //PID 50656 //F)",
+      "Bash(taskkill //PID 38548 //F)",
+      "Bash(taskkill //PID 45000 //F)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(Start-Process \"D:\\\\Dev\\\\Operax\\\\tasarım\\\\OPERAX Platform Pure.standalone.html\")",
+      "Bash(grep -o '\\\\-\\\\-[a-z][a-z0-9-]*: [^;\\\\\\\\n\\\\\"]*' \"D:/Dev/Operax/tasarım/OPERAX Platform Pure.standalone.html\")",
+      "Bash(git add *)"
     ]
   }
 }

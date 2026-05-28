@@ -1188,6 +1188,246 @@ GROUP BY pp.CompanyId, pp.PartnerId, p.Name, pp.Direction;
 GO
 
 -- =============================================================================
+-- tvf_LoanSummaryAsOf — Kredi kapama tablosu (tarih bazlı snapshot)
+-- Belirtilen tarihe kadar her kredi için:
+--   • Vadesi gelmiş taksitlerden ödenmiş / ödenmemiş anapara ve faiz
+--   • Kalan anapara (OutstandingPrincipal)
+--   • Sonraki vade tarihi ve tutarı
+--   • Geciken (ödenmemiş + vadesi geçmiş) taksit adedi
+-- =============================================================================
+CREATE OR ALTER FUNCTION dbo.tvf_LoanSummaryAsOf
+(
+    @CompanyId  UNIQUEIDENTIFIER,
+    @AsOfDate   DATE
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        l.Id                 AS LoanId,
+        l.LoanNo,
+        l.BankName,
+        l.CalcMethod,
+        l.Status,
+        l.Principal,
+        l.InterestRate,
+        l.StartDate,
+        l.EndDate,
+        l.TermMonths,
+        l.MonthlyPayment,
+
+        -- Vadesi gelen taksit sayısı (@AsOfDate dahil)
+        (SELECT COUNT(*) FROM LoanPayment lp
+            WHERE lp.LoanId = l.Id AND lp.DueDate <= @AsOfDate)              AS DueInstallmentCount,
+
+        -- Vadesi gelen ve ödenen
+        (SELECT COUNT(*) FROM LoanPayment lp
+            WHERE lp.LoanId = l.Id AND lp.DueDate <= @AsOfDate AND lp.IsPaid = 1) AS PaidInstallmentCount,
+
+        -- Vadesi gelen ve ödenmemiş (gecikme)
+        (SELECT COUNT(*) FROM LoanPayment lp
+            WHERE lp.LoanId = l.Id AND lp.DueDate <= @AsOfDate AND lp.IsPaid = 0) AS OverdueInstallmentCount,
+
+        -- Tüm taksit sayısı
+        (SELECT COUNT(*) FROM LoanPayment lp WHERE lp.LoanId = l.Id)         AS TotalInstallmentCount,
+
+        -- Bugüne kadar ödenen anapara
+        ISNULL((SELECT SUM(lp.PrincipalAmount) FROM LoanPayment lp
+                WHERE lp.LoanId = l.Id AND lp.IsPaid = 1), 0)                AS PaidPrincipal,
+
+        -- Bugüne kadar ödenen faiz
+        ISNULL((SELECT SUM(lp.InterestAmount) FROM LoanPayment lp
+                WHERE lp.LoanId = l.Id AND lp.IsPaid = 1), 0)                AS PaidInterest,
+
+        -- Kalan anapara borcu (Loan.OutstandingBalance senkron tutuluyor)
+        l.OutstandingBalance                                                  AS OutstandingPrincipal,
+
+        -- Kalan faiz (ödenmemiş tüm taksitlerin faiz toplamı)
+        ISNULL((SELECT SUM(lp.InterestAmount) FROM LoanPayment lp
+                WHERE lp.LoanId = l.Id AND lp.IsPaid = 0), 0)                AS RemainingInterest,
+
+        -- Toplam kalan borç (anapara + faiz)
+        l.OutstandingBalance +
+        ISNULL((SELECT SUM(lp.InterestAmount) FROM LoanPayment lp
+                WHERE lp.LoanId = l.Id AND lp.IsPaid = 0), 0)                AS TotalRemainingDebt,
+
+        -- Vadesi geçmiş gecikme tutarı (ödenmemiş taksitlerin tutarı, AsOfDate'e kadar)
+        ISNULL((SELECT SUM(lp.TotalAmount) FROM LoanPayment lp
+                WHERE lp.LoanId = l.Id AND lp.IsPaid = 0 AND lp.DueDate <= @AsOfDate), 0)
+                                                                              AS OverdueAmount,
+
+        -- Sonraki ödeme tarihi + tutarı
+        (SELECT TOP 1 lp.DueDate FROM LoanPayment lp
+            WHERE lp.LoanId = l.Id AND lp.IsPaid = 0
+            ORDER BY lp.DueDate)                                              AS NextDueDate,
+
+        (SELECT TOP 1 lp.TotalAmount FROM LoanPayment lp
+            WHERE lp.LoanId = l.Id AND lp.IsPaid = 0
+            ORDER BY lp.DueDate)                                              AS NextDueAmount
+
+    FROM Loan l
+    WHERE l.CompanyId = @CompanyId AND l.IsDeleted = 0
+);
+GO
+
+-- =============================================================================
+-- tvf_FinancialPosition — Mali durum kapama tablosu (bilanço benzeri snapshot)
+-- @AsOfDate tarihinde:
+--   Pozitif (varlık): hesap bakiyeleri (kasa+banka), müşteri alacakları, çek portföyü
+--   Negatif (yükümlülük): kredi kalan anapara+faiz, tedarikçi borçları, kredi kartı kullanılan limit
+--   Net pozisyon = sum(varlık) - sum(yükümlülük)
+-- =============================================================================
+CREATE OR ALTER FUNCTION dbo.tvf_FinancialPosition
+(
+    @CompanyId  UNIQUEIDENTIFIER,
+    @AsOfDate   DATE
+)
+RETURNS @Result TABLE
+(
+    Category    NVARCHAR(50),         -- ASSET / LIABILITY
+    GroupName   NVARCHAR(100),        -- Kasa, Banka, Kredi, vb.
+    ItemCode    NVARCHAR(100),        -- Hesap kodu / kredi no / cari kodu
+    ItemName    NVARCHAR(300),
+    Currency    NVARCHAR(10),
+    Amount      DECIMAL(18,2),        -- TRY karşılığı; ASSET pozitif, LIABILITY pozitif (görsel negatif)
+    SortOrder   INT
+)
+AS
+BEGIN
+    -- VARLIK 1: Kasa hesapları
+    INSERT INTO @Result
+    SELECT 'ASSET', N'Kasa', a.Code, a.Name, a.Currency,
+           a.OpeningBalance + ISNULL(
+               (SELECT SUM(CASE WHEN ft.TransactionType IN ('INCOME','TRANSFER_IN') THEN ft.AmountTRY
+                                WHEN ft.TransactionType IN ('EXPENSE','TRANSFER_OUT') THEN -ft.AmountTRY
+                                ELSE 0 END)
+                FROM FinancialTransaction ft
+                WHERE ft.AccountId = a.Id AND ft.IsDeleted = 0
+                  AND CAST(ft.TransactionDate AS DATE) <= @AsOfDate), 0),
+           10
+    FROM FinancialAccount a
+    WHERE a.CompanyId = @CompanyId AND a.AccountType = 'CASH' AND a.IsDeleted = 0;
+
+    -- VARLIK 2: Banka hesapları
+    INSERT INTO @Result
+    SELECT 'ASSET', N'Banka', a.Code, a.Name, a.Currency,
+           a.OpeningBalance + ISNULL(
+               (SELECT SUM(CASE WHEN ft.TransactionType IN ('INCOME','TRANSFER_IN') THEN ft.AmountTRY
+                                WHEN ft.TransactionType IN ('EXPENSE','TRANSFER_OUT') THEN -ft.AmountTRY
+                                ELSE 0 END)
+                FROM FinancialTransaction ft
+                WHERE ft.AccountId = a.Id AND ft.IsDeleted = 0
+                  AND CAST(ft.TransactionDate AS DATE) <= @AsOfDate), 0),
+           20
+    FROM FinancialAccount a
+    WHERE a.CompanyId = @CompanyId AND a.AccountType = 'BANK' AND a.IsDeleted = 0;
+
+    -- VARLIK 3: Çek portföyü (PORTFOLIO + IN_BANK, tahsil edilmemiş)
+    INSERT INTO @Result
+    SELECT 'ASSET', N'Çek Portföyü', c.ChequeNo,
+           N'Çek ' + c.BankName + N' — ' + ISNULL(c.DrawerName, ''),
+           c.Currency, c.Amount, 30
+    FROM Cheque c
+    WHERE c.CompanyId = @CompanyId AND c.IsDeleted = 0
+      AND c.Direction = 'RECEIVED'
+      AND c.Status IN ('PORTFOLIO','IN_BANK')
+      AND c.ChequeDate <= @AsOfDate;
+
+    -- VARLIK 4: Senet portföyü (alınan)
+    INSERT INTO @Result
+    SELECT 'ASSET', N'Senet Portföyü', n.NoteNo,
+           N'Senet — ' + ISNULL(n.DrawerName, ''),
+           n.Currency, n.Amount, 35
+    FROM PromissoryNote n
+    WHERE n.CompanyId = @CompanyId AND n.IsDeleted = 0
+      AND n.Direction = 'RECEIVED'
+      AND n.Status IN ('PORTFOLIO','IN_BANK')
+      AND n.IssueDate <= @AsOfDate;
+
+    -- VARLIK 5: Müşteri alacakları (PaymentPlan RECEIVABLE açık)
+    INSERT INTO @Result
+    SELECT 'ASSET', N'Müşteri Alacakları', p.Code, p.Name, 'TRY',
+           SUM(pp.Amount - pp.PaidAmount), 40
+    FROM PaymentPlan pp
+    JOIN Partner p ON p.Id = pp.PartnerId
+    WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0
+      AND pp.Direction = 'RECEIVABLE'
+      AND pp.Status IN ('OPEN','PARTIAL','OVERDUE')
+      AND CAST(pp.CreatedAt AS DATE) <= @AsOfDate
+    GROUP BY p.Code, p.Name
+    HAVING SUM(pp.Amount - pp.PaidAmount) > 0;
+
+    -- YÜKÜMLÜLÜK 1: Kredi kalan anapara + faiz
+    INSERT INTO @Result
+    SELECT 'LIABILITY', N'Banka Kredileri', l.LoanNo,
+           l.BankName + N' (' + l.CalcMethod + N')', 'TRY',
+           l.OutstandingPrincipal + l.RemainingInterest, 110
+    FROM dbo.tvf_LoanSummaryAsOf(@CompanyId, @AsOfDate) l
+    WHERE l.Status = 'ACTIVE';
+
+    -- YÜKÜMLÜLÜK 2: Verilen çek (henüz ödenmemiş)
+    INSERT INTO @Result
+    SELECT 'LIABILITY', N'Verilen Çekler', c.ChequeNo,
+           N'Çek ' + c.BankName + N' → ' + ISNULL(c.DrawerName, ''),
+           c.Currency, c.Amount, 120
+    FROM Cheque c
+    WHERE c.CompanyId = @CompanyId AND c.IsDeleted = 0
+      AND c.Direction = 'ISSUED'
+      AND c.Status NOT IN ('PAID','RETURNED')
+      AND c.ChequeDate <= @AsOfDate;
+
+    -- YÜKÜMLÜLÜK 3: Verilen senet
+    INSERT INTO @Result
+    SELECT 'LIABILITY', N'Verilen Senetler', n.NoteNo,
+           N'Senet → ' + ISNULL(n.DrawerName, ''),
+           n.Currency, n.Amount, 125
+    FROM PromissoryNote n
+    WHERE n.CompanyId = @CompanyId AND n.IsDeleted = 0
+      AND n.Direction = 'ISSUED'
+      AND n.Status NOT IN ('PAID','RETURNED')
+      AND n.IssueDate <= @AsOfDate;
+
+    -- YÜKÜMLÜLÜK 4: Tedarikçi borçları (PaymentPlan PAYABLE açık)
+    INSERT INTO @Result
+    SELECT 'LIABILITY', N'Tedarikçi Borçları', p.Code, p.Name, 'TRY',
+           SUM(pp.Amount - pp.PaidAmount), 130
+    FROM PaymentPlan pp
+    JOIN Partner p ON p.Id = pp.PartnerId
+    WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0
+      AND pp.Direction = 'PAYABLE'
+      AND pp.Status IN ('OPEN','PARTIAL','OVERDUE')
+      AND CAST(pp.CreatedAt AS DATE) <= @AsOfDate
+    GROUP BY p.Code, p.Name
+    HAVING SUM(pp.Amount - pp.PaidAmount) > 0;
+
+    -- YÜKÜMLÜLÜK 5: Kredi kartı kullanılan limit (FinancialAccount Type=CREDIT_CARD üzerinden)
+    INSERT INTO @Result
+    SELECT 'LIABILITY', N'Kredi Kartı Kullanımı', a.Code, a.Name, a.Currency,
+           CASE WHEN ISNULL(
+                    (SELECT SUM(CASE WHEN ft.TransactionType = 'EXPENSE' THEN ft.AmountTRY
+                                     WHEN ft.TransactionType = 'INCOME' THEN -ft.AmountTRY
+                                     ELSE 0 END)
+                     FROM FinancialTransaction ft
+                     WHERE ft.AccountId = a.Id AND ft.IsDeleted = 0
+                       AND CAST(ft.TransactionDate AS DATE) <= @AsOfDate), 0) > 0
+                THEN ISNULL(
+                    (SELECT SUM(CASE WHEN ft.TransactionType = 'EXPENSE' THEN ft.AmountTRY
+                                     WHEN ft.TransactionType = 'INCOME' THEN -ft.AmountTRY
+                                     ELSE 0 END)
+                     FROM FinancialTransaction ft
+                     WHERE ft.AccountId = a.Id AND ft.IsDeleted = 0
+                       AND CAST(ft.TransactionDate AS DATE) <= @AsOfDate), 0)
+                ELSE 0 END,
+           140
+    FROM FinancialAccount a
+    WHERE a.CompanyId = @CompanyId AND a.AccountType = 'CREDIT_CARD' AND a.IsDeleted = 0;
+
+    RETURN;
+END
+GO
+
+-- =============================================================================
 -- v_ChequePortfolio — Çek portföyü görünümü (durum + vade)
 -- =============================================================================
 CREATE OR ALTER VIEW dbo.v_ChequePortfolio AS

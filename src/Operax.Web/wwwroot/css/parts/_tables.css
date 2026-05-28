@@ -1,0 +1,43 @@
+/* OPERAX — Data tables (.data-table, header, body, hover, selected) */
+
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.data-table thead th {
+  background: hsl(220 14% 97%);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-4);
+  text-align: left;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+.data-table thead th.num { text-align: right; }
+.data-table tbody td {
+  padding: 11px 18px;
+  font-size: 12.5px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.data-table tbody td.num { text-align: right; font-family: var(--font-mono); }
+.data-table tbody td.muted { color: var(--text-3); }
+.data-table tbody tr { transition: background .12s; }
+.data-table tbody tr:hover { background: var(--surface-2); }
+.data-table tbody tr.selected { background: hsl(243 75% 59% / 0.04); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody td .row-strong { font-weight: 600; color: var(--text); }
+.data-table tbody td .row-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+.data-table-toolbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  flex-wrap: wrap;
+}

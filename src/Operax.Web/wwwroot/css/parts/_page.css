@@ -1,0 +1,20 @@
+/* OPERAX — Page wrapper + header + breadcrumb */
+
+.page { padding: 18px 22px 32px; max-width: 1640px; width: 100%; margin: 0 auto; }
+.page-hdr { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.page-hdr-l { min-width: 0; }
+.page-hdr h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text); }
+.page-hdr p { font-size: 13px; color: var(--text-3); margin: 4px 0 0; }
+.page-hdr-r { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.breadcrumb {
+  display: flex; align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.breadcrumb-item { cursor: pointer; transition: color .14s; }
+.breadcrumb-item:hover { color: var(--text); }
+.breadcrumb-sep { color: var(--text-mute); }
+.breadcrumb-current { color: var(--text); font-weight: 600; }

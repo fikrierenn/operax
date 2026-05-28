@@ -1,0 +1,73 @@
+/* OPERAX — Design Tokens (:root CSS variables)
+   Tüm renk, gölge, font ve gradient değerlerinin tek tanım yeri. */
+
+:root {
+  /* Brand */
+  --brand-500: hsl(243 75% 59%);
+  --brand-600: hsl(243 75% 52%);
+  --brand-400: hsl(243 75% 68%);
+  --brand-300: hsl(243 75% 78%);
+  --brand-tint-15: hsl(243 75% 59% / 0.15);
+  --brand-tint-08: hsl(243 75% 59% / 0.08);
+  --brand-glow: hsl(243 75% 59% / 0.22);
+  --brand-grad: linear-gradient(135deg, hsl(243 75% 59%), hsl(263 70% 55%));
+  --brand-grad-soft: linear-gradient(135deg, hsl(243 75% 59% / 0.10), hsl(263 70% 55% / 0.10));
+
+  /* Sidebar (koyu tema) */
+  --side-bg: hsl(222 47% 11%);
+  --side-bg-2: hsl(222 47% 14%);
+  --side-border: hsl(222 47% 18%);
+  --side-text: hsl(215 20% 65%);
+  --side-text-strong: hsl(213 31% 91%);
+  --side-text-dim: hsl(215 16% 47%);
+
+  /* İçerik (açık tema) */
+  --bg: hsl(220 14% 97%);
+  --bg-2: hsl(220 14% 94%);
+  --surface: #ffffff;
+  --surface-2: hsl(220 14% 99%);
+  --border: hsl(220 13% 91%);
+  --border-strong: hsl(220 13% 84%);
+  --text: hsl(222 47% 11%);
+  --text-2: hsl(215 16% 35%);
+  --text-3: hsl(215 16% 47%);
+  --text-4: hsl(215 16% 65%);
+  --text-mute: hsl(215 16% 75%);
+
+  /* Semantik */
+  --success: hsl(160 84% 39%);
+  --success-bg: hsl(152 81% 96%);
+  --success-text: hsl(160 84% 22%);
+  --success-border: hsl(160 60% 80%);
+
+  --warn: hsl(38 92% 50%);
+  --warn-bg: hsl(48 96% 96%);
+  --warn-text: hsl(28 80% 32%);
+  --warn-border: hsl(38 92% 80%);
+
+  --danger: hsl(0 84% 60%);
+  --danger-bg: hsl(0 86% 97%);
+  --danger-text: hsl(0 70% 38%);
+  --danger-border: hsl(0 84% 85%);
+
+  --info-bg: hsl(214 95% 96%);
+  --info-text: hsl(217 80% 38%);
+  --info-border: hsl(214 90% 86%);
+
+  --neutral-bg: hsl(220 14% 96%);
+  --neutral-text: hsl(215 16% 35%);
+  --neutral-border: hsl(220 13% 88%);
+
+  /* Tipografi */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Gölgeler */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.04), 0 12px 24px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10), 0 4px 8px rgba(15, 23, 42, 0.04);
+  --shadow-brand: 0 8px 24px hsl(243 75% 59% / 0.28), 0 2px 6px hsl(243 75% 59% / 0.18);
+  --shadow-success: 0 8px 24px hsl(160 84% 39% / 0.25);
+  --shadow-danger: 0 8px 24px hsl(0 84% 60% / 0.25);
+}

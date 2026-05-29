@@ -52,6 +52,13 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 
 - [x] ✅ KAPALI 2026-05-29 — **IMP-7 · `'Sistem'` magic SQL içinde** — SQL `NULLIF(a.UserName,'')` NULL döndürüyor, view `?? L.T("Sistem","System")` fallback uyguluyor.
 
+### FEATURE — Cari Ekstre Raporu (Tier 3 — plan gerekli)
+
+- [ ] **FEAT-EKSTRE · Cari Ekstre raporu** — `Partners/Statement/{id}` yazdırılabilir + tarih filtreli ekran (Plan 02'de Faz 6 sayılmıştı ama plan dosyasında yok — ayrı Tier 3 plan yazılacak).
+  - **İçerik:** FinancialTransaction tabanlı hareket dökümü, açılış bakiye + yürüyen bakiye, tarih aralığı filtresi, yazdırma.
+  - **Toggle: "Açık siparişleri dahil et"** — varsayılan KAPALI. Sipariş ledger'da olmaz, bakiyeyi etkilemez ([[open-orders-not-in-ledger]]). Seçilirse rapora **bilgi amaçlı ayrı blok/satır** olarak açık SO/PO eklenir (yürüyen bakiyeye karışmaz, projeksiyon olarak ayrı gösterilir). Kapalıyken tamamen dışarıda.
+  - **Hesap kaynağı:** açık sipariş = `(QtyOrdered − QtySevk/Kabul) × Price`, Status IN (APPROVED, POSTED) — Aging/Partners ile aynı formül (tek yerden helper/TVF).
+
 ### POSITIVE — koruyalım
 
 - ✅ Tek CSS katmanı (`parts/` parçalı) — ui-standard.md uygulanmış

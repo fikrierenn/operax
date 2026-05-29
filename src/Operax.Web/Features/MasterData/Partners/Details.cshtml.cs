@@ -22,6 +22,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true, Name = "dt")]
     public DateTime? DateTo { get; set; }
 
+    // Siparişler tabı durum filtresi (boş = tümü)
+    [BindProperty(SupportsGet = true, Name = "sf")]
+    public string? OrderStatus { get; set; }
+
     public bool IsNew => Partner.Id == Guid.Empty;
 
     // Sorumlu temsilci dropdown'ları için aktif kullanıcılar
@@ -153,27 +157,34 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     // Cariye ait satış (SO) + satınalma (PO) siparişleri — birleşik liste, satırlardan tutar hesaplanır
     private async Task LoadOrdersAsync(System.Data.IDbConnection conn, Guid partnerId)
     {
-        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
+        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo, Sf = OrderStatus };
         // Açık tutar = (sipariş - sevk/kabul) * fiyat; sipariş ledger/bakiyeyi etkilemez (bilgi amaçlı)
-        // Tarih filtresi OrderDate üzerinden [From..To] (To günü dahil)
+        // HasInvoice/HasDelivery: belge zinciri durumu (SO→Shipping/SalesInvoice, PO→Receiving)
+        // Durum filtresi: @Sf boşsa tümü, doluysa eşleşen Status
         Orders = (await conn.QueryAsync<OrderRowDto>(@"
             SELECT 'Satış' AS Kind, soh.Id, soh.OrderNo, soh.OrderDate, soh.Status,
                    ISNULL((SELECT SUM(sol.QtyOrdered * sol.Price)
                            FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id), 0) AS Total,
                    ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
-                           FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenAmount
+                           FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenAmount,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM SalesInvoice si WHERE si.SalesOrderId = soh.Id AND si.IsDeleted = 0 AND si.Status <> 'CANCELLED') THEN 1 ELSE 0 END AS BIT) AS HasInvoice,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM ShippingHeader sh WHERE sh.SalesOrderId = soh.Id AND sh.IsDeleted = 0) THEN 1 ELSE 0 END AS BIT) AS HasDelivery
             FROM SalesOrderHeader soh
             WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId AND soh.IsDeleted = 0
               AND soh.OrderDate >= @From AND soh.OrderDate < DATEADD(DAY, 1, @To)
+              AND (@Sf IS NULL OR soh.Status = @Sf)
             UNION ALL
             SELECT 'Alış' AS Kind, poh.Id, poh.OrderNo, poh.OrderDate, poh.Status,
                    ISNULL((SELECT SUM(pol.QtyOrdered * pol.Price)
                            FROM PurchaseOrderLine pol WHERE pol.HeaderId = poh.Id), 0) AS Total,
                    ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
-                           FROM PurchaseOrderLine pol WHERE pol.HeaderId = poh.Id AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenAmount
+                           FROM PurchaseOrderLine pol WHERE pol.HeaderId = poh.Id AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenAmount,
+                   CAST(0 AS BIT) AS HasInvoice,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM ReceivingHeader rh WHERE rh.PurchaseOrderId = poh.Id AND rh.IsDeleted = 0) THEN 1 ELSE 0 END AS BIT) AS HasDelivery
             FROM PurchaseOrderHeader poh
             WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId AND poh.IsDeleted = 0
               AND poh.OrderDate >= @From AND poh.OrderDate < DATEADD(DAY, 1, @To)
+              AND (@Sf IS NULL OR poh.Status = @Sf)
             ORDER BY OrderDate DESC", p)).ToList();
     }
 
@@ -331,7 +342,9 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         DateTime OrderDate,
         string   Status,
         decimal  Total,
-        decimal  OpenAmount);
+        decimal  OpenAmount,
+        bool     HasInvoice,    // satış faturası/alış faturası kesildi mi
+        bool     HasDelivery);  // SO: sevkiyat var mı · PO: mal kabul var mı
 
     // Faturalar tabı satırı — satış/alış birleşik
     public record InvoiceRowDto(

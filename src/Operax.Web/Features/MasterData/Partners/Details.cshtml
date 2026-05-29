@@ -41,6 +41,7 @@
         @Html.AntiForgeryToken()
         <input asp-for="Partner.Id" type="hidden" />
 
+        <fieldset disabled="@(Model.IsEditable ? null : "disabled")" style="border:0;padding:0;margin:0;min-inline-size:0;">
         <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;">
 
             @* Sol — ana bilgiler *@
@@ -54,8 +55,9 @@
                     <div class="card-body">
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Cari Kodu <span class="req">*</span></label>
-                                <input asp-for="Partner.Code" class="form-ctrl" placeholder="Örn: C-001" required />
+                                <label class="form-label">Cari Kodu</label>
+                                <input asp-for="Partner.Code" class="form-ctrl" readonly placeholder="(otomatik atanır)" />
+                                <span class="form-hint">Otomatik atanır, değiştirilemez</span>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Cari Tipi <span class="req">*</span></label>
@@ -240,13 +242,22 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
-                        <button type="submit" class="btn btn-primary" style="width:100%;">Kaydet</button>
-                        <a href="/MasterData/Partners" class="btn btn-ghost" style="width:100%;text-align:center;">İptal</a>
-                    </div>
-                </div>
             </div>
+        </div>
+        </fieldset>
+
+        @* Aksiyon çubuğu — görüntüleme: Düzenle · düzenleme: Kaydet/İptal (fieldset dışında) *@
+        <div class="row" style="gap:10px;margin-top:14px;">
+            @if (Model.IsEditable)
+            {
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <a href="@(Model.IsNew ? "/MasterData/Partners" : $"/MasterData/Partners/Details/{Model.Partner.Id}?tab=genel")" class="btn btn-ghost">İptal</a>
+            }
+            else
+            {
+                <a href="/MasterData/Partners/Details/@Model.Partner.Id?tab=genel&edit=true" class="btn btn-primary">Düzenle</a>
+                <a href="/MasterData/Partners" class="btn btn-ghost">Geri</a>
+            }
         </div>
     </form>
     }

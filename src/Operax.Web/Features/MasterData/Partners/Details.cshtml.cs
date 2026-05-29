@@ -16,6 +16,13 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)]
     public string Tab { get; set; } = "genel";
 
+    // Düzenleme modu (?edit=true). Mevcut kayıt varsayılan görüntüleme; yeni kayıt her zaman edit.
+    [BindProperty(SupportsGet = true)]
+    public bool Edit { get; set; }
+
+    // İş kuralı: yeni kayıt veya açıkça düzenleme istendiğinde alanlar editlenebilir
+    public bool IsEditable => IsNew || Edit;
+
     // Tarih aralığı filtresi — Ekstre + Siparişler tabları (default: son 30 gün)
     [BindProperty(SupportsGet = true, Name = "df")]
     public DateTime? DateFrom { get; set; }
@@ -236,6 +243,19 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p)).ToList();
     }
 
+    // Cari kodu otomatik üretir: tip önekine göre sıradaki numara (CUS-001, SUP-001, CARI-001)
+    private async Task<string> GenerateCodeAsync(System.Data.IDbConnection conn, string? type)
+    {
+        var prefix = type switch { "CUSTOMER" => "CUS", "VENDOR" => "SUP", _ => "CARI" };
+        // Mevcut en yüksek numarayı bul, +1 (önek-NNN formatı)
+        var next = await conn.ExecuteScalarAsync<int>(@"
+            SELECT ISNULL(MAX(TRY_CONVERT(int, RIGHT(Code, LEN(Code) - LEN(@Prefix) - 1))), 0) + 1
+            FROM Partner
+            WHERE CompanyId = @CompanyId AND Code LIKE @Like",
+            new { CompanyId = company.Id, Prefix = prefix, Like = prefix + "-%" });
+        return $"{prefix}-{next:D3}";
+    }
+
     public async Task<IActionResult> OnPostAsync()
     {
         if (!ModelState.IsValid) return Page();
@@ -245,6 +265,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (IsNew)
         {
             Partner.Id = Guid.NewGuid();
+            // İş kuralı: cari kodu otomatik atanır (kullanıcı giremez). Tip'e göre önek + sıra no.
+            Partner.Code = await GenerateCodeAsync(conn, Partner.Type);
             const string sql = @"
                 INSERT INTO Partner
                     (Id, CompanyId, Code, Name, Type, TaxNumber, Email, Phone, Address,
@@ -279,7 +301,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         {
             const string sql = @"
                 UPDATE Partner SET
-                    Code = @Code, Name = @Name, Type = @Type,
+                    Name = @Name, Type = @Type,
                     TaxNumber = @TaxNumber, Email = @Email, Phone = @Phone, Address = @Address,
                     IsActive = @IsActive, Notes = @Notes,
                     PaymentTermDays = @PaymentTermDays, CreditLimit = @CreditLimit,

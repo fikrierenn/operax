@@ -71,7 +71,7 @@
                     <td class="px-6 py-4 text-slate-600 text-xs font-semibold">@p.Email</td>
                     <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                         <div class="flex items-center justify-end gap-2">
-                            <a asp-page="./Details" asp-route-id="@p.Id" class="btn btn-secondary btn-sm">Düzenle</a>
+                            <a asp-page="./Details" asp-route-id="@p.Id" asp-route-edit="true" class="btn btn-secondary btn-sm">Düzenle</a>
                         </div>
                     </td>
                 </tr>

@@ -3521,6 +3521,14 @@ select.form-ctrl {
 .switch input:checked + .switch-track::after {
   left: 16px;
 }
+.chk-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
 .chk {
   position: relative;
   display: inline-flex;

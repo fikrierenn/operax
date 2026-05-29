@@ -137,8 +137,8 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="grid-column:1/-1;">
-                                <label class="chk">
-                                    <input asp-for="Partner.BlockOnLimitExceed" type="checkbox" />
+                                <label class="chk-row">
+                                    <span class="chk"><input asp-for="Partner.BlockOnLimitExceed" type="checkbox" /><span class="chk-box"></span></span>
                                     <span>Limit aşımında sipariş/sevkiyat bloke edilsin</span>
                                 </label>
                             </div>
@@ -187,8 +187,8 @@
                     <div class="card-body">
                         <div class="form-row">
                             <div class="form-group" style="grid-column:1/-1;">
-                                <label class="chk">
-                                    <input asp-for="Partner.EFaturaMukellef" type="checkbox" />
+                                <label class="chk-row">
+                                    <span class="chk"><input asp-for="Partner.EFaturaMukellef" type="checkbox" /><span class="chk-box"></span></span>
                                     <span>e-Fatura mükellefi (GİB kayıtlı)</span>
                                 </label>
                             </div>
@@ -217,8 +217,8 @@
                     </div>
                     <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
 
-                        <label class="chk">
-                            <input asp-for="Partner.IsActive" type="checkbox" />
+                        <label class="chk-row">
+                            <span class="chk"><input asp-for="Partner.IsActive" type="checkbox" /><span class="chk-box"></span></span>
                             <span>Aktif Cari</span>
                         </label>
 

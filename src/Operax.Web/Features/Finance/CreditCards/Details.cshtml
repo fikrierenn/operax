@@ -8,7 +8,7 @@
     var header = new PageHeaderVm(
         Title: $"Kredi Kartı {c.CardNoMasked}",
         Crumbs: new[] { "Anasayfa", "Finans", "Kredi Kartları", c.CardNoMasked },
-        Sub: $"{c.BankName} · {c.HolderName} · " +
+        SubHtml: $"{System.Net.WebUtility.HtmlEncode(c.BankName)} · {System.Net.WebUtility.HtmlEncode(c.HolderName)} · " +
              $"Limit <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.CreditLimit)}</span> · " +
              $"Kullanılabilir <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.AvailableLimit)}</span>",
         ActionsHtml: "<a href=\"/Finance/CreditCards/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"

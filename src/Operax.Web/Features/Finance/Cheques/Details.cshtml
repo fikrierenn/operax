@@ -9,7 +9,7 @@
     var header = new PageHeaderVm(
         Title: $"{kind} {c.DocNo}",
         Crumbs: new[] { "Anasayfa", "Finans", "Çek & Senet", c.DocNo },
-        Sub: $"{(c.Direction == "RECEIVED" ? "Alınan" : "Verilen")} · {c.DrawerName} · " +
+        SubHtml: $"{(c.Direction == "RECEIVED" ? "Alınan" : "Verilen")} · {System.Net.WebUtility.HtmlEncode(c.DrawerName)} · " +
              $"Tutar <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.Amount)}</span> · " +
              $"Vade <span class=\"mono\">{c.DueDate:dd MMM yyyy}</span>",
         ActionsHtml: $"<a href=\"/Finance/Cheques/Index?type={(Model.IsNote ? "note" : "cheque")}\" class=\"btn btn-secondary btn-sm\">Geri</a>"

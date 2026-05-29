@@ -88,53 +88,49 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
         using var multi = await conn.QueryMultipleAsync(@"
-            -- 1) Bakiye özeti (alacak + borç ayrı) + açık sipariş (SO=alacak, PO=borç tarafı)
+            -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). NetBakiye = SUM(Borc-Alacak).
+            --    + = cari bize borçlu (alacak), - = biz cariye borçluyuz (borç). + açık sipariş (bilgi).
             SELECT
-                ISNULL(SUM(CASE WHEN Direction = 'RECEIVABLE' THEN TotalOpen ELSE 0 END), 0) AS TotalReceivable,
-                ISNULL(SUM(CASE WHEN Direction = 'PAYABLE'    THEN TotalOpen ELSE 0 END), 0) AS TotalPayable,
-                ISNULL(SUM(CASE WHEN Direction = 'RECEIVABLE' AND TotalOpen > 0 THEN TotalOpen ELSE 0 END)
-                     - SUM(CASE WHEN Direction = 'PAYABLE'    AND TotalOpen > 0 THEN TotalOpen ELSE 0 END), 0) AS NetBalance,
-                -- Açık satış siparişi: henüz sevk edilmemiş satış taahhüdü
+                CASE WHEN b.NetBalance > 0 THEN b.NetBalance ELSE 0 END  AS TotalReceivable,
+                CASE WHEN b.NetBalance < 0 THEN -b.NetBalance ELSE 0 END AS TotalPayable,
+                b.NetBalance,
                 ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
                         FROM SalesOrderHeader soh
                         JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
                         WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId
                           AND soh.Status IN ('APPROVED', 'POSTED') AND soh.IsDeleted = 0
                           AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenSalesOrder,
-                -- Açık satınalma siparişi: henüz mal kabul yapılmamış alım taahhüdü
                 ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
                         FROM PurchaseOrderHeader poh
                         JOIN PurchaseOrderLine pol ON pol.HeaderId = poh.Id
                         WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId
                           AND poh.Status IN ('APPROVED', 'POSTED') AND poh.IsDeleted = 0
                           AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenPurchaseOrder
-            FROM dbo.tvf_PaymentPlanAging(@CompanyId)
-            WHERE PartnerId = @PartnerId;
+            FROM (SELECT ISNULL(SUM(Borc - Alacak), 0) AS NetBalance
+                  FROM AccountMovement
+                  WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId AND IsDeleted = 0) b;
 
-            -- 2) Devir: tarih aralığı başlangıcından önceki net bakiye (Borç - Alacak)
+            -- 2) Devir: tarih aralığı başlangıcından önceki net bakiye (defterden)
+            SELECT dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, @From);
+
+            -- 3) Hareketler [From..To] — defterden, kaynak tipi Türkçeye çevrilir
             SELECT
-                ISNULL((SELECT SUM(GrandTotal)  FROM SalesInvoice    WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND Status<>'CANCELLED' AND InvoiceDate < @From), 0)
-              - ISNULL((SELECT SUM(TotalAmount) FROM ExpenseInvoice  WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND Status<>'CANCELLED' AND InvoiceDate < @From), 0)
-              - ISNULL((SELECT SUM(AmountTRY)   FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND TransactionType='INCOME'  AND TransactionDate < @From), 0)
-              + ISNULL((SELECT SUM(AmountTRY)   FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND TransactionType='EXPENSE' AND TransactionDate < @From), 0);
-
-            -- 3) Hareketler [From..To] — fatura + ödeme birleşik. Satış faturası/ödeme=Borç, alış faturası/tahsilat=Alacak.
-            SELECT x.[Date], x.[Type], x.DocNo, x.Borc, x.Alacak FROM (
-                SELECT InvoiceDate AS [Date], N'Satış Faturası' AS [Type], InvoiceNo AS DocNo, GrandTotal AS Borc, CAST(0 AS DECIMAL(18,2)) AS Alacak
-                FROM SalesInvoice WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND Status<>'CANCELLED'
-                UNION ALL
-                SELECT InvoiceDate, N'Alış Faturası', DocNo, CAST(0 AS DECIMAL(18,2)), TotalAmount
-                FROM ExpenseInvoice WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND Status<>'CANCELLED'
-                UNION ALL
-                SELECT TransactionDate,
-                       CASE WHEN TransactionType='INCOME' THEN N'Tahsilat' ELSE N'Ödeme' END,
-                       ISNULL(SourceDocNo, N''),
-                       CASE WHEN TransactionType='EXPENSE' THEN AmountTRY ELSE CAST(0 AS DECIMAL(18,2)) END,
-                       CASE WHEN TransactionType='INCOME'  THEN AmountTRY ELSE CAST(0 AS DECIMAL(18,2)) END
-                FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0
-            ) x
-            WHERE x.[Date] >= @From AND x.[Date] < DATEADD(DAY, 1, @To)
-            ORDER BY x.[Date], x.[Type];
+                l.MovementDate AS [Date],
+                CASE l.SourceDocType
+                    WHEN 'SALES_INVOICE'    THEN N'Satış Faturası'
+                    WHEN 'PURCHASE_INVOICE' THEN N'Alış Faturası'
+                    WHEN 'PAYMENT'          THEN N'Ödeme'
+                    WHEN 'COLLECTION'       THEN N'Tahsilat'
+                    WHEN 'CHEQUE_IN'        THEN N'Çek Girişi'
+                    WHEN 'CHEQUE_OUT'       THEN N'Çek Çıkışı'
+                    WHEN 'OPENING'          THEN N'Devir'
+                    WHEN 'VARIANCE'         THEN N'Fark'
+                    WHEN 'REVERSAL'         THEN N'İptal'
+                    ELSE l.SourceDocType
+                END AS [Type],
+                l.SourceDocNo AS DocNo, l.Borc, l.Alacak
+            FROM dbo.tvf_AccountLedger(@CompanyId, @PartnerId, @From, @To) l
+            ORDER BY l.MovementDate, l.SourceDocType;
 
             -- 4) Ödeme davranışı analizi
             SELECT Direction, PaidCount, AvgDelayDays, AvgInvoiceAmount, TotalPaidAmount, LastPayment

@@ -16,19 +16,35 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)]
     public string Tab { get; set; } = "genel";
 
+    // Tarih aralığı filtresi — Ekstre + Siparişler tabları (default: son 30 gün)
+    [BindProperty(SupportsGet = true, Name = "df")]
+    public DateTime? DateFrom { get; set; }
+    [BindProperty(SupportsGet = true, Name = "dt")]
+    public DateTime? DateTo { get; set; }
+
     public bool IsNew => Partner.Id == Guid.Empty;
 
     // Sorumlu temsilci dropdown'ları için aktif kullanıcılar
     public List<UserDdl> Users { get; set; } = [];
 
-    // Cari bakiye ve hareket bilgileri (sadece Ekstre tabı aktifken yüklenir)
+    // Cari bakiye ve vade bilgileri (sadece Ekstre tabı aktifken yüklenir)
     public BalanceSummaryDto?      Balance      { get; set; }
-    public List<TxRowDto>          Transactions { get; set; } = [];
     public VadeAnalysisDto?        VadeAnalysis { get; set; }
+
+    // Siparişler tabı (lazy) — cariye ait SO + PO birleşik liste
+    public List<OrderRowDto>       Orders       { get; set; } = [];
+
+    // Ekstre hareket listesi (lazy) — fatura + ödeme birleşik; devir + yürüyen bakiye
+    public List<LedgerRowDto>      Ledger         { get; set; } = [];
+    public decimal                 OpeningBalance { get; set; }
 
     public async Task OnGetAsync(Guid? id)
     {
         using var conn = db.Open();
+
+        // İş kuralı: tarih filtresi boşsa varsayılan son 30 gün
+        DateFrom ??= DateTime.Today.AddDays(-30);
+        DateTo   ??= DateTime.Today;
 
         // İş kuralı: temsilci dropdown'ı her durumda gerekir (Genel tabı düzenleme formu)
         Users = (await conn.QueryAsync<UserDdl>(
@@ -48,9 +64,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                          SalesRepUserId, PurchaseRepUserId
                   FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId", p) ?? new();
 
-            // İş kuralı: ağır ekstre verisi yalnızca Ekstre tabı seçiliyse çekilir (lazy)
-            if (Partner.Id != Guid.Empty && Tab == "ekstre")
-                await LoadLedgerAsync(conn, Partner.Id);
+            // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
+            if (Partner.Id != Guid.Empty)
+            {
+                if (Tab == "ekstre")    await LoadLedgerAsync(conn, Partner.Id);
+                if (Tab == "siparisler") await LoadOrdersAsync(conn, Partner.Id);
+            }
         }
         else
         {
@@ -64,10 +83,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         }
     }
 
-    // Bakiye + hareket + vade analizi — QueryMultiple ile tek round-trip
+    // Bakiye özeti + devir + tarih aralığı ekstresi + vade analizi — QueryMultiple ile tek round-trip
     private async Task LoadLedgerAsync(System.Data.IDbConnection conn, Guid partnerId)
     {
-        var p = new { CompanyId = company.Id, PartnerId = partnerId };
+        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
         using var multi = await conn.QueryMultipleAsync(@"
             -- 1) Bakiye özeti (alacak + borç ayrı) + açık sipariş (SO=alacak, PO=borç tarafı)
             SELECT
@@ -92,26 +111,67 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             FROM dbo.tvf_PaymentPlanAging(@CompanyId)
             WHERE PartnerId = @PartnerId;
 
-            -- 2) Son 30 finansal hareket
-            SELECT TOP 30
-                t.Id, t.TransactionDate, t.TransactionType,
-                t.Amount, t.AmountTRY, t.Currency,
-                t.Description, t.InstrumentType,
-                t.SourceDocType, t.SourceDocNo,
-                a.Name AS AccountName
-            FROM FinancialTransaction t
-            LEFT JOIN FinancialAccount a ON a.Id = t.AccountId
-            WHERE t.CompanyId = @CompanyId AND t.PartnerId = @PartnerId AND t.IsDeleted = 0
-            ORDER BY t.TransactionDate DESC, t.CreatedAt DESC;
+            -- 2) Devir: tarih aralığı başlangıcından önceki net bakiye (Borç - Alacak)
+            SELECT
+                ISNULL((SELECT SUM(GrandTotal)  FROM SalesInvoice    WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND Status<>'CANCELLED' AND InvoiceDate < @From), 0)
+              - ISNULL((SELECT SUM(TotalAmount) FROM ExpenseInvoice  WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND Status<>'CANCELLED' AND InvoiceDate < @From), 0)
+              - ISNULL((SELECT SUM(AmountTRY)   FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND TransactionType='INCOME'  AND TransactionDate < @From), 0)
+              + ISNULL((SELECT SUM(AmountTRY)   FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND TransactionType='EXPENSE' AND TransactionDate < @From), 0);
 
-            -- 3) Ödeme davranışı analizi
+            -- 3) Hareketler [From..To] — fatura + ödeme birleşik. Satış faturası/ödeme=Borç, alış faturası/tahsilat=Alacak.
+            SELECT x.[Date], x.[Type], x.DocNo, x.Borc, x.Alacak FROM (
+                SELECT InvoiceDate AS [Date], N'Satış Faturası' AS [Type], InvoiceNo AS DocNo, GrandTotal AS Borc, CAST(0 AS DECIMAL(18,2)) AS Alacak
+                FROM SalesInvoice WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0 AND Status<>'CANCELLED'
+                UNION ALL
+                SELECT InvoiceDate, N'Alış Faturası', DocNo, CAST(0 AS DECIMAL(18,2)), TotalAmount
+                FROM ExpenseInvoice WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND Status<>'CANCELLED'
+                UNION ALL
+                SELECT TransactionDate,
+                       CASE WHEN TransactionType='INCOME' THEN N'Tahsilat' ELSE N'Ödeme' END,
+                       ISNULL(SourceDocNo, N''),
+                       CASE WHEN TransactionType='EXPENSE' THEN AmountTRY ELSE CAST(0 AS DECIMAL(18,2)) END,
+                       CASE WHEN TransactionType='INCOME'  THEN AmountTRY ELSE CAST(0 AS DECIMAL(18,2)) END
+                FROM FinancialTransaction WHERE PartnerId=@PartnerId AND CompanyId=@CompanyId AND IsDeleted=0
+            ) x
+            WHERE x.[Date] >= @From AND x.[Date] < DATEADD(DAY, 1, @To)
+            ORDER BY x.[Date], x.[Type];
+
+            -- 4) Ödeme davranışı analizi
             SELECT Direction, PaidCount, AvgDelayDays, AvgInvoiceAmount, TotalPaidAmount, LastPayment
             FROM v_PartnerVadeAnalysis
             WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId;", p);
 
-        Balance      = await multi.ReadFirstOrDefaultAsync<BalanceSummaryDto>();
-        Transactions = (await multi.ReadAsync<TxRowDto>()).ToList();
-        VadeAnalysis = await multi.ReadFirstOrDefaultAsync<VadeAnalysisDto>();
+        Balance        = await multi.ReadFirstOrDefaultAsync<BalanceSummaryDto>();
+        OpeningBalance = await multi.ReadFirstOrDefaultAsync<decimal>();
+        Ledger         = (await multi.ReadAsync<LedgerRowDto>()).ToList();
+        VadeAnalysis   = await multi.ReadFirstOrDefaultAsync<VadeAnalysisDto>();
+    }
+
+    // Cariye ait satış (SO) + satınalma (PO) siparişleri — birleşik liste, satırlardan tutar hesaplanır
+    private async Task LoadOrdersAsync(System.Data.IDbConnection conn, Guid partnerId)
+    {
+        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
+        // Açık tutar = (sipariş - sevk/kabul) * fiyat; sipariş ledger/bakiyeyi etkilemez (bilgi amaçlı)
+        // Tarih filtresi OrderDate üzerinden [From..To] (To günü dahil)
+        Orders = (await conn.QueryAsync<OrderRowDto>(@"
+            SELECT 'Satış' AS Kind, soh.Id, soh.OrderNo, soh.OrderDate, soh.Status,
+                   ISNULL((SELECT SUM(sol.QtyOrdered * sol.Price)
+                           FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id), 0) AS Total,
+                   ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
+                           FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenAmount
+            FROM SalesOrderHeader soh
+            WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId AND soh.IsDeleted = 0
+              AND soh.OrderDate >= @From AND soh.OrderDate < DATEADD(DAY, 1, @To)
+            UNION ALL
+            SELECT 'Alış' AS Kind, poh.Id, poh.OrderNo, poh.OrderDate, poh.Status,
+                   ISNULL((SELECT SUM(pol.QtyOrdered * pol.Price)
+                           FROM PurchaseOrderLine pol WHERE pol.HeaderId = poh.Id), 0) AS Total,
+                   ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
+                           FROM PurchaseOrderLine pol WHERE pol.HeaderId = poh.Id AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenAmount
+            FROM PurchaseOrderHeader poh
+            WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId AND poh.IsDeleted = 0
+              AND poh.OrderDate >= @From AND poh.OrderDate < DATEADD(DAY, 1, @To)
+            ORDER BY OrderDate DESC", p)).ToList();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -218,22 +278,30 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     // Sorumlu temsilci dropdown satırı (AspNetUsers — string PK)
     public record UserDdl(string Id, string UserName);
 
+    // Siparişler tabı satırı — SO/PO birleşik (Kind: Satış/Alış)
+    public record OrderRowDto(
+        string   Kind,
+        Guid     Id,
+        string   OrderNo,
+        DateTime OrderDate,
+        string   Status,
+        decimal  Total,
+        decimal  OpenAmount);
+
     public record BalanceSummaryDto(
         decimal TotalReceivable, decimal TotalPayable, decimal NetBalance,
         decimal OpenSalesOrder, decimal OpenPurchaseOrder);
 
-    public record TxRowDto(
-        Guid     Id,
-        DateTime TransactionDate,
-        string   TransactionType,
-        decimal  Amount,
-        decimal  AmountTRY,
-        string   Currency,
-        string?  Description,
-        string?  InstrumentType,
-        string?  SourceDocType,
-        string?  SourceDocNo,
-        string?  AccountName);
+    // Ekstre hareket satırı — fatura + ödeme birleşik (Borç/Alacak)
+    public record LedgerRowDto(
+        DateTime Date,
+        string   Type,
+        string?  DocNo,
+        decimal  Borc,
+        decimal  Alacak);
+
+    // Tarih filtresi formu için (Ekstre + Siparişler tabları)
+    public record DateFilterVm(Guid PartnerId, string Tab, DateTime DateFrom, DateTime DateTo);
 
     public record VadeAnalysisDto(
         string   Direction,

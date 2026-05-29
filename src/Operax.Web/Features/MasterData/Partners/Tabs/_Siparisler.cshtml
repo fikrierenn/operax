@@ -1,0 +1,59 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+
+<div class="card">
+    <div class="card-hdr">
+        <div class="card-title">Siparişler</div>
+        <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Orders.Count kayıt · satış + satınalma</div>
+    </div>
+    <div class="card-body">
+    <partial name="Tabs/_DateFilter" model="@(new Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm(Model.Partner.Id, "siparisler", Model.DateFrom!.Value, Model.DateTo!.Value))" />
+
+    @if (Model.Orders.Count == 0)
+    {
+        var empty = new EmptyStateVm("Sipariş yok", "Seçili tarih aralığında bu cariye ait sipariş bulunamadı.");
+        <partial name="_EmptyState" model="empty" />
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tür</th>
+                    <th>Belge No</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th class="num">Tutar</th>
+                    <th class="num">Açık Sipariş</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var o in Model.Orders)
+                {
+                    // Satış → SalesOrders, Alış → PurchaseOrders detay rotası
+                    var route = o.Kind == "Satış"
+                        ? $"/SalesOrders/Details/{o.Id}"
+                        : $"/PurchaseOrders/Details/{o.Id}";
+                    <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
+                        <td>
+                            @if (o.Kind == "Satış")
+                            {
+                                <span class="badge badge-success"><span class="badge-dot"></span>SATIŞ</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-info"><span class="badge-dot"></span>ALIŞ</span>
+                            }
+                        </td>
+                        <td class="mono row-strong">@o.OrderNo</td>
+                        <td class="mono muted">@UiHelpers.FmtDateShort(o.OrderDate)</td>
+                        <td>@Html.Raw(UiHelpers.StatusBadge(o.Status))</td>
+                        <td class="num">@UiHelpers.FmtTL(o.Total)</td>
+                        <td class="num muted">@UiHelpers.FmtTL(o.OpenAmount)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    </div>
+</div>

@@ -27,6 +27,7 @@
         <div class="tabs" style="margin-bottom:14px;">
             <a class="tab @(Model.Tab == "genel" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=genel">Genel</a>
             <a class="tab @(Model.Tab == "ekstre" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=ekstre">Ekstre / Hareketler</a>
+            <a class="tab @(Model.Tab == "siparisler" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=siparisler">Siparişler</a>
         </div>
     }
 
@@ -250,5 +251,11 @@
     @if (Model.Tab == "ekstre" && !Model.IsNew)
     {
         <partial name="Tabs/_Ekstre" model="Model" />
+    }
+
+    @* ── Siparişler tabı ── *@
+    @if (Model.Tab == "siparisler" && !Model.IsNew)
+    {
+        <partial name="Tabs/_Siparisler" model="Model" />
     }
 </div>

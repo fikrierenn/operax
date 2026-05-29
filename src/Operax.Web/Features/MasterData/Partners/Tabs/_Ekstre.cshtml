@@ -70,66 +70,55 @@ else
         </div>
     }
 
-    @* Son 30 hareket *@
+    @* Hareketler — tarih filtresi + Borç/Alacak/Bakiye ekstresi *@
     <div class="card" style="margin-top:14px;">
         <div class="card-hdr">
-            <div class="card-title">Cari Hareketler (Son 30)</div>
-            <div class="card-sub">@Model.Transactions.Count hareket</div>
+            <div class="card-title">Cari Ekstre</div>
+            <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Ledger.Count hareket</div>
         </div>
+        <div class="card-body">
+            <partial name="Tabs/_DateFilter" model="@(new Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm(Model.Partner.Id, "ekstre", Model.DateFrom!.Value, Model.DateTo!.Value))" />
 
-        @if (Model.Transactions.Count == 0)
-        {
-            var emptyTx = new EmptyStateVm("Hareket yok", "Bu cari için finansal hareket kaydı bulunamadı.");
-            <partial name="_EmptyState" model="emptyTx" />
-        }
-        else
-        {
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Tarih</th>
-                        <th>Tip</th>
-                        <th>Araç</th>
-                        <th>Hesap</th>
-                        <th>Açıklama</th>
-                        <th>Kaynak Belge</th>
-                        <th class="num">Tutar</th>
+                        <th>İşlem</th>
+                        <th>Belge No</th>
+                        <th class="num">Borç</th>
+                        <th class="num">Alacak</th>
+                        <th class="num">Bakiye</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var t in Model.Transactions)
+                    @{ var running = Model.OpeningBalance; }
+                    <tr class="muted">
+                        <td class="mono">—</td>
+                        <td><span class="badge badge-neutral">DEVİR</span></td>
+                        <td>—</td>
+                        <td class="num">—</td>
+                        <td class="num">—</td>
+                        <td class="num mono">@UiHelpers.FmtTL(running)</td>
+                    </tr>
+                    @foreach (var r in Model.Ledger)
                     {
-                        var isIn  = t.TransactionType is "INCOME" or "TRANSFER_IN";
-                        var sign  = isIn ? "+" : "−";
-                        var color = isIn ? "var(--success-text)" : "var(--danger-text)";
+                        running += r.Borc - r.Alacak;
                         <tr>
-                            <td class="mono muted">@UiHelpers.FmtDateShort(t.TransactionDate)</td>
-                            <td>
-                                @if (isIn)
-                                {
-                                    <span class="badge badge-success"><span class="badge-dot"></span>GELİR</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-danger"><span class="badge-dot"></span>GİDER</span>
-                                }
-                            </td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(t.InstrumentType))
-                                {
-                                    <span class="badge badge-neutral">@t.InstrumentType</span>
-                                }
-                            </td>
-                            <td class="muted">@(t.AccountName ?? "—")</td>
-                            <td>@(t.Description ?? "")</td>
-                            <td class="mono muted">@(t.SourceDocNo ?? "—")</td>
-                            <td class="num">
-                                <span class="row-strong" style="color:@color;">@sign @UiHelpers.FmtTL(t.Amount)</span>
-                            </td>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(r.Date)</td>
+                            <td>@r.Type</td>
+                            <td class="mono muted">@(string.IsNullOrEmpty(r.DocNo) ? "—" : r.DocNo)</td>
+                            <td class="num">@(r.Borc != 0 ? UiHelpers.FmtTL(r.Borc) : "")</td>
+                            <td class="num">@(r.Alacak != 0 ? UiHelpers.FmtTL(r.Alacak) : "")</td>
+                            <td class="num mono row-strong">@UiHelpers.FmtTL(running)</td>
                         </tr>
                     }
                 </tbody>
             </table>
-        }
+
+            @if (Model.Ledger.Count == 0)
+            {
+                <div class="muted" style="padding:14px 4px;">Seçili tarih aralığında hareket yok.</div>
+            }
+        </div>
     </div>
 }

@@ -259,6 +259,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
+        // İş kuralı: Tab navigasyon paramı + Code (otomatik atanır) form-zorunlu değil.
+        // NRT (non-nullable string) implicit [Required] üretiyor → bu alanlar için temizle.
+        ModelState.Remove("Tab");
+        ModelState.Remove("Partner.Code");
         if (!ModelState.IsValid) return Page();
 
         using var conn = db.Open();

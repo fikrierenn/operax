@@ -12,18 +12,30 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
 
+    // Aktif tab (?tab=genel|ekstre|...). Lazy yükleme: yalnızca aktif tab verisi çekilir.
+    [BindProperty(SupportsGet = true)]
+    public string Tab { get; set; } = "genel";
+
     public bool IsNew => Partner.Id == Guid.Empty;
 
-    // Cari bakiye ve hareket bilgileri (sadece mevcut kayıtta yüklenir)
+    // Sorumlu temsilci dropdown'ları için aktif kullanıcılar
+    public List<UserDdl> Users { get; set; } = [];
+
+    // Cari bakiye ve hareket bilgileri (sadece Ekstre tabı aktifken yüklenir)
     public BalanceSummaryDto?      Balance      { get; set; }
     public List<TxRowDto>          Transactions { get; set; } = [];
     public VadeAnalysisDto?        VadeAnalysis { get; set; }
 
     public async Task OnGetAsync(Guid? id)
     {
+        using var conn = db.Open();
+
+        // İş kuralı: temsilci dropdown'ı her durumda gerekir (Genel tabı düzenleme formu)
+        Users = (await conn.QueryAsync<UserDdl>(
+            "SELECT Id, UserName FROM AspNetUsers ORDER BY UserName")).ToList();
+
         if (id.HasValue)
         {
-            using var conn = db.Open();
             var p = new { Id = id, CompanyId = company.Id };
 
             Partner = await conn.QueryFirstOrDefaultAsync<PartnerDto>(
@@ -32,10 +44,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                          PaymentTermDays, CreditLimit, BlockOnLimitExceed,
                          RiskScore, RiskCategory, MaxOverdueDays,
                          DefaultPaymentMethod,
-                         EFaturaMukellef, EFaturaAlias, IbanForRefund
+                         EFaturaMukellef, EFaturaAlias, IbanForRefund,
+                         SalesRepUserId, PurchaseRepUserId
                   FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId", p) ?? new();
 
-            if (Partner.Id != Guid.Empty)
+            // İş kuralı: ağır ekstre verisi yalnızca Ekstre tabı seçiliyse çekilir (lazy)
+            if (Partner.Id != Guid.Empty && Tab == "ekstre")
                 await LoadLedgerAsync(conn, Partner.Id);
         }
         else
@@ -116,14 +130,16 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                      PaymentTermDays, CreditLimit, BlockOnLimitExceed,
                      RiskScore, RiskCategory, MaxOverdueDays,
                      DefaultPaymentMethod,
-                     EFaturaMukellef, EFaturaAlias, IbanForRefund)
+                     EFaturaMukellef, EFaturaAlias, IbanForRefund,
+                     SalesRepUserId, PurchaseRepUserId)
                 VALUES
                     (@Id, @CompanyId, @Code, @Name, @Type, @TaxNumber, @Email, @Phone, @Address,
                      @IsActive, @Notes,
                      @PaymentTermDays, @CreditLimit, @BlockOnLimitExceed,
                      @RiskScore, @RiskCategory, @MaxOverdueDays,
                      @DefaultPaymentMethod,
-                     @EFaturaMukellef, @EFaturaAlias, @IbanForRefund)";
+                     @EFaturaMukellef, @EFaturaAlias, @IbanForRefund,
+                     @SalesRepUserId, @PurchaseRepUserId)";
             await conn.ExecuteAsync(sql, new
             {
                 Partner.Id, CompanyId = company.Id,
@@ -132,7 +148,9 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 Partner.PaymentTermDays, Partner.CreditLimit, Partner.BlockOnLimitExceed,
                 Partner.RiskScore, Partner.RiskCategory, Partner.MaxOverdueDays,
                 Partner.DefaultPaymentMethod,
-                Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund
+                Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
+                SalesRepUserId    = string.IsNullOrEmpty(Partner.SalesRepUserId)    ? null : Partner.SalesRepUserId,
+                PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId
             });
         }
         else
@@ -149,6 +167,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                     DefaultPaymentMethod = @DefaultPaymentMethod,
                     EFaturaMukellef = @EFaturaMukellef, EFaturaAlias = @EFaturaAlias,
                     IbanForRefund = @IbanForRefund,
+                    SalesRepUserId = @SalesRepUserId, PurchaseRepUserId = @PurchaseRepUserId,
                     UpdatedAt = GETUTCDATE()
                 WHERE Id = @Id AND CompanyId = @CompanyId";
             await conn.ExecuteAsync(sql, new
@@ -160,6 +179,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 Partner.RiskScore, Partner.RiskCategory, Partner.MaxOverdueDays,
                 Partner.DefaultPaymentMethod,
                 Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
+                SalesRepUserId    = string.IsNullOrEmpty(Partner.SalesRepUserId)    ? null : Partner.SalesRepUserId,
+                PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId,
                 Partner.Id, CompanyId = company.Id
             });
         }
@@ -190,7 +211,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public bool    EFaturaMukellef       { get; set; }
         public string? EFaturaAlias          { get; set; }
         public string? IbanForRefund         { get; set; }
+        public string? SalesRepUserId        { get; set; }
+        public string? PurchaseRepUserId     { get; set; }
     }
+
+    // Sorumlu temsilci dropdown satırı (AspNetUsers — string PK)
+    public record UserDdl(string Id, string UserName);
 
     public record BalanceSummaryDto(
         decimal TotalReceivable, decimal TotalPayable, decimal NetBalance,

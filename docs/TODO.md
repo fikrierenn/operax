@@ -59,6 +59,15 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
   - **Toggle: "Açık siparişleri dahil et"** — varsayılan KAPALI. Sipariş ledger'da olmaz, bakiyeyi etkilemez ([[open-orders-not-in-ledger]]). Seçilirse rapora **bilgi amaçlı ayrı blok/satır** olarak açık SO/PO eklenir (yürüyen bakiyeye karışmaz, projeksiyon olarak ayrı gösterilir). Kapalıyken tamamen dışarıda.
   - **Hesap kaynağı:** açık sipariş = `(QtyOrdered − QtySevk/Kabul) × Price`, Status IN (APPROVED, POSTED) — Aging/Partners ile aynı formül (tek yerden helper/TVF).
 
+### FEATURE — Cari Kart Tablı Yapı (Plan 08, onaylı 2026-05-29)
+
+- [ ] **TAB-0 · Tab kabuğu + Genel + sorumlu temsilci** — `?tab=` lazy-load, `ALTER Partner ADD SalesRepUserId/PurchaseRepUserId` (FK AspNetUsers), Genel form + Ekstre tabı partial'a taşı.
+- [ ] **TAB-1 · Okuma tabları** — Siparişler (SO/PO), Fiyatlar (PriceList), Faturalar (Sales/ExpenseInvoice), Çek/Senet — hepsi PartnerId.
+- [ ] **TAB-2 · Yeni tablo + CRUD** — PartnerContact, PartnerAddress, PartnerBankAccount, PartnerActivity (CRM notu) → İlgili Kişiler/Adresler/Banka/Görüşme tabları.
+- [ ] **TAB-3 · İstatistik** — aylık ciro grafiği (Chart.js), top alınan/satılan ürün, risk & limit doluluk barı.
+- [ ] **TAB-4 · Cleanup** — 500-satır split, journal/TODO, plan arşivle.
+- _İleride:_ temsilci bazlı satır-yetki (kendi carisi). _Kapsam dışı:_ Belgeler/Ekler (ayrı mini-plan).
+
 ### POSITIVE — koruyalım
 
 - ✅ Tek CSS katmanı (`parts/` parçalı) — ui-standard.md uygulanmış

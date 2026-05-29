@@ -49,6 +49,7 @@ DELETE FROM PaymentPlan           WHERE CompanyId = @CompanyId;
 DELETE FROM Cheque                WHERE CompanyId = @CompanyId;
 DELETE FROM PromissoryNote        WHERE CompanyId = @CompanyId;
 DELETE FROM FinancialTransaction  WHERE CompanyId = @CompanyId;
+DELETE FROM SalesInvoiceLine      WHERE InvoiceId IN (SELECT Id FROM SalesInvoice WHERE CompanyId = @CompanyId);
 DELETE FROM SalesInvoice          WHERE CompanyId = @CompanyId;
 DELETE FROM ExpenseInvoice        WHERE CompanyId = @CompanyId;
 DELETE FROM FinancialAccount      WHERE CompanyId = @CompanyId;
@@ -113,6 +114,14 @@ VALUES
  (@SiABC4, @CompanyId, 'SI-2026-004', '2026-05-25', DATEADD(DAY,18,GETUTCDATE()), @CusABC, 124500, 0, 124500, 0, 'TRY', 'POSTED'),
  (@SiABC5, @CompanyId, 'SI-2026-005', '2026-02-20', DATEADD(DAY,-45,GETUTCDATE()), @CusABC, 18500, 0, 18500, 0, 'TRY', 'POSTED'),
  (@SiXYZ1, @CompanyId, 'SI-2026-010', '2026-04-01', '2026-05-01', @CusXYZ,  60000, 0,  60000,  20000, 'TRY', 'POSTED');
+
+-- Satış faturası kalemleri (her faturaya 1 satır = GrandTotal; KDV 0 demo)
+DECLARE @ItmPRD1 UNIQUEIDENTIFIER = 'F780133C-F8F5-4B12-A3D4-749500E50125';  -- PRD-001
+DECLARE @UomAdet UNIQUEIDENTIFIER = 'C29E2FC2-E8D7-486A-90CE-B45E6039EE42';
+INSERT INTO SalesInvoiceLine (Id, InvoiceId, ItemId, UomId, Description, Qty, UnitPrice, DiscountPercent, DiscountAmount, LineSubtotal, TaxRatePercent, TaxAmount, LineTotal, UnitCost)
+SELECT NEWID(), si.Id, @ItmPRD1, @UomAdet, N'Hizmet / ürün bedeli', 1, si.GrandTotal, 0, 0, si.GrandTotal, 0, 0, si.GrandTotal, 0
+FROM SalesInvoice si WHERE si.CompanyId = @CompanyId AND si.IsDeleted = 0;
+PRINT '  Satış faturası kalemleri eklendi.';
 
 -- ─── 5. Alış faturaları (Teknoloji Dağıtım + Global Hammadde) ──────
 INSERT INTO ExpenseInvoice (Id, CompanyId, PartnerId, DocNo, InvoiceDate, DueDate, TotalAmount, Currency, Status)

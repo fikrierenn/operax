@@ -38,6 +38,11 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     public List<LedgerRowDto>      Ledger         { get; set; } = [];
     public decimal                 OpeningBalance { get; set; }
 
+    // Faturalar / Çek-Senet / Fiyatlar tabları (lazy)
+    public List<InvoiceRowDto>     Invoices    { get; set; } = [];
+    public List<InstrumentRowDto>  Instruments { get; set; } = [];
+    public List<PriceListRowDto>   PriceLists  { get; set; } = [];
+
     public async Task OnGetAsync(Guid? id)
     {
         using var conn = db.Open();
@@ -67,8 +72,11 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
             if (Partner.Id != Guid.Empty)
             {
-                if (Tab == "ekstre")    await LoadLedgerAsync(conn, Partner.Id);
+                if (Tab == "ekstre")     await LoadLedgerAsync(conn, Partner.Id);
                 if (Tab == "siparisler") await LoadOrdersAsync(conn, Partner.Id);
+                if (Tab == "faturalar")  await LoadInvoicesAsync(conn, Partner.Id);
+                if (Tab == "cekssenet")  await LoadInstrumentsAsync(conn, Partner.Id);
+                if (Tab == "fiyatlar")   await LoadPriceListsAsync(conn, Partner.Id);
             }
         }
         else
@@ -167,6 +175,48 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId AND poh.IsDeleted = 0
               AND poh.OrderDate >= @From AND poh.OrderDate < DATEADD(DAY, 1, @To)
             ORDER BY OrderDate DESC", p)).ToList();
+    }
+
+    // Cariye ait satış + alış faturaları (birleşik)
+    private async Task LoadInvoicesAsync(System.Data.IDbConnection conn, Guid partnerId)
+    {
+        var p = new { CompanyId = company.Id, PartnerId = partnerId };
+        Invoices = (await conn.QueryAsync<InvoiceRowDto>(@"
+            SELECT 'Satış' AS Kind, Id, InvoiceNo AS DocNo, InvoiceDate, GrandTotal, ISNULL(PaidAmount,0) AS PaidAmount, Status
+            FROM SalesInvoice
+            WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId AND IsDeleted = 0
+            UNION ALL
+            SELECT 'Alış' AS Kind, Id, DocNo, InvoiceDate, TotalAmount, 0, Status
+            FROM ExpenseInvoice
+            WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
+            ORDER BY InvoiceDate DESC", p)).ToList();
+    }
+
+    // Cariye ait çek + senet portföyü (birleşik)
+    private async Task LoadInstrumentsAsync(System.Data.IDbConnection conn, Guid partnerId)
+    {
+        var p = new { CompanyId = company.Id, PartnerId = partnerId };
+        Instruments = (await conn.QueryAsync<InstrumentRowDto>(@"
+            SELECT 'Çek' AS Kind, Direction, ChequeNo AS No, Amount, DueDate, Status
+            FROM Cheque
+            WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
+            UNION ALL
+            SELECT 'Senet' AS Kind, Direction, NoteNo, Amount, DueDate, Status
+            FROM PromissoryNote
+            WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
+            ORDER BY DueDate DESC", p)).ToList();
+    }
+
+    // Cariye özel fiyat listeleri (satır sayısıyla)
+    private async Task LoadPriceListsAsync(System.Data.IDbConnection conn, Guid partnerId)
+    {
+        var p = new { CompanyId = company.Id, PartnerId = partnerId };
+        PriceLists = (await conn.QueryAsync<PriceListRowDto>(@"
+            SELECT pl.Id, pl.Code, pl.Name, pl.Direction, pl.Currency, pl.ValidFrom, pl.ValidTo, pl.IsActive,
+                   (SELECT COUNT(*) FROM PriceListLine pll WHERE pll.PriceListId = pl.Id) AS LineCount
+            FROM PriceList pl
+            WHERE pl.PartnerId = @PartnerId AND pl.CompanyId = @CompanyId
+            ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p)).ToList();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -282,6 +332,37 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         string   Status,
         decimal  Total,
         decimal  OpenAmount);
+
+    // Faturalar tabı satırı — satış/alış birleşik
+    public record InvoiceRowDto(
+        string    Kind,
+        Guid      Id,
+        string    DocNo,
+        DateTime? InvoiceDate,
+        decimal   GrandTotal,
+        decimal   PaidAmount,
+        string?   Status);
+
+    // Çek/Senet tabı satırı
+    public record InstrumentRowDto(
+        string    Kind,
+        string?   Direction,
+        string    No,
+        decimal   Amount,
+        DateTime? DueDate,
+        string?   Status);
+
+    // Fiyat listesi tabı satırı
+    public record PriceListRowDto(
+        Guid      Id,
+        string    Code,
+        string?   Name,
+        string?   Direction,
+        string?   Currency,
+        DateTime? ValidFrom,
+        DateTime? ValidTo,
+        bool      IsActive,
+        int       LineCount);
 
     public record BalanceSummaryDto(
         decimal TotalBorc, decimal TotalAlacak, decimal NetBalance,

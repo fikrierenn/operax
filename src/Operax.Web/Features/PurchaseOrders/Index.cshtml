@@ -7,7 +7,7 @@
     var header = new PageHeaderVm(
         Title: L.T("Satınalma Siparişleri", "Purchase Orders"),
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Satınalma", "Purchasing"), L.T("Siparişler", "Orders") },
-        Sub: $"{L.T("Toplam", "Total")} <span class=\"mono text-strong\">{Model.StatusCounts.Total}</span> {L.T("evrak", "docs")} · {L.T("Aktif tutar", "Active total")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalActive)}</span>",
+        SubHtml: $"{L.T("Toplam", "Total")} <span class=\"mono text-strong\">{Model.StatusCounts.Total}</span> {L.T("evrak", "docs")} · {L.T("Aktif tutar", "Active total")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalActive)}</span>",
         ActionsHtml:
             $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>{L.T("İçeri Aktar", "Import")}</button>" +
             $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>{L.T("Dışa Aktar", "Export")}</button>" +

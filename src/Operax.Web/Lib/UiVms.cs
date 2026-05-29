@@ -12,7 +12,8 @@ namespace Operax.Web.Lib;
 public record PageHeaderVm(
     string Title,
     string[]? Crumbs = null,
-    string? Sub = null,
+    string? Sub = null,          // plain text — auto-encoded, güvenli
+    string? SubHtml = null,      // güvenilir sunucu HTML — badge/span/tutar; kullanıcı verisi YASAK
     string? ActionsHtml = null);
 
 /// <summary>

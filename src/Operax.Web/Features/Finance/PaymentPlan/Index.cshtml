@@ -7,7 +7,7 @@
     var header = new PageHeaderVm(
         Title: L.T("Vade Planı (Açık)", "Payment Plan (Open)"),
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Ödeme Planı", "Payment Plan") },
-        Sub: $"{L.T("Alacak", "Receivable")} <span class=\"mono text-strong\" style=\"color:var(--success-text)\">{UiHelpers.FmtTL(Model.TotalReceivable)}</span> · {L.T("Borç", "Payable")} <span class=\"mono text-strong\" style=\"color:var(--danger-text)\">{UiHelpers.FmtTL(Model.TotalPayable)}</span>",
+        SubHtml: $"{L.T("Alacak", "Receivable")} <span class=\"mono text-strong\" style=\"color:var(--success-text)\">{UiHelpers.FmtTL(Model.TotalReceivable)}</span> · {L.T("Borç", "Payable")} <span class=\"mono text-strong\" style=\"color:var(--danger-text)\">{UiHelpers.FmtTL(Model.TotalPayable)}</span>",
         ActionsHtml: $"<a href=\"/Finance/Aging\" class=\"btn btn-secondary btn-sm\">{L.T("Yaşlandırma", "Aging Report")}</a>"
     );
 

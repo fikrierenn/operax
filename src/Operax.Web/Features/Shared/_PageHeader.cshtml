@@ -28,9 +28,13 @@
             </div>
         }
         <h1>@Model.Title</h1>
-        @if (!string.IsNullOrEmpty(Model.Sub))
+        @if (!string.IsNullOrEmpty(Model.SubHtml))
         {
-            <p>@Html.Raw(Model.Sub)</p>
+            <p>@Html.Raw(Model.SubHtml)</p>
+        }
+        else if (!string.IsNullOrEmpty(Model.Sub))
+        {
+            <p>@Model.Sub</p>
         }
     </div>
     @if (!string.IsNullOrEmpty(Model.ActionsHtml))

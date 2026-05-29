@@ -7,7 +7,7 @@
     var header = new PageHeaderVm(
         Title: "Fiyat Farkları",
         Crumbs: new[] { "Anasayfa", "Satınalma", "Fiyat Farkları" },
-        Sub: $"Bekleyen <span class=\"mono text-strong\">{Model.DraftCount}</span> · " +
+        SubHtml: $"Bekleyen <span class=\"mono text-strong\">{Model.DraftCount}</span> · " +
              $"Onaylı <span class=\"mono text-strong\">{Model.ApprovedCount}</span> · " +
              $"Reddedilen <span class=\"mono text-strong\">{Model.RejectedCount}</span>"
     );

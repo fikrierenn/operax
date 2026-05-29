@@ -41,7 +41,7 @@
     var header = new PageHeaderVm(
         Title: titleText,
         Crumbs: crumbs,
-        Sub: Model.IsNew ? null : $"{Model.Header.CustomerName} · {L.T("Teslim", "Delivery")} <span class=\"mono\">{(Model.Header.RequestedDeliveryDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.RequestedDeliveryDate.Value) : "—")}</span>",
+        SubHtml: Model.IsNew ? null : $"{System.Web.HttpUtility.HtmlEncode(Model.Header.CustomerName)} · {L.T("Teslim", "Delivery")} <span class=\"mono\">{(Model.Header.RequestedDeliveryDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.RequestedDeliveryDate.Value) : "—")}</span>",
         ActionsHtml: actions);
 }
 

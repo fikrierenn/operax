@@ -17,7 +17,7 @@
     var header = new PageHeaderVm(
         Title: a.Name,
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Hesaplar", "Accounts"), a.Code },
-        Sub: $"{typeLabel} · {L.T("Bakiye", "Balance")} <span class=\"mono text-strong\" style=\"color:{(Model.Balance < 0 ? "var(--danger-text)" : "var(--text)")}\">{UiHelpers.FmtTL(Model.Balance)}</span>",
+        SubHtml: $"{typeLabel} · {L.T("Bakiye", "Balance")} <span class=\"mono text-strong\" style=\"color:{(Model.Balance < 0 ? "var(--danger-text)" : "var(--text)")}\">{UiHelpers.FmtTL(Model.Balance)}</span>",
         ActionsHtml: $"<a href=\"/Finance/Accounts\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">{L.T("Hareket Ekle", "Add Tx")}</button>"
     );
 }

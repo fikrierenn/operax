@@ -10,7 +10,7 @@
     var header = new PageHeaderVm(
         Title: h.InvoiceNo,
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Faturalar", "Invoices"), h.InvoiceNo },
-        Sub: $"{h.PartnerName} · {UiHelpers.FmtDateShort(h.InvoiceDate)} · {L.T("Vade", "Due")} <span class=\"mono\">{(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")}</span>",
+        SubHtml: $"{System.Web.HttpUtility.HtmlEncode(h.PartnerName)} · {UiHelpers.FmtDateShort(h.InvoiceDate)} · {L.T("Vade", "Due")} <span class=\"mono\">{(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")}</span>",
         ActionsHtml: $"<a href=\"/SalesInvoices\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">PDF</button>" +
                      (h.EBelgeStatus == null ? $"<button class=\"btn btn-primary btn-sm\">{L.T("e-Fatura'ya Çevir", "Convert to e-Invoice")}</button>" : "") +
                      (h.Status == "POSTED" ? $"<button class=\"btn btn-danger btn-sm\">{L.T("İptal", "Cancel")}</button>" : "")

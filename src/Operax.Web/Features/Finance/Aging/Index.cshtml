@@ -9,7 +9,7 @@
     var header = new PageHeaderVm(
         Title: L.T("Yaşlandırma Raporu", "Aging Report") + " — " + noun,
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Yaşlandırma", "Aging") },
-        Sub: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>",
+        SubHtml: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>",
         ActionsHtml: ""
     );
 }

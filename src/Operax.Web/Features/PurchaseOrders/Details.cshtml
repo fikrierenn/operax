@@ -43,7 +43,7 @@
     var header = new PageHeaderVm(
         Title: titleText,
         Crumbs: crumbs,
-        Sub: Model.IsNew ? null : $"{Model.Header.PartnerName} · {L.T("Vade", "Due")} <span class=\"mono\">{(Model.Header.DueDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.DueDate.Value) : "—")}</span>",
+        SubHtml: Model.IsNew ? null : $"{System.Web.HttpUtility.HtmlEncode(Model.Header.PartnerName)} · {L.T("Vade", "Due")} <span class=\"mono\">{(Model.Header.DueDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.DueDate.Value) : "—")}</span>",
         ActionsHtml: actions);
 }
 

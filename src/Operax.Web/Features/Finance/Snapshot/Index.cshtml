@@ -7,7 +7,7 @@
     var header = new PageHeaderVm(
         Title: "Mali Durum",
         Crumbs: new[] { "Anasayfa", "Finans", "Mali Durum" },
-        Sub: $"Tarih: <span class=\"mono text-strong\">{Model.EffectiveDate:dd MMM yyyy}</span> · " +
+        SubHtml: $"Tarih: <span class=\"mono text-strong\">{Model.EffectiveDate:dd MMM yyyy}</span> · " +
              $"Varlık <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.AssetTotal)}</span> · " +
              $"Yükümlülük <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.LiabilityTotal)}</span> · " +
              $"Net <span class=\"mono text-strong\" style=\"color:var(--{(Model.NetPosition >= 0 ? "success" : "danger")});\">{UiHelpers.FmtTL(Model.NetPosition)}</span>",

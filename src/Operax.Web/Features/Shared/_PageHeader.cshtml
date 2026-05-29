@@ -19,7 +19,15 @@
                     }
                     else
                     {
-                        <span class="breadcrumb-item">@Model.Crumbs[i]</span>
+                        var href = Operax.Web.Lib.UiHelpers.CrumbHref(Model.Crumbs[i]);
+                        if (href != null)
+                        {
+                            <a class="breadcrumb-item" href="@href">@Model.Crumbs[i]</a>
+                        }
+                        else
+                        {
+                            <span class="breadcrumb-item">@Model.Crumbs[i]</span>
+                        }
                         <svg class="breadcrumb-sep" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <polyline points="9 18 15 12 9 6" />
                         </svg>

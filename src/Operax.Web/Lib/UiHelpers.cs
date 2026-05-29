@@ -120,6 +120,27 @@ public static class UiHelpers
     public static string ShortGuid(System.Guid id) => id.ToString()[..8].ToUpperInvariant();
 
     /// <summary>
+    /// Breadcrumb etiketi → index sayfası rotası. Bilinen navigasyon hedefleri tıklanabilir
+    /// olur; index sayfası olmayan grup etiketleri (örn. "Master Veri") null döner → metin kalır.
+    /// </summary>
+    public static string? CrumbHref(string? label) => label switch
+    {
+        "Anasayfa"      => "/Dashboard",
+        "Cari Kartlar"  => "/MasterData/Partners",
+        "Ürünler"       => "/MasterData/Items",
+        "Depolar"       => "/MasterData/Warehouses",
+        "Satınalma"     => "/PurchaseOrders",
+        "Satış"         => "/SalesOrders",
+        "Hesaplar"      => "/Finance/Accounts",
+        "Çek & Senet"   => "/Finance/Cheques",
+        "Krediler"      => "/Finance/Loans",
+        "Kredi Kartları"=> "/Finance/CreditCards",
+        "Ödeme Planı"   => "/Finance/PaymentPlan",
+        "Yaşlandırma"   => "/Finance/Aging",
+        _ => null
+    };
+
+    /// <summary>
     /// AuditLog aksiyon kodu → Türkçe etiket (sipariş denetim izi). PO/SO Details ortak.
     /// </summary>
     public static string AuditActionLabel(string? action) => action switch

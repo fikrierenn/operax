@@ -111,14 +111,26 @@
                     <div class="card-body">
                         <div class="form-row">
                             <div class="form-group">
+                                <label class="form-label">Vade Politikası</label>
+                                <select asp-for="Partner.PaymentTermPolicy" class="form-ctrl">
+                                    <option value="NET">Fatura tarihi + X gün</option>
+                                    <option value="NET_EOM">Ay sonu + X gün</option>
+                                    <option value="INSTALLMENTS">Taksitli</option>
+                                </select>
+                                <span class="form-hint">Vade başlangıcı: fatura tarihi mi, ay sonu mu</span>
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">Vade (Gün)</label>
                                 <input asp-for="Partner.PaymentTermDays" type="number" min="0" class="form-ctrl" />
-                                <span class="form-hint">Fatura / sipariş varsayılan vade günü</span>
+                                <span class="form-hint">Örn. Ay sonu + 30 gün</span>
                             </div>
+                        </div>
+                        <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">Kredi Limiti (₺)</label>
                                 <input asp-for="Partner.CreditLimit" type="number" min="0" step="0.01" class="form-ctrl" />
                             </div>
+                            <div class="form-group"></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">

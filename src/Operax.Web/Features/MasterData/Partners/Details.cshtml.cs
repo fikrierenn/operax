@@ -73,7 +73,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             Partner = await conn.QueryFirstOrDefaultAsync<PartnerDto>(
                 @"SELECT Id, Code, Name, Type, TaxNumber, Email, Phone, Address,
                          IsActive, Notes,
-                         PaymentTermDays, CreditLimit, BlockOnLimitExceed,
+                         PaymentTermDays, PaymentTermPolicy, CreditLimit, BlockOnLimitExceed,
                          RiskScore, RiskCategory, MaxOverdueDays,
                          DefaultPaymentMethod,
                          EFaturaMukellef, EFaturaAlias, IbanForRefund,
@@ -85,6 +85,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             if (Partner.RiskScore is < 1 or > 5)               Partner.RiskScore = 3;
             if (string.IsNullOrWhiteSpace(Partner.RiskCategory)) Partner.RiskCategory = "MEDIUM";
             if (string.IsNullOrWhiteSpace(Partner.DefaultPaymentMethod)) Partner.DefaultPaymentMethod = "EFT";
+            if (string.IsNullOrWhiteSpace(Partner.PaymentTermPolicy)) Partner.PaymentTermPolicy = "NET";
 
             // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
             if (Partner.Id != Guid.Empty)
@@ -271,7 +272,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 INSERT INTO Partner
                     (Id, CompanyId, Code, Name, Type, TaxNumber, Email, Phone, Address,
                      IsActive, Notes,
-                     PaymentTermDays, CreditLimit, BlockOnLimitExceed,
+                     PaymentTermDays, PaymentTermPolicy, CreditLimit, BlockOnLimitExceed,
                      RiskScore, RiskCategory, MaxOverdueDays,
                      DefaultPaymentMethod,
                      EFaturaMukellef, EFaturaAlias, IbanForRefund,
@@ -279,7 +280,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 VALUES
                     (@Id, @CompanyId, @Code, @Name, @Type, @TaxNumber, @Email, @Phone, @Address,
                      @IsActive, @Notes,
-                     @PaymentTermDays, @CreditLimit, @BlockOnLimitExceed,
+                     @PaymentTermDays, @PaymentTermPolicy, @CreditLimit, @BlockOnLimitExceed,
                      @RiskScore, @RiskCategory, @MaxOverdueDays,
                      @DefaultPaymentMethod,
                      @EFaturaMukellef, @EFaturaAlias, @IbanForRefund,
@@ -289,7 +290,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 Partner.Id, CompanyId = company.Id,
                 Partner.Code, Partner.Name, Partner.Type, Partner.TaxNumber,
                 Partner.Email, Partner.Phone, Partner.Address, Partner.IsActive, Partner.Notes,
-                Partner.PaymentTermDays, Partner.CreditLimit, Partner.BlockOnLimitExceed,
+                Partner.PaymentTermDays, Partner.PaymentTermPolicy, Partner.CreditLimit, Partner.BlockOnLimitExceed,
                 Partner.RiskScore, Partner.RiskCategory, Partner.MaxOverdueDays,
                 Partner.DefaultPaymentMethod,
                 Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
@@ -304,7 +305,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                     Name = @Name, Type = @Type,
                     TaxNumber = @TaxNumber, Email = @Email, Phone = @Phone, Address = @Address,
                     IsActive = @IsActive, Notes = @Notes,
-                    PaymentTermDays = @PaymentTermDays, CreditLimit = @CreditLimit,
+                    PaymentTermDays = @PaymentTermDays, PaymentTermPolicy = @PaymentTermPolicy, CreditLimit = @CreditLimit,
                     BlockOnLimitExceed = @BlockOnLimitExceed,
                     RiskScore = @RiskScore, RiskCategory = @RiskCategory,
                     MaxOverdueDays = @MaxOverdueDays,
@@ -319,7 +320,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 Partner.Code, Partner.Name, Partner.Type,
                 Partner.TaxNumber, Partner.Email, Partner.Phone, Partner.Address,
                 Partner.IsActive, Partner.Notes,
-                Partner.PaymentTermDays, Partner.CreditLimit, Partner.BlockOnLimitExceed,
+                Partner.PaymentTermDays, Partner.PaymentTermPolicy, Partner.CreditLimit, Partner.BlockOnLimitExceed,
                 Partner.RiskScore, Partner.RiskCategory, Partner.MaxOverdueDays,
                 Partner.DefaultPaymentMethod,
                 Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
@@ -346,6 +347,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public bool    IsActive              { get; set; } = true;
         public string? Notes                 { get; set; }
         public int     PaymentTermDays       { get; set; } = 30;
+        public string  PaymentTermPolicy     { get; set; } = "NET";
         public decimal CreditLimit           { get; set; }
         public bool    BlockOnLimitExceed    { get; set; }
         public byte    RiskScore             { get; set; } = 3;

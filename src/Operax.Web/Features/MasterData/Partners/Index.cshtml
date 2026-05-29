@@ -54,7 +54,7 @@
                         <div class="font-bold text-slate-800">@p.Name</div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        @if (p.Type == "VENDOR")
+                        @if (p.Type == "VENDOR" || p.Type == "SUPPLIER")
                         {
                             <span class="badge b-amber">Tedarikçi</span>
                         }

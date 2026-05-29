@@ -33,7 +33,8 @@
             <tbody>
                 @foreach (var ins in Model.Instruments)
                 {
-                    <tr>
+                    var route = $"/Finance/Cheques/Details?id={ins.Id}&type={(ins.Kind == "Senet" ? "note" : "cheque")}";
+                    <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
                         <td><span class="badge badge-neutral"><span class="badge-dot"></span>@ins.Kind.ToUpper()</span></td>
                         <td>
                             @if (ins.Direction == "RECEIVED")

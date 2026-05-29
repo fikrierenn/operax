@@ -39,6 +39,7 @@
     {
     <form method="post">
         @Html.AntiForgeryToken()
+        <input asp-for="Partner.Id" type="hidden" />
 
         <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;">
 

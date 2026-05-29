@@ -34,7 +34,7 @@
             <tbody>
                 @foreach (var f in Model.Invoices)
                 {
-                    var route = f.Kind == "Satış" ? $"/SalesInvoices/Details/{f.Id}" : $"/ExpenseInvoices/Details/{f.Id}";
+                    var route = f.Kind == "Satış" ? $"/SalesInvoices/Details?id={f.Id}" : $"/Expenses/Details/{f.Id}";
                     <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
                         <td>
                             @if (f.Kind == "Satış")

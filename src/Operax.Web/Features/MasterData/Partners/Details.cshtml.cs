@@ -208,11 +208,11 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
         Instruments = (await conn.QueryAsync<InstrumentRowDto>(@"
-            SELECT 'Çek' AS Kind, Direction, ChequeNo AS No, Amount, DueDate, Status
+            SELECT Id, 'Çek' AS Kind, Direction, ChequeNo AS No, Amount, DueDate, Status
             FROM Cheque
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
             UNION ALL
-            SELECT 'Senet' AS Kind, Direction, NoteNo, Amount, DueDate, Status
+            SELECT Id, 'Senet' AS Kind, Direction, NoteNo, Amount, DueDate, Status
             FROM PromissoryNote
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
             ORDER BY DueDate DESC", p)).ToList();
@@ -358,6 +358,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
     // Çek/Senet tabı satırı
     public record InstrumentRowDto(
+        Guid      Id,
         string    Kind,
         string?   Direction,
         string    No,

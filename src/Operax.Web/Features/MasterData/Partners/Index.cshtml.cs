@@ -33,8 +33,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('CUSTOMER', 'BOTH') AND IsDeleted = 0",
             new { CompanyId = company.Id });
 
+        // İş kuralı: tedarikçi tipi VENDOR veya SUPPLIER (seed vocab farkı) + BOTH
         VendorCount = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'BOTH') AND IsDeleted = 0",
+            "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'SUPPLIER', 'BOTH') AND IsDeleted = 0",
             new { CompanyId = company.Id });
     }
 

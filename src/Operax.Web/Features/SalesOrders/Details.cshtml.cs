@@ -11,7 +11,7 @@ namespace Operax.Web.Features.SalesOrders;
 /// DRAFT durumda satır eklenir/düzenlenir; APPROVED sonrası salt okunur.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, INumberSeriesService numberSeries) : PageModel
 {
     [BindProperty]
     public SalesOrderHeaderDto Header { get; set; } = new();
@@ -110,10 +110,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Header.Id = Guid.NewGuid();
-            var seq = conn.ExecuteScalar<int>(
-                "SELECT COUNT(1) + 1 FROM SalesOrderHeader WHERE CompanyId = @CompanyId AND CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE)",
-                new { CompanyId = company.Id });
-            Header.OrderNo = $"{DocPrefix.SalesOrder}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
+            // İş kuralı: evrak numarası belge seri yönetiminden (NumberSeries, ayardan) atanır
+            Header.OrderNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.SalesOrder);
 
             await conn.ExecuteAsync(@"
                 INSERT INTO SalesOrderHeader

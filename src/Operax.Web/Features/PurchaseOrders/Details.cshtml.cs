@@ -12,7 +12,7 @@ namespace Operax.Web.Features.PurchaseOrders;
 /// Tüm header ek bilgileri (şehir, VKN, satır toplamı, aktivite) veritabanından gelir.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, INumberSeriesService numberSeries, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public PurchaseOrderHeaderDto Header { get; set; } = new();
@@ -116,11 +116,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Header.Id = Guid.NewGuid();
-            // İş kuralı: Günlük sıralı evrak numarası üretilir (PO-YYYYMMDD-NNNNN)
-            var seq = await conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(1) + 1 FROM PurchaseOrderHeader WHERE CompanyId = @CompanyId AND CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE)",
-                new { CompanyId = company.Id });
-            Header.OrderNo = $"{DocPrefix.PurchaseOrder}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
+            // İş kuralı: evrak numarası belge seri yönetiminden (NumberSeries, ayardan) atanır
+            Header.OrderNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.PurchaseOrder);
 
             await conn.ExecuteAsync(@"
                 INSERT INTO PurchaseOrderHeader

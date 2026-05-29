@@ -34,22 +34,35 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
     private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p)
     {
-        var table = Type == "note" ? "PromissoryNote" : "Cheque";
-        var sql = $@"
-            SELECT
-                COUNT(*) AS Total,
-                SUM(CASE WHEN Status = 'PORTFOLIO'  THEN 1 ELSE 0 END) AS Portfolio,
-                SUM(CASE WHEN Status = 'IN_BANK'    THEN 1 ELSE 0 END) AS InBank,
-                SUM(CASE WHEN Status = 'COLLECTED'  THEN 1 ELSE 0 END) AS Collected,
-                SUM(CASE WHEN Status = 'RETURNED'   THEN 1 ELSE 0 END) AS Returned
-            FROM {table}
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0";
-        Counts = await conn.QuerySingleAsync<StatusCounts>(sql, p);
-
-        TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(
-            $"SELECT ISNULL(SUM(Amount), 0) FROM {table} WHERE CompanyId = @CompanyId AND Status = 'PORTFOLIO' AND IsDeleted = 0", p);
-        TotalInBank = await conn.ExecuteScalarAsync<decimal>(
-            $"SELECT ISNULL(SUM(Amount), 0) FROM {table} WHERE CompanyId = @CompanyId AND Status = 'IN_BANK' AND IsDeleted = 0", p);
+        // İş kuralı: tablo adı kullanıcıdan gelmiyor — sabit iki SQL bloğuyla injection riski sıfır
+        if (Type == "note")
+        {
+            Counts = await conn.QuerySingleAsync<StatusCounts>(@"
+                SELECT COUNT(*) AS Total,
+                       SUM(CASE WHEN Status = 'PORTFOLIO' THEN 1 ELSE 0 END) AS Portfolio,
+                       SUM(CASE WHEN Status = 'IN_BANK'   THEN 1 ELSE 0 END) AS InBank,
+                       SUM(CASE WHEN Status = 'COLLECTED' THEN 1 ELSE 0 END) AS Collected,
+                       SUM(CASE WHEN Status = 'RETURNED'  THEN 1 ELSE 0 END) AS Returned
+                FROM PromissoryNote WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(
+                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p);
+            TotalInBank = await conn.ExecuteScalarAsync<decimal>(
+                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p);
+        }
+        else
+        {
+            Counts = await conn.QuerySingleAsync<StatusCounts>(@"
+                SELECT COUNT(*) AS Total,
+                       SUM(CASE WHEN Status = 'PORTFOLIO' THEN 1 ELSE 0 END) AS Portfolio,
+                       SUM(CASE WHEN Status = 'IN_BANK'   THEN 1 ELSE 0 END) AS InBank,
+                       SUM(CASE WHEN Status = 'COLLECTED' THEN 1 ELSE 0 END) AS Collected,
+                       SUM(CASE WHEN Status = 'RETURNED'  THEN 1 ELSE 0 END) AS Returned
+                FROM Cheque WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(
+                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p);
+            TotalInBank = await conn.ExecuteScalarAsync<decimal>(
+                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p);
+        }
     }
 
     private async Task LoadItemsAsync(System.Data.IDbConnection conn)

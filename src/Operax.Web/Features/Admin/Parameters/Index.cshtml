@@ -1,63 +1,108 @@
 @page
+@using Operax.Web.Lib
 @model Operax.Web.Features.Admin.Parameters.IndexModel
 @{
     ViewData["Title"] = "Sistem Parametreleri";
+    var header = new PageHeaderVm(
+        Title: "Sistem Parametreleri",
+        Crumbs: new[] { "Anasayfa", "Sistem", "Parametreler" },
+        Sub: "Modül bazlı operasyonel kurallar ve global konfigürasyon"
+    );
 }
 
-<div class="page-hdr">
-    <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-                Ayarlar
-            </a>
-            <span style="font-size:11px;color:#64748b">Sistem / Parametreler</span>
-        </div>
-        <h1>Sistem Parametreleri</h1>
-        <p>Modül bazlı operasyonel kurallar ve global konfigürasyon</p>
-    </div>
-    <div class="page-hdr-r">
-        <button class="btn btn-primary" data-shortcut="Alt+N">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Yeni Parametre
-        </button>
-    </div>
-</div>
+<div class="page" data-screen-label="Admin Parameters">
+    <partial name="_PageHeader" model="header" />
 
-<div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th style="width:120px">Modül</th>
-                <th>Parametre Kodu</th>
-                <th>Değer</th>
-                <th>Açıklama</th>
-                <th style="text-align:right">İşlem</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var p in Model.Parameters)
-            {
-                <tr class="group">
-                    <td><span class="badge b-gray">@p.ModuleCode</span></td>
-                    <td><span style="font-family:monospace;font-size:12.5px;color:#818cf8;font-weight:700">@p.Code</span></td>
-                    <td><span style="font-family:monospace;background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;color:#e2e8f0">@p.Value</span></td>
-                    <td style="color:#94a3b8;font-size:12px">@p.Description</td>
-                    <td style="text-align:right">
-                        <button class="btn btn-secondary btn-sm">Düzenle</button>
-                    </td>
-                </tr>
-            }
-            @if (!Model.Parameters.Any())
-            {
-                <tr>
-                    <td colspan="5">
-                        <div class="empty-state">
-                            <p>Henüz parametre tanımlanmamış</p>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info"    style="margin-bottom:14px;">@ok</div>  }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger"  style="margin-bottom:14px;">@err</div> }
+
+    @* Yeni parametre formu *@
+    <div class="card" style="margin-bottom:14px;">
+        <div class="card-hdr">
+            <div class="card-title">Yeni Parametre</div>
+        </div>
+        <div class="card-body">
+            <form method="post" asp-page-handler="Create">
+                @Html.AntiForgeryToken()
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Modül Kodu</label>
+                        <input name="moduleCode" class="form-ctrl" placeholder="Örn: M11, SYS, M03" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Parametre Kodu <span class="req">*</span></label>
+                        <input name="code" class="form-ctrl" placeholder="Örn: InvoiceMode" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Değer <span class="req">*</span></label>
+                        <input name="value" class="form-ctrl" placeholder="Örn: INSTANT" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Açıklama</label>
+                        <input name="description" class="form-ctrl" placeholder="Ne işe yarar?" />
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                    <button type="submit" class="btn btn-primary btn-sm">Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* Parametre listesi *@
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Tanımlı Parametreler</div>
+            <div class="card-sub">@Model.Parameters.Count parametre</div>
+        </div>
+
+        @if (Model.Parameters.Count == 0)
+        {
+            var empty = new EmptyStateVm("Parametre yok", "Henüz sistem parametresi tanımlanmamış.");
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:90px">Modül</th>
+                        <th style="width:180px">Kod</th>
+                        <th>Değer</th>
+                        <th>Açıklama</th>
+                        <th style="width:100px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Parameters)
+                    {
+                        <tr>
+                            <td><span class="badge badge-neutral">@p.ModuleCode</span></td>
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@p.Code</span></td>
+                            <td>
+                                <form method="post" asp-page-handler="Save" style="display:flex;gap:6px;align-items:center;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <input name="value" value="@p.Value"
+                                           class="form-ctrl" style="height:30px;font-size:12px;font-family:var(--font-mono);min-width:140px;" />
+                                    <input name="description" value="@(p.Description ?? "")"
+                                           class="form-ctrl" style="height:30px;font-size:12px;flex:1;" placeholder="Açıklama" />
+                                    <button type="submit" class="btn btn-secondary btn-xs">Kaydet</button>
+                                </form>
+                            </td>
+                            <td></td>
+                            <td style="text-align:right;">
+                                <form method="post" asp-page-handler="Delete"
+                                      onsubmit="return confirm('@p.Code kodlu parametreyi silmek istiyor musunuz?')">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <button type="submit" class="btn btn-ghost btn-xs" style="color:var(--danger-text);">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 </div>

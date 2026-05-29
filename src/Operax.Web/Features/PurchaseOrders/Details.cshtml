@@ -123,7 +123,7 @@
                     <div>
                         <div class="form-label">@L.T("Vade Tarihi", "Due Date")</div>
                         <div class="mono" style="font-size:13px;font-weight:600;margin-top:4px;">@(Model.Header.DueDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.DueDate.Value) : "—")</div>
-                        <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">14 @L.T("gün", "days")</div>
+                        <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">@Model.Header.PaymentTermDays @L.T("gün", "days")</div>
                     </div>
 
                     <div>

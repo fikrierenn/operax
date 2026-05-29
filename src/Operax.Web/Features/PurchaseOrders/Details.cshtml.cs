@@ -68,7 +68,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 p.TaxNumber   AS PartnerTaxNumber,
                 c.Name        AS PartnerCity,
                 w.Name        AS WarehouseName,
-                DATEADD(DAY, 14, o.OrderDate) AS DueDate
+                DATEADD(DAY, ISNULL(o.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)), o.OrderDate) AS DueDate,
+                ISNULL(o.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)) AS PaymentTermDays
             FROM PurchaseOrderHeader o
             JOIN Partner p ON p.Id = o.PartnerId
             LEFT JOIN City c ON c.Id = p.CityId
@@ -270,6 +271,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public DateTime? CreatedAt         { get; set; }
         public DateTime? UpdatedAt         { get; set; }
         public DateTime? DueDate           { get; set; }
+        public int      PaymentTermDays    { get; set; } = 30;
         public string?  Notes              { get; set; }
         public string?  PartnerName        { get; set; }
         public string?  PartnerCode        { get; set; }

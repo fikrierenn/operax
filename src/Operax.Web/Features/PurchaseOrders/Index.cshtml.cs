@@ -63,7 +63,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 p.TaxNumber,
                 ISNULL(ht.LineTotal, 0) AS TotalAmount,
                 ISNULL(ht.LineCount, 0) AS LineCount,
-                DATEADD(DAY, 14, h.OrderDate) AS DueDate
+                DATEADD(DAY, ISNULL(h.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)), h.OrderDate) AS DueDate
             FROM PurchaseOrderHeader h
             JOIN Partner p ON p.Id = h.PartnerId
             LEFT JOIN City c ON c.Id = p.CityId

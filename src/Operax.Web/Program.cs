@@ -45,6 +45,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<ICurrentCompany, CurrentCompany>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
 
 // Hangfire — arka plan görev kuyruğu
 builder.Services.AddHangfire(config => config

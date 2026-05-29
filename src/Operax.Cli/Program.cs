@@ -79,7 +79,8 @@ class Program
                         "schema_M04_EBelge.sql",             // e-Fatura / e-Arşiv / e-İrsaliye altyapısı (inbound sync)
                         "schema_M01_M11_RiskAndLoanTypes.sql", // Partner risk + Loan tipleri + Kart-Banka bağlantısı
                         "schema_M01_PartnerExtended.sql",     // Plan 08: cari sorumlu temsilci + contact/address/bank/activity
-                        "schema_M11_AccountMovement.sql"      // Plan 09: cari hesap defteri (StockMovement muadili)
+                        "schema_M11_AccountMovement.sql",     // Plan 09: cari hesap defteri (StockMovement muadili)
+                        "schema_M00_NumberSeries.sql"         // Plan 10: belge seri yönetimi (otomatik numaralama)
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

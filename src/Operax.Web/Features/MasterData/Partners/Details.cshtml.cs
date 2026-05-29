@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Partners;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries) : PageModel
 {
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
@@ -244,17 +244,16 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p)).ToList();
     }
 
-    // Cari kodu otomatik üretir: tip önekine göre sıradaki numara (CUS-001, SUP-001, CARI-001)
-    private async Task<string> GenerateCodeAsync(System.Data.IDbConnection conn, string? type)
+    // Cari kodu otomatik üretir: belge seri yönetiminden (NumberSeries, ayarlardan) — tip'e göre seri
+    private async Task<string> GenerateCodeAsync(string? type)
     {
-        var prefix = type switch { "CUSTOMER" => "CUS", "VENDOR" => "SUP", _ => "CARI" };
-        // Mevcut en yüksek numarayı bul, +1 (önek-NNN formatı)
-        var next = await conn.ExecuteScalarAsync<int>(@"
-            SELECT ISNULL(MAX(TRY_CONVERT(int, RIGHT(Code, LEN(Code) - LEN(@Prefix) - 1))), 0) + 1
-            FROM Partner
-            WHERE CompanyId = @CompanyId AND Code LIKE @Like",
-            new { CompanyId = company.Id, Prefix = prefix, Like = prefix + "-%" });
-        return $"{prefix}-{next:D3}";
+        var docType = type switch
+        {
+            "CUSTOMER" => NumberSeriesType.PartnerCustomer,
+            "VENDOR"   => NumberSeriesType.PartnerVendor,
+            _          => NumberSeriesType.PartnerBoth
+        };
+        return await numberSeries.NextAsync(company.Id, docType);
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -271,7 +270,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         {
             Partner.Id = Guid.NewGuid();
             // İş kuralı: cari kodu otomatik atanır (kullanıcı giremez). Tip'e göre önek + sıra no.
-            Partner.Code = await GenerateCodeAsync(conn, Partner.Type);
+            Partner.Code = await GenerateCodeAsync(Partner.Type);
             const string sql = @"
                 INSERT INTO Partner
                     (Id, CompanyId, Code, Name, Type, TaxNumber, Email, Phone, Address,

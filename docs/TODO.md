@@ -44,13 +44,13 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 
 - [ ] **IMP-3 · Hardcoded 14-gün vade** — PO/Index.cshtml.cs:66 `DATEADD(DAY, 14, h.OrderDate)`, PO/Details.cshtml:114 Razor sabit. `Partner.PaymentTermDays` kolonu mevcut (`schema_M01_M04_StarterFields.sql`) — SQL ve UI'da bunu kullan.
 
-- [ ] **IMP-4 · `Guid.ToString()[..8]` substring** — SalesInvoices/Details.cshtml:35,159. Helper'a sar: `UiHelpers.ShortGuid(g)`.
+- [x] ✅ KAPALI 2026-05-29 — **IMP-4 · `Guid.ToString()[..8]` substring** — `UiHelpers.ShortGuid(g)` eklendi, 4 kullanım birleşti (SalesInvoices/Details, Payments/Create). Commit 480e511.
 
-- [ ] **IMP-5 · View'larda CompanyId filtresi eksik** — `v_AccountBalance`, `v_PaymentPlanAging` (db_objects_starter.sql:547-593). Inline TVF pattern'e geç: `tvf_AccountBalance(@CompanyId)`.
+- [x] ✅ KAPALI 2026-05-29 — **IMP-5 · View'larda CompanyId filtresi eksik** — `v_AccountBalance`/`v_PaymentPlanAging` → `tvf_AccountBalance(@CompanyId)`/`tvf_PaymentPlanAging(@CompanyId)` inline TVF'e dönüştü. 4 çağıran güncellendi, migrate ok.
 
-- [ ] **IMP-6 · `ActionLabel` switch DRY ihlali** — PO/SO Details.cshtml.cs aynı switch. `Lib/UiHelpers.cs`'e taşı: `UiHelpers.AuditActionLabel(string)`.
+- [x] ✅ KAPALI 2026-05-29 — **IMP-6 · `ActionLabel` switch DRY ihlali** — `UiHelpers.AuditActionLabel(string)` ortak helper'a taşındı, PO/SO Details kullanıyor.
 
-- [ ] **IMP-7 · `'Sistem'` magic SQL içinde** — PO/SO Details SQL `ISNULL(NULLIF(a.UserName, ''), 'Sistem')`. SQL NULL döndürsün, view `@(a.UserName ?? L.T("Sistem","System"))`.
+- [x] ✅ KAPALI 2026-05-29 — **IMP-7 · `'Sistem'` magic SQL içinde** — SQL `NULLIF(a.UserName,'')` NULL döndürüyor, view `?? L.T("Sistem","System")` fallback uyguluyor.
 
 ### POSITIVE — koruyalım
 

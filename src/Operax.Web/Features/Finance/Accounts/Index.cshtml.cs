@@ -8,7 +8,7 @@ namespace Operax.Web.Features.Finance.Accounts;
 
 /// <summary>
 /// Finansal hesap listesi (kasa, banka, kredi kartı, kredi).
-/// Bakiye v_AccountBalance üzerinden okunur — FinancialTransaction'lardan canlı hesaplanır.
+/// Bakiye tvf_AccountBalance(@CompanyId) üzerinden okunur — FinancialTransaction'lardan canlı hesaplanır.
 /// </summary>
 [Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
@@ -42,9 +42,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 v.AccountId, v.Code, v.Name, v.AccountType, v.Currency,
                 v.Balance, v.LastMovementDate, v.TransactionCount,
                 a.BankName, a.IBAN, a.CreditLimit, a.InterestRate
-            FROM v_AccountBalance v
+            FROM dbo.tvf_AccountBalance(@CompanyId) v
             JOIN FinancialAccount a ON a.Id = v.AccountId
-            WHERE v.CompanyId = @CompanyId";
+            WHERE 1 = 1";
 
         var parms = new DynamicParameters();
         parms.Add("CompanyId", company.Id);

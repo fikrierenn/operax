@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Finance.Aging;
 
 /// <summary>
-/// Yaşlandırma raporu — v_PaymentPlanAging görünümünden.
+/// Yaşlandırma raporu — tvf_PaymentPlanAging(@CompanyId) iTVF'inden.
 /// 0-30 / 31-60 / 61-90 / 90+ kovaları, alacak/borç ayrı sekmeli.
 /// </summary>
 [Authorize]
@@ -27,8 +27,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             SELECT
                 PartnerId, PartnerName,
                 NotDue, Days1_30, Days31_60, Days61_90, Over90, TotalOpen
-            FROM v_PaymentPlanAging
-            WHERE CompanyId = @CompanyId AND Direction = @Direction
+            FROM dbo.tvf_PaymentPlanAging(@CompanyId)
+            WHERE Direction = @Direction
             ORDER BY TotalOpen DESC", p)).ToList();
 
         Totals = new AgingTotalsDto(

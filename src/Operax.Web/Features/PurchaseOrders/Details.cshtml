@@ -279,6 +279,7 @@
                         for (int i = 0; i < actList.Count; i++)
                         {
                             var a = actList[i];
+                            var userName = a.UserName ?? L.T("Sistem", "System");
                             var color = a.Action switch
                             {
                                 "CREATE"   => "var(--text-3)",
@@ -291,7 +292,7 @@
                             var notLast = i < actList.Count - 1;
                             <div class="row" style="gap:10px;position:relative;margin-bottom:14px;align-items:flex-start;">
                                 <div style="position:relative;flex-shrink:0;">
-                                    <div class="avatar" style="width:26px;height:26px;font-size:9.5px;background:@color;">@UiHelpers.Initials(a.UserName)</div>
+                                    <div class="avatar" style="width:26px;height:26px;font-size:9.5px;background:@color;">@UiHelpers.Initials(userName)</div>
                                     @if (notLast)
                                     {
                                         <div style="position:absolute;top:30px;left:12.5px;bottom:-14px;width:1.5px;background:var(--border);"></div>
@@ -299,8 +300,8 @@
                                 </div>
                                 <div style="flex:1;">
                                     <div style="font-size:12px;line-height:1.4;">
-                                        <span class="text-strong">@a.UserName</span>
-                                        <span class="text-mute">@a.ActionLabel</span>
+                                        <span class="text-strong">@userName</span>
+                                        <span class="text-mute">@UiHelpers.AuditActionLabel(a.Action)</span>
                                     </div>
                                     <div class="mono" style="font-size:10.5px;color:var(--text-4);margin-top:1px;">@a.CreatedAt.ToString("dd MMM · HH:mm")</div>
                                 </div>

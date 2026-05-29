@@ -61,8 +61,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 ISNULL(SUM(CASE WHEN Direction = 'PAYABLE'    THEN TotalOpen ELSE 0 END), 0) AS TotalPayable,
                 ISNULL(SUM(CASE WHEN Direction = 'RECEIVABLE' AND TotalOpen > 0 THEN TotalOpen ELSE 0 END)
                      - SUM(CASE WHEN Direction = 'PAYABLE'    AND TotalOpen > 0 THEN TotalOpen ELSE 0 END), 0) AS NetBalance
-            FROM v_PaymentPlanAging
-            WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId;
+            FROM dbo.tvf_PaymentPlanAging(@CompanyId)
+            WHERE PartnerId = @PartnerId;
 
             -- 2) Son 30 finansal hareket
             SELECT TOP 30

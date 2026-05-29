@@ -32,7 +32,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                    a.CreditLimit, a.InterestRate, a.OpeningBalance, a.Notes,
                    v.Balance, v.LastMovementDate
             FROM FinancialAccount a
-            LEFT JOIN v_AccountBalance v ON v.AccountId = a.Id
+            LEFT JOIN dbo.tvf_AccountBalance(@CompanyId) v ON v.AccountId = a.Id
             WHERE a.Id = @Id AND a.CompanyId = @CompanyId AND a.IsDeleted = 0", p);
 
         if (Account == null) return NotFound();

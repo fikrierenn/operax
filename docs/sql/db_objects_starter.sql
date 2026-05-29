@@ -929,54 +929,75 @@ END
 GO
 
 -- =============================================================================
--- v_AccountBalance — Tüm hesapların güncel bakiyesi (single-source view)
+-- tvf_AccountBalance — Şirkete ait hesap bakiyeleri (CompanyId parametreli iTVF)
+-- v_AccountBalance view yerine geçti: CompanyId filtresi imzada zorunlu.
 -- =============================================================================
-CREATE OR ALTER VIEW dbo.v_AccountBalance AS
-SELECT
-    a.Id AS AccountId,
-    a.CompanyId,
-    a.Code,
-    a.Name,
-    a.AccountType,
-    a.Currency,
-    a.OpeningBalance
-        + ISNULL(SUM(CASE
-              WHEN t.TransactionType IN ('INCOME', 'TRANSFER_IN')     THEN  t.AmountTRY
-              WHEN t.TransactionType IN ('EXPENSE', 'TRANSFER_OUT')   THEN -t.AmountTRY
-              ELSE 0 END), 0) AS Balance,
-    MAX(t.TransactionDate) AS LastMovementDate,
-    COUNT(t.Id) AS TransactionCount
-FROM FinancialAccount a
-LEFT JOIN FinancialTransaction t
-    ON t.AccountId = a.Id AND t.IsDeleted = 0
-WHERE a.IsDeleted = 0
-GROUP BY a.Id, a.CompanyId, a.Code, a.Name, a.AccountType, a.Currency, a.OpeningBalance;
+IF OBJECT_ID('dbo.v_AccountBalance', 'V') IS NOT NULL DROP VIEW dbo.v_AccountBalance;
+GO
+CREATE OR ALTER FUNCTION dbo.tvf_AccountBalance
+(
+    @CompanyId UNIQUEIDENTIFIER
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        a.Id AS AccountId,
+        a.Code,
+        a.Name,
+        a.AccountType,
+        a.Currency,
+        a.OpeningBalance
+            + ISNULL(SUM(CASE
+                  WHEN t.TransactionType IN ('INCOME', 'TRANSFER_IN')     THEN  t.AmountTRY
+                  WHEN t.TransactionType IN ('EXPENSE', 'TRANSFER_OUT')   THEN -t.AmountTRY
+                  ELSE 0 END), 0) AS Balance,
+        MAX(t.TransactionDate) AS LastMovementDate,
+        COUNT(t.Id) AS TransactionCount
+    FROM FinancialAccount a
+    LEFT JOIN FinancialTransaction t
+        ON t.AccountId = a.Id AND t.IsDeleted = 0
+    WHERE a.CompanyId = @CompanyId AND a.IsDeleted = 0
+    GROUP BY a.Id, a.Code, a.Name, a.AccountType, a.Currency, a.OpeningBalance
+);
 GO
 
 -- =============================================================================
--- v_PaymentPlanAging — Yaşlandırma (alacak/borç)
+-- tvf_PaymentPlanAging — Yaşlandırma (alacak/borç), CompanyId parametreli iTVF
+-- v_PaymentPlanAging view yerine geçti: CompanyId filtresi imzada zorunlu.
 -- =============================================================================
-CREATE OR ALTER VIEW dbo.v_PaymentPlanAging AS
-SELECT
-    pp.CompanyId,
-    pp.PartnerId,
-    p.Name AS PartnerName,
-    pp.Direction,
-    SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) <= 0
-             THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS NotDue,
-    SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 1 AND 30
-             THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days1_30,
-    SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 31 AND 60
-             THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days31_60,
-    SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 61 AND 90
-             THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days61_90,
-    SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) > 90
-             THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Over90,
-    SUM(pp.Amount - pp.PaidAmount) AS TotalOpen
-FROM PaymentPlan pp
-JOIN Partner p ON p.Id = pp.PartnerId
-WHERE pp.Status IN ('OPEN', 'PARTIAL', 'OVERDUE') AND pp.IsDeleted = 0
-GROUP BY pp.CompanyId, pp.PartnerId, p.Name, pp.Direction;
+IF OBJECT_ID('dbo.v_PaymentPlanAging', 'V') IS NOT NULL DROP VIEW dbo.v_PaymentPlanAging;
+GO
+CREATE OR ALTER FUNCTION dbo.tvf_PaymentPlanAging
+(
+    @CompanyId UNIQUEIDENTIFIER
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        pp.PartnerId,
+        p.Name AS PartnerName,
+        pp.Direction,
+        SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) <= 0
+                 THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS NotDue,
+        SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 1 AND 30
+                 THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days1_30,
+        SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 31 AND 60
+                 THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days31_60,
+        SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) BETWEEN 61 AND 90
+                 THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days61_90,
+        SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) > 90
+                 THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Over90,
+        SUM(pp.Amount - pp.PaidAmount) AS TotalOpen
+    FROM PaymentPlan pp
+    JOIN Partner p ON p.Id = pp.PartnerId
+    WHERE pp.CompanyId = @CompanyId
+      AND pp.Status IN ('OPEN', 'PARTIAL', 'OVERDUE') AND pp.IsDeleted = 0
+    GROUP BY pp.PartnerId, p.Name, pp.Direction
+);
 GO
 
 -- =============================================================================

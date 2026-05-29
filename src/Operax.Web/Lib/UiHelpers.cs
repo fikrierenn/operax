@@ -120,6 +120,20 @@ public static class UiHelpers
     public static string ShortGuid(System.Guid id) => id.ToString()[..8].ToUpperInvariant();
 
     /// <summary>
+    /// AuditLog aksiyon kodu → Türkçe etiket (sipariş denetim izi). PO/SO Details ortak.
+    /// </summary>
+    public static string AuditActionLabel(string? action) => action switch
+    {
+        "CREATE"   => "Taslak oluşturdu",
+        "UPDATE"   => "Bilgileri güncelledi",
+        "ADD_LINE" => "Kalem ekledi",
+        "POST"     => "Siparişi onayladı",
+        "APPROVE"  => "Siparişi onayladı",
+        "CANCEL"   => "Siparişi iptal etti",
+        _          => action ?? "—",
+    };
+
+    /// <summary>
     /// Verilen bir isim için ilk iki harfin baş harfi (avatar için).
     /// </summary>
     public static string Initials(string? name)

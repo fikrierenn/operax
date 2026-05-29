@@ -100,7 +100,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         Activities = await conn.QueryAsync<ActivityDto>(@"
             SELECT TOP 8
                 a.CreatedAt,
-                ISNULL(NULLIF(a.UserName, ''), 'Sistem') AS UserName,
+                NULLIF(a.UserName, '') AS UserName,
                 a.Action,
                 a.Details AS Notes
             FROM AuditLog a
@@ -292,18 +292,6 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public decimal  LineTotal   => QtyOrdered * (Price ?? 0);
     }
 
-    public record ActivityDto(DateTime CreatedAt, string UserName, string Action, string? Notes)
-    {
-        // Görüntüleme için Türkçe aksiyon etiketi
-        public string ActionLabel => Action switch
-        {
-            "CREATE"    => "Taslak oluşturdu",
-            "UPDATE"    => "Bilgileri güncelledi",
-            "ADD_LINE"  => "Kalem ekledi",
-            "POST"      => "Siparişi onayladı",
-            "APPROVE"   => "Siparişi onayladı",
-            "CANCEL"    => "Siparişi iptal etti",
-            _           => Action
-        };
-    }
+    // Denetim izi satırı — UserName NULL ise view 'Sistem' fallback uygular, etiket UiHelpers.AuditActionLabel'dan gelir.
+    public record ActivityDto(DateTime CreatedAt, string? UserName, string Action, string? Notes);
 }

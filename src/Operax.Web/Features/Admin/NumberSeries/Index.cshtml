@@ -1,0 +1,71 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Admin.NumberSeries.IndexModel
+@{
+    ViewData["Title"] = "Belge Serileri";
+    var header = new PageHeaderVm(
+        Title: "Belge Serileri",
+        Crumbs: new[] { "Anasayfa", "Yönetim", "Belge Serileri" },
+        Sub: "Otomatik numaralama önekleri ve sıraları — cari, fatura, sipariş, çek/senet"
+    );
+}
+
+<div class="page" data-screen-label="Belge Serileri">
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger">@err</div> }
+
+    @* Her satır için ayrı form (tablo dışı) — inputlar form="" ile bağlanır (geçerli HTML) *@
+    @foreach (var s in Model.Series)
+    {
+        <form id="f_@s.Id" method="post" asp-page-handler="Save">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@s.Id" />
+        </form>
+    }
+
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Seriler</div>
+            <div class="card-sub">@Model.Series.Count belge tipi</div>
+        </div>
+        @if (Model.Series.Count == 0)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateVm("Seri yok", "Tanımlı belge serisi bulunamadı. migrate ile seed edilir."))" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Belge Tipi</th><th>Önek</th><th>Ayraç</th>
+                        <th class="num">Sonraki No</th><th class="num">Dolgu</th>
+                        <th>Önizleme</th><th>Aktif</th><th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in Model.Series)
+                    {
+                        var preview = s.Prefix + s.Separator + (s.NextNo.ToString().PadLeft(s.Padding, '0'));
+                        var fid = $"f_{s.Id}";
+                        <tr>
+                            <td class="row-strong">@Operax.Web.Features.Admin.NumberSeries.IndexModel.DocTypeLabel(s.DocType)</td>
+                            <td><input form="@fid" name="prefix" value="@s.Prefix" class="form-ctrl" style="width:90px;" maxlength="15" /></td>
+                            <td><input form="@fid" name="separator" value="@s.Separator" class="form-ctrl" style="width:50px;" maxlength="3" /></td>
+                            <td class="num"><input form="@fid" name="nextNo" type="number" min="1" value="@s.NextNo" class="form-ctrl" style="width:90px;" /></td>
+                            <td class="num"><input form="@fid" name="padding" type="number" min="1" max="9" value="@s.Padding" class="form-ctrl" style="width:64px;" /></td>
+                            <td class="mono muted">@preview</td>
+                            <td>
+                                <label class="chk-row">
+                                    <span class="chk"><input form="@fid" name="isActive" type="checkbox" value="true" checked="@s.IsActive" /><span class="chk-box"></span></span>
+                                </label>
+                            </td>
+                            <td><button type="submit" form="@fid" class="btn btn-primary btn-sm">Kaydet</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

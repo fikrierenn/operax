@@ -88,12 +88,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
         using var multi = await conn.QueryMultipleAsync(@"
-            -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). NetBakiye = SUM(Borc-Alacak).
-            --    + = cari bize borçlu (alacak), - = biz cariye borçluyuz (borç). + açık sipariş (bilgi).
+            -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). Borç/Alacak GROSS toplam.
+            --    NetBakiye = SUM(Borc) - SUM(Alacak). + = cari bize borçlu, - = biz cariye borçluyuz.
             SELECT
-                CASE WHEN b.NetBalance > 0 THEN b.NetBalance ELSE 0 END  AS TotalReceivable,
-                CASE WHEN b.NetBalance < 0 THEN -b.NetBalance ELSE 0 END AS TotalPayable,
-                b.NetBalance,
+                ISNULL(SUM(am.Borc), 0)            AS TotalBorc,
+                ISNULL(SUM(am.Alacak), 0)          AS TotalAlacak,
+                ISNULL(SUM(am.Borc - am.Alacak), 0) AS NetBalance,
                 ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
                         FROM SalesOrderHeader soh
                         JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
@@ -106,9 +106,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                         WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId
                           AND poh.Status IN ('APPROVED', 'POSTED') AND poh.IsDeleted = 0
                           AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenPurchaseOrder
-            FROM (SELECT ISNULL(SUM(Borc - Alacak), 0) AS NetBalance
-                  FROM AccountMovement
-                  WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId AND IsDeleted = 0) b;
+            FROM AccountMovement am
+            WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId AND am.IsDeleted = 0;
 
             -- 2) Devir: tarih aralığı başlangıcından önceki net bakiye (defterden)
             SELECT dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, @From);
@@ -285,7 +284,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         decimal  OpenAmount);
 
     public record BalanceSummaryDto(
-        decimal TotalReceivable, decimal TotalPayable, decimal NetBalance,
+        decimal TotalBorc, decimal TotalAlacak, decimal NetBalance,
         decimal OpenSalesOrder, decimal OpenPurchaseOrder);
 
     // Ekstre hareket satırı — fatura + ödeme birleşik (Borç/Alacak)

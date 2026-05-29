@@ -14,15 +14,15 @@ else
 {
     var openOrder = b.OpenSalesOrder + b.OpenPurchaseOrder;
 
-    @* Bakiye özet kartları — açık sipariş ayrı bilgi, bakiyeye dahil DEĞİL *@
+    @* Cari hesap özeti — Borç/Alacak kolonlarının toplamı + net bakiye. Açık sipariş ayrı bilgi. *@
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
         <div class="kpi">
-            <div class="kpi-label">Toplam Alacak</div>
-            <div class="kpi-value" style="font-size:20px;color:var(--success-text);">@UiHelpers.FmtTL(b.TotalReceivable)</div>
+            <div class="kpi-label">Toplam Borç</div>
+            <div class="kpi-value" style="font-size:20px;color:var(--danger-text);">@UiHelpers.FmtTL(b.TotalBorc)</div>
         </div>
         <div class="kpi">
-            <div class="kpi-label">Toplam Borç</div>
-            <div class="kpi-value" style="font-size:20px;color:var(--danger-text);">@UiHelpers.FmtTL(b.TotalPayable)</div>
+            <div class="kpi-label">Toplam Alacak</div>
+            <div class="kpi-value" style="font-size:20px;color:var(--success-text);">@UiHelpers.FmtTL(b.TotalAlacak)</div>
         </div>
         <div class="kpi">
             <div class="kpi-label">Net Bakiye</div>

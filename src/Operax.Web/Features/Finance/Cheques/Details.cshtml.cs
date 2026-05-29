@@ -33,7 +33,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         // İki ayrı sabit sorgu — tablo adı interpolation yasağı (IMP-1 düzeltme)
         Cheque = IsNote
             ? await conn.QuerySingleOrDefaultAsync<ChequeInfoDto>(@"
-                SELECT n.Id, n.Direction, n.NoteNo AS DocNo, NULL AS BankName, NULL AS BranchName,
+                SELECT n.Id, n.Direction, n.NoteNo AS DocNo, NULL AS RegistryNo, NULL AS BankName, NULL AS BranchName,
                        n.DrawerName, n.DrawerTaxNo, n.Amount, n.Currency,
                        n.IssueDate AS DocDate, n.DueDate, n.Status,
                        n.DepositedAt, n.CollectedAt, n.ReturnReason,
@@ -42,7 +42,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 LEFT JOIN Partner p ON p.Id = n.PartnerId
                 WHERE n.Id = @Id AND n.CompanyId = @CompanyId AND n.IsDeleted = 0", p)
             : await conn.QuerySingleOrDefaultAsync<ChequeInfoDto>(@"
-                SELECT c.Id, c.Direction, c.ChequeNo AS DocNo, c.BankName, c.BranchName,
+                SELECT c.Id, c.Direction, c.ChequeNo AS DocNo, c.RegistryNo, c.BankName, c.BranchName,
                        c.DrawerName, c.DrawerTaxNo, c.Amount, c.Currency,
                        c.ChequeDate AS DocDate, c.DueDate, c.Status,
                        c.DepositedAt, c.CollectedAt, c.ReturnReason,
@@ -111,7 +111,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     }
 
     public record ChequeInfoDto(
-        Guid Id, string Direction, string DocNo, string? BankName, string? BranchName,
+        Guid Id, string Direction, string DocNo, string? RegistryNo, string? BankName, string? BranchName,
         string DrawerName, string? DrawerTaxNo, decimal Amount, string Currency,
         DateTime DocDate, DateTime DueDate, string Status,
         DateTime? DepositedAt, DateTime? CollectedAt, string? ReturnReason,

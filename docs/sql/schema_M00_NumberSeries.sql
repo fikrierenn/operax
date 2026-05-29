@@ -15,7 +15,7 @@ BEGIN
         DocType     NVARCHAR(40)     NOT NULL,   -- PARTNER_CUST / PARTNER_VEND / SALES_INVOICE / PURCHASE_ORDER …
         Prefix      NVARCHAR(15)     NOT NULL DEFAULT '',
         NextNo      INT              NOT NULL DEFAULT 1,
-        Padding     TINYINT          NOT NULL DEFAULT 3,    -- 3 → 001
+        Padding     TINYINT          NOT NULL DEFAULT 6,    -- 6 → 000001
         Separator   NVARCHAR(3)      NOT NULL DEFAULT '-',
         ResetYearly BIT              NOT NULL DEFAULT 0,
         CurrentYear INT              NULL,
@@ -33,7 +33,7 @@ GO
 
 -- Varsayılan seriler — her aktif şirket için (yoksa ekle)
 INSERT INTO NumberSeries (Id, CompanyId, DocType, Prefix, NextNo, Padding)
-SELECT NEWID(), c.Id, x.DocType, x.Prefix, 1, 3
+SELECT NEWID(), c.Id, x.DocType, x.Prefix, 1, 6
 FROM Company c
 CROSS JOIN (VALUES
     ('PARTNER_CUST',    'MUS'),   -- Müşteri
@@ -56,6 +56,10 @@ UPDATE NumberSeries SET Prefix = CASE Prefix
         WHEN 'SI'  THEN 'SFT' WHEN 'ALN' THEN 'AFT'
         WHEN 'SO'  THEN 'SSP' WHEN 'PO'  THEN 'ASP' ELSE Prefix END
 WHERE Prefix IN ('CUS', 'SUP', 'CARI', 'SI', 'ALN', 'SO', 'PO');
+GO
+
+-- Padding 3 (eski default) → 6 normalle
+UPDATE NumberSeries SET Padding = 6 WHERE Padding = 3;
 GO
 
 -- Mevcut cari kodlarını yeni Türkçe öneke taşı (kodlar Id ile referanslı → güvenli)

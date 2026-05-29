@@ -198,4 +198,125 @@
             </div>
         </div>
     </form>
+
+    @* Cari hareketler + bakiye — sadece mevcut kayıtta gösterilir *@
+    @if (!Model.IsNew && Model.Balance != null)
+    {
+        var b = Model.Balance;
+
+        @* Bakiye özet kartları *@
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;">
+            <div class="kpi">
+                <div class="kpi-label">Toplam Alacak</div>
+                <div class="kpi-value" style="font-size:20px;color:var(--success-text);">@UiHelpers.FmtTL(b.TotalReceivable)</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Toplam Borç</div>
+                <div class="kpi-value" style="font-size:20px;color:var(--danger-text);">@UiHelpers.FmtTL(b.TotalPayable)</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Net Bakiye</div>
+                <div class="kpi-value" style="font-size:20px;color:@(b.NetBalance >= 0 ? "var(--success-text)" : "var(--danger-text)");">
+                    @UiHelpers.FmtTL(b.NetBalance)
+                </div>
+            </div>
+        </div>
+
+        @* Vade davranış analizi *@
+        @if (Model.VadeAnalysis != null)
+        {
+            var v = Model.VadeAnalysis;
+            <div class="card" style="margin-top:14px;">
+                <div class="card-hdr">
+                    <div class="card-title">Ödeme Davranışı Analizi</div>
+                    <div class="card-sub">Tamamlanan @v.PaidCount ödeme</div>
+                </div>
+                <div class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+                    <div>
+                        <div class="form-label">Ort. Gecikme (Gün)</div>
+                        <div class="row-strong mono" style="margin-top:4px;color:@(v.AvgDelayDays > 5 ? "var(--danger-text)" : "var(--success-text)");">
+                            @(v.AvgDelayDays.HasValue ? $"{v.AvgDelayDays.Value:0.#} gün" : "—")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="form-label">Ort. Fatura Tutarı</div>
+                        <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(v.AvgInvoiceAmount ?? 0)</div>
+                    </div>
+                    <div>
+                        <div class="form-label">Toplam Tahakkuk</div>
+                        <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(v.TotalPaidAmount)</div>
+                    </div>
+                    <div>
+                        <div class="form-label">Son Ödeme / Tahsilat</div>
+                        <div class="row-strong mono" style="margin-top:4px;">
+                            @(v.LastPayment.HasValue ? UiHelpers.FmtDateShort(v.LastPayment.Value) : "—")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* Son 30 hareket *@
+        <div class="card" style="margin-top:14px;">
+            <div class="card-hdr">
+                <div class="card-title">Cari Hareketler (Son 30)</div>
+                <div class="card-sub">@Model.Transactions.Count hareket</div>
+            </div>
+
+            @if (Model.Transactions.Count == 0)
+            {
+                var empty = new EmptyStateVm("Hareket yok", "Bu cari için finansal hareket kaydı bulunamadı.");
+                <partial name="_EmptyState" model="empty" />
+            }
+            else
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Tip</th>
+                            <th>Araç</th>
+                            <th>Hesap</th>
+                            <th>Açıklama</th>
+                            <th>Kaynak Belge</th>
+                            <th class="num">Tutar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in Model.Transactions)
+                        {
+                            var isIn  = t.TransactionType is "INCOME" or "TRANSFER_IN";
+                            var sign  = isIn ? "+" : "−";
+                            var color = isIn ? "var(--success-text)" : "var(--danger-text)";
+                            <tr>
+                                <td class="mono muted">@UiHelpers.FmtDateShort(t.TransactionDate)</td>
+                                <td>
+                                    @if (isIn)
+                                    {
+                                        <span class="badge badge-success"><span class="badge-dot"></span>GELİR</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-danger"><span class="badge-dot"></span>GİDER</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(t.InstrumentType))
+                                    {
+                                        <span class="badge badge-neutral">@t.InstrumentType</span>
+                                    }
+                                </td>
+                                <td class="muted">@(t.AccountName ?? "—")</td>
+                                <td>@(t.Description ?? "")</td>
+                                <td class="mono muted">@(t.SourceDocNo ?? "—")</td>
+                                <td class="num">
+                                    <span class="row-strong" style="color:@color;">@sign @UiHelpers.FmtTL(t.Amount)</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
 </div>

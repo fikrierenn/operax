@@ -9,7 +9,8 @@
     var header = new PageHeaderVm(
         Title: L.T("Yaşlandırma Raporu", "Aging Report") + " — " + noun,
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Yaşlandırma", "Aging") },
-        SubHtml: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>",
+        SubHtml: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>"
+                 + $" · {L.T("Açık sipariş", "Open orders")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.OpenOrder)}</span>",
         ActionsHtml: ""
     );
 }
@@ -66,6 +67,7 @@
                         <th class="num">61-90</th>
                         <th class="num">90+</th>
                         <th class="num">@L.T("Toplam", "Total")</th>
+                        <th class="num">@L.T("Açık Sipariş", "Open Orders")</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -79,6 +81,7 @@
                             <td class="num" style="color:hsl(28 80% 38%);">@UiHelpers.FmtTL(r.Days61_90)</td>
                             <td class="num" style="color:var(--danger-text);font-weight:600;">@UiHelpers.FmtTL(r.Over90)</td>
                             <td class="num"><span class="row-strong">@UiHelpers.FmtTL(r.TotalOpen)</span></td>
+                            <td class="num muted">@UiHelpers.FmtTL(r.OpenOrderAmount)</td>
                         </tr>
                     }
                 </tbody>

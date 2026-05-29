@@ -16,7 +16,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "RECEIVABLE";
 
     public List<AgingRowDto> Rows   { get; set; } = [];
-    public AgingTotalsDto    Totals { get; set; } = new(0, 0, 0, 0, 0, 0);
+    public AgingTotalsDto    Totals { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
 
     public async Task OnGetAsync()
     {
@@ -26,7 +26,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         Rows = (await conn.QueryAsync<AgingRowDto>(@"
             SELECT
                 PartnerId, PartnerName,
-                NotDue, Days1_30, Days31_60, Days61_90, Over90, TotalOpen
+                NotDue, Days1_30, Days31_60, Days61_90, Over90, TotalOpen,
+                OpenOrderAmount
             FROM dbo.tvf_PaymentPlanAging(@CompanyId)
             WHERE Direction = @Direction
             ORDER BY TotalOpen DESC", p)).ToList();
@@ -37,7 +38,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             Rows.Sum(r => r.Days31_60),
             Rows.Sum(r => r.Days61_90),
             Rows.Sum(r => r.Over90),
-            Rows.Sum(r => r.TotalOpen));
+            Rows.Sum(r => r.TotalOpen),
+            Rows.Sum(r => r.OpenOrderAmount));
     }
 
     public record AgingRowDto(
@@ -48,9 +50,11 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         decimal Days31_60,
         decimal Days61_90,
         decimal Over90,
-        decimal TotalOpen);
+        decimal TotalOpen,
+        decimal OpenOrderAmount);
 
     public record AgingTotalsDto(
         decimal NotDue, decimal Days1_30, decimal Days31_60,
-        decimal Days61_90, decimal Over90, decimal Total);
+        decimal Days61_90, decimal Over90, decimal Total,
+        decimal OpenOrder);
 }

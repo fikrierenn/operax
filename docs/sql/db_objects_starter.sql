@@ -991,7 +991,24 @@ RETURN
                  THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Days61_90,
         SUM(CASE WHEN DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) > 90
                  THEN pp.Amount - pp.PaidAmount ELSE 0 END) AS Over90,
-        SUM(pp.Amount - pp.PaidAmount) AS TotalOpen
+        SUM(pp.Amount - pp.PaidAmount) AS TotalOpen,
+        -- Yöne göre açık sipariş tutarı: alacak (RECEIVABLE) → açık SO, borç (PAYABLE) → açık PO.
+        -- Henüz sevk/mal kabul yapılmamış kısım: (QtyOrdered - QtySevk/Kabul) * Price.
+        CASE WHEN pp.Direction = 'RECEIVABLE' THEN
+            ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
+                    FROM SalesOrderHeader soh
+                    JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
+                    WHERE soh.PartnerId = pp.PartnerId AND soh.CompanyId = @CompanyId
+                      AND soh.Status IN ('APPROVED', 'POSTED') AND soh.IsDeleted = 0
+                      AND sol.QtyOrdered > sol.QtyShipped), 0)
+             WHEN pp.Direction = 'PAYABLE' THEN
+            ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
+                    FROM PurchaseOrderHeader poh
+                    JOIN PurchaseOrderLine pol ON pol.HeaderId = poh.Id
+                    WHERE poh.PartnerId = pp.PartnerId AND poh.CompanyId = @CompanyId
+                      AND poh.Status IN ('APPROVED', 'POSTED') AND poh.IsDeleted = 0
+                      AND pol.QtyOrdered > pol.QtyReceived), 0)
+             ELSE 0 END AS OpenOrderAmount
     FROM PaymentPlan pp
     JOIN Partner p ON p.Id = pp.PartnerId
     WHERE pp.CompanyId = @CompanyId

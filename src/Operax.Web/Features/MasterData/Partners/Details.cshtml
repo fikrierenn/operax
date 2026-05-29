@@ -205,7 +205,8 @@
         var b = Model.Balance;
 
         @* Bakiye özet kartları *@
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;">
+        var openOrder = b.OpenSalesOrder + b.OpenPurchaseOrder;
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;">
             <div class="kpi">
                 <div class="kpi-label">Toplam Alacak</div>
                 <div class="kpi-value" style="font-size:20px;color:var(--success-text);">@UiHelpers.FmtTL(b.TotalReceivable)</div>
@@ -219,6 +220,10 @@
                 <div class="kpi-value" style="font-size:20px;color:@(b.NetBalance >= 0 ? "var(--success-text)" : "var(--danger-text)");">
                     @UiHelpers.FmtTL(b.NetBalance)
                 </div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Açık Sipariş</div>
+                <div class="kpi-value" style="font-size:20px;color:var(--info-text);">@UiHelpers.FmtTL(openOrder)</div>
             </div>
         </div>
 

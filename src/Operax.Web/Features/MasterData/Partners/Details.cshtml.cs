@@ -55,12 +55,26 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
         using var multi = await conn.QueryMultipleAsync(@"
-            -- 1) Bakiye özeti (alacak + borç ayrı)
+            -- 1) Bakiye özeti (alacak + borç ayrı) + açık sipariş (SO=alacak, PO=borç tarafı)
             SELECT
                 ISNULL(SUM(CASE WHEN Direction = 'RECEIVABLE' THEN TotalOpen ELSE 0 END), 0) AS TotalReceivable,
                 ISNULL(SUM(CASE WHEN Direction = 'PAYABLE'    THEN TotalOpen ELSE 0 END), 0) AS TotalPayable,
                 ISNULL(SUM(CASE WHEN Direction = 'RECEIVABLE' AND TotalOpen > 0 THEN TotalOpen ELSE 0 END)
-                     - SUM(CASE WHEN Direction = 'PAYABLE'    AND TotalOpen > 0 THEN TotalOpen ELSE 0 END), 0) AS NetBalance
+                     - SUM(CASE WHEN Direction = 'PAYABLE'    AND TotalOpen > 0 THEN TotalOpen ELSE 0 END), 0) AS NetBalance,
+                -- Açık satış siparişi: henüz sevk edilmemiş satış taahhüdü
+                ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
+                        FROM SalesOrderHeader soh
+                        JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
+                        WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId
+                          AND soh.Status IN ('APPROVED', 'POSTED') AND soh.IsDeleted = 0
+                          AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenSalesOrder,
+                -- Açık satınalma siparişi: henüz mal kabul yapılmamış alım taahhüdü
+                ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
+                        FROM PurchaseOrderHeader poh
+                        JOIN PurchaseOrderLine pol ON pol.HeaderId = poh.Id
+                        WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId
+                          AND poh.Status IN ('APPROVED', 'POSTED') AND poh.IsDeleted = 0
+                          AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenPurchaseOrder
             FROM dbo.tvf_PaymentPlanAging(@CompanyId)
             WHERE PartnerId = @PartnerId;
 
@@ -178,7 +192,9 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public string? IbanForRefund         { get; set; }
     }
 
-    public record BalanceSummaryDto(decimal TotalReceivable, decimal TotalPayable, decimal NetBalance);
+    public record BalanceSummaryDto(
+        decimal TotalReceivable, decimal TotalPayable, decimal NetBalance,
+        decimal OpenSalesOrder, decimal OpenPurchaseOrder);
 
     public record TxRowDto(
         Guid     Id,

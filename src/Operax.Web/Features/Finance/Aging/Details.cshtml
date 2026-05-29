@@ -1,0 +1,136 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Aging.DetailsModel
+@{
+    var p = Model.Partner!;
+    ViewData["Title"] = $"Yaşlandırma — {p.Name}";
+
+    var riskBadge = p.RiskCategory switch
+    {
+        "LOW"     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>DÜŞÜK</span>",
+        "HIGH"    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>YÜKSEK</span>",
+        "BLOCKED" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>BLOKE</span>",
+        _         => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>ORTA</span>"
+    };
+
+    var header = new PageHeaderVm(
+        Title: p.Name,
+        Crumbs: new[] { "Anasayfa", "Finans", "Yaşlandırma", p.Code },
+        Sub: $"{p.Code} · {(Model.Direction == "RECEIVABLE" ? "Alacak" : "Borç")}",
+        ActionsHtml: $"<a href=\"/Finance/Aging\" class=\"btn btn-ghost btn-sm\">Geri</a>"
+    );
+}
+
+<div class="page" data-screen-label="Aging Details">
+    <partial name="_PageHeader" model="header" />
+
+    @* Özet kovalar *@
+    <div class="card" style="margin-bottom:14px;">
+        <div class="card-body" style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;border-top:none;">
+            @{
+                var notDue   = Model.Lines.Where(l => l.DaysOverdue <= 0).Sum(l => l.OpenAmount);
+                var d1_30    = Model.Lines.Where(l => l.DaysOverdue is > 0 and <= 30).Sum(l => l.OpenAmount);
+                var d31_60   = Model.Lines.Where(l => l.DaysOverdue is > 30 and <= 60).Sum(l => l.OpenAmount);
+                var d61_90   = Model.Lines.Where(l => l.DaysOverdue is > 60 and <= 90).Sum(l => l.OpenAmount);
+                var over90   = Model.Lines.Where(l => l.DaysOverdue > 90).Sum(l => l.OpenAmount);
+            }
+            <div style="padding:16px;border-right:1px solid var(--border);">
+                <div class="form-label">Vadesi Gelmemiş</div>
+                <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(notDue)</div>
+            </div>
+            <div style="padding:16px;border-right:1px solid var(--border);">
+                <div class="form-label">1–30 Gün</div>
+                <div class="row-strong mono" style="margin-top:4px;color:var(--warn-text);">@UiHelpers.FmtTL(d1_30)</div>
+            </div>
+            <div style="padding:16px;border-right:1px solid var(--border);">
+                <div class="form-label">31–60 Gün</div>
+                <div class="row-strong mono" style="margin-top:4px;color:var(--warn-text);">@UiHelpers.FmtTL(d31_60)</div>
+            </div>
+            <div style="padding:16px;border-right:1px solid var(--border);">
+                <div class="form-label">61–90 Gün</div>
+                <div class="row-strong mono" style="margin-top:4px;color:var(--danger-text);">@UiHelpers.FmtTL(d61_90)</div>
+            </div>
+            <div style="padding:16px;border-right:1px solid var(--border);">
+                <div class="form-label">90+ Gün</div>
+                <div class="row-strong mono" style="margin-top:4px;color:var(--danger-text);">@UiHelpers.FmtTL(over90)</div>
+            </div>
+            <div style="padding:16px;">
+                <div class="form-label">Toplam Açık</div>
+                <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(Model.TotalOpen)</div>
+            </div>
+        </div>
+    </div>
+
+    @* Detay satırlar *@
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Açık Ödeme Planları</div>
+            <div class="card-sub">@Model.Lines.Count satır</div>
+        </div>
+
+        @if (Model.Lines.Count == 0)
+        {
+            var empty = new EmptyStateVm("Açık kayıt yok", "Bu cari için açık ödeme planı bulunmamaktadır.");
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Vade Tarihi</th>
+                        <th>Kaynak Belge</th>
+                        <th>Durum</th>
+                        <th>Gecikme</th>
+                        <th class="num">Tutar</th>
+                        <th class="num">Ödenen</th>
+                        <th class="num">Açık</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model.Lines)
+                    {
+                        var overClass = l.DaysOverdue switch
+                        {
+                            <= 0       => "",
+                            <= 30      => "color:var(--warn-text)",
+                            <= 90      => "color:var(--danger-text)",
+                            _          => "color:var(--danger-text);font-weight:700"
+                        };
+                        <tr>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(l.DueDate)</td>
+                            <td class="mono">@(l.SourceDocNo ?? "—")</td>
+                            <td>
+                                @if (l.Status == "OVERDUE")
+                                {
+                                    <span class="badge badge-danger"><span class="badge-dot"></span>GECİKMİŞ</span>
+                                }
+                                else if (l.Status == "PARTIAL")
+                                {
+                                    <span class="badge badge-warn"><span class="badge-dot"></span>KISMİ</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-neutral"><span class="badge-dot"></span>AÇIK</span>
+                                }
+                            </td>
+                            <td>
+                                @if (l.DaysOverdue > 0)
+                                {
+                                    <span style="@overClass">@l.DaysOverdue gün</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="num mono">@UiHelpers.FmtTL(l.Amount)</td>
+                            <td class="num mono muted">@UiHelpers.FmtTL(l.PaidAmount)</td>
+                            <td class="num mono row-strong">@UiHelpers.FmtTL(l.OpenAmount)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

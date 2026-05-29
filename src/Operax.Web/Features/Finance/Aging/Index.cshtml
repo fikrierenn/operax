@@ -71,7 +71,7 @@
                 <tbody>
                     @foreach (var r in Model.Rows)
                     {
-                        <tr>
+                        <tr data-route="/Finance/Aging/Details?partnerId=@r.PartnerId&direction=@Model.Direction" style="cursor:pointer;" onclick="location.href=this.dataset.route">
                             <td class="row-strong">@r.PartnerName</td>
                             <td class="num muted">@UiHelpers.FmtTL(r.NotDue)</td>
                             <td class="num">@UiHelpers.FmtTL(r.Days1_30)</td>

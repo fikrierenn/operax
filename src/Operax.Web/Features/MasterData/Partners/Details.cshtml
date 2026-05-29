@@ -1,72 +1,201 @@
 @page "{id:guid?}"
+@using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.DetailsModel
 @{
-    ViewData["Title"] = Model.IsNew ? "New Partner" : $"Partner {Model.Partner.Code}";
+    ViewData["Title"] = Model.IsNew ? "Yeni Cari Kart" : Model.Partner.Name;
+
+    var header = new PageHeaderVm(
+        Title: Model.IsNew ? "Yeni Cari Kart" : Model.Partner.Name,
+        Crumbs: new[] { "Anasayfa", "Master Veri", "Cari Kartlar", Model.IsNew ? "Yeni" : Model.Partner.Code },
+        Sub: Model.IsNew ? "Yeni tedarikçi / müşteri / her ikisi" : $"{Model.Partner.Code} · {(Model.Partner.IsActive ? "Aktif" : "Pasif")}",
+        ActionsHtml: $"<a href=\"/MasterData/Partners\" class=\"btn btn-ghost btn-sm\">Geri</a>"
+    );
 }
 
-<form method="post">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h2 class="text-2xl font-bold">@(Model.IsNew ? "New Business Partner" : "Edit Partner")</h2>
-            <p class="text-slate-500 text-sm">Manage customers, vendors and tax identity</p>
-        </div>
-        <div class="flex gap-2">
-            <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
-                Cancel
-            </a>
-            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm">
-                Save Partner
-            </button>
-        </div>
-    </div>
+<div class="page" data-screen-label="Partner Details">
+    <partial name="_PageHeader" model="header" />
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-2 space-y-8">
-            <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
-                <h3 class="font-bold text-slate-800 border-b pb-4">Identity & Contact</h3>
-                <div class="grid grid-cols-2 gap-6">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Partner Code / ERP Ref</label>
-                        <input asp-for="Partner.Code" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="e.g. V-001" required />
+    @if (TempData["Error"] is string err)
+    {
+        <div class="alert-banner alert-danger">@err</div>
+    }
+
+    <form method="post">
+        @Html.AntiForgeryToken()
+
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:14px;">
+
+            @* Sol — ana bilgiler *@
+            <div style="display:flex;flex-direction:column;gap:14px;">
+
+                @* Kimlik & İletişim *@
+                <div class="card">
+                    <div class="card-hdr">
+                        <div class="card-title">Kimlik &amp; İletişim</div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Account Type</label>
-                        <select asp-for="Partner.Type" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required>
-                            <option value="VENDOR">Vendor (Supplier)</option>
-                            <option value="CUSTOMER">Customer (Buyer)</option>
-                            <option value="BOTH">Both (Vendor & Customer)</option>
-                        </select>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Cari Kodu <span class="req">*</span></label>
+                                <input asp-for="Partner.Code" class="form-ctrl" placeholder="Örn: C-001" required />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cari Tipi <span class="req">*</span></label>
+                                <select asp-for="Partner.Type" class="form-ctrl" required>
+                                    <option value="VENDOR">Tedarikçi</option>
+                                    <option value="CUSTOMER">Müşteri</option>
+                                    <option value="BOTH">Her İkisi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label class="form-label">Cari Ünvanı <span class="req">*</span></label>
+                                <input asp-for="Partner.Name" class="form-ctrl" placeholder="Tam ticaret ünvanı" required />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Vergi No</label>
+                                <input asp-for="Partner.TaxNumber" class="form-ctrl" placeholder="10 haneli VKN / TCKN" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">E-posta</label>
+                                <input asp-for="Partner.Email" type="email" class="form-ctrl" placeholder="fatura@firma.com" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Telefon</label>
+                                <input asp-for="Partner.Phone" class="form-ctrl" placeholder="+90 (5xx) xxx xx xx" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Adres</label>
+                                <input asp-for="Partner.Address" class="form-ctrl" placeholder="İlçe / İl" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label class="form-label">Notlar</label>
+                                <textarea asp-for="Partner.Notes" class="form-ctrl" rows="2" placeholder="İç notlar..."></textarea>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-span-2 flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Legal Name / Title</label>
-                        <input asp-for="Partner.Name" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Full legal company name" required />
+                </div>
+
+                @* Mali Ayarlar *@
+                <div class="card">
+                    <div class="card-hdr">
+                        <div class="card-title">Mali Ayarlar</div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Tax Number / VAT</label>
-                        <input asp-for="Partner.TaxNumber" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Tax ID" />
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Vade (Gün)</label>
+                                <input asp-for="Partner.PaymentTermDays" type="number" min="0" class="form-ctrl" />
+                                <span class="form-hint">Fatura / sipariş varsayılan vade günü</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Kredi Limiti (₺)</label>
+                                <input asp-for="Partner.CreditLimit" type="number" min="0" step="0.01" class="form-ctrl" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Varsayılan Ödeme Yöntemi</label>
+                                <select asp-for="Partner.DefaultPaymentMethod" class="form-ctrl">
+                                    <option value="EFT">EFT / Havale</option>
+                                    <option value="CHEQUE">Çek</option>
+                                    <option value="CASH">Nakit</option>
+                                    <option value="CARD">Kredi Kartı</option>
+                                    <option value="PROMISSORY">Senet</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Maks. Gecikme (Gün)</label>
+                                <input asp-for="Partner.MaxOverdueDays" type="number" min="0" class="form-ctrl" />
+                                <span class="form-hint">Bu günden fazla gecikirse otomatik BLOCKED</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label class="chk">
+                                    <input asp-for="Partner.BlockOnLimitExceed" type="checkbox" />
+                                    <span>Limit aşımında sipariş/sevkiyat bloke edilsin</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold uppercase text-slate-400">Contact Email</label>
-                        <input asp-for="Partner.Email" type="email" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" placeholder="billing@partner.com" />
+                </div>
+
+                @* e-Belge *@
+                <div class="card">
+                    <div class="card-hdr">
+                        <div class="card-title">e-Belge</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label class="chk">
+                                    <input asp-for="Partner.EFaturaMukellef" type="checkbox" />
+                                    <span>e-Fatura mükellefi (GİB kayıtlı)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">e-Fatura Alias / Posta Kutusu</label>
+                                <input asp-for="Partner.EFaturaAlias" class="form-ctrl" placeholder="defaultpk@firma.com" />
+                                <span class="form-hint">GİB'e kayıtlı iletişim adresi</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">İade IBAN</label>
+                                <input asp-for="Partner.IbanForRefund" class="form-ctrl" placeholder="TR00 0000 0000 0000 0000 0000 00" />
+                                <span class="form-hint">İade / havale için banka hesabı</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* Sağ — durum ve risk *@
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div class="card">
+                    <div class="card-hdr">
+                        <div class="card-title">Durum &amp; Risk</div>
+                    </div>
+                    <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+
+                        <label class="chk">
+                            <input asp-for="Partner.IsActive" type="checkbox" />
+                            <span>Aktif Cari</span>
+                        </label>
+
+                        <div class="form-group">
+                            <label class="form-label">Risk Skoru (1–5)</label>
+                            <input asp-for="Partner.RiskScore" type="number" min="1" max="5" class="form-ctrl" />
+                            <span class="form-hint">1 = en düşük risk, 5 = en yüksek</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Risk Kategorisi</label>
+                            <select asp-for="Partner.RiskCategory" class="form-ctrl">
+                                <option value="LOW">Düşük (LOW)</option>
+                                <option value="MEDIUM">Orta (MEDIUM)</option>
+                                <option value="HIGH">Yüksek (HIGH)</option>
+                                <option value="BLOCKED">Bloke (BLOCKED)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+                        <button type="submit" class="btn btn-primary" style="width:100%;">Kaydet</button>
+                        <a href="/MasterData/Partners" class="btn btn-ghost" style="width:100%;text-align:center;">İptal</a>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
-                <h3 class="font-bold text-slate-800 border-b pb-4 text-sm">Status & Settings</h3>
-                <div class="space-y-4">
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        <input type="checkbox" asp-for="Partner.IsActive" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-600" />
-                        <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">Is Active Partner</span>
-                    </label>
-                </div>
-                <!-- Mini info box -->
-                <div class="mt-8 p-4 bg-slate-50 rounded-lg border border-dashed text-xs text-slate-500 leading-relaxed">
-                    Account types determine where this partner will appear (Purchasing or Sales modules). Use <b>Both</b> for companies you both buy from and sell to.
-                </div>
-            </div>
-        </div>
-    </div>
-</form>
+    </form>
+</div>

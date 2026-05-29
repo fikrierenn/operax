@@ -11,7 +11,7 @@ namespace Operax.Web.Features.Finance.Cheques;
 /// Yön (alınan/verilen) ve cari seçimi ile portföye eklenir (PORTFOLIO statü).
 /// </summary>
 [Authorize]
-public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<CreateModel> logger) : PageModel
+public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ILogger<CreateModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Type { get; set; } = "cheque";
     [BindProperty] public ChequeForm Form { get; set; } = new();
@@ -51,17 +51,19 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             }
             else
             {
+                // İş kuralı: çek üstündeki numara (ChequeNo) kullanıcıdan; bizim iç kayıt no seriden
+                var registryNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.Cheque);
                 await conn.ExecuteAsync(@"
                     INSERT INTO Cheque
-                        (Id, CompanyId, Direction, ChequeNo, BankName, BranchName,
+                        (Id, CompanyId, Direction, ChequeNo, RegistryNo, BankName, BranchName,
                          DrawerName, DrawerTaxNo, Amount, Currency, ChequeDate, DueDate,
                          Status, PartnerId, CreatedBy)
                     VALUES
-                        (@Id, @CompanyId, @Direction, @DocNo, @BankName, @BranchName,
+                        (@Id, @CompanyId, @Direction, @DocNo, @RegistryNo, @BankName, @BranchName,
                          @DrawerName, @DrawerTaxNo, @Amount, @Currency, @DocDate, @DueDate,
                          'PORTFOLIO', @PartnerId, @UserId)",
-                    new { id, CompanyId = company.Id, Form.Direction, Form.DocNo, Form.BankName,
-                          Form.BranchName, Form.DrawerName, Form.DrawerTaxNo, Form.Amount,
+                    new { id, CompanyId = company.Id, Form.Direction, Form.DocNo, RegistryNo = registryNo,
+                          Form.BankName, Form.BranchName, Form.DrawerName, Form.DrawerTaxNo, Form.Amount,
                           Form.Currency, Form.DocDate, Form.DueDate, Form.PartnerId, UserId = user.Id });
             }
 

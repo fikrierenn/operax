@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Expenses;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries) : PageModel
 {
     [BindProperty]
     public InvoiceFormDto Form { get; set; } = new();
@@ -60,10 +60,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (IsNew)
         {
             Form.Id = Guid.NewGuid();
+            // İş kuralı: DocNo tedarikçi fatura no (kullanıcı); RegistryNo bizim iç kayıt no (seriden)
+            var registryNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.PurchaseInvoice);
             await conn.ExecuteAsync(@"
-                INSERT INTO ExpenseInvoice (Id, CompanyId, PartnerId, DocNo, InvoiceDate, DueDate, TotalAmount, Currency, Status)
-                VALUES (@Id, @CompanyId, @PartnerId, @DocNo, @InvoiceDate, @DueDate, 0, @Currency, 'DRAFT')",
-                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, Form.InvoiceDate, Form.DueDate, Form.Currency });
+                INSERT INTO ExpenseInvoice (Id, CompanyId, PartnerId, DocNo, RegistryNo, InvoiceDate, DueDate, TotalAmount, Currency, Status)
+                VALUES (@Id, @CompanyId, @PartnerId, @DocNo, @RegistryNo, @InvoiceDate, @DueDate, 0, @Currency, 'DRAFT')",
+                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, RegistryNo = registryNo, Form.InvoiceDate, Form.DueDate, Form.Currency });
         }
         else
         {

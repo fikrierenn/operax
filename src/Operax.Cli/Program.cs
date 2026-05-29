@@ -80,7 +80,8 @@ class Program
                         "schema_M01_M11_RiskAndLoanTypes.sql", // Partner risk + Loan tipleri + Kart-Banka bağlantısı
                         "schema_M01_PartnerExtended.sql",     // Plan 08: cari sorumlu temsilci + contact/address/bank/activity
                         "schema_M11_AccountMovement.sql",     // Plan 09: cari hesap defteri (StockMovement muadili)
-                        "schema_M00_NumberSeries.sql"         // Plan 10: belge seri yönetimi (otomatik numaralama)
+                        "schema_M00_NumberSeries.sql",        // Plan 10: belge seri yönetimi (otomatik numaralama)
+                        "schema_M11_DocumentRegistry.sql"     // Plan 11: gelen belge kayıt no (RegistryNo)
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

@@ -1,5 +1,19 @@
 @using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    // Sayfaya özel KPI'lar — seçili tarih aralığındaki siparişlerden
+    var sipCount = Model.Orders.Count;
+    var sipTotal = Model.Orders.Sum(o => o.Total);
+    var sipOpen  = Model.Orders.Sum(o => o.OpenAmount);
+    var sipDeliv = sipTotal - sipOpen;
+}
+
+<div class="kpi-grid" style="margin-bottom:14px;">
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("SİPARİŞ SAYISI","ORDER COUNT"), sipCount.ToString(), Unit: L.T("adet","pcs"), Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM TUTAR","TOTAL AMOUNT"), UiHelpers.FmtTL(sipTotal), Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("AÇIK SİPARİŞ","OPEN ORDERS"), UiHelpers.FmtTL(sipOpen), Glow: "warn"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TESLİM/FATURA","DELIVERED"), UiHelpers.FmtTL(sipDeliv), Glow: "success"))" />
+</div>
 
 <div class="card">
     <div class="card-hdr">

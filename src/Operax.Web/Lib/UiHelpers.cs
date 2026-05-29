@@ -23,8 +23,12 @@ public static class UiHelpers
         return statusCode switch
         {
             DocStatus.Draft     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
-            DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
+            DocStatus.Approved  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
+            DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>İŞLENDİ</span>",
             DocStatus.Cancelled => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
+            "PENDING"           => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BEKLİYOR</span>",
+            "CLOSED"            => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>KAPANDI</span>",
+            "CLOSED_PARTIAL"    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>KISMİ KAPANDI</span>",
             _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{statusCode}</span>",
         };
     }

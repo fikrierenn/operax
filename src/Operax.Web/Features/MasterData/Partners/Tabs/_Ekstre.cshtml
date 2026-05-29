@@ -14,26 +14,12 @@ else
 {
     var openOrder = b.OpenSalesOrder + b.OpenPurchaseOrder;
 
-    @* Cari hesap özeti — Borç/Alacak kolonlarının toplamı + net bakiye. Açık sipariş ayrı bilgi. *@
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
-        <div class="kpi">
-            <div class="kpi-label">Toplam Borç</div>
-            <div class="kpi-value" style="font-size:20px;color:var(--danger-text);">@UiHelpers.FmtTL(b.TotalBorc)</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label">Toplam Alacak</div>
-            <div class="kpi-value" style="font-size:20px;color:var(--success-text);">@UiHelpers.FmtTL(b.TotalAlacak)</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label">Net Bakiye</div>
-            <div class="kpi-value" style="font-size:20px;color:@(b.NetBalance >= 0 ? "var(--success-text)" : "var(--danger-text)");">
-                @UiHelpers.FmtTL(b.NetBalance)
-            </div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label">Açık Sipariş</div>
-            <div class="kpi-value" style="font-size:20px;color:var(--info-text);">@UiHelpers.FmtTL(openOrder)</div>
-        </div>
+    @* Cari hesap özeti — ortak _KpiCard (dashboard tipi). Net = Borç-Alacak; açık sipariş bilgi. *@
+    <div class="kpi-grid">
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM BORÇ","TOTAL DEBIT"), UiHelpers.FmtTL(b.TotalBorc), Glow: "danger"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM ALACAK","TOTAL CREDIT"), UiHelpers.FmtTL(b.TotalAlacak), Glow: "success"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("NET BAKİYE","NET BALANCE"), UiHelpers.FmtTL(b.NetBalance), Glow: b.NetBalance >= 0 ? "success" : "danger", TrendText: b.NetBalance >= 0 ? L.T("alacaklı","receivable") : L.T("borçlu","payable")))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("AÇIK SİPARİŞ","OPEN ORDERS"), UiHelpers.FmtTL(openOrder), Glow: "brand"))" />
     </div>
 
     @* Vade davranış analizi *@

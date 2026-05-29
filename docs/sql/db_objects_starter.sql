@@ -1018,6 +1018,74 @@ RETURN
 GO
 
 -- =============================================================================
+-- Plan 09 — Cari Hesap Defteri (AccountMovement) sorgu fonksiyonları
+-- =============================================================================
+
+-- fn_PartnerBalanceAsOf — bir tarihten ÖNCEKİ net bakiye (DEVİR). SUM(Borc-Alacak).
+CREATE OR ALTER FUNCTION dbo.fn_PartnerBalanceAsOf
+(
+    @CompanyId UNIQUEIDENTIFIER,
+    @PartnerId UNIQUEIDENTIFIER,
+    @AsOf      DATETIME2
+)
+RETURNS DECIMAL(18,2)
+AS
+BEGIN
+    DECLARE @bal DECIMAL(18,2);
+    SELECT @bal = ISNULL(SUM(Borc - Alacak), 0)
+    FROM AccountMovement
+    WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
+      AND IsDeleted = 0 AND MovementDate < @AsOf;
+    RETURN ISNULL(@bal, 0);
+END
+GO
+
+-- tvf_PartnerBalance — cari bazlı net bakiye + toplam borç/alacak (tüm zaman). KPI kaynağı.
+-- NetBalance > 0: cari bize borçlu (alacağımız). < 0: biz cariye borçluyuz.
+CREATE OR ALTER FUNCTION dbo.tvf_PartnerBalance
+(
+    @CompanyId UNIQUEIDENTIFIER
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        am.PartnerId,
+        SUM(am.Borc)            AS TotalBorc,
+        SUM(am.Alacak)          AS TotalAlacak,
+        SUM(am.Borc - am.Alacak) AS NetBalance
+    FROM AccountMovement am
+    WHERE am.CompanyId = @CompanyId AND am.IsDeleted = 0
+    GROUP BY am.PartnerId
+);
+GO
+
+-- tvf_AccountLedger — bir cariye ait [From..To] hareketleri (DEVİR hariç, tarih sırası).
+-- DEVİR ayrıca fn_PartnerBalanceAsOf(@From) ile alınır; yürüyen bakiye UI'da hesaplanır.
+CREATE OR ALTER FUNCTION dbo.tvf_AccountLedger
+(
+    @CompanyId UNIQUEIDENTIFIER,
+    @PartnerId UNIQUEIDENTIFIER,
+    @From      DATETIME2,
+    @To        DATETIME2
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        am.Id, am.MovementDate, am.SourceDocType, am.SourceDocNo,
+        am.Description, am.Borc, am.Alacak
+    FROM AccountMovement am
+    WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
+      AND am.IsDeleted = 0
+      AND am.MovementDate >= @From
+      AND am.MovementDate < DATEADD(DAY, 1, @To)
+);
+GO
+
+-- =============================================================================
 -- WIRE: sp_ReceivingPost (override) — orijinal sp + maliyet güncelleme
 -- ItemCost.AvgCost'u her POSTED Receiving sonrasinda Moving Avg ile guncelle
 -- StockMovement.UnitCost da kaydedilir (gecmise donuk maliyet izi).

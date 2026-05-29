@@ -52,6 +52,20 @@ public static class SourceDoc
     public const string Picking    = "PICKING";
 }
 
+/// <summary>Cari hesap defteri hareket kaynak tipleri (AccountMovement.SourceDocType)</summary>
+public static class AccountMovementType
+{
+    public const string SalesInvoice    = "SALES_INVOICE";    // Satış faturası → Borç
+    public const string PurchaseInvoice = "PURCHASE_INVOICE"; // Alış faturası → Alacak
+    public const string Payment         = "PAYMENT";          // Tedarikçiye ödeme → Borç
+    public const string Collection      = "COLLECTION";       // Müşteriden tahsilat → Alacak
+    public const string ChequeIn        = "CHEQUE_IN";        // Müşteri çeki giriş
+    public const string ChequeOut       = "CHEQUE_OUT";       // Tedarikçiye çek/ciro
+    public const string Opening         = "OPENING";          // Açılış/devir bakiyesi
+    public const string Variance        = "VARIANCE";         // Fiyat/tutar farkı düzeltmesi
+    public const string Reversal        = "REVERSAL";         // İptal ters kaydı
+}
+
 /// <summary>Evrak numarası önekleri</summary>
 public static class DocPrefix
 {

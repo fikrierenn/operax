@@ -54,17 +54,41 @@
             </div>
         </div>
 
-        <!-- Active Company Block -->
-        <div class="side-company">
-            <div class="side-company-logo">@displayCompanyLogo</div>
-            <div style="flex:1;min-width:0;">
-                <div class="side-company-name">@displayCompanyName</div>
-                <div class="side-company-sub">@displayCompanySub</div>
+        <!-- Active Company Block — firma değiştirme formu -->
+        @if (CurrentUser.IsAuthenticated && userCompanies.Count() > 1)
+        {
+            <form method="POST" action="/api/switch-company" style="margin:0;">
+                @Html.AntiForgeryToken()
+                <div class="side-company" style="cursor:pointer;" title="Firma değiştir">
+                    <div class="side-company-logo">@displayCompanyLogo</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="side-company-name">@displayCompanyName</div>
+                        <div class="side-company-sub">@displayCompanySub</div>
+                    </div>
+                    <select name="companyId" onchange="this.form.submit()"
+                            style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+                        @foreach (var comp in userCompanies)
+                        {
+                            bool isSel = comp.Id == CurrentCompany.Id;
+                            <option value="@comp.Id" selected="@(isSel ? "selected" : null)">@comp.Name</option>
+                        }
+                    </select>
+                    <svg class="side-company-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="side-company">
+                <div class="side-company-logo">@displayCompanyLogo</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="side-company-name">@displayCompanyName</div>
+                    <div class="side-company-sub">@displayCompanySub</div>
+                </div>
             </div>
-            <svg class="side-company-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <polyline points="6 9 12 15 18 9"/>
-            </svg>
-        </div>
+        }
 
         <!-- Navigation Menu -->
         <nav class="side-nav">
@@ -298,36 +322,8 @@
                     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
 
-                <!-- Company Switcher -->
-                @if (CurrentUser.IsAuthenticated && userCompanies.Any())
-                {
-                    <form method="POST" action="/api/switch-company" style="display:inline-flex;align-items:center;margin:0;">
-                        @Html.AntiForgeryToken()
-                        <div style="display:flex;align-items:center;gap:6px;background:hsl(220,14%,96%);border:1px solid hsl(220,14%,90%);border-radius:9px;padding:5px 10px;height:32px;">
-                            <!-- Company icon -->
-                            <svg width="12" height="12" fill="none" stroke="hsl(215,16%,47%)" stroke-width="1.75" viewBox="0 0 24 24">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                                <polyline points="9 22 9 12 15 12 15 22"/>
-                            </svg>
-                            <select name="companyId" onchange="this.form.submit()" style="
-                                background:transparent;border:none;outline:none;
-                                font-size:12px;font-weight:600;
-                                color:hsl(222,47%,20%);
-                                cursor:pointer;
-                                font-family:inherit;
-                                max-width:140px;
-                            ">
-                                @foreach (var comp in userCompanies)
-                                {
-                                    bool isSelected = comp.Id == CurrentCompany.Id;
-                                    <option value="@comp.Id" selected="@(isSelected ? "selected" : null)">@comp.Name</option>
-                                }
-                            </select>
-                        </div>
-                    </form>
-                }
-
                 @* Dil değiştirici (TR/EN) kaldırıldı — arayüz tamamen Türkçe (turkish-ui.md kuralı) *@
+                @* Firma değiştirici sidebar'a taşındı *@
 
                 <!-- Date chip -->
                 <div style="

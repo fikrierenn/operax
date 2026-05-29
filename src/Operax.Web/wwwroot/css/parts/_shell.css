@@ -42,6 +42,7 @@
   cursor: pointer;
   transition: background .15s;
   text-decoration: none;
+  position: relative;
 }
 .side-company:hover { background: hsl(222 47% 17%); }
 .side-company-logo {
@@ -134,7 +135,7 @@
 .side-foot-action:hover { background: hsl(222 47% 17%); color: var(--side-text-strong); }
 
 /* Top bar */
-.main { display: flex; flex-direction: column; min-width: 0; }
+.main { display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow: hidden; }
 .topbar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 22px;

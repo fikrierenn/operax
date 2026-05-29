@@ -56,6 +56,24 @@ Oyun: ERP implementer değil → **Enterprise Operation Brain Builder.**
 - **3 katman ayrımı mimaride korunur:** ERP truth (immutable) / Operax canlı / Decision ayrı katman.
 - **Roadmap kararları** bu doktrine göre filtrelenir: bir özellik "kayıt mı tutuyor yoksa şirketi mi çalıştırıyor?"
 
+## 7.5 AÇIK STRATEJİK SORU — KARAR BEKLİYOR (2026-05-29, mimari review)
+
+> ⚠️ Fikri kararı bekliyor. Bu bölüm kendiliğinden yeniden yazılmaz — karar verilince netleşir.
+
+**Konumlandırma vs gerçek çatışması (AR-008):** Kod tabanı bugün bir **KOBİ operasyon katmanı** — single-tenant on-prem, TR mevzuatı, WMS + üretim odaklı. VISION ise enterprise **"SAP üstü kategori"** diyor. İki gerilim:
+1. **Ölçek uyumsuzluğu:** Single-tenant on-prem + elle CompanyId izolasyonu, "SAP üstü" enterprise iddiasıyla örtüşmüyor.
+2. **Bağımlılık paradoksu:** Resmi muhasebe `M16` ile Logo/Mikro'ya bağımlı — yani "üstüne çıktığını" iddia ettiği rakibe bağımlı.
+
+**Karar gereken:** Operax (a) KOBİ operasyon/karar katmanı olarak mı konumlanacak (Logo/Mikro'yu tamamlayan), yoksa (b) gerçekten enterprise muhasebe-dahil platform mu olacak? Bu, roadmap önceliğini ve M16 bağımlılık stratejisini belirler.
+
+**İlişkili açık tasarım soruları** (bkz. `docs/journal/2026-05-29.md`): intercompany otomasyonu, konsolidasyon raporlama, firma-bazlı yetki.
+
+### KARARLAR (2026-05-29, Fikri)
+1. **Intercompany:** Şirkete göre **parametrik** — A→B satış/transferde iki-taraflı belge oluşumu firma bazlı ayar (config flag), zorunlu değil.
+2. **Konsolidasyon:** Per-company dashboard'a karıştırılmaz; ayrı **"Grup Raporu"** olarak ele alınır (çok-firma toplu görünüm ayrı modül).
+3. **Firma-bazlı yetki:** **KARARSIZ** — açık (Plan 13 §3 bekliyor).
+4. **Konumlandırma (AR-008):** Tam enterprise muhasebe **"çok ağır" endişesi** → eğilim: **KOBİ operasyon/karar katmanı** (resmi muhasebe M16 ile Logo/Mikro'ya delege kalır). Kesin kilit değil, yön bu. VISION enterprise dili buna göre yumuşatılmalı (ayrı revizyon).
+
 ## 8. İlişkili
 
 - `plans/07-ai-assistant-rag-alarms.md` — Decision Layer ilk implementasyon

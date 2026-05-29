@@ -3,6 +3,10 @@ bin/
 obj/
 *.user
 *.suo
+
+# Ölü/geçici build log artefaktları (Sprint 0 öncesi AddDefaultIdentity logları)
+build_log.txt
+*.log
 .vs/
 
 # Node / Tailwind

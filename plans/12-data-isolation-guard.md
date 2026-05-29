@@ -1,6 +1,6 @@
 # Plan 12 — Multi-Company Veri İzolasyon Güvencesi
 
-**Tarih:** 2026-05-29 · **Durum:** `Taslak` · **Modül:** M00 · **Kaynak:** AR-001 (🔴 KRİTİK)
+**Tarih:** 2026-05-29 · **Durum:** `Onaylandı (2026-05-29)` · **Modül:** M00 · **Kaynak:** AR-001 (🔴 KRİTİK)
 
 ## 1. Problem
 Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `WHERE CompanyId = @CompanyId` yazıyor. Tek unutulan sorgu = firmalar arası veri sızıntısı (BKM 5 firma / tek DB, ilişkili-taraf holding). Denetim + güvenlik riski. Şu an hiçbir otomatik kontrol yok.

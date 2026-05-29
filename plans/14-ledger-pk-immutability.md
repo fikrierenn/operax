@@ -1,6 +1,6 @@
 # Plan 14 — Ledger Clustered Anahtar + Immutability
 
-**Tarih:** 2026-05-29 · **Durum:** `Taslak` · **Modül:** M02/M11 · **Kaynak:** AR-004 + AR-005 (🟠 YÜKSEK)
+**Tarih:** 2026-05-29 · **Durum:** `Onaylandı (2026-05-29)` · **Modül:** M02/M11 · **Kaynak:** AR-004 + AR-005 (🟠 YÜKSEK)
 
 ## 1. Problem
 İki ilişkili ledger sorunu:

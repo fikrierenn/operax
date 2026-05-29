@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-05-29
 **Yazan:** Fikri / Claude
-**Durum:** `Taslak`
+**Durum:** `Onaylandı (2026-05-29)`
 **Modül:** M00 (Platform Core / Metadata)
 **Paket:** STARTER
 

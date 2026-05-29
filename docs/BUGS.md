@@ -394,3 +394,35 @@ Sprint : S1'den itibaren her sprint'te ilgili ekranlar → cross-cutting
 | S1-ROL-001 | Mart 2026 | Claude | Users/Create+Edit rol dropdown + company claim ataması eklendi |
 | S1-ROL-002 | Mart 2026 | Claude | Roles/Create sayfası oluşturuldu (yeni dosyalar) |
 | S1-ROL-003 | Mart 2026 | Claude | Roles/Index Sil handler eklendi; Administrator rolü korumalı |
+
+---
+
+## 🏛️ MİMARİ REVIEW BULGULARI (2026-05-29 — dış göz review, doğrulandı)
+
+> Dış mimari/konumlandırma review'ı; her madde kod ile doğrulandı. Build: 0 hata ✅.
+> Severity: 🔴 KRİTİK · 🟠 YÜKSEK · 🟡 ORTA/SÜREÇ · 🔵 STRATEJİ
+
+### 🔴 AR-001 · Multi-company veri izolasyonu — global query filter yok
+- [ ] **Doğrulandı:** Dapper'da EF benzeri global filter yok; her sorgu elle `WHERE CompanyId = @CompanyId` yazıyor. Tek unutulan sorgu = firmalar arası sızıntı (BKM 5 firma / tek DB, ilişkili-taraf). Denetim riski.
+- **Aksiyon:** Company-kapsamlı tablolarda CompanyId predikatı zorunluluğunu tarayan grep/test kuralı + pre-commit/antipattern hook + `.claude/rules` kuralı. → **plan: 12**
+
+### 🔴 AR-002 · Firma bazlı numara serisi (VUK) — ✅ ZATEN KARŞILANMIŞ
+- [x] **Doğrulandı (sorun YOK):** `NumberSeries` tablosu `CompanyId` ile anahtarlı, `sp_NextNumber @CompanyId` ile firma-bazlı. Her tüzel kişilik kendi dizisini alır (UQ: CompanyId+DocType). VUK gereği karşılanıyor. Yeni bug değil; kayıt amaçlı.
+
+### 🟠 AR-003 · /api/switch-company — CSRF + yetki atlama
+- [ ] **Doğrulandı:** `Program.cs:116 DisableAntiforgery()` (CSRF açık) + endpoint hedef firmaya kullanıcının ERİŞİM YETKİSİNİ kontrol etmiyor; herhangi bir companyId claim olarak yazılıyor (firma atlama kapısı). → **plan: 13**
+
+### 🟠 AR-004 · Ledger PK = GUID NEWID() — fragmentasyon
+- [ ] **Doğrulandı:** `StockMovement` + `AccountMovement` clustered PK = `UNIQUEIDENTIFIER DEFAULT NEWID()` (rastgele). Büyüyen tablolarda page split/fragmentasyon → "Dapper+SARGable hız" iddiasını baltalar. → **plan: 14** (ADR: BIGINT identity clustered + GUID nonclustered, ya da NEWSEQUENTIALID).
+
+### 🟠 AR-005 · AccountMovement IsDeleted — immutability ihlali
+- [ ] **Doğrulandı:** `AccountMovement` `IsDeleted BIT` taşıyor (append-only ledger silinmemeli). VISION "ERP truth immutable" + VUK 359 bütünlük ile çelişir. `StockMovement` `IsCancelled` kullanıyor (daha doğru ama yine de düzeltme=ters kayıt olmalı). → **plan: 14** (IsDeleted kaldır + contra-entry/REVERSAL mekanizması).
+
+### 🟠 AR-006 · FIFO maliyet eksik — yanlış sınıflandırma
+- [ ] **Doğrulandı:** `ItemCost.AvgCost` yalnızca hareketli ortalama; FIFO cost layer yok. Audit "İleri/ertelenebilir" demiş — TR enflasyon ortamında FIFO COGS/vergiyi maddi değiştirir → **G8 "Olgun/gerekli"ye yükselt**, roadmap önceliği revize. → roadmap notu (plan gerekirse ayrı).
+
+### 🟡 AR-007 · Audit öz-puanlama / confirmation bias (SÜREÇ)
+- [ ] Auditor skill kendi projesini denetliyor: Create formu olmayan modüller "Olgun" puanlanmış; 6.5/7 rakip skoru doğrulanamaz. → **Aksiyon:** auditor skill'ine "kanıt katmanı" disiplini (her 🟢 dosya kanıtına bağlı; eksik Create = en fazla 🟡). → `operax-erp-wms-auditor` skill güncellemesi.
+
+### 🔵 AR-008 · Konumlandırma vs gerçek (STRATEJİ — Fikri kararı bekliyor)
+- [ ] Kod = KOBİ operasyon katmanı (single-tenant on-prem, TR, WMS+üretim); VISION = enterprise "SAP üstü". Resmi muhasebe M16 ile Logo/Mikro'ya bağımlı (üstüne çıktığı rakibe bağımlılık). → VISION.md'ye "AÇIK STRATEJİK SORU" notu; **kendiliğinden yeniden yazma**.

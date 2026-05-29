@@ -1,6 +1,6 @@
 # Plan 13 — /api/switch-company Güvenlik Sıkılaştırma
 
-**Tarih:** 2026-05-29 · **Durum:** `Taslak` · **Modül:** M00 · **Kaynak:** AR-003 (🟠 YÜKSEK)
+**Tarih:** 2026-05-29 · **Durum:** `Onaylandı (2026-05-29) — §3 firma-yetki KARARSIZ, antiforgery kısmı net` · **Modül:** M00 · **Kaynak:** AR-003 (🟠 YÜKSEK)
 
 ## 1. Problem
 `Program.cs:97-116` `/api/switch-company`:

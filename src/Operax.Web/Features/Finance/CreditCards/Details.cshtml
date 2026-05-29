@@ -67,18 +67,20 @@
                 {
                     <table class="data-table">
                         <thead>
-                            <tr><th>Dönem</th><th>Son Ödeme</th><th class="num">Borç</th><th class="num">Asgari</th><th>Durum</th></tr>
+                            <tr><th>Dönem</th><th>Son Ödeme</th><th class="num">Borç</th><th class="num">Asgari</th><th>Durum</th><th></th></tr>
                         </thead>
                         <tbody>
                             @foreach (var s in Model.Statements)
                             {
+                                var remaining = s.ClosingBalance - s.PaidAmount;
+                                var isPaid    = remaining <= 0;
                                 <tr>
                                     <td class="mono">@s.PeriodStart.ToString("dd MMM") – @s.PeriodEnd.ToString("dd MMM")</td>
                                     <td class="mono">@s.DueDate.ToString("dd MMM yyyy")</td>
                                     <td class="num"><span class="row-strong">@UiHelpers.FmtTL(s.ClosingBalance)</span></td>
                                     <td class="num muted">@UiHelpers.FmtTL(s.MinPayment)</td>
                                     <td>
-                                        @if (s.PaidAmount >= s.ClosingBalance)
+                                        @if (isPaid)
                                         {
                                             <span class="badge badge-success"><span class="badge-dot"></span>ÖDENDİ</span>
                                         }
@@ -89,6 +91,26 @@
                                         else
                                         {
                                             <span class="badge badge-neutral"><span class="badge-dot"></span>AÇIK</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!isPaid && Model.BankAccounts.Count > 0)
+                                        {
+                                            <form method="post" asp-page-handler="PayStatement"
+                                                  style="display:flex;gap:6px;align-items:center;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="statementId" value="@s.Id" />
+                                                <select name="fromAccountId" class="form-ctrl" style="height:30px;font-size:12px;min-width:130px;">
+                                                    @foreach (var ba in Model.BankAccounts)
+                                                    {
+                                                        <option value="@ba.Id">@ba.Name</option>
+                                                    }
+                                                </select>
+                                                <input name="amount" type="number" step="0.01" min="0.01"
+                                                       value="@remaining.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                                       class="form-ctrl" style="height:30px;font-size:12px;width:100px;" />
+                                                <button type="submit" class="btn btn-primary btn-xs">Öde</button>
+                                            </form>
                                         }
                                     </td>
                                 </tr>

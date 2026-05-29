@@ -1,50 +1,25 @@
 @page
+@using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.IndexModel
 @{
     ViewData["Title"] = "Cari Hesaplar";
+
+    var header = new PageHeaderVm(
+        Title: "Cari Hesap Yönetimi",
+        Crumbs: new[] { "Anasayfa", "Cari Kartlar" },
+        Sub: "Müşteri ve tedarikçilerinizin kartları ve mali kimlikleri",
+        ActionsHtml: "<a href=\"/MasterData/Partners/Details\" class=\"btn btn-primary\" data-shortcut=\"Alt+N\">+ Yeni Cari Hesap</a>"
+    );
 }
 
-<div class="page-hdr">
-    <div class="page-hdr-l">
-        <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Tanımlamalar</span>
-            <span class="breadcrumb-sep">/</span>
-            <span class="breadcrumb-current">Cari Hesaplar</span>
-        </div>
-        <h1>Cari Hesap Yönetimi</h1>
-        <p class="page-hdr-sub">Müşteri ve tedarikçilerinizin kartları ve mali kimlikleri</p>
-    </div>
-    <div class="page-hdr-r">
-        <a asp-page="./Details" class="btn btn-primary px-6" data-shortcut="Alt+N">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Yeni Cari Hesap
-        </a>
-    </div>
-</div>
+<div class="page" data-screen-label="Cari Kartlar">
+<partial name="_PageHeader" model="header" />
 
-<!-- KPI Cards -->
+@* KPI — ortak _KpiCard (dashboard tipi) *@
 <div class="kpi-grid">
-    <div class="kpi">
-        <div class="kpi-glow brand"></div>
-        <div class="kpi-icon bg-indigo-50 text-indigo-600">👥</div>
-        <span class="kpi-label">Toplam İş Ortağı</span>
-        <div class="kpi-val text-slate-800">@Model.TotalPartners</div>
-        <span class="kpi-sub">Kayıtlı tüm cari hesaplar</span>
-    </div>
-    <div class="kpi">
-        <div class="kpi-glow success"></div>
-        <div class="kpi-icon bg-emerald-50 text-emerald-600">🤝</div>
-        <span class="kpi-label">Aktif Müşteriler</span>
-        <div class="kpi-val text-slate-800">@Model.CustomerCount</div>
-        <span class="kpi-sub">Alıcı iş ortakları</span>
-    </div>
-    <div class="kpi">
-        <div class="kpi-glow warn"></div>
-        <div class="kpi-icon bg-amber-50 text-amber-600">🏢</div>
-        <span class="kpi-label">Aktif Tedarikçiler</span>
-        <div class="kpi-val text-slate-800">@Model.VendorCount</div>
-        <span class="kpi-sub">Satıcı iş ortakları</span>
-    </div>
+    <partial name="_KpiCard" model="@(new KpiCardVm("TOPLAM İŞ ORTAĞI", Model.TotalPartners.ToString(), Unit: "cari", Glow: "brand", TrendText: "Kayıtlı tüm cari hesaplar"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("AKTİF MÜŞTERİLER", Model.CustomerCount.ToString(), Glow: "success", TrendText: "Alıcı iş ortakları"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("AKTİF TEDARİKÇİLER", Model.VendorCount.ToString(), Glow: "warn", TrendText: "Satıcı iş ortakları"))" />
 </div>
 
 <div class="card overflow-hidden mt-6">
@@ -114,4 +89,5 @@
             }
         </tbody>
     </table>
+</div>
 </div>

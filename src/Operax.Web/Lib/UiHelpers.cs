@@ -115,6 +115,11 @@ public static class UiHelpers
     };
 
     /// <summary>
+    /// Guid'in kısa gösterimi: ilk 8 karakter, büyük harf (UUID/TX kısaltması için).
+    /// </summary>
+    public static string ShortGuid(System.Guid id) => id.ToString()[..8].ToUpperInvariant();
+
+    /// <summary>
     /// Verilen bir isim için ilk iki harfin baş harfi (avatar için).
     /// </summary>
     public static string Initials(string? name)

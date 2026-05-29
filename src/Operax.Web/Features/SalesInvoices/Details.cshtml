@@ -32,7 +32,7 @@
         }
         @if (h.EBelgeUuid.HasValue)
         {
-            <span class="muted mono" style="font-size:10px;">UUID: @h.EBelgeUuid.Value.ToString()[..8]…</span>
+            <span class="muted mono" style="font-size:10px;">UUID: @UiHelpers.ShortGuid(h.EBelgeUuid.Value)…</span>
         }
     </div>
 
@@ -156,7 +156,7 @@
                                     <span class="row-strong">@e.DocumentType</span>
                                     <span class="badge badge-neutral">@e.Status</span>
                                 </div>
-                                <div class="mono row-sub">@e.Uuid.ToString()[..8]…</div>
+                                <div class="mono row-sub">@UiHelpers.ShortGuid(e.Uuid)…</div>
                                 @if (e.SentAt.HasValue)
                                 {
                                     <div class="row-sub">@L.T("Gönderim:", "Sent:") @UiHelpers.FmtDateShort(e.SentAt.Value)</div>

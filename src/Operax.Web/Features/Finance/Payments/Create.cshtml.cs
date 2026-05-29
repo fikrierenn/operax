@@ -57,8 +57,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
 
             var newId = prm.Get<Guid>("NewTxId");
             TempData["Success"] = Form.TxType == "INCOME"
-                ? $"Tahsilat kaydedildi. TX: {newId.ToString()[..8].ToUpper()}"
-                : $"Ödeme kaydedildi. TX: {newId.ToString()[..8].ToUpper()}";
+                ? $"Tahsilat kaydedildi. TX: {UiHelpers.ShortGuid(newId)}"
+                : $"Ödeme kaydedildi. TX: {UiHelpers.ShortGuid(newId)}";
 
             return RedirectToPage("/Finance/PaymentPlan/Index");
         }

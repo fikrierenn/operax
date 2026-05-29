@@ -12,7 +12,7 @@ namespace Operax.Web.Features.PurchaseOrders;
 /// Tüm header ek bilgileri (şehir, VKN, satır toplamı, aktivite) veritabanından gelir.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public PurchaseOrderHeaderDto Header { get; set; } = new();
@@ -116,7 +116,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         {
             Header.Id = Guid.NewGuid();
             // İş kuralı: Günlük sıralı evrak numarası üretilir (PO-YYYYMMDD-NNNNN)
-            var seq = conn.ExecuteScalar<int>(
+            var seq = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) + 1 FROM PurchaseOrderHeader WHERE CompanyId = @CompanyId AND CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE)",
                 new { CompanyId = company.Id });
             Header.OrderNo = $"{DocPrefix.PurchaseOrder}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
@@ -208,24 +208,53 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // İş kuralı: DRAFT → POSTED geçişi. sp_PoPost StatusTransition doğrulamasını yapar,
         // sonrasında sp_GeneratePaymentPlanFromPO ile tedarikçi vade planını otomatik üretir.
         using var conn = db.Open();
-        await conn.ExecuteAsync(
-            "sp_PoPost",
-            new { PoHeaderId = id, CompanyId = company.Id, UserId = (Guid?)null },
-            commandType: System.Data.CommandType.StoredProcedure);
-
-        await audit.LogAsync("POST", "PurchaseOrderHeader", id,
-            "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");
+        try
+        {
+            await conn.ExecuteAsync(
+                "sp_PoPost",
+                new { PoHeaderId = id, CompanyId = company.Id, UserId = (Guid?)null },
+                commandType: System.Data.CommandType.StoredProcedure);
+            await audit.LogAsync("POST", "PurchaseOrderHeader", id,
+                "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "PO onay hatası: {PoId}", id);
+            TempData["Error"] = "Sipariş onaylanırken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostCancelAsync(Guid id)
     {
-        // İş kuralı: POSTED durumdan CANCELLED'a geçiş; geri alma için audit kaydı zorunlu
+        // İş kuralı: POSTED → CANCELLED; sp_ValidateStatusTransition bypass engeli
         using var conn = db.Open();
-        await conn.ExecuteAsync(
-            "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-            new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
-        await audit.LogAsync("CANCEL", "PurchaseOrderHeader", id, "Satınalma siparişi iptal edildi");
+        try
+        {
+            await conn.ExecuteAsync("sp_ValidateStatusTransition",
+                new { CompanyId = company.Id, DocType = "PURCHASE_ORDER",
+                      CurrentStatus = DocStatus.Posted, NewStatus = DocStatus.Cancelled,
+                      UserId = user.Id },
+                commandType: System.Data.CommandType.StoredProcedure);
+
+            await conn.ExecuteAsync(
+                "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
+            await audit.LogAsync("CANCEL", "PurchaseOrderHeader", id, "Satınalma siparişi iptal edildi");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "PO iptal hatası: {PoId}", id);
+            TempData["Error"] = "Sipariş iptal edilirken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

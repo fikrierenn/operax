@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Shipping;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ShippingHeaderDto Header { get; set; } = new();
@@ -176,20 +176,44 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // sp_ShippingCreatePickTask: FIFO rezervasyon + eksik stok için üretim emri
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ShippingCreatePickTask",
-            new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
+        try
+        {
+            await conn.ExecuteAsync("sp_ShippingCreatePickTask",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "Toplama görevi oluşturma hatası: {HeaderId}", id);
+            TempData["Error"] = "Toplama görevi oluşturulurken hata oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostPostAsync(Guid id)
     {
-        // sp_ShippingPost: stok hareketi (ISSUE), SO güncelleme, durum değişimi
+        // sp_ShippingPost: stok hareketi (ISSUE), SO güncelleme, ItemCost, otomatik fatura, durum değişimi
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ShippingPost",
-            new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
-        await audit.LogAsync("POST", "ShippingHeader", id, "Sevkiyat irsaliyesi onaylandı, stok çıkışı yapıldı");
+        try
+        {
+            await conn.ExecuteAsync("sp_ShippingPost",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            await audit.LogAsync("POST", "ShippingHeader", id, "Sevkiyat irsaliyesi onaylandı, stok çıkışı yapıldı");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "Sevkiyat onay hatası: {HeaderId}", id);
+            TempData["Error"] = "Sevkiyat onaylanırken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

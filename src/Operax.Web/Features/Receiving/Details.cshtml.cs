@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Receiving;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ReceivingHeaderDto Header { get; set; } = new();
@@ -141,12 +141,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostPostAsync(Guid id)
     {
-        // sp_ReceivingPost: stok hareketi, PO güncelleme, durum değişimi
+        // sp_ReceivingPost: stok hareketi, PO güncelleme, ItemCost MA, durum değişimi
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ReceivingPost",
-            new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
-        await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul irsaliyesi onaylandı");
+        try
+        {
+            await conn.ExecuteAsync("sp_ReceivingPost",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul irsaliyesi onaylandı");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "Mal kabul onay hatası: {HeaderId}", id);
+            TempData["Error"] = "Mal kabul onaylanırken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

@@ -6,6 +6,26 @@
 -- =============================================================================
 SET NOCOUNT ON;
 
+-- ─── Eksik temel kolonlar (önceki form genişletmesinde varsayılmış ama eklenmemiş) ──
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'Phone' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD Phone NVARCHAR(40) NULL;
+    PRINT 'Partner.Phone eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'Address' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD Address NVARCHAR(500) NULL;
+    PRINT 'Partner.Address eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'Notes' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD Notes NVARCHAR(MAX) NULL;
+    PRINT 'Partner.Notes eklendi.';
+END
+GO
+
 -- ─── Faz 0: Sorumlu temsilci ──────────────────────────────────────
 -- Satış temsilcisi: müşteri carisinin sorumlusu. Satınalma sorumlusu: tedarikçi carisinin sorumlusu.
 -- İleride satır-seviyesi yetki temeli (kullanıcı sadece kendi carisini görür).

@@ -36,18 +36,31 @@ INSERT INTO NumberSeries (Id, CompanyId, DocType, Prefix, NextNo, Padding)
 SELECT NEWID(), c.Id, x.DocType, x.Prefix, 1, 3
 FROM Company c
 CROSS JOIN (VALUES
-    ('PARTNER_CUST',    'CUS'),
-    ('PARTNER_VEND',    'SUP'),
-    ('PARTNER_BOTH',    'CARI'),
-    ('SALES_INVOICE',   'SI'),
-    ('PURCHASE_INVOICE','ALN'),
-    ('SALES_ORDER',     'SO'),
-    ('PURCHASE_ORDER',  'PO'),
-    ('CHEQUE',          'CEK'),
-    ('PROMISSORY_NOTE', 'SNT')
+    ('PARTNER_CUST',    'MUS'),   -- Müşteri
+    ('PARTNER_VEND',    'TED'),   -- Tedarikçi
+    ('PARTNER_BOTH',    'CAR'),   -- Cari (her ikisi)
+    ('SALES_INVOICE',   'SFT'),   -- Satış Faturası
+    ('PURCHASE_INVOICE','AFT'),   -- Alış Faturası
+    ('SALES_ORDER',     'SSP'),   -- Satış Siparişi
+    ('PURCHASE_ORDER',  'ASP'),   -- Alış Siparişi
+    ('CHEQUE',          'CEK'),   -- Çek
+    ('PROMISSORY_NOTE', 'SNT')    -- Senet
 ) AS x(DocType, Prefix)
 WHERE c.IsDeleted = 0
   AND NOT EXISTS (SELECT 1 FROM NumberSeries ns WHERE ns.CompanyId = c.Id AND ns.DocType = x.DocType);
+GO
+
+-- Eski İngilizce prefix'leri Türkçeye normalle (önceden seed edilmiş DB'ler için)
+UPDATE NumberSeries SET Prefix = CASE Prefix
+        WHEN 'CUS' THEN 'MUS' WHEN 'SUP' THEN 'TED' WHEN 'CARI' THEN 'CAR'
+        WHEN 'SI'  THEN 'SFT' WHEN 'ALN' THEN 'AFT'
+        WHEN 'SO'  THEN 'SSP' WHEN 'PO'  THEN 'ASP' ELSE Prefix END
+WHERE Prefix IN ('CUS', 'SUP', 'CARI', 'SI', 'ALN', 'SO', 'PO');
+GO
+
+-- Mevcut cari kodlarını yeni Türkçe öneke taşı (kodlar Id ile referanslı → güvenli)
+UPDATE Partner SET Code = 'MUS' + SUBSTRING(Code, 4, 50) WHERE Code LIKE 'CUS-%';
+UPDATE Partner SET Code = 'TED' + SUBSTRING(Code, 4, 50) WHERE Code LIKE 'SUP-%';
 GO
 
 -- Mevcut cari kodlarıyla çakışmayı önle: partner serilerinin NextNo'sunu var olan en yüksek

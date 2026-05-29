@@ -73,6 +73,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                          SalesRepUserId, PurchaseRepUserId
                   FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId", p) ?? new();
 
+            // İş kuralı: eski/eksik veride null sayısal alanlar 0 olarak gelir; form min kısıtını
+            // ihlal edip kaydetmeyi engeller (örn. RiskScore=0 < min 1). Geçerli varsayılana çek.
+            if (Partner.RiskScore is < 1 or > 5)               Partner.RiskScore = 3;
+            if (string.IsNullOrWhiteSpace(Partner.RiskCategory)) Partner.RiskCategory = "MEDIUM";
+            if (string.IsNullOrWhiteSpace(Partner.DefaultPaymentMethod)) Partner.DefaultPaymentMethod = "EFT";
+
             // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
             if (Partner.Id != Guid.Empty)
             {

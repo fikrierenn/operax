@@ -26,6 +26,32 @@ BEGIN
 END
 GO
 
+-- ─── Standart audit kolonları (Partner eski tablo, eksikti — UPDATE UpdatedAt set ediyor) ──
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'CreatedAt' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Partner_CreatedAt DEFAULT GETUTCDATE();
+    PRINT 'Partner.CreatedAt eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'CreatedBy' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD CreatedBy NVARCHAR(450) NULL;
+    PRINT 'Partner.CreatedBy eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'UpdatedAt' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD UpdatedAt DATETIME2 NULL;
+    PRINT 'Partner.UpdatedAt eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'UpdatedBy' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD UpdatedBy NVARCHAR(450) NULL;
+    PRINT 'Partner.UpdatedBy eklendi.';
+END
+GO
+
 -- ─── Faz 0: Sorumlu temsilci ──────────────────────────────────────
 -- Satış temsilcisi: müşteri carisinin sorumlusu. Satınalma sorumlusu: tedarikçi carisinin sorumlusu.
 -- İleride satır-seviyesi yetki temeli (kullanıcı sadece kendi carisini görür).

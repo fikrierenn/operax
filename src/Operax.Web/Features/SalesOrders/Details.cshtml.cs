@@ -161,7 +161,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         using var conn = db.Open();
         await conn.ExecuteAsync(
             "UPDATE SalesOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-            new { Status = "APPROVED", UserId = user.Id, Id = id, CompanyId = company.Id });
+            new { Status = DocStatus.Approved, UserId = user.Id, Id = id, CompanyId = company.Id });
         await audit.LogAsync("APPROVE", "SalesOrderHeader", id, "Satış siparişi onaylandı");
         return RedirectToPage(new { id });
     }

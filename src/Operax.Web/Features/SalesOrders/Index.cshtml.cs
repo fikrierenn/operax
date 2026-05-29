@@ -37,7 +37,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             SELECT
                 COUNT(*) AS Total,
                 SUM(CASE WHEN Status = 'DRAFT'                THEN 1 ELSE 0 END) AS Draft,
-                SUM(CASE WHEN Status IN ('APPROVED','POSTED') THEN 1 ELSE 0 END) AS Posted,
+                SUM(CASE WHEN Status IN ('APPROVED','POSTED') THEN 1 ELSE 0 END) AS Posted, -- DocStatus.Posted|Approved
                 SUM(CASE WHEN Status = 'CANCELLED'            THEN 1 ELSE 0 END) AS Cancelled
             FROM SalesOrderHeader
             WHERE CompanyId = @CompanyId AND IsDeleted = 0";
@@ -72,7 +72,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         if (Tab == DocStatus.Draft)
             sql += " AND h.Status = @Status";
         else if (Tab == DocStatus.Posted)
-            sql += " AND h.Status IN ('APPROVED','POSTED')";
+            sql += $" AND h.Status IN ('{DocStatus.Approved}','{DocStatus.Posted}')";
         else if (Tab == DocStatus.Cancelled)
             sql += " AND h.Status = @Status";
 

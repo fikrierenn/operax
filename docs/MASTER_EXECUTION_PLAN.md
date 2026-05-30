@@ -95,12 +95,13 @@
 
 > Çözüm deseni (§0.5): YENİ LEDGER TABLOSU AÇMA → SourceDocType kataloğu + ADJUST sebep kodu + belge zinciri.
 
-## M-F2.1 — İrsaliye ↔ Fatura Ayrımı + Dönüşüm [E1]
+## M-F2.1 — İrsaliye ↔ Fatura Ayrımı + Dönüşüm + Birleştirme [E1]
 - [ ] İrsaliye (mal hareketi) ile Fatura (mali belge) belge ayrımı netleştir
-- [ ] İrsaliyeden faturaya dönüşüm zinciri (Receiving→EI, Shipping→SI) + bağ
+- [ ] İrsaliyeden faturaya dönüşüm zinciri (Receiving→EI, Shipping→SI) + satır bazlı bağ
 - [ ] SourceDocType ayrı (DELIVERY_NOTE vs INVOICE)
-- **DoD:** Mal hareketi irsaliyede, mali belge faturada; dönüşüm zinciri + immutability bağı.
-- **Bağımlılık:** M-F0.4.
+- [ ] **E1.B İRSALİYE BİRLEŞTİRME (§12.9):** N irsaliye → 1 fatura. `InvoiceLine.SourceShipmentLineId` (satır bazlı bağ). Sadece aynı cari+para+faturalanmamış birleşir; 7-gün VUK guard; birleşen irsaliye `IsInvoiced=1`+bağ (immutability); kısmi (irsaliye satırları farklı faturalara). e-Belge: DespatchDocumentReference çoklu.
+- **DoD:** Mal hareketi irsaliyede, mali belge faturada; N→1 birleştirme + kısmi; 7-gün guard; immutability bağı.
+- **Bağımlılık:** M-F0.4. **Plan gerekli (Tier 3).**
 
 ## M-F2.2 — Alış/Satış İade [E2] — SATIR BAZLI (KARAR 2026-05-30)
 > Mevzuat: 28.03.2025 GİB iade-fatura referansı zorunlu (mali-evrak-mevzuat skill). Detay: MIKRO §12.8.
@@ -109,9 +110,9 @@
 - [ ] **`SourceLinkType`** LINKED/UNLINKED — kaçış valfi (faturasız/eski mal/açılış iadesi) + sebep kodu; UNLINKED'de header mevzuat referansı yine zorunlu
 - [ ] Validasyon: iade miktarı orijinal satır bakiyesini (sevk − önceki iadeler) aşamaz
 - [ ] SourceDocType=RETURN_IN/RETURN_OUT + ters StockMovement + AccountMovement (immutability, silme yok)
-- [ ] FIFO katman geri-açma: `StockCostConsumption` (K7) ters — doğru maliyet katmanı geri yükle (LINKED'de)
+- [ ] İade stoğa geri girerken kaynak satırın **orijinal maliyetiyle** girer (iade kaynak seçimi LIFO). NOT: K7 FIFO satış COGS değerlemesi AYRI konu, karıştırma.
 - [ ] Header BillingReference satırların distinct kaynak faturalarından türet (UBL-TR e-Belge)
-- [ ] **ÇOK-KAYNAK TAHSİS (§12.8.1):** 80 iade ↔ N kaynak fatura → TEK iade faturası, çok satır (her satır ayrı SourceInvoiceLineId). `AllocationMode` FIFO_AUTO/MANUAL: sistem FIFO önerir (en eski faturadan doldur, taşanı sonrakine), kullanıcı ezebilir. Çoklu BillingReference. Kümülatif validasyon (aynı kaynak satıra toplam iade ≤ bakiye).
+- [ ] **ÇOK-KAYNAK TAHSİS (§12.8.1) — LIFO:** 80 iade ↔ N kaynak fatura → TEK iade faturası, çok satır (her satır ayrı SourceInvoiceLineId). `AllocationMode` LIFO_AUTO/MANUAL: sistem **LIFO** önerir (en YENİ faturadan doldur, taşanı öncekine — elde kalan = son giren), kullanıcı ezebilir. Çoklu BillingReference. Kümülatif validasyon (aynı kaynak satıra toplam iade ≤ bakiye).
 - **DoD:** İade ayrı belge; satır bazlı kaynağa bağlı (veya UNLINKED+sebep); kısmi iade + aşırı-iade guard; ters ledger; KDV/tevkifat orijinalden; mevzuat referansı dolu.
 - **Bağımlılık:** M-F2.1, M-F3.1 (FIFO geri-açma için). **Plan gerekli (Tier 3).**
 

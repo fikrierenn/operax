@@ -255,7 +255,7 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 ### 12.3 STOK EVRAK TİPİ — Mikro `sth_evraktip` (0-18) ↔ Operax
 | Mikro | Operax | Lazım? | Not |
 |---|---|---|---|
-| **1:Çıkış İrsaliyesi · 13:Giriş İrsaliyesi** | Receiving/Shipping (irsaliye≈) | **EVET** | İrsaliye↔Fatura ayrımı yok (E1); VUK: mal=irsaliye, mali=fatura |
+| **1:Çıkış İrsaliyesi · 13:Giriş İrsaliyesi** | Receiving/Shipping (irsaliye≈) | **EVET** | İrsaliye↔Fatura ayrımı yok (E1); VUK: mal=irsaliye, mali=fatura. **İrsaliye BİRLEŞTİRME:** N irsaliye → 1 fatura (E1.B, §12.9) |
 | **3:Giriş Faturası · 4:Çıkış Faturası** | EI / SI | **VAR** ama | İrsaliye→fatura dönüşüm zinciri yok (E1) |
 | 0:Depo Çıkış · 12:Depo Giriş Fişi | ADJUST (sebepsiz) | OLUR | Serbest depo giriş/çıkış fişi |
 | 2:Depo Transfer · 11/17:Antrepo/Nakliye | TRANSFER | **VAR** kısmi | |
@@ -294,7 +294,7 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 ### 12.6 EKSİK BELGE ÖZET (E1–E13, öncelik)
 | # | Eksik | Lazım? | Çözüm (Operax felsefesi) |
 |---|---|---|---|
-| **E1** | İrsaliye↔Fatura ayrımı + dönüşüm | **EVET-YÜKSEK** | Belge zinciri: irsaliye(stok)→fatura(mali); ayrı SourceDocType |
+| **E1** | İrsaliye↔Fatura ayrımı + dönüşüm + **birleştirme (N→1)** | **EVET-YÜKSEK** | Belge zinciri: irsaliye(stok)→fatura(mali); ayrı SourceDocType. **E1.B: N irsaliye→1 fatura (§12.9)** |
 | **E2** | Alış/Satış İade (ayrı belge) | **EVET-YÜKSEK** | İade belgesi→orijinale bağ + ters-kayıt (immutability) |
 | **E4** | Fire/Zayi/İmha | **EVET-YÜKSEK** | ADJUST + `AdjustReason=WASTE/SCRAP` |
 | **E11** | Virman (kasa↔kasa, cari↔cari) | **EVET-YÜKSEK** | Plan 11 (başlamadı); TransactionType TRANSFER var |
@@ -307,6 +307,21 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 | E10 | Kur Farkı (stok+cari) | OLUR | Dövizli çalışınca |
 | E13 | GL Mahsup/Açılış/Kapanış | HAYIR-ŞİMDİ | K1/K2 ertelenmiş GL modülü |
 
+### 12.9 🔴 İRSALİYE BİRLEŞTİRME — N irsaliye → 1 fatura (E1.B, KARAR 2026-05-30)
+> Senaryo: Bir müşteriye ay boyunca 5 sevk irsaliyesi kesildi; ay sonu hepsi TEK faturada birleştirilir (TR yaygın — dönemsel/cari fatura).
+
+- **İhtiyaç:** İrsaliye (mal hareketi, VUK md.230) ≠ Fatura (mali belge, md.231). Bir fatura **birden çok irsaliyeyi**
+  kapsayabilir. Operax bugün Receiving/Shipping → tek fatura varsayıyor; N→1 zinciri yok.
+- **Belge yapısı:** `SalesInvoice` ← N `ShippingHeader`; ara bağ `InvoiceShipmentLink(InvoiceId, ShippingId)` veya
+  `InvoiceLine.SourceShipmentLineId`. Fatura satırı hangi irsaliye satırından geldiğini taşır (satır bazlı bağ).
+- **Kurallar:**
+  - Sadece **aynı cari + aynı para birimi + faturalanmamış** irsaliyeler birleşir.
+  - **7 gün kuralı (VUK):** birleştirmede en eski irsaliyenin sevk tarihi + 7 gün aşılmamalı (`sp_*InvoicePost` guard — mali-evrak-mevzuat skill).
+  - Birleşen irsaliyeler `IsInvoiced=1` + faturaya bağ (immutability: irsaliye değişmez, fatura ayrı belge).
+  - Kısmi: bir irsaliyenin bazı satırları bu faturaya, kalanı sonrakine (satır bazlı bağ gerekli).
+- **e-Belge:** tek e-Fatura, satırlar N irsaliyeden; irsaliye no'ları DespatchDocumentReference (UBL-TR) olarak.
+- **Backlog → E1.B** (E1 alt-maddesi); MASTER M-F2.1'e dahil.
+
 ### 12.8 🔴 İADE FATURASI — satır bazlı kaynak eşleme (KARAR 2026-05-30, Fikri)
 
 **Mevzuat [DOC/YORUM, mali-evrak-mevzuat skill]:** 28.03.2025 GİB UBL-TR — iade faturasında iadeye konu fatura
@@ -316,9 +331,10 @@ düzeyi** seçti (daha doğru, header referansı satırlardan türetilir).
 **KARAR — satır bazlı eşleme:**
 - `ReturnInvoiceLine.SourceInvoiceLineId` → her iade satırı orijinal fatura SATIRINA bağlanır (hangi maldan, hangi
   faturadan, ne kadar). UI: stok seçilince hangi orijinal faturadan iade edildiği seçtirilir.
-- **Neden satır bazlı:** (1) kısmi iade (10 alındı, 3 iade) doğru · (2) **FIFO katman geri-açma** — `StockCostConsumption`
-  (K7) ters çalışır, doğru maliyet katmanı geri yüklenir · (3) her satırın orijinal **KDV oranı + tevkifatı** doğru
-  gelir · (4) mevzuat header referansı (BillingReference) satırların distinct kaynak faturalarından otomatik türetilir.
+- **Neden satır bazlı:** (1) kısmi iade (10 alındı, 3 iade) doğru · (2) iade edilen kaynak satırın **orijinal maliyeti**
+  geri yüklenir (iade kaynak seçimi LIFO — §12.8.1; K7 FIFO satış COGS'tan AYRI) · (3) her satırın orijinal **KDV oranı
+  + tevkifatı** doğru gelir · (4) mevzuat header referansı (BillingReference) satırların distinct kaynak faturalarından
+  otomatik türetilir.
 - **🟡 KAÇIŞ VALFİ (zorunlu):** "her satır mutlaka kaynak satıra bağlı" KATI kuralı bazı meşru senaryoda tıkar:
   faturasız/eski mal iadesi, açılış stoğu iadesi, kaynak fatura sistemde yok (devir öncesi). Bu durumda:
   `ReturnInvoiceLine.SourceLinkType` = LINKED (kaynak satır var) / UNLINKED (kaynaksız iade + sebep kodu). UNLINKED'de
@@ -328,22 +344,26 @@ düzeyi** seçti (daha doğru, header referansı satırlardan türetilir).
 - **Çözüm deseni:** Yeni `ReturnInvoiceHeader/Line` belge (E2) + `SourceInvoiceLineId`/`SourceLinkType`; ledger'a
   ters StockMovement + AccountMovement (immutability — silme yok). → MASTER_EXECUTION_PLAN M-F2.2.
 
-### 12.8.1 🔴 ÇOK-KAYNAK TAHSİS (multi-source allocation) — KARAR 2026-05-30
+### 12.8.1 🔴 ÇOK-KAYNAK TAHSİS (multi-source allocation) — KARAR 2026-05-30 (LIFO düzeltme)
 > Senaryo: 80 adet iade ediliyor; bu ürün 3 ayrı faturadan satılmış (28 + 18 + 50 adet). İade 80, kaynaklara dağıtılır.
 
-- **Belge yapısı:** **TEK iade faturası, ÇOK satır** (her satır farklı `SourceInvoiceLineId`). 80 iade → 3 satır:
-  satır1=28 (fatura A), satır2=18 (fatura B), satır3=34 (fatura C — 50'den 34). UBL-TR'de **çoklu BillingReference**
-  (her distinct kaynak fatura için bir referans). 96 değil 80 dağıtılır (toplam = iade miktarı).
-- **Tahsis (allocation): FIFO ÖNER + MANUEL EZME.** Sistem en eski faturadan başlar, doldurur, taşanı sonrakine
-  (28 bitti → 18 bitti → 50'den 34). Kullanıcı öneriyi GÖRÜR ve gerekirse **ezer** (override) — WMS yarı-otomatik
-  mod felsefesi (`.claude/rules/architecture.md §7`). FIFO maliyet katman geri-açma (K7) ile tutarlı.
+- **Belge yapısı:** **TEK iade faturası, ÇOK satır** (her satır farklı `SourceInvoiceLineId`). 80 iade → satırlar
+  kaynak faturalara dağıtılır. UBL-TR'de **çoklu BillingReference** (her distinct kaynak fatura için bir referans).
+  Toplam dağıtılan = iade miktarı (80).
+- **🔴 Tahsis (allocation): LIFO ÖNER + MANUEL EZME (FIFO DEĞİL).** İade edilen mal fiziksel olarak **elde kalan**
+  maldır; elde kalan = **son giren** (en yeni fatura). Bu yüzden iade kaynak seçimi **LIFO**: en YENİ faturadan
+  başla, doldur, taşanı bir öncekine (50 [fatura C, en yeni] → 18 [B] → 28'den 12 [A]). Kullanıcı öneriyi GÖRÜR ve
+  gerekirse **ezer** (override) — WMS yarı-otomatik mod felsefesi (`.claude/rules/architecture.md §7`).
+  - ⚠️ **AYRIM (karıştırma):** Bu **iade KAYNAK FATURA seçimi** (hangi satıştan iade) = **LIFO**. K7'deki **FIFO**
+    ise **satış COGS maliyet değerlemesi** (mal çıkarken hangi katman tüketildi) — AYRI konu, FIFO olarak kalır.
+    İade stoğa geri girerken **iade edilen kaynak satırın orijinal maliyetiyle** (LIFO seçtiği fatura) girer.
 - **Veri modeli:** `ReturnInvoiceLine` satır başına: ItemId + Qty + `SourceInvoiceLineId` + UnitPrice/TaxRate
-  (orijinal satırdan) + `AllocationMode` (FIFO_AUTO / MANUAL). Bir ürünün toplam iadesi = o ürüne ait satırların toplamı.
+  (orijinal satırdan) + `AllocationMode` (LIFO_AUTO / MANUAL). Bir ürünün toplam iadesi = o ürüne ait satırların toplamı.
 - **Validasyon (satır + toplam):** her satır kendi kaynak satır bakiyesini aşamaz; aynı kaynak satıra birden çok
   iade satırı toplamı da bakiyeyi aşamaz (kümülatif kontrol). Toplam iade = kullanıcının girdiği miktar.
 - **e-Belge:** tek e-Fatura (İADE tipi), satırlar farklı KDV oranı taşıyabilir (her kaynak faturadan), header'da
   distinct kaynak faturalar BillingReference olarak listelenir.
-- **UNLINKED kalıntı:** FIFO kaynak bakiyesi yetmezse (örn. sadece 70 satılmış, 80 iade isteniyor) → fazla 10
+- **UNLINKED kalıntı:** LIFO kaynak bakiyesi yetmezse (örn. sadece 70 satılmış, 80 iade isteniyor) → fazla 10
   `SourceLinkType=UNLINKED` satır + sebep kodu (fazla iade/numune dönüşü vb.) veya kullanıcı uyarılır.
 
 ### 12.7 Net Çıkarım + Çözüm Deseni (§0.5 uyumlu)

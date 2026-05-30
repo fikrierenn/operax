@@ -49,6 +49,10 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
   ister; Operax satır-düzeyi tutar (header referansı satırlardan türetilir) → kısmi iade + FIFO geri-açma (K7) +
   doğru KDV/tevkifat. **Kaçış valfi:** `SourceLinkType=UNLINKED` (faturasız/eski/açılış iadesi) — satır eşleme yok
   ama header mevzuat referansı yine zorunlu. Validasyon: iade miktarı orijinal bakiyeyi aşamaz. Detay: MIKRO §12.8.
+- **🔴 ÇOK-KAYNAK TAHSİS (§12.8.1):** Bir iade miktarı birden çok kaynak faturaya yayılırsa (80 iade ↔ 28+18+50
+  satılmış) → **TEK iade faturası, ÇOK satır** (her satır ayrı SourceInvoiceLineId, çoklu UBL-TR BillingReference).
+  Tahsis **FIFO öner + manuel ezme** (en eski faturadan doldur, taşanı sonrakine; kullanıcı override). Kümülatif
+  validasyon: aynı kaynak satıra toplam iade ≤ bakiye. Her satır kendi KDV oranını orijinalden taşır.
 - **Nihai tüketici iadesi:** Tüketici fatura kesemez → gider pusulası VEYA satıcının e-Arşiv "iade bölümü". Hangisi
   zorunlu DOĞRULANMADI (GİB özelge teyidi gerek).
 - **e-Arşiv iptal vs iade:** ~8 gün içinde iptal; süre geçince iade faturası. "7 vs 8 gün" kaynaklar arası çelişiyor → DOĞRULANMADI.

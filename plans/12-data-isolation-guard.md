@@ -18,6 +18,14 @@ Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `
 - B: Dapper QueryWrapper ile runtime enforcement — Reddedildi (şimdilik): tüm çağrı yerlerini sarmak büyük; ileride.
 - C (seçilen): Statik tarama testi/hook — `WHERE CompanyId` içermeyen company-tablo sorgularını yakalar, CI/pre-commit'e bağlanır. Düşük maliyet, yüksek kapsam.
 
+> **Referans deseni (REFERENCE_STUDY.md §3, 2026-05-30 / B1):** Smartstore/nopCommerce ikisi de EF global
+> filter kullanmıyor; izolasyon her sorguda elle. Operax `CompanyId` her satırda zorunlu olduğu için zaten
+> daha sıkı. Bu plan iki deseni birleştirir:
+> - **Desen 1 (birincil): SQL TVF/View `@CompanyId`-sargılı** — mevcut `tvf_AccountBalance`/`tvf_InventoryBalance`
+>   deseni genişletilir; okuma tarafı ham `FROM Tablo` yerine `FROM tvf_X(@CompanyId)`. İzolasyon DB'de yaşar (SQL-first uyumlu).
+> - **Desen 3 (emniyet ağı): statik analiz guard** — yukarıdaki tarama testi/hook. Tek başına yetersiz, Desen 1'in üstüne.
+> - Reddedilen: Desen 4 (marker interface + generic repository) — Transaction Script'e ters.
+
 **5 lens:** 🔴 False-positive (join üzerinden filtre) → whitelist + yorum-pragma ile bastırma. 🔵 Gerçek ihtiyaç: "hiçbir sorgu CompanyId'siz olmasın". 🟢 Aynı tarama IDOR/yetki testine genişler. ⚪ "Neden runtime değil?" → maliyet; statik %80'i yakalar. 🟡 grep + xunit test = yarım gün.
 
 ## 4. Done
@@ -35,4 +43,8 @@ Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `
 ## 6. Onay
 - [ ] Gösterildi · [ ] Onay: <tarih>
 
-> İlişkili: AR-001, security-principles.md §8, Plan 15 (tablo envanteri kaynağı)
+> ⚠️ **BAĞIMLILIK (K10):** İzolasyon güvenliği **plan 13 §3'e bağlı** (Model 3, rol-aware + erişim kontrollü
+> switch-company). Bu plan "claim neyse onu süz" der; plan 13 §3 "claim'i ancak hak ettiğin firmaya çevirebilirsin"
+> der. switch-company claim'i serbest değiştirilebilirse bu izolasyon **dekoratif kalır** — ikisi birlikte gerekir.
+
+> İlişkili: AR-001, security-principles.md §8, Plan 13 §3 (yetki — güvenlik ön koşulu), Plan 15 (tablo envanteri kaynağı)

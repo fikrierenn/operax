@@ -222,8 +222,102 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 **KAPANAN KARAR:** K7 — ✅ Fikri (2026-05-30): kalıcı `StockCostConsumption` eşleme tablosu (Mikro-stili). "Ayrı tablo yok" varsayımı iptal; snapshot reddi (K6) korunur.
 **SİLİNEN halüsinasyonlar:** "cha_Kod int IDENTITY", "msf_borc/msf_alacak", "320 tablo/8945 kolon", "tableData JSON", "sth_GUID kesin clustered".
 
+## 12. 🔴 EVRAK/HAREKET TİPİ KARŞILAŞTIRMA — Mikro var / Operax yok (lazım mı analizi)
+
+**Kaynak:** Mikro tip enum'ları [REPO-HTM] (reference-researcher, V17 mirror, 2+ tutarlı çekim) ↔ Operax envanteri
+[OPERAX] (`Lib/Dtos.cs`, code-explorer). Enum kodu yüksek güven; `sth_cins` 14/15 + `cha_evrak_tip` 51-137 DOĞRULANMADI.
+**Lazım sütunu:** EVET (üretilmeli) / OLUR (sektöre/ileriye bağlı) / HAYIR-ŞİMDİ (ertelenmiş/kapsam dışı).
+
+### 12.1 Operax MEVCUT (kesin, Dtos.cs)
+- **MovementType (5):** RECEIPT · ISSUE · TRANSFER · COUNT_ADJ · PRODUCTION
+- **SourceDoc (6):** RECEIVING · SHIPPING · TRANSFER · COUNT · PRODUCTION · PICKING
+- **AccountMovementType (9):** SALES_INVOICE · PURCHASE_INVOICE · PAYMENT · COLLECTION · CHEQUE_IN · CHEQUE_OUT · OPENING · VARIANCE · REVERSAL
+- **TransactionType (4):** INCOME · EXPENSE · TRANSFER_IN · TRANSFER_OUT
+- **Cheque statü (6):** PORTFOLIO · IN_BANK · COLLECTED · RETURNED · ENDORSED · PAID
+- **DocPrefix (9):** PO·SO·RCV·SHP·TRF·CNT·PRD·PCK·REP
+
+### 12.2 STOK HAREKETİ — Mikro `sth_cins` (0-13) ↔ Operax
+| Mikro sth_cins | Operax karşılığı | Lazım? | Not |
+|---|---|---|---|
+| 0:Toptan · 1:Perakende | RECEIPT/ISSUE (SourceDoc ile) | **VAR** | Perakende-POS ayrı değil (E3) |
+| 2:Dış Ticaret · 12:İthalat/İhracat | YOK | OLUR | İhracat/ithalat + GTİP/gümrük |
+| 3:Stok Virman | YOK (TRANSFER depo-içi) | OLUR | Aynı depo birim/lot düzeltme |
+| **4:Fire** | YOK (COUNT_ADJ'a karışır) | **EVET** | Fire/zayi ayrı sebep → maliyet+vergi (E4) |
+| **5:Sarf** | ISSUE (üretim) — ayrı tip yok | **EVET** | Üretim dışı sarf/gider sarfı (E9) |
+| 6:Transfer | TRANSFER | **VAR** | |
+| 7:Üretim | PRODUCTION | **VAR** | |
+| 8:Fason | YOK | OLUR | Fason üretim |
+| 9:Değer Farkı | VARIANCE (cari) — stokta yok | OLUR | Stok değerleme/maliyet düzeltme |
+| 10:Sayım | COUNT_ADJ | **VAR** | Fazla/eksik ayrımı yok (E5) |
+| **11:Stok Açılış** | YOK | **EVET** | Dönem başı/go-live stok yükleme (E7) |
+| 13:Hal · 14:Müstahsil(?) | YOK | HAYIR-ŞİMDİ | Niş sektör (hal/tarım), 14/15 DOĞRULANMADI |
+
+### 12.3 STOK EVRAK TİPİ — Mikro `sth_evraktip` (0-18) ↔ Operax
+| Mikro | Operax | Lazım? | Not |
+|---|---|---|---|
+| **1:Çıkış İrsaliyesi · 13:Giriş İrsaliyesi** | Receiving/Shipping (irsaliye≈) | **EVET** | İrsaliye↔Fatura ayrımı yok (E1); VUK: mal=irsaliye, mali=fatura |
+| **3:Giriş Faturası · 4:Çıkış Faturası** | EI / SI | **VAR** ama | İrsaliye→fatura dönüşüm zinciri yok (E1) |
+| 0:Depo Çıkış · 12:Depo Giriş Fişi | ADJUST (sebepsiz) | OLUR | Serbest depo giriş/çıkış fişi |
+| 2:Depo Transfer · 11/17:Antrepo/Nakliye | TRANSFER | **VAR** kısmi | |
+| 15:Depolar Arası Satış Fişi | YOK | OLUR | Şubeler arası satış (intercompany, VISION §7.5) |
+| 5-10:İthalat masraf/maliyet yedirme | YOK | OLUR | Landed cost (ithalat masraf dağıtımı) |
+| 18:Demirbaşa Virman | YOK | HAYIR-ŞİMDİ | Demirbaş modülü yok |
+
+### 12.4 CARİ HAREKET — Mikro `cha_cinsi`(0-41)/`cha_evrak_tip` ↔ Operax
+| Mikro | Operax | Lazım? | Not |
+|---|---|---|---|
+| Toptan/Perakende/Hizmet Faturası | SALES/PURCHASE_INVOICE | **VAR** | |
+| Tahsilat Makbuzu · Tediye/Ödeme | COLLECTION/PAYMENT | **VAR** | |
+| Çek/Senet Giriş-Çıkış Bordrosu | CHEQUE_IN/OUT + Cheque/Note | **VAR** kısmi | |
+| Cari Açılış | OPENING | **VAR** | |
+| **10:Vade Farkı Faturası** | YOK | **EVET** | Geç ödeme vade farkı (TR yaygın, E12) |
+| **11:Kur Farkı Faturası** | YOK | OLUR | Dövizli çalışınca (E10) |
+| **Genel Virman Dekontu (cari↔cari)** | YOK (Plan 11 başlamadı) | **EVET** | Virman evrakı (E11) |
+| Borç/Alacak Dekontu | YOK (sadece VARIANCE) | **EVET** | Serbest borç/alacak dekontu (E12) |
+| Gelen/Gönderilen Havale | TransactionType var, evrak yok | OLUR | Banka havale/EFT evrakı |
+| 33:Avans Makbuzu | YOK | OLUR | Müşteri/tedarikçi avansı |
+| Teminat Mektubu/Depozito · SMM · Müstahsil · Gümrük | YOK | HAYIR-ŞİMDİ / OLUR | İleri finans / sektör-mevzuat bağlı |
+
+### 12.5 ÇEK/SENET DURUMU — Mikro `sck_sonpoz`(0-10) ↔ Operax Cheque statü(6)
+| Mikro sck_sonpoz | Operax | Lazım? |
+|---|---|---|
+| 0:Portföyde | PORTFOLIO | **VAR** |
+| 1:Ciro | ENDORSED | **VAR** |
+| 2:Tahsilde | IN_BANK | **VAR** |
+| 10:Ödendi/tahsil | COLLECTED/PAID | **VAR** |
+| 4:İade · 7:Ödenmedi İade | RETURNED | **VAR** kısmi |
+| **3:Teminatta** | YOK | **EVET** (çek/senet teminata verme — TR yaygın) |
+| **9:Kısmen Ödendi** | YOK | **EVET** (kısmi tahsilat) |
+| 8:İcrada | YOK | OLUR (karşılıksız→icra) |
+| 6:Ödenmedi Portföyde | YOK | OLUR (vade geçti elde) |
+
+### 12.6 EKSİK BELGE ÖZET (E1–E13, öncelik)
+| # | Eksik | Lazım? | Çözüm (Operax felsefesi) |
+|---|---|---|---|
+| **E1** | İrsaliye↔Fatura ayrımı + dönüşüm | **EVET-YÜKSEK** | Belge zinciri: irsaliye(stok)→fatura(mali); ayrı SourceDocType |
+| **E2** | Alış/Satış İade (ayrı belge) | **EVET-YÜKSEK** | İade belgesi→orijinale bağ + ters-kayıt (immutability) |
+| **E4** | Fire/Zayi/İmha | **EVET-YÜKSEK** | ADJUST + `AdjustReason=WASTE/SCRAP` |
+| **E11** | Virman (kasa↔kasa, cari↔cari) | **EVET-YÜKSEK** | Plan 11 (başlamadı); TransactionType TRANSFER var |
+| E5 | Sayım Fazla/Eksik ayrımı | EVET-ORTA | COUNT_ADJ + işaret/sebep |
+| E7 | Stok Açılış/Devir fişi | EVET-ORTA | SourceDocType=OPENING_STOCK |
+| E12 | Vade Farkı / Borç-Alacak Dekontu | EVET-ORTA | AccountMovementType + dekont belgesi |
+| E3 | Perakende/POS | OLUR | Sektöre bağlı |
+| E6 | Konsinye Giriş/Çıkış | OLUR | Mülkiyet geçmeyen hareket |
+| E8 | Fason | OLUR | Fason üretim |
+| E10 | Kur Farkı (stok+cari) | OLUR | Dövizli çalışınca |
+| E13 | GL Mahsup/Açılış/Kapanış | HAYIR-ŞİMDİ | K1/K2 ertelenmiş GL modülü |
+
+### 12.7 Net Çıkarım + Çözüm Deseni (§0.5 uyumlu)
+- **Yeni ledger tablosu AÇMA.** Polymorphic ledger doğru (§0.5). Eksik tipler 3 mekanizmayla:
+  1. **`SourceDocType` kataloğu genişlet:** RETURN_IN, RETURN_OUT, WASTE, CONSIGNMENT_IN/OUT, OPENING_STOCK, FASON…
+  2. **ADJUST'a `AdjustReason`:** COUNT_PLUS / COUNT_MINUS / WASTE / SCRAP / OPENING / REVALUATION.
+  3. **Belge zinciri (Header/Line):** irsaliye, iade, dekont, virman ayrı belge (immutability + durum makinesi); ledger'a tip ile yazar.
+- **En yüksek 4 (üretilmeli):** E1 irsaliye↔fatura · E2 iade · E4 fire · E11 virman (Plan 11).
+- **Çek statü genişlet:** TEMİNAT + KISMİ ÖDEME (sck_sonpoz 3,9) → `document-immutability.md` §2.4.
+- Mikro tam enum (`sth_cins` 14/15, `cha_evrak_tip` 51-137) DOĞRULANMADI — resmi DDL ile kesinleştir.
+
 ## 11. İlişkili
-- `docs/REFERENCE_STUDY.md` — ERPNext/Smartstore/nop vb. ana referans çalışması (R0–R4, B1–B15)
+- `docs/REFERENCE_STUDY.md` — ERPNext/Smartstore/nop vb. ana referans çalışması (R0–R4, B1–B17)
 - `plans/14-ledger-pk-immutability.md` — R4 clustered PK (Mikro §1 GUID PK gözlemi)
 - `plans/12-data-isolation-guard.md` — CompanyId izolasyon (Mikro §1-6 firmano/subeno)
 - `docs/VISION.md` §7.7 — muhasebe katman stratejisi (Mikro §3 subledger/GL gevşek bağ)

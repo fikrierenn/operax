@@ -17,6 +17,13 @@
 **GELECEK-İŞ (plan AÇILMADI — sadece kayıt):**
 - [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
 
+**EKSİK EVRAK TİPLERİ (B17 — Mikro karşılaştırma, `docs/MIKRO_V16_ANALYSIS.md` §12):**
+- [ ] **En yüksek 4 (üretilmeli):** E1 irsaliye↔fatura ayrımı+dönüşüm (VUK) · E2 alış/satış iade (ayrı belge+ters-kayıt) · E4 fire/zayi/imha (maliyet+vergi) · E11 virman kasa↔kasa/cari↔cari (Plan 11 başlamadı).
+- [ ] **Orta:** E5 sayım fazla/eksik · E7 stok açılış/devir · E12 vade farkı/borç-alacak dekontu.
+- [ ] **Çek statü gap:** TEMİNAT (sck_sonpoz=3) + KISMİ ÖDEME (=9) → Cheque statü makinesine + document-immutability §2.4.
+- [ ] **Çözüm deseni (§0.5 uyumlu — yeni ledger tablosu AÇMA):** SourceDocType kataloğu genişlet (RETURN_IN/OUT, WASTE, OPENING_STOCK…) + ADJUST sebep kodu (AdjustReason) + belge zinciri (Header/Line: irsaliye/iade/dekont/virman).
+- [ ] Mikro tam enum (`sth_cins` 14/15, `cha_evrak_tip` 51-137) DOĞRULANMADI — gerekirse resmi DDL'den kesinleştir.
+
 **İPTAL (K6):** B7 SLE-snapshot kolonları (QtyAfterTransaction/ValuationRate/StockValue) — eklenmeyecek. `SUM(QtyBase) WHERE IsCancelled=0` kalıcı.
 
 **⚡ PERFORMANS BORCU (K6):** snapshot yok → bakiye SUM'unun tek dayanağı index. `IX_StockMovement_Company_Item_Date` basılı mı + `vw_InventoryBalance` bunu kullanıyor mu (exec plan) → plan 14 ön koşulunda teyit. Bu index'ler gevşetilemez/silinemez.

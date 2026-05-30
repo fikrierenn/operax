@@ -418,11 +418,16 @@ Sprint : S1'den itibaren her sprint'te ilgili ekranlar → cross-cutting
 ### 🟠 AR-005 · AccountMovement IsDeleted — immutability ihlali
 - [ ] **Doğrulandı:** `AccountMovement` `IsDeleted BIT` taşıyor (append-only ledger silinmemeli). VISION "ERP truth immutable" + VUK 359 bütünlük ile çelişir. `StockMovement` `IsCancelled` kullanıyor (daha doğru ama yine de düzeltme=ters kayıt olmalı). → **plan: 14** (IsDeleted kaldır + contra-entry/REVERSAL mekanizması).
 
-### 🟠 AR-006 · FIFO maliyet eksik — yanlış sınıflandırma
-- [ ] **Doğrulandı:** `ItemCost.AvgCost` yalnızca hareketli ortalama; FIFO cost layer yok. Audit "İleri/ertelenebilir" demiş — TR enflasyon ortamında FIFO COGS/vergiyi maddi değiştirir → **G8 "Olgun/gerekli"ye yükselt**, roadmap önceliği revize. → roadmap notu (plan gerekirse ayrı).
+### 🟠 AR-006 · FIFO maliyet eksik — severity **GEREKLİ** (K7, 2026-05-29)
+- [ ] **Doğrulandı:** `ItemCost.AvgCost` yalnızca hareketli ortalama; FIFO cost layer yok. **KARAR K7:** severity "İleri" → **"Gerekli"** (TR enflasyon ortamında FIFO COGS/vergiyi maddi değiştirir). Çözüm: **snapshot'sız, SP içi anlık kuyruk** (ERPNext stock_queue deseni); ayrı CostLayer tablosu gerekmez, B7 snapshot'a bağımlı değil. → roadmap (B5).
 
 ### 🟡 AR-007 · Audit öz-puanlama / confirmation bias (SÜREÇ)
 - [ ] Auditor skill kendi projesini denetliyor: Create formu olmayan modüller "Olgun" puanlanmış; 6.5/7 rakip skoru doğrulanamaz. → **Aksiyon:** auditor skill'ine "kanıt katmanı" disiplini (her 🟢 dosya kanıtına bağlı; eksik Create = en fazla 🟡). → `operax-erp-wms-auditor` skill güncellemesi.
 
 ### 🔵 AR-008 · Konumlandırma vs gerçek (STRATEJİ — Fikri kararı bekliyor)
 - [ ] Kod = KOBİ operasyon katmanı (single-tenant on-prem, TR, WMS+üretim); VISION = enterprise "SAP üstü". Resmi muhasebe M16 ile Logo/Mikro'ya bağımlı (üstüne çıktığı rakibe bağımlılık). → VISION.md'ye "AÇIK STRATEJİK SORU" notu; **kendiliğinden yeniden yazma**.
+- [x] **KARAR (K1/K2/K5, 2026-05-29):** Resmi muhasebe **ileride** Operax'ta tutulacak ama **periyodik posting modeli** (subledger → GL aylık/seçimli muhasebeleştirme; gerçek-zamanlı GL değil). Ön koşul: **muhasebe-mevzuat skill'i** (VUK/e-Defter/hesap planı/berat/GİB) → modül o zaman açılır (K2 ertelendi). **e-Defter ÜRETİMİ kapsam dışı** (XML/imza/GİB gönderim — K5); Operax sadece kapalı/beratlı **döneme saygı gösterir** (K4 LOCKED). Detay: `docs/VISION.md` §Muhasebe ve Defter Stratejisi + `REFERENCE_STUDY.md` §7.
+
+### 🔵 AR-009 · Referans çalışması (2026-05-29) — R1–R4 doğrulandı + R0 yeni bulgu
+- [ ] **`docs/REFERENCE_STUDY.md`** — ERPNext/Smartstore/nop/openwms/Slice/ModernWMS/RealAhmed incelemesi. R1(AR-005)/R2(AR-006)/R3(AR-001)/R4(AR-004) için somut çözüm deseni bulundu (ERPNext reversal+stock_queue, TVF-sargı). **YENİ R0:** hiçbir onay SP'si AccountMovement beslemiyor → backfill sonrası cari **drift** (R1–R4'ten büyük yapısal açık, review'da yoktu). Backlog B1–B11 belgede.
+- [x] **KARARLAR (2026-05-29 oturum 2 — K1–K7):** REFERENCE_STUDY.md §7'ye işlendi. **R0 → HAFİF cari besleme** zorunlu (onay SP'leri AccountMovement'a atomik borç/alacak); **GL/kebir/COGS/SRBNB HAYIR** (K3, plan 16). **B7 snapshot İPTAL** (K6). **Dönem kontrolü mekanizması** (K4) → plan 14 omurgasına eklendi (AccountingPeriod firma-bazlı + sp_GuardPeriodOpen + trigger + OPEN/CLOSED/LOCKED; sadece mekanizma, UI/otomasyon yok). Periyodik GL modülü = ertelenmiş gelecek-iş.

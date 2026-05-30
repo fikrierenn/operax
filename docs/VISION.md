@@ -71,8 +71,39 @@ Oyun: ERP implementer değil → **Enterprise Operation Brain Builder.**
 ### KARARLAR (2026-05-29, Fikri)
 1. **Intercompany:** Şirkete göre **parametrik** — A→B satış/transferde iki-taraflı belge oluşumu firma bazlı ayar (config flag), zorunlu değil.
 2. **Konsolidasyon:** Per-company dashboard'a karıştırılmaz; ayrı **"Grup Raporu"** olarak ele alınır (çok-firma toplu görünüm ayrı modül).
-3. **Firma-bazlı yetki:** **KARARSIZ** — açık (Plan 13 §3 bekliyor).
+3. **Firma-bazlı yetki:** **KARAR (2026-05-29 — K10): Model 3** (UserCompany + firma-başına rol), omurga tam,
+   kullanım bugün düz. Rol kişiye değil **kişi+firma** çiftine ait; her firmada o firmanın rolü. switch-company
+   **rol-aware** (aktif firmanın rolünü claim'e yeniden set) + **erişim kontrollü** (UserCompany'de olmayan firmaya
+   geçiş reddi) + antiforgery. Firma-başına farklı rol yeteneği var ama bugün kullanılmıyor (herkes her firmada tek
+   rol). plan 12 izolasyon güvenliği buna BAĞLI. Detay: plan 13 §3.
 4. **Konumlandırma (AR-008):** Tam enterprise muhasebe **"çok ağır" endişesi** → eğilim: **KOBİ operasyon/karar katmanı** (resmi muhasebe M16 ile Logo/Mikro'ya delege kalır). Kesin kilit değil, yön bu. VISION enterprise dili buna göre yumuşatılmalı (ayrı revizyon).
+
+## 7.7 Muhasebe ve Defter Stratejisi (KARAR 2026-05-30 — K1/K2/K4/K5)
+
+> Bu bölüm §2 katman doktrinini somutlaştırır: **muhasebe = truth (alt) katmana periyodik yansıtma.**
+> Operasyon canlı katmanda gerçek-zamanlı akar; muhasebe ondan türetilir, gerçek-zamanlı GL değildir.
+
+- **K1 — Resmi muhasebe ileride, periyodik posting modeli.** Operax resmi defteri (yevmiye/kebir/
+  çift-taraflı GL) **ileride** tutacak ama **gerçek-zamanlı GL DEĞİL.** Model: operasyon alt-defterleri
+  (StockMovement, AccountMovement, FinancialTransaction) gerçek-zamanlı tutulur; muhasebe katmanı bunları
+  **aylık/seçimli** yevmiye fişlerine çevirir (SAP/Logo/Odoo "posting period / muhasebeleştirme" modeli).
+- **K2 — Muhasebe modülü ertelendi.** Yazılacağı gün **önce muhasebe-mevzuat skill'i** yapılır (VUK,
+  e-Defter tebliğleri, hesap planı standardı, berat, GİB formatları — mevzuat derinliği yüksek). O güne
+  kadar GL katmanı / muhasebeleştirme SP'si / hesap planı **yazılmaz.**
+- **K4 — Dönem kontrolü bugün (sadece mekanizma).** Muhasebe değil; operasyonel veri bütünlüğü disiplini
+  (SAP OB52 / Logo dönem kapatma muadili). `AccountingPeriod` (firma bazlı OPEN/CLOSED/LOCKED) + guard SP
+  + DB trigger. Kapalı döneme geriye dönük hareketi engeller. UI/otomasyon yok — bkz. plan 14.
+- **K5 — e-Defter/GİB üretimi kapsam DIŞI.** Operax e-Defter (XML/imza/GİB gönderim) **üretmez** — yıllar
+  sonrası ayrı iş. Operax sadece kapalı/beratlı dönemi **bilir ve saygı gösterir** (LOCKED statüsü dışarıdan
+  sinyalle gelir: mali müşavir "kapandı" der, admin LOCKED'a çeker).
+- **K8 — Kapalı döneme istisnai giriş kontrollü + izli.** CLOSED döneme yetkili kullanıcı + zorunlu gerekçe
+  ile giriş yapılabilir, her geçiş `PeriodOverrideLog`'a (silinmez) loglanır; berat sonrası (LOCKED) **istisna
+  yoktur**. VUK/denetim hassasiyetiyle hizalı. Detay: plan 14 §2.f-i.
+
+**AR-008 ile ilişki:** Bu karar §7.5'teki "tam enterprise muhasebe çok ağır → KOBİ operasyon/karar katmanı"
+eğilimini netleştirir: resmi muhasebe Operax'ta **olacak ama hafif + periyodik + ertelenmiş**; bugünkü iş
+operasyonel cari mutabakat (hafif AccountMovement besleme, K3/plan 16) + dönem bütünlüğü (K4/plan 14).
+Detay + backlog: `docs/REFERENCE_STUDY.md` §7.
 
 ## 8. İlişkili
 

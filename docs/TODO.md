@@ -2,6 +2,27 @@
 
 ---
 
+## 📌 KARARLAR & GELECEK-İŞ (2026-05-30 — defter/muhasebe stratejisi)
+
+> Kaynak: `docs/VISION.md` §7.7 + `docs/REFERENCE_STUDY.md` §7 (K1–K7) + `docs/BUGS.md` AR-005/006/008/009.
+
+**Öncelik sırası (onaylı kararlar):**
+1. [ ] **B1 — plan 12** Multi-company izolasyon (TVF `@CompanyId`-sargı + analyzer guard). Existential, ucuz.
+2. [ ] **plan 14 paketi (aynı omurga):** immutability (B2: AccountMovement IsDeleted→reversal) + **dönem kontrolü (B12, K4: AccountingPeriod firma-bazlı + sp_GuardPeriodOpen + trigger + OPEN/CLOSED/LOCKED — sadece mekanizma)** + clustered PK (B4, R4). ⚠️ Ön koşul: sys.indexes ile clustered+NEWID + IX_StockMovement teyidi.
+3. [ ] **B3 — plan 16** Hafif cari besleme (onay SP'leri AccountMovement'a atomik borç/alacak). **KEBİR/COGS/SRBNB/GL YOK** (K3).
+4. [ ] **B5 — FIFO** "İleri"→**Gerekli** (K7). Snapshot'sız SP içi kuyruk (ERPNext stock_queue deseni); ayrı CostLayer tablosu yok. Roadmap.
+5. [ ] Dolgu: B6 (Available vs Allocated stok), B8 (lokasyon IsReceivable/IsPickable), B9 (slice audit).
+6. [ ] **Ertele:** B10 (ASN), B11 (Decision/routing katmanı), **B13 sayım freeze (K5 — M08/S7, satır bazlı; spec yazıldı `docs/MODULE_SPECS/M08_CycleCount_Freeze.md`)**, **Periyodik GL muhasebeleştirme modülü.**
+
+**GELECEK-İŞ (plan AÇILMADI — sadece kayıt):**
+- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
+
+**İPTAL (K6):** B7 SLE-snapshot kolonları (QtyAfterTransaction/ValuationRate/StockValue) — eklenmeyecek. `SUM(QtyBase) WHERE IsCancelled=0` kalıcı.
+
+**⚡ PERFORMANS BORCU (K6):** snapshot yok → bakiye SUM'unun tek dayanağı index. `IX_StockMovement_Company_Item_Date` basılı mı + `vw_InventoryBalance` bunu kullanıyor mu (exec plan) → plan 14 ön koşulunda teyit. Bu index'ler gevşetilemez/silinemez.
+
+---
+
 ## 🚨 KOD REVIEW BULGULARI (2026-05-28 — 3 paralel agent: code-reviewer + security-reviewer + silent-failure-hunter)
 
 Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verification.md` kuralı gereği fix öncesi canlı koddan doğrulanmalı.

@@ -7,6 +7,12 @@ Her kalem tamamlandığında `[x]` ile işaretlenir.
 > Rakip analizi ve önceliklendirme: [`docs/COMPETITOR_ANALYSIS.md`](COMPETITOR_ANALYSIS.md)
 >
 > **Kapsam dışı (resmi muhasebe):** e-defter, beyannameler, BA/BS, mali bilanço — M16 üzerinden Logo/Mikro/Netsis/Luca'ya yansıtılır.
+>
+> **KARARLAR (2026-05-30 — defter stratejisi, detay `docs/VISION.md` §7.7 + `REFERENCE_STUDY.md` §7):**
+> - **Resmi muhasebe ileride + periyodik posting** (gerçek-zamanlı GL değil; subledger→GL aylık muhasebeleştirme). **Ön koşul: muhasebe-mevzuat skill'i** (VUK/e-Defter/hesap planı/berat/GİB) → modül o zaman açılır (K1/K2 ertelendi). e-Defter ÜRETİMİ kapsam dışı (K5).
+> - **Öncelik sırası:** (1) B1 plan 12 izolasyon · (2) plan 14 paketi: immutability + **dönem kontrolü (B12, K4)** + clustered PK · (3) B3 hafif cari besleme (plan 16) · (4) **B5 FIFO — "Gerekli"ye yükseldi (K7)**, snapshot'sız SP içi kuyruk · (5) dolgu B6/B8/B9 · (6) ertele: B10/B11 + periyodik GL modülü.
+> - **B7 SLE-snapshot İPTAL (K6):** StockMovement'a QtyAfterTransaction/ValuationRate/StockValue eklenmez; `SUM(QtyBase) WHERE IsCancelled=0` kalıcı.
+> - **⚡ PERFORMANS KURALI (K6 sonucu):** Snapshot yok → bakiye/maliyet performansının TEK dayanağı index. `IX_StockMovement_Company_Item_Date` (ve eşdeğerleri) + `vw_InventoryBalance` IsCancelled=0 SUM'u → bu index'ler **gevşetilemez/silinemez**; exec plan ile kullanıldığı doğrulanır.
 
 ---
 

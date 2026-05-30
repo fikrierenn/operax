@@ -1,3 +1,11 @@
+---
+name: db-schema-checker
+description: docs/sql/ şema dosyaları ile canlı SQL Server arasındaki farkı bulur (eksik tablo, çalıştırılmamış seed). "schema kontrol et", "tablo eksik mi", seed sorunları veya yeni modüle geçmeden önce çağır. Operax.Cli ile DB'ye bağlanır. Salt-okuma.
+tools: Bash, Read, Grep, Glob
+model: haiku
+color: blue
+---
+
 # Agent: DB Schema Checker
 > Bu agent veritabanı şema dosyalarını ve çalışan DB'yi karşılaştırır.
 > Görevi: Schema SQL dosyaları ile gerçek DB arasındaki farkları bul.

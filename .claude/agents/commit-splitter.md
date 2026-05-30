@@ -55,7 +55,7 @@ model: haiku
 - **15 dosya eşiği commit başına:** Bir bucket 15'i aşıyorsa alt bucket
 - **Commit mesajı dili:** Türkçe (mevcut konvansiyon)
 - **Plan referansı:** Tier 3 iş ise `(plan: NN)` ekle
-- **Co-Authored-By satırı:** `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` ekle
+- **Co-Authored-By satırı:** `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` ekle
 
 ## Çıktı formatı
 

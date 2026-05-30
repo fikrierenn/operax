@@ -316,6 +316,37 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 - **Çek statü genişlet:** TEMİNAT + KISMİ ÖDEME (sck_sonpoz 3,9) → `document-immutability.md` §2.4.
 - Mikro tam enum (`sth_cins` 14/15, `cha_evrak_tip` 51-137) DOĞRULANMADI — resmi DDL ile kesinleştir.
 
+## 14. 🔴 ÜÇ TARİH AYRIMI — belge tarihi / işlenme / fiili hareket (Operax GAP)
+
+**Kaynak:** Mikro [REPO-HTM] + VUK 231 (WebSearch genel çerçeve; spesifik 2025 değişikliği DOĞRULANMADI) + Operax kod [OPERAX].
+
+Bir mali/lojistik evrakta **3 farklı tarih** vardır, karıştırılmamalı:
+
+| # | Tarih | Anlam | Mikro | Operax mevcut |
+|---|---|---|---|---|
+| 1 | **Belge tarihi** (resmi) | İrsaliye/fatura ÜSTÜNDEKİ tarih (VUK düzenleme tarihi) | `sth_belge_tarih` / `cha_belge_tarih` | header `DocDate`/`InvoiceDate` ✅ |
+| 2 | **İşlenme tarihi** (sistem) | Kaydın sisteme girildiği an | `sth_create_date` | `CreatedAt` ✅ |
+| 3 | **Fiili hareket / kabul tarihi** | Stok/cari hareketin GERÇEKTEN oluştuğu tarih (mal kabul/sevk anı) | `sth_tarih` (ayrı kolon!) | **StockMovement.MovementDate YOK** ❌ |
+| (4) | Muhasebe/defter tarihi | GL'ye kayıt dönemi | `sth_fis_tarihi` | — (GL ertelendi K1) |
+
+**🔴 OPERAX GAP — kritik:** `StockMovement`'ta sadece `CreatedAt` (sistem anı) var; **fiili hareket/kabul tarihi
+(`MovementDate`) YOK.** `AccountMovement`'ta `MovementDate` VAR (doğru), StockMovement'ta YOK (tutarsızlık).
+
+**Neden kritik:**
+- **K4 dönem kontrolü** "hareketin AİT OLDUĞU tarih" ile çalışmalı (`sp_GuardPeriodOpen(@date)`). StockMovement'ta
+  MovementDate yoksa guard sistem tarihiyle çalışır → **geç girilen mal kabulü yanlış döneme düşer** (K8'de
+  "MovementDate ≠ CreatedAt, ikisi ayrı tutulur, kritik" denmişti — StockMovement bunu taşımıyor).
+- **VUK:** mal sevk tarihi (irsaliye) ile fatura düzenleme tarihi farklı olabilir (7 gün — VUK 231). Üçü ayrı kolon olmazsa geriye dönük/geç belge doğru işlenemez.
+- **Geç gelen belge:** dün gelen ama bugün girilen mal kabulü → MovementDate=dün, CreatedAt=bugün, DocDate=irsaliye tarihi. Üçü ayrı olmalı.
+
+**Operax çözüm önerisi:**
+- `StockMovement.MovementDate DATE NOT NULL` ekle (fiili hareket/kabul tarihi); default belge DocDate, kullanıcı ezebilir.
+- Tüm dönem/bakiye sorguları + `sp_GuardPeriodOpen` **MovementDate** kullansın (CreatedAt değil).
+- Bakiye/yaşlandırma index'leri (K6 performans) MovementDate üzerine kurulsun.
+- AccountMovement zaten MovementDate taşıyor → StockMovement'a paralel ekle (tutarlılık).
+- **Backlog → B19** (REFERENCE_STUDY): StockMovement.MovementDate (fiili hareket tarihi) + dönem guard'ı MovementDate'e bağla.
+- **Bağlantı:** plan 14 (K4 dönem guard) bu kolona BAĞIMLI — guard MovementDate olmadan yanlış dönem.
+
 ## 13. 🔴 MASRAF / GİDER / HİZMET SAKLAMA (Mikro) ↔ Operax GAP
 
 **Kanıt durumu:** Ana liste [REPO-HTM] doğrulandı; `HIZMET_HESAPLARI`/`MASRAF_HESAPLARI` **kolon detayı

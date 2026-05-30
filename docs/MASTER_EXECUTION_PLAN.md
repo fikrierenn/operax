@@ -64,8 +64,9 @@
 - [ ] **(d) K4 Dönem kontrolü:** `AccountingPeriod` (firma bazlı OPEN/CLOSED/LOCKED) + `sp_GuardPeriodOpen` + DB trigger + `sp_GuardStockFrozen` kancası (no-op)
 - [ ] **(e) K8 İstisna/iz:** `PeriodOverrideLog` (silinmez) + guard statü davranışı (CLOSED yetki+gerekçe+atomik log, LOCKED istisna yok) + self-approval engeli
 - [ ] **(f) R4:** clustered PK migration (yeni tablolar + mevcut için faz-2 script)
-- **DoD:** Ledger silinemez (reversal); kapalı döneme yazım reddediliyor; override loglanıyor; clustered PK uygulandı.
-- **Bağımlılık:** M-F0.1. **Performans kuralı (K6):** SUM-bakiye index'leri gevşetilemez.
+- [ ] **(g) B19 — StockMovement.MovementDate** (fiili hareket/kabul tarihi) ekle; `sp_GuardPeriodOpen` ve tüm dönem/bakiye sorguları MovementDate kullansın (CreatedAt değil). 3 tarih ayrı: belge(DocDate) ≠ işlenme(CreatedAt) ≠ fiili(MovementDate). AccountMovement zaten taşıyor.
+- **DoD:** Ledger silinemez (reversal); kapalı döneme yazım reddediliyor (MovementDate'e göre); override loglanıyor; clustered PK uygulandı; StockMovement MovementDate + guard bağlı.
+- **Bağımlılık:** M-F0.1. **Performans kuralı (K6):** SUM-bakiye index'leri gevşetilemez (MovementDate üzerine).
 
 ---
 

@@ -316,8 +316,43 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 - **Çek statü genişlet:** TEMİNAT + KISMİ ÖDEME (sck_sonpoz 3,9) → `document-immutability.md` §2.4.
 - Mikro tam enum (`sth_cins` 14/15, `cha_evrak_tip` 51-137) DOĞRULANMADI — resmi DDL ile kesinleştir.
 
+## 13. 🔴 MASRAF / GİDER / HİZMET SAKLAMA (Mikro) ↔ Operax GAP
+
+**Kanıt durumu:** Ana liste [REPO-HTM] doğrulandı; `HIZMET_HESAPLARI`/`MASRAF_HESAPLARI` **kolon detayı
+DOĞRULANMADI** (V17 mirror detay sayfaları ECONNREFUSED). Yapısal çıkarım tablo-varlığına dayalı, kolon değil.
+
+### 13.1 Mikro modeli (doğrulanan yapısal gerçek)
+| Kavram | Mikro tablosu | Stok kartından ayrı mı? | Kanıt |
+|---|---|---|---|
+| Mal/ürün | `STOKLAR` (t.13) | — | [REPO-HTM] |
+| **Hizmet** | `HIZMET_HESAPLARI` (t.61) | ✅ AYRI master | [REPO-HTM] |
+| **Masraf** | `MASRAF_HESAPLARI` (t.62) | ✅ AYRI master | [REPO-HTM] |
+| Masraf merkezi | `SORUMLULUK_MERKEZLERI` (t.3) | ✅ AYRI (cost center) | [REPO-HTM] §3.5.2 |
+
+- Hizmet/masraf **stok kartından FİZİKSEL AYRI** tablolarda — çünkü **stok miktarı/bakiyesi YOK**, sadece tutar
+  + muhasebe kodu + (masraf) masraf merkezi.
+- **Güçlü çıkarım (kolon DOĞRULANMADI):** Hizmet/masraf hareketi `STOK_HAREKETLERI`'ne DEĞİL,
+  `CARI_HESAP_HAREKETLERI` (`cha_cinsi` 3:Hizmet, 5:Gider — §2'de doğrulandı) + `MUHASEBE_FISLERI`'ne yazılıyor.
+  Stoksuz kalem stok defterini kirletmiyor → Operax §0.5 + K6 ile tutarlı.
+
+### 13.2 Operax GAP
+1. **Hizmet kartı YOK** — danışmanlık/nakliye/montaj gibi stoksuz satış/alış kalemi master'ı yok.
+2. **Masraf kartı YOK** — tekrar eden gider (kira/elektrik/SGK) kart/şablonu yok; `Features/Expenses/` basic.
+3. **Masraf merkezi YOK** — §3.5.2 (K1 GL modülüyle gelir, ertelendi).
+4. **Dönemsel gider (peşin ödenen/tahakkuk) YOK** — peşin kira/sigorta aylara yayma. DOĞRULANMADI ama TR pratiği muhtemel.
+
+### 13.3 Operax'a uyarlama önerisi (Dapper/SQL-first/single-tenant saygılı)
+- **`Item.ItemKind` discriminator (GOODS / SERVICE / EXPENSE)** — ayrı tablo yerine tek master + tip (Operax tercihi).
+  - SERVICE/EXPENSE → **StockMovement üretmez** (onay SP guard: `IF ItemKind <> 'GOODS' → stok hareketi atla`).
+  - AccountMovement (+ ileride GL fişi) üretir; `StockCostConsumption` (K7) uygulanmaz.
+- **Fatura satırında karışık kalem** (mal+hizmet aynı faturada) → satır bazında `ItemKind`'e göre koşullu stok etkisi.
+- Masraf merkezi → K1/K2 GL modülüyle. Dönemsel gider → ayrı küçük modül (peşin gider → aylık tahakkuk job), düşük öncelik.
+- **(b) GÖRMEZDEN GEL:** Mikro `MASRAF_HESAPLARI` açıklaması "Hizmet İş Emri" (Delphi isim karmaşası) — kopyalanmaz; her kalem tipine ayrı fiziksel tablo zorunlu değil (Operax tek Item+ItemKind).
+- ⚠️ Kesinleştirme: `HIZMET_HESAPLARI` + `MASRAF_HESAPLARI` kolon listesi gerekli — resmi Mikro dokümanından yapıştırılmalı (DOĞRULANMADI).
+- **Backlog → B18** (REFERENCE_STUDY): Hizmet/Masraf kalem tipi (`Item.ItemKind`) + stoksuz kalem guard'ı.
+
 ## 11. İlişkili
-- `docs/REFERENCE_STUDY.md` — ERPNext/Smartstore/nop vb. ana referans çalışması (R0–R4, B1–B17)
+- `docs/REFERENCE_STUDY.md` — ERPNext/Smartstore/nop vb. ana referans çalışması (R0–R4, B1–B18)
 - `plans/14-ledger-pk-immutability.md` — R4 clustered PK (Mikro §1 GUID PK gözlemi)
 - `plans/12-data-isolation-guard.md` — CompanyId izolasyon (Mikro §1-6 firmano/subeno)
 - `docs/VISION.md` §7.7 — muhasebe katman stratejisi (Mikro §3 subledger/GL gevşek bağ)

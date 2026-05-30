@@ -12,6 +12,7 @@ Rakip analizi ve genel önceliklendirme için: [../COMPETITOR_ANALYSIS.md](../CO
 | M02 — Maliyetlendirme | [M02_Costing_FIFO_Standard.md](M02_Costing_FIFO_Standard.md) | Moving Avg + FIFO + Standart maliyet motorları |
 | M03 — Satınalma Genişletme | [M03_Purchasing_Extended.md](M03_Purchasing_Extended.md) | RFQ, fiyat farkı, çok seviyeli onay, vade, tedarikçi skoru |
 | M04 — Satış Faturası + Fiyat | [M04_SalesInvoice_Pricing.md](M04_SalesInvoice_Pricing.md) | Çok katmanlı fiyat, kredi limit, EOD fatura, tevkifat, konsinye |
+| M08 — CycleCount Freeze | [M08_CycleCount_Freeze.md](M08_CycleCount_Freeze.md) | Sayım freeze (stok satırı bazlı kilit) — YAZILI NOT, uygulama S7 (K5) |
 | M11 — Finans SP'leri | [M11_Finance_Procedures.md](M11_Finance_Procedures.md) | Çek/senet/kredi/kart SP'leri, ödeme planı, nakit projeksiyon, yaşlandırma |
 | M16 — Entegrasyon | [M16_Integration_EInvoice_Carrier.md](M16_Integration_EInvoice_Carrier.md) | e-Fatura, kargo, marketplace, muhasebe ihracı |
 

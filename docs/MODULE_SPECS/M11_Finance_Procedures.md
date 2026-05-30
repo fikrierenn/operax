@@ -31,6 +31,29 @@ UI'de hesap kartı bu view'dan okur. Performans için index `IX_FinTx_Account` z
 
 ---
 
+## 1.5 Cari Mutabakat Freeze (YAZILI NOT — K9, uygulama M11/sonra)
+
+> **Karar K9 (Fikri, 2026-05-29):** partner+tarih bazlı cari hareket kilidi. Bugün KOD YOK; sadece kayıt.
+> Kaynak: `docs/REFERENCE_STUDY.md` §7 (K9) + backlog B14.
+
+**Üçüncü kilit ailesi** (zaman/stok/partner — bkz. plan 14 §2 "kilit aileleri"):
+- (1) Zaman bazlı → `AccountingPeriod` (plan 14, ay kapanış/KDV/berat)
+- (2) Stok satırı bazlı → sayım freeze (`docs/MODULE_SPECS/M08_CycleCount_Freeze.md`, S7)
+- (3) **Partner+tarih bazlı → cari mutabakat freeze (bu bölüm, sonra)**
+
+**Kural:** Müşteriyle/tedarikçiyle **X tarihli bakiye mutabakatı imzalandıysa**, o partnerin **X öncesi** cari
+hareketleri (AccountMovement) **kilitlenir**; sonradan geçmişe kayıt girilemez. Granülarite **partner + tarih**
+(tüm firma değil — K4; tüm stok değil — K5; belirli partnerin belirli tarihe kadarki cari hareketleri).
+
+**Geçmişe giriş gerekirse:** override + log gerektirir (K8 mekanizması — `PeriodOverrideLog`, `LockType=PARTNER_RECONCILED`).
+
+**Guard:** cari hareket yazan SP'ler `sp_GuardPartnerReconciled(@companyId, @partnerId, @date)` kancasından geçer
+(`sp_GuardStockFrozen` kardeşi). Engel mesajı (Türkçe): "Bu cari … tarihine kadar mutabık; geçmişe kayıt için yetki gerekir."
+
+**BUGÜN YAPILMAYACAK:** mutabakat tablosu, guard gövdesi, UI — hepsi sonra. Bu yalnızca kararın kaybolmaması için not.
+
+---
+
 ## 2. Çek Yaşam Döngüsü
 
 ```

@@ -44,6 +44,11 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
   yanıtı (kabul/ret) GÖNDERİLEMEZ** → Operax InvoiceEnvelope'da İADE ise yanıt-bekleme job'ı KAPALI.
 - **İade irsaliyesi:** Fiziksel iade için ayrı irsaliye ("iade amacıyla düzenlenmiştir"); alıcı e-İrsaliye
   mükellefiyse e-İrsaliye iade, değilse kağıt. [YORUM]
+- **🔴 OPERAX KARARI (2026-05-30) — SATIR BAZLI kaynak eşleme:** İade faturasında stok seçilince **hangi orijinal
+  fatura satırından** iade edildiği seçilir (`ReturnInvoiceLine.SourceInvoiceLineId`). Mevzuat belge-düzeyi referans
+  ister; Operax satır-düzeyi tutar (header referansı satırlardan türetilir) → kısmi iade + FIFO geri-açma (K7) +
+  doğru KDV/tevkifat. **Kaçış valfi:** `SourceLinkType=UNLINKED` (faturasız/eski/açılış iadesi) — satır eşleme yok
+  ama header mevzuat referansı yine zorunlu. Validasyon: iade miktarı orijinal bakiyeyi aşamaz. Detay: MIKRO §12.8.
 - **Nihai tüketici iadesi:** Tüketici fatura kesemez → gider pusulası VEYA satıcının e-Arşiv "iade bölümü". Hangisi
   zorunlu DOĞRULANMADI (GİB özelge teyidi gerek).
 - **e-Arşiv iptal vs iade:** ~8 gün içinde iptal; süre geçince iade faturası. "7 vs 8 gün" kaynaklar arası çelişiyor → DOĞRULANMADI.

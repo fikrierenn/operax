@@ -307,6 +307,27 @@ Index NDX_..._00 on _Guid", "Primary Key Index NDX_..._02 on _kod") → fiziksel
 | E10 | Kur Farkı (stok+cari) | OLUR | Dövizli çalışınca |
 | E13 | GL Mahsup/Açılış/Kapanış | HAYIR-ŞİMDİ | K1/K2 ertelenmiş GL modülü |
 
+### 12.8 🔴 İADE FATURASI — satır bazlı kaynak eşleme (KARAR 2026-05-30, Fikri)
+
+**Mevzuat [DOC/YORUM, mali-evrak-mevzuat skill]:** 28.03.2025 GİB UBL-TR — iade faturasında iadeye konu fatura
+referansı ZORUNLU (BillingReference, DocumentTypeCode=RETURN). Mevzuat **belge düzeyi** ister; Operax **satır
+düzeyi** seçti (daha doğru, header referansı satırlardan türetilir).
+
+**KARAR — satır bazlı eşleme:**
+- `ReturnInvoiceLine.SourceInvoiceLineId` → her iade satırı orijinal fatura SATIRINA bağlanır (hangi maldan, hangi
+  faturadan, ne kadar). UI: stok seçilince hangi orijinal faturadan iade edildiği seçtirilir.
+- **Neden satır bazlı:** (1) kısmi iade (10 alındı, 3 iade) doğru · (2) **FIFO katman geri-açma** — `StockCostConsumption`
+  (K7) ters çalışır, doğru maliyet katmanı geri yüklenir · (3) her satırın orijinal **KDV oranı + tevkifatı** doğru
+  gelir · (4) mevzuat header referansı (BillingReference) satırların distinct kaynak faturalarından otomatik türetilir.
+- **🟡 KAÇIŞ VALFİ (zorunlu):** "her satır mutlaka kaynak satıra bağlı" KATI kuralı bazı meşru senaryoda tıkar:
+  faturasız/eski mal iadesi, açılış stoğu iadesi, kaynak fatura sistemde yok (devir öncesi). Bu durumda:
+  `ReturnInvoiceLine.SourceLinkType` = LINKED (kaynak satır var) / UNLINKED (kaynaksız iade + sebep kodu). UNLINKED'de
+  satır eşleme yok ama **mevzuat header referansı yine zorunlu** (serbest fatura no/tarih girişi) + maliyet güncel
+  ortalamadan hesaplanır (FIFO geri-açma yapılamaz).
+- **Validasyon:** İade miktarı orijinal satırın (sevk − önceki iadeler) bakiyesini AŞAMAZ; aşırı-iade engellenir.
+- **Çözüm deseni:** Yeni `ReturnInvoiceHeader/Line` belge (E2) + `SourceInvoiceLineId`/`SourceLinkType`; ledger'a
+  ters StockMovement + AccountMovement (immutability — silme yok). → MASTER_EXECUTION_PLAN M-F2.2.
+
 ### 12.7 Net Çıkarım + Çözüm Deseni (§0.5 uyumlu)
 - **Yeni ledger tablosu AÇMA.** Polymorphic ledger doğru (§0.5). Eksik tipler 3 mekanizmayla:
   1. **`SourceDocType` kataloğu genişlet:** RETURN_IN, RETURN_OUT, WASTE, CONSIGNMENT_IN/OUT, OPENING_STOCK, FASON…

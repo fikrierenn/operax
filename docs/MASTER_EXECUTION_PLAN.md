@@ -102,12 +102,17 @@
 - **DoD:** Mal hareketi irsaliyede, mali belge faturada; dönüşüm zinciri + immutability bağı.
 - **Bağımlılık:** M-F0.4.
 
-## M-F2.2 — Alış/Satış İade [E2]
-- [ ] İade belge tipi (ReturnHeader/Line) → orijinal faturaya bağ
-- [ ] SourceDocType=RETURN_IN/RETURN_OUT + ters-kayıt (immutability uyumlu)
-- [ ] İade muhasebe/maliyet yönü
-- **DoD:** İade ayrı belge; orijinale bağlı; ters StockMovement + cari düzeltme.
-- **Bağımlılık:** M-F2.1.
+## M-F2.2 — Alış/Satış İade [E2] — SATIR BAZLI (KARAR 2026-05-30)
+> Mevzuat: 28.03.2025 GİB iade-fatura referansı zorunlu (mali-evrak-mevzuat skill). Detay: MIKRO §12.8.
+- [ ] `ReturnInvoiceHeader/Line` belge tipi
+- [ ] **`ReturnInvoiceLine.SourceInvoiceLineId`** — satır bazlı kaynak fatura-satırı eşleme (UI: stok seç → orijinal fatura satırı seç)
+- [ ] **`SourceLinkType`** LINKED/UNLINKED — kaçış valfi (faturasız/eski mal/açılış iadesi) + sebep kodu; UNLINKED'de header mevzuat referansı yine zorunlu
+- [ ] Validasyon: iade miktarı orijinal satır bakiyesini (sevk − önceki iadeler) aşamaz
+- [ ] SourceDocType=RETURN_IN/RETURN_OUT + ters StockMovement + AccountMovement (immutability, silme yok)
+- [ ] FIFO katman geri-açma: `StockCostConsumption` (K7) ters — doğru maliyet katmanı geri yükle (LINKED'de)
+- [ ] Header BillingReference satırların distinct kaynak faturalarından türet (UBL-TR e-Belge)
+- **DoD:** İade ayrı belge; satır bazlı kaynağa bağlı (veya UNLINKED+sebep); kısmi iade + aşırı-iade guard; ters ledger; KDV/tevkifat orijinalden; mevzuat referansı dolu.
+- **Bağımlılık:** M-F2.1, M-F3.1 (FIFO geri-açma için). **Plan gerekli (Tier 3).**
 
 ## M-F2.3 — Fire/Zayi + Sayım Fazla/Eksik + Açılış [E4/E5/E7]
 - [ ] ADJUST'a `AdjustReason` (COUNT_PLUS/COUNT_MINUS/WASTE/SCRAP/OPENING/REVALUATION)

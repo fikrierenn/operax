@@ -111,6 +111,7 @@
 - [ ] SourceDocType=RETURN_IN/RETURN_OUT + ters StockMovement + AccountMovement (immutability, silme yok)
 - [ ] FIFO katman geri-açma: `StockCostConsumption` (K7) ters — doğru maliyet katmanı geri yükle (LINKED'de)
 - [ ] Header BillingReference satırların distinct kaynak faturalarından türet (UBL-TR e-Belge)
+- [ ] **ÇOK-KAYNAK TAHSİS (§12.8.1):** 80 iade ↔ N kaynak fatura → TEK iade faturası, çok satır (her satır ayrı SourceInvoiceLineId). `AllocationMode` FIFO_AUTO/MANUAL: sistem FIFO önerir (en eski faturadan doldur, taşanı sonrakine), kullanıcı ezebilir. Çoklu BillingReference. Kümülatif validasyon (aynı kaynak satıra toplam iade ≤ bakiye).
 - **DoD:** İade ayrı belge; satır bazlı kaynağa bağlı (veya UNLINKED+sebep); kısmi iade + aşırı-iade guard; ters ledger; KDV/tevkifat orijinalden; mevzuat referansı dolu.
 - **Bağımlılık:** M-F2.1, M-F3.1 (FIFO geri-açma için). **Plan gerekli (Tier 3).**
 

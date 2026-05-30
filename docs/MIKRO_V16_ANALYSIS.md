@@ -328,6 +328,24 @@ düzeyi** seçti (daha doğru, header referansı satırlardan türetilir).
 - **Çözüm deseni:** Yeni `ReturnInvoiceHeader/Line` belge (E2) + `SourceInvoiceLineId`/`SourceLinkType`; ledger'a
   ters StockMovement + AccountMovement (immutability — silme yok). → MASTER_EXECUTION_PLAN M-F2.2.
 
+### 12.8.1 🔴 ÇOK-KAYNAK TAHSİS (multi-source allocation) — KARAR 2026-05-30
+> Senaryo: 80 adet iade ediliyor; bu ürün 3 ayrı faturadan satılmış (28 + 18 + 50 adet). İade 80, kaynaklara dağıtılır.
+
+- **Belge yapısı:** **TEK iade faturası, ÇOK satır** (her satır farklı `SourceInvoiceLineId`). 80 iade → 3 satır:
+  satır1=28 (fatura A), satır2=18 (fatura B), satır3=34 (fatura C — 50'den 34). UBL-TR'de **çoklu BillingReference**
+  (her distinct kaynak fatura için bir referans). 96 değil 80 dağıtılır (toplam = iade miktarı).
+- **Tahsis (allocation): FIFO ÖNER + MANUEL EZME.** Sistem en eski faturadan başlar, doldurur, taşanı sonrakine
+  (28 bitti → 18 bitti → 50'den 34). Kullanıcı öneriyi GÖRÜR ve gerekirse **ezer** (override) — WMS yarı-otomatik
+  mod felsefesi (`.claude/rules/architecture.md §7`). FIFO maliyet katman geri-açma (K7) ile tutarlı.
+- **Veri modeli:** `ReturnInvoiceLine` satır başına: ItemId + Qty + `SourceInvoiceLineId` + UnitPrice/TaxRate
+  (orijinal satırdan) + `AllocationMode` (FIFO_AUTO / MANUAL). Bir ürünün toplam iadesi = o ürüne ait satırların toplamı.
+- **Validasyon (satır + toplam):** her satır kendi kaynak satır bakiyesini aşamaz; aynı kaynak satıra birden çok
+  iade satırı toplamı da bakiyeyi aşamaz (kümülatif kontrol). Toplam iade = kullanıcının girdiği miktar.
+- **e-Belge:** tek e-Fatura (İADE tipi), satırlar farklı KDV oranı taşıyabilir (her kaynak faturadan), header'da
+  distinct kaynak faturalar BillingReference olarak listelenir.
+- **UNLINKED kalıntı:** FIFO kaynak bakiyesi yetmezse (örn. sadece 70 satılmış, 80 iade isteniyor) → fazla 10
+  `SourceLinkType=UNLINKED` satır + sebep kodu (fazla iade/numune dönüşü vb.) veya kullanıcı uyarılır.
+
 ### 12.7 Net Çıkarım + Çözüm Deseni (§0.5 uyumlu)
 - **Yeni ledger tablosu AÇMA.** Polymorphic ledger doğru (§0.5). Eksik tipler 3 mekanizmayla:
   1. **`SourceDocType` kataloğu genişlet:** RETURN_IN, RETURN_OUT, WASTE, CONSIGNMENT_IN/OUT, OPENING_STOCK, FASON…

@@ -1,7 +1,8 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.Aging;
@@ -11,7 +12,7 @@ namespace Operax.Web.Features.Finance.Aging;
 /// 0-30 / 31-60 / 61-90 / 90+ kovaları, alacak/borç ayrı sekmeli.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "RECEIVABLE";
 

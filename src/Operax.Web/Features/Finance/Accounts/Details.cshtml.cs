@@ -1,8 +1,9 @@
 using System.Data;
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.Accounts;
@@ -11,7 +12,7 @@ namespace Operax.Web.Features.Finance.Accounts;
 /// Hesap ekstresi (FinancialTransaction listesi + üst kart bakiye).
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
 

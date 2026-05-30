@@ -1,7 +1,8 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.SalesInvoices;
@@ -12,7 +13,7 @@ namespace Operax.Web.Features.SalesInvoices;
 /// (Parameter.InvoiceMode = INSTANT).
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Status { get; set; } = "all";
     [BindProperty(SupportsGet = true)] public string? Q     { get; set; }

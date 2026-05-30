@@ -81,7 +81,8 @@ class Program
                         "schema_M01_PartnerExtended.sql",     // Plan 08: cari sorumlu temsilci + contact/address/bank/activity
                         "schema_M11_AccountMovement.sql",     // Plan 09: cari hesap defteri (StockMovement muadili)
                         "schema_M00_NumberSeries.sql",        // Plan 10: belge seri yönetimi (otomatik numaralama)
-                        "schema_M11_DocumentRegistry.sql"     // Plan 11: gelen belge kayıt no (RegistryNo)
+                        "schema_M11_DocumentRegistry.sql",    // Plan 11: gelen belge kayıt no (RegistryNo)
+                        "schema_UserCompany.sql"              // Plan 13: UserCompany yetki tablosu
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

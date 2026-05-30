@@ -59,7 +59,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             TempData["Success"] = "Kredi açıldı, taksit takvimi oluşturuldu.";
             return RedirectToPage("Details", new { id = newId });
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             // İş kuralı hatası — SP Türkçe mesaj döndü
             ModelState.AddModelError(string.Empty, sex.Message);

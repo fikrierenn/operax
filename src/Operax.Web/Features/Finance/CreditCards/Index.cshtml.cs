@@ -1,6 +1,7 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.CreditCards;
@@ -9,7 +10,7 @@ namespace Operax.Web.Features.Finance.CreditCards;
 /// Kredi kartı listesi: limit, kalan limit, son ekstre.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     public List<CardRowDto> Cards { get; set; } = [];
     public decimal TotalLimit { get; set; }

@@ -87,7 +87,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public string Code   { get; set; } = "";
         public string Name   { get; set; } = "";
         public string Type   { get; set; } = "OPERATIONAL";
-        public string Status { get; set; } = "DRAFT";
+        public string Status { get; set; } = DocStatus.Draft;
     }
 
     public record BudgetLineDto

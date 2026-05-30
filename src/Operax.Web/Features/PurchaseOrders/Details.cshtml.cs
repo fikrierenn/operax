@@ -215,7 +215,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await audit.LogAsync("POST", "PurchaseOrderHeader", id,
                 "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             TempData["Error"] = sex.Message;
         }
@@ -234,8 +234,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         try
         {
             await conn.ExecuteAsync("sp_ValidateStatusTransition",
-                new { CompanyId = company.Id, DocType = "PURCHASE_ORDER",
-                      CurrentStatus = DocStatus.Posted, NewStatus = DocStatus.Cancelled,
+                new { CompanyId = company.Id, DocumentType = "PURCHASE_ORDER",
+                      FromStatus = DocStatus.Posted, ToStatus = DocStatus.Cancelled,
                       UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure);
 
@@ -244,7 +244,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
             await audit.LogAsync("CANCEL", "PurchaseOrderHeader", id, "Satınalma siparişi iptal edildi");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             TempData["Error"] = sex.Message;
         }

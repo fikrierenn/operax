@@ -1,7 +1,8 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.Aging;
@@ -10,7 +11,7 @@ namespace Operax.Web.Features.Finance.Aging;
 /// Cari bazlı yaşlandırma detayı — hangi ödeme planı hangi vade kovasında.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid   PartnerId { get; set; }
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "RECEIVABLE";

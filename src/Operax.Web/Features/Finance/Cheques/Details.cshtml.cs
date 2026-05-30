@@ -98,7 +98,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             await conn.ExecuteAsync(sp, args, commandType: CommandType.StoredProcedure);
             TempData["Success"] = successMsg;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 70000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             TempData["Error"] = sex.Message;
         }

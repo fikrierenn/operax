@@ -1,0 +1,644 @@
+<html>
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1254">
+<title>Tablo Alanları</title>
+<LINK rel="stylesheet" type="text/css" href="../../../library.css">
+</head>
+<body><p class="Caption"><i><a href="../index.htm">Database Yapısı</a></i></p>
+<center><u><a href="../tablolar/header.htm">Başlık (Header) Kısmı Açıklaması ve Genel Notlar İçin Tıklayın</a></u></center>
+<p><b>Tablo No : 54</b></p>
+<table class="SKey" border="2" bordercolor="white"  cellspacing="0" width="100%">
+  <tr>
+    <td width="50%"><b>Tablo Adı : ODEME_EMIRLERI</b></td>
+    <td width="50%"><b>Tablo : Senet Çek Kartları</b></td>
+    </tr>
+</table>
+<br>
+<table class="SKey" border="2" bordercolor="white"  cellspacing="0" width="100%">
+  <tr>
+    <td width="64">
+    <b>No</b></td>
+    <td width="186">
+    <b>Alan Adı</b></td>
+    <td width="148">
+    <b>Tip</b></td>
+    <td width="328">
+    <b>Açıklama</b></td>
+    <td>
+    <b>Detay</b></td>
+  </tr>
+ <tr>
+  <td>0</td>
+  <td>sck_Guid</td>
+  <td>Uniqueidentifier</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>1</td>
+  <td>sck_DBCno</td>
+  <td>Smallint</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>2</td>
+  <td>sck_SpecRECno</td>
+  <td>Integer</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>3</td>
+  <td>sck_iptal</td>
+  <td>Bit</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>4</td>
+  <td>sck_fileid</td>
+  <td>Smallint</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>5</td>
+  <td>sck_hidden</td>
+  <td>Bit</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>6</td>
+  <td>sck_kilitli</td>
+  <td>Bit</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>7</td>
+  <td>sck_degisti</td>
+  <td>Bit</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>8</td>
+  <td>sck_checksum</td>
+  <td>Integer</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>9</td>
+  <td>sck_create_user</td>
+  <td>Smallint</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>10</td>
+  <td>sck_create_date</td>
+  <td>DateTime</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>11</td>
+  <td>sck_lastup_user</td>
+  <td>Smallint</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>12</td>
+  <td>sck_lastup_date</td>
+  <td>DateTime</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>13</td>
+  <td>sck_special1</td>
+  <td>Nvarchar(127)</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>14</td>
+  <td>sck_special2</td>
+  <td>Nvarchar(127)</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>15</td>
+  <td>sck_special3</td>
+  <td>Nvarchar(127)</td>
+  <td>&nbsp;</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>16</td>
+  <td>sck_MainProgramNo</td>
+  <td>Smallint</td>
+  <td>Ana Program Numarası</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>17</td>
+  <td>sck_VersionNo</td>
+  <td>Nvarchar(10)</td>
+  <td>Versiyon Numarası</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>18</td>
+  <td>sck_MenuNo</td>
+  <td>Nvarchar(10)</td>
+  <td>Menü Numarası</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>19</td>
+  <td>sck_MikroSpecial1</td>
+  <td>Nvarchar(40)</td>
+  <td>Özel Alan</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>20</td>
+  <td>sck_MikroSpecial2</td>
+  <td>Nvarchar(40)</td>
+  <td>Özel Alan</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>21</td>
+  <td>sck_MikroSpecial3</td>
+  <td>Nvarchar(40)</td>
+  <td>Özel Alan</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>22</td>
+  <td>sck_ExternalProgramType</td>
+  <td>Tinyint</td>
+  <td>Dış Yazılım Aktarım Tipi</td>
+  <td>0:Genel 1:Paraşüt 2:Irgat</td>
+ </tr>
+ <tr>
+  <td>23</td>
+  <td>sck_ExternalProgramId</td>
+  <td>Nvarchar(127)</td>
+  <td>Dış Yazılım Id'si</td>
+  <td>&nbsp;</td>
+ </tr>
+  <tr>
+  <td>24</td>
+  <td>sck_firmano</td>
+  <td>Integer</td>
+  <td>Firma No</td>
+  <td>&nbsp;</td>
+ </tr>
+  <tr>
+  <td>25</td>
+  <td>sck_subeno</td>
+  <td>Integer</td>
+  <td>Şube No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>26</td>
+  <td>sck_tip</td>
+  <td>Tinyint</td>
+  <td>Senet Çek Tipi</td>
+  <td>0:Müşteri Çeki 1:Müşteri Senedi 2:Kendi Çekimiz 3:Kendi Senedimiz 
+  4:Müşteri Havale Sözü 5:Müşteri Ödeme Sözü 6:Müşteri Kredi Kartı 
+  7:Kendi Havale Emrimiz 8:Kendi Ödeme Emrimiz 9:Kendi Kredi Kartımız 10:Müşteri Teminat Mektubu 11:Firma Teminat Mektubu 12:Depozito Çeki 13:Depozito Senedi</td>
+ </tr>
+ <tr>
+  <td>27</td>
+  <td>sck_refno</td>
+  <td>Nvarchar(25)</td>
+  <td>Senet Çek Referans No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>28</td>
+  <td>sck_bankano</td>
+  <td>Nvarchar(25)</td>
+  <td>Banka No</td>
+  <td>Bkz. <a href="../tablolar/bankalar.htm">BANKALAR</a></td>
+ </tr>
+ <tr>
+  <td>29</td>
+  <td>sck_borclu</td>
+  <td>Nvarchar(50)</td>
+  <td>Borçlu Adı</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>30</td>
+  <td>sck_vdaire_no</td>
+  <td>Nvarchar(40)</td>
+  <td>Vergi Daire Numarası</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>31</td>
+  <td>sck_vade</td>
+  <td>DateTime</td>
+  <td>Vade Tarihi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>32</td>
+  <td>sck_tutar</td>
+  <td>Float</td>
+  <td>Tutar</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>33</td>
+  <td>sck_doviz</td>
+  <td>Tinyint</td>
+  <td>Döviz Cinsi</td>
+  <td>Bkz. <a href="../tablolar/doviz_kurlari.htm">DOVIZ_KURLARI</a></td>
+ </tr>
+ <tr>
+  <td>34</td>
+  <td>sck_odenen</td>
+  <td>Float</td>
+  <td>Ödenen Miktar</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>35</td>
+  <td>sck_degerleme_islendi</td>
+  <td>Tinyint</td>
+  <td>Değerleme İşlendi Mi ?</td>
+  <td>0:Kur farkı değerlenmedi 1:Kur farkı hesaba işlendi</td>
+ </tr>
+ <tr>
+  <td>36</td>
+  <td>sck_banka_adres1</td>
+  <td>Nvarchar(50)</td>
+  <td>Banka Adresi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>37</td>
+  <td>sck_sube_adres2</td>
+  <td>Nvarchar(50)</td>
+  <td>Şube Adresi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>38</td>
+  <td>sck_borclu_tel</td>
+  <td>Nvarchar(15)</td>
+  <td>Borçlı Telefon Numarası</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>39</td>
+  <td>sck_hesapno_sehir</td>
+  <td>Nvarchar(30)</td>
+  <td>Hesap No (Şehir)</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>40</td>
+  <td>sck_no</td>
+  <td>Nvarchar(25)</td>
+  <td>Senet Çek No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>41</td>
+  <td>sck_duzen_tarih</td>
+  <td>DateTime</td>
+  <td>Düzenlenme Tarihi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>42</td>
+  <td>sck_sahip_cari_cins</td>
+  <td>Tinyint</td>
+  <td>Senet-Çek Sahibi Cari Cinsi</td>
+  <td>0:Carimiz 1:Cari Personelimiz 2:Bankamız 3:Hizmetimiz 4:Kasamız 
+  5:Giderimiz 6:Muhasebe Hesabımız 7:Personelimiz 8:Demirbaşımız 9:İthalat Dosyamız 10:Finansal Sözleşmemiz 11:Kredi Sözleşmemiz 12:Dönemsel Hizmetimiz 13:Kredi Kartımız</td>
+ </tr>
+ <tr>
+  <td>43</td>
+  <td>sck_sahip_cari_kodu</td>
+  <td>Nvarchar(25)</td>
+  <td>Senet-Çek Sahibi Cari Kodu</td>
+  <td>Bkz. <a href="../tablolar/cari_hesaplar.htm">CARI_HESAPLAR</a></td>
+ </tr>
+ <tr>
+  <td>44</td>
+  <td>sck_sahip_cari_grupno</td>
+  <td>Tinyint</td>
+  <td>Senet-Çek Sahibi Grup No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>45</td>
+  <td>sck_nerede_cari_cins</td>
+  <td>Tinyint</td>
+  <td>Nerede Cari Cinsi</td>
+  <td>0:Carimiz 1:Cari Personelimiz 2:Bankamız 3:Hizmetimiz 4:Kasamız 
+  5:Giderimiz 6:Muhasebe Hesabımız 7:Personelimiz 8:Demirbaşımız 9:İthalat Dosyamız 10:Finansal Sözleşmemiz 11:Kredi Sözleşmemiz 12:Dönemsel Hizmetimiz 13:Kredi Kartımız</td>
+ </tr>
+ <tr>
+  <td>46</td>
+  <td>sck_nerede_cari_kodu</td>
+  <td>Nvarchar(25)</td>
+  <td>Nerede Cari Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>47</td>
+  <td>sck_nerede_cari_grupno</td>
+  <td>Tinyint</td>
+  <td>Nerede Grup No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>48</td>
+  <td>sck_ilk_hareket_tarihi</td>
+  <td>DateTime</td>
+  <td>İlk Hareket Tarihi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>49</td>
+  <td>sck_ilk_evrak_seri</td>
+  <td>dbo.evrakseri_str</td>
+  <td>İlk Evrak Seri No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>50</td>
+  <td>sck_ilk_evrak_sira_no</td>
+  <td>Integer</td>
+  <td>İlk Evrak Sıra No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>51</td>
+  <td>sck_ilk_evrak_satir_no</td>
+  <td>Integer</td>
+  <td>İlk Evrak Satır No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>52</td>
+  <td>sck_son_hareket_tarihi</td>
+  <td>DateTime</td>
+  <td>Son Hareket Tarihi</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>53</td>
+  <td>sck_doviz_kur</td>
+  <td>Float</td>
+  <td>Döviz Kuru</td>
+  <td>Bkz. <a href="../tablolar/doviz_kurlari.htm">DOVIZ_KURLARI</a></td>
+ </tr>
+ <tr>
+  <td>54</td>
+  <td>sck_sonpoz</td>
+  <td>Tinyint</td>
+  <td>Senet Çek Pozisyonu</td>
+  <td>0:Portföyde 1:Ciro 2:Tahsilde 3:Teminatta 4:İade Edilen 5:Diğer3 6:Ödenmedi Portföyde 7:Ödenmedi İade 8:İcrada 9:Kısmen Ödendi 10:Ödendi</td>
+ </tr>
+ <tr>
+  <td>55</td>
+  <td>sck_imza</td>
+  <td>Tinyint</td>
+  <td>İmza Sahibi</td>
+  <td>0:Kendisi 1:Müşterisi</td>
+ </tr>
+ <tr>
+  <td>56</td>
+  <td>sck_srmmrk</td>
+  <td>Nvarchar(25)</td>
+  <td>Sorumluluk Merkezi</td>
+  <td>Bkz. <a href="../tablolar/sorumluluk_merkezleri.htm">SORUMLULUK_MERKEZLERI</a></td>
+ </tr>
+ <tr>
+  <td>57</td>
+  <td>sck_kesideyeri</td>
+  <td>Nvarchar(14)</td>
+  <td>Keşide Yeri</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>58</td>
+  <td>Sck_TCMB_Banka_kodu</td>
+  <td>Nvarchar(4)</td>
+  <td>TCMB Banka Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>59</td>
+  <td>Sck_TCMB_Sube_kodu</td>
+  <td>Nvarchar(8)</td>
+  <td>TCMB Şube Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>60</td>
+  <td>Sck_TCMB_İL_kodu</td>
+  <td>Nvarchar(3)</td>
+  <td>TCMB İl Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>61</td>
+  <td>SckTasra_fl</td>
+  <td>Bit</td>
+  <td>Senet Çek Taşra Mı ?</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>62</td>
+  <td>sck_projekodu</td>
+  <td>Nvarchar(25)</td>
+  <td>Proje Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>63</td>
+  <td>sck_masraf1</td>
+  <td>Float</td>
+  <td>Masraf1</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>64</td>
+  <td>sck_masraf1_isleme</td>
+  <td>Tinyint</td>
+  <td>Masraf1 İşleme</td>
+  <td>0:Müşteri Ödeyecek 1:Masrafa İşlenecek</td>
+ </tr>
+ <tr>
+  <td>65</td>
+  <td>sck_masraf2</td>
+  <td>Float</td>
+  <td>Masraf2</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>66</td>
+  <td>sck_masraf2_isleme</td>
+  <td>Tinyint</td>
+  <td>Masraf2 İşleme</td>
+  <td>0:Müşteri Ödeyecek 1:Masrafa İşlenecek</td>
+ </tr>
+ <tr>
+  <td>67</td>
+  <td>sck_odul_katkisi_tutari</td>
+  <td>Float</td>
+  <td>Ödül Katkısı Tutarı</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>68</td>
+  <td>sck_servis_komisyon_tutari</td>
+  <td>Float</td>
+  <td>Servis Komisyon Tutarı</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>69</td>
+  <td>sck_erken_odeme_faiz_tutari</td>
+  <td>Float</td>
+  <td>Erken Ödeme Faiz Tutarı</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>70</td>
+  <td>sck_odul_katkisi_tutari_islendi_fl</td>
+  <td>Bit</td>
+  <td>Ödül Katkısı Tutarı İşlendi Mi ?</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>71</td>
+  <td>sck_servis_komisyon_tutari_islendi_fl</td>
+  <td>Bit</td>
+  <td>Servis Komisyon Tutarı İşlendi Mi ?</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>72</td>
+  <td>sck_erken_odeme_faiz_tutari_islendi_fl</td>
+  <td>Bit</td>
+  <td>Erken Ödeme Faiz Tutarı İşlendi Mi ?</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>73</td>
+  <td>sck_kredi_karti_tipi</td>
+  <td>Tinyint</td>
+  <td>Kredi Kartı Tipi</td>
+  <td>0:Kendi Kredi Kartı 1:Başka Banka Kredi Kartı 2:Bonus Puan Kullanımı</td>
+ </tr>
+ <tr>
+  <td>74</td>
+  <td>sck_taksit_sayisi</td>
+  <td>Smallint</td>
+  <td>Taksit Sayısı</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>75</td>
+  <td>sck_kacinci_taksit</td>
+  <td>Smallint</td>
+  <td>Kaçıncı Taksit</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>76</td>
+  <td>sck_uye_isyeri_no</td>
+  <td>Nvarchar(25)</td>
+  <td>Üye İş Yeri No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>77</td>
+  <td>sck_kredi_karti_no</td>
+  <td>Nvarchar(16)</td>
+  <td>Kredi Kartı No</td>
+  <td>&nbsp;</td>
+ </tr>
+ <tr>
+  <td>78</td>
+  <td>sck_provizyon_kodu</td>
+  <td>Nvarchar(10)</td>
+  <td>Provizyon Kodu</td>
+  <td>&nbsp;</td>
+ </tr>
+ </table>
+
+<hr><table class="SKey" border="2" bordercolor="white"  cellspacing="0" width="100%">
+<tr class="sRow" align="center"><td colspan=4><b>Indeks Tablosu</b></td></tr>
+<tr>
+<td width="65">
+<b>Indeks</b></td>
+<td width="55">
+<b>Özellik</b></td>
+<td width="250">
+<b>Alanlar</b></td>
+</tr>
+<tr class=sRow >
+<td>NDX_ODEME_EMIRLERI_00</td>
+<td>CONSTRAINT PRIMARY KEY</td>
+<td>sck_Guid</td>
+</tr>
+<tr class=sRow >
+<td>NDX_ODEME_EMIRLERI_02</td>
+<td>UNIQUE</td>
+<td>sck_tip, sck_refno</td>
+</tr>
+<tr>
+<td>NDX_ODEME_EMIRLERI_03</td>
+<td></td>
+<td>sck_tip, sck_sonpoz, sck_vade</td>
+</tr>
+<tr class=sRow >
+<td>NDX_ODEME_EMIRLERI_04</td>
+<td></td>
+<td>sck_vade</td>
+</tr>
+<tr>
+<td>NDX_ODEME_EMIRLERI_05</td>
+<td></td>
+<td>sck_tip, sck_sahip_cari_cins, sck_sahip_cari_kodu, sck_sonpoz, sck_vade</td>
+</tr>
+<tr class=sRow >
+<td>NDX_ODEME_EMIRLERI_06</td>
+<td></td>
+<td>Sck_TCMB_Banka_kodu, Sck_TCMB_Sube_kodu, sck_no</td>
+</tr>
+<tr>
+<td>NDX_ODEME_EMIRLERI_07</td>
+<td></td>
+<td>sck_srmmrk</td>
+</tr>
+<tr class=sRow >
+<td>NDX_ODEME_EMIRLERI_08</td>
+<td></td>
+<td>sck_sahip_cari_cins, sck_sahip_cari_kodu, sck_vade</td>
+</tr>
+</table>
+<hr>Güncellenme Tarihi : 16.08.2023 - Bu doküman ile ilgili <A href="mailto:info@mye.com.tr?Subject=DB Yapısı">bize yazın</A><br><b>©2023 Mikro Yazılımevi A.Ş. Tüm Hakları Saklıdır.</b></font></body>
+
+</html>

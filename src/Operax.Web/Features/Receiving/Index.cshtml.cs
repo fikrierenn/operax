@@ -28,9 +28,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
         Documents = await conn.QueryAsync<ReceivingDto>(sql, new { CompanyId = company.Id });
 
-        DraftCount = Documents.Count(x => x.Status == "DRAFT");
-        PostedCount = Documents.Count(x => x.Status == "POSTED");
-        CancelledCount = Documents.Count(x => x.Status == "CANCELLED");
+        DraftCount = Documents.Count(x => x.Status == DocStatus.Draft);
+        PostedCount = Documents.Count(x => x.Status == DocStatus.Posted);
+        CancelledCount = Documents.Count(x => x.Status == DocStatus.Cancelled);
     }
 
     public record ReceivingDto(Guid Id, string DocNo, DateTime DocDate, string Status, string PartnerName, string WarehouseCode);

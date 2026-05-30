@@ -1,3 +1,4 @@
+using Dapper;
 using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Operax.Web.Lib;
@@ -37,6 +38,10 @@ builder.Services.ConfigureApplicationCookie(opts =>
     opts.AccessDeniedPath = "/Auth/AccessDenied";
     opts.SlidingExpiration = true;
     opts.ExpireTimeSpan = TimeSpan.FromHours(8);
+    // SEC-3: Güvenli cookie flag'leri
+    opts.Cookie.HttpOnly = true;          // JS üzerinden cookie erişimi engellenir (XSS koruması)
+    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest; // Prod'da HTTPS zorunlu
+    opts.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict; // CSRF koruması
 });
 
 // Lib Services
@@ -94,26 +99,44 @@ app.MapGet("/", (HttpContext ctx) =>
         : Results.Redirect("/login"));
 
 // Aktif Şirket Değiştirme (Company Switcher) API Endpoint
-app.MapPost("/api/switch-company", async (HttpContext ctx, Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser> userManager, Microsoft.AspNetCore.Identity.SignInManager<Microsoft.AspNetCore.Identity.IdentityUser> signInManager) =>
+// SEC-2: Kullanıcının hedef şirkete erişim yetkisi UserCompany tablosundan doğrulanır
+app.MapPost("/api/switch-company", async (
+    HttpContext ctx,
+    Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser> userManager,
+    Microsoft.AspNetCore.Identity.SignInManager<Microsoft.AspNetCore.Identity.IdentityUser> signInManager,
+    Db db) =>
 {
     var companyIdStr = ctx.Request.Form["companyId"].ToString();
-    if (System.Guid.TryParse(companyIdStr, out var companyId))
+    if (!System.Guid.TryParse(companyIdStr, out var companyId))
+        return Results.Redirect("/Dashboard");
+
+    var user = await userManager.GetUserAsync(ctx.User);
+    if (user == null)
+        return Results.Unauthorized();
+
+    // Kullanıcının bu şirkete gerçekten yetkisi var mı?
+    using var conn = db.Open();
+    var hasAccess = await conn.ExecuteScalarAsync<int>(
+        "SELECT COUNT(1) FROM UserCompany WHERE UserId = @UserId AND CompanyId = @CompanyId AND IsActive = 1",
+        new { UserId = user.Id, CompanyId = companyId });
+
+    if (hasAccess == 0)
     {
-        var user = await userManager.GetUserAsync(ctx.User);
-        if (user != null)
-        {
-            var claims = await userManager.GetClaimsAsync(user);
-            var oldCompanyClaims = claims.Where(c => c.Type == "company").ToList();
-            foreach (var oldClaim in oldCompanyClaims)
-            {
-                await userManager.RemoveClaimAsync(user, oldClaim);
-            }
-            await userManager.AddClaimAsync(user, new System.Security.Claims.Claim("company", companyId.ToString()));
-            await signInManager.RefreshSignInAsync(user);
-        }
+        var logger = ctx.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning("SEC-2: {User} yetkisiz şirket değiştirme girişimi. CompanyId: {CompanyId}", user.UserName, companyId);
+        return Results.Forbid();
     }
+
+    var claims = await userManager.GetClaimsAsync(user);
+    var oldCompanyClaims = claims.Where(c => c.Type == "company").ToList();
+    foreach (var oldClaim in oldCompanyClaims)
+        await userManager.RemoveClaimAsync(user, oldClaim);
+
+    await userManager.AddClaimAsync(user, new System.Security.Claims.Claim("company", companyId.ToString()));
+    await signInManager.RefreshSignInAsync(user);
+
     return Results.Redirect("/Dashboard");
-}).DisableAntiforgery();
+}).RequireAuthorization();
 
 // Başlangıç seed: Admin kullanıcısı + şirket yoksa oluşturur (geliştirme ve ilk kurulum için)
 // Tablolar mevcut değilse hata loglanır, uygulama çalışmaya devam eder

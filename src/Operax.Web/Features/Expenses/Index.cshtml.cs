@@ -28,9 +28,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             ORDER BY e.InvoiceDate DESC",
             new { CompanyId = company.Id });
 
-        TotalDraft  = Invoices.Where(x => x.Status == "DRAFT").Sum(x => x.TotalAmount);
-        TotalPosted = Invoices.Where(x => x.Status == "POSTED").Sum(x => x.TotalAmount);
-        TotalPaid   = Invoices.Where(x => x.Status == "PAID").Sum(x => x.TotalAmount);
+        TotalDraft  = Invoices.Where(x => x.Status == DocStatus.Draft).Sum(x => x.TotalAmount);
+        TotalPosted = Invoices.Where(x => x.Status == DocStatus.Posted).Sum(x => x.TotalAmount);
+        TotalPaid   = Invoices.Where(x => x.Status == DocStatus.Paid).Sum(x => x.TotalAmount);
     }
 
     public record ExpenseInvoiceDto

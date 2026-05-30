@@ -84,7 +84,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Header.Id = Guid.NewGuid();
-            var seq = conn.ExecuteScalar<int>(
+            var seq = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) + 1 FROM ShippingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
                 new { CompanyId = company.Id });
             Header.DocNo = $"{DocPrefix.Shipping}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
@@ -182,7 +182,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             TempData["Error"] = sex.Message;
         }
@@ -205,7 +205,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 commandType: CommandType.StoredProcedure);
             await audit.LogAsync("POST", "ShippingHeader", id, "Sevkiyat irsaliyesi onaylandı, stok çıkışı yapıldı");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             TempData["Error"] = sex.Message;
         }

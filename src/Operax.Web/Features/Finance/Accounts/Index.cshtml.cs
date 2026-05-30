@@ -1,7 +1,8 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.Accounts;
@@ -11,7 +12,7 @@ namespace Operax.Web.Features.Finance.Accounts;
 /// Bakiye tvf_AccountBalance(@CompanyId) üzerinden okunur — FinancialTransaction'lardan canlı hesaplanır.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     // Sekme filtresi: tüm tipler ya da belirli bir AccountType
     [BindProperty(SupportsGet = true)] public string Type { get; set; } = "all";

@@ -69,7 +69,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 commandType: CommandType.StoredProcedure);
             TempData["Success"] = "Taksit ödendi.";
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number is >= 50000 and < 60000)
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
         {
             // İş kuralı hatası — SP Türkçe mesaj döndü, kullanıcıya göster
             TempData["Error"] = sex.Message;

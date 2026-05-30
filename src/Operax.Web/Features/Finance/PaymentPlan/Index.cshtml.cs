@@ -1,7 +1,8 @@
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Finance.PaymentPlan;
@@ -10,7 +11,7 @@ namespace Operax.Web.Features.Finance.PaymentPlan;
 /// PaymentPlan listesi: vade planı + durum + cari + kaynak belge.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "all";  // all/RECEIVABLE/PAYABLE
     [BindProperty(SupportsGet = true)] public string Status    { get; set; } = "OPEN"; // OPEN/PARTIAL/PAID/OVERDUE/all

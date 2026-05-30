@@ -1,6 +1,8 @@
+using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
 using Dapper;
 using Operax.Web.Lib;
 
@@ -11,7 +13,7 @@ namespace Operax.Web.Features.SalesOrders;
 /// DRAFT durumda satır eklenir/düzenlenir; APPROVED sonrası salt okunur.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, INumberSeriesService numberSeries) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, INumberSeriesService numberSeries, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public SalesOrderHeaderDto Header { get; set; } = new();
@@ -156,21 +158,71 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostApproveAsync(Guid id)
     {
+        // İş kuralı: DRAFT → APPROVED; sp_ValidateStatusTransition doğrulaması ile onaylama
         using var conn = db.Open();
-        await conn.ExecuteAsync(
-            "UPDATE SalesOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-            new { Status = DocStatus.Approved, UserId = user.Id, Id = id, CompanyId = company.Id });
-        await audit.LogAsync("APPROVE", "SalesOrderHeader", id, "Satış siparişi onaylandı");
+        try
+        {
+            var currentStatus = await conn.ExecuteScalarAsync<string>(
+                "SELECT Status FROM SalesOrderHeader WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Id = id, CompanyId = company.Id });
+
+            if (currentStatus is null) return NotFound();
+
+            await conn.ExecuteAsync("sp_ValidateStatusTransition",
+                new { CompanyId = company.Id, DocumentType = "SALES_ORDER",
+                      FromStatus = currentStatus, ToStatus = DocStatus.Approved,
+                      UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+
+            await conn.ExecuteAsync(
+                "UPDATE SalesOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Status = DocStatus.Approved, UserId = user.Id, Id = id, CompanyId = company.Id });
+            await audit.LogAsync("APPROVE", "SalesOrderHeader", id, "Satış siparişi onaylandı");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "Satış siparişi onaylama hatası: {OrderId}", id);
+            TempData["Error"] = "Sipariş onaylanırken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostCancelAsync(Guid id)
     {
+        // İş kuralı: APPROVED/DRAFT → CANCELLED; sp_ValidateStatusTransition doğrulaması ile iptal etme
         using var conn = db.Open();
-        await conn.ExecuteAsync(
-            "UPDATE SalesOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-            new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
-        await audit.LogAsync("CANCEL", "SalesOrderHeader", id, "Satış siparişi iptal edildi");
+        try
+        {
+            var currentStatus = await conn.ExecuteScalarAsync<string>(
+                "SELECT Status FROM SalesOrderHeader WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Id = id, CompanyId = company.Id });
+
+            if (currentStatus is null) return NotFound();
+
+            await conn.ExecuteAsync("sp_ValidateStatusTransition",
+                new { CompanyId = company.Id, DocumentType = "SALES_ORDER",
+                      FromStatus = currentStatus, ToStatus = DocStatus.Cancelled,
+                      UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+
+            await conn.ExecuteAsync(
+                "UPDATE SalesOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
+            await audit.LogAsync("CANCEL", "SalesOrderHeader", id, "Satış siparişi iptal edildi");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        {
+            TempData["Error"] = sex.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sex)
+        {
+            logger.LogError(sex, "Satış siparişi iptal hatası: {OrderId}", id);
+            TempData["Error"] = "Sipariş iptal edilirken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

@@ -13,7 +13,7 @@ namespace Operax.Web.Features.PurchaseOrders;
 [Authorize]
 public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
 {
-    [BindProperty(SupportsGet = true)] public string Tab { get; set; } = "DRAFT";
+    [BindProperty(SupportsGet = true)] public string Tab { get; set; } = DocStatus.Draft;
 
     public List<VarianceDto> Variances { get; set; } = [];
     public int DraftCount    { get; set; }
@@ -73,7 +73,7 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
             new { VarianceId = id, UserId = user.Id },
             commandType: System.Data.CommandType.StoredProcedure);
         await audit.LogAsync("APPROVE_VARIANCE", "PriceVariance", id, "Fiyat farkı onaylandı");
-        return RedirectToPage(new { tab = "DRAFT" });
+        return RedirectToPage(new { tab = DocStatus.Draft });
     }
 
     public async Task<IActionResult> OnPostRejectAsync(Guid id)
@@ -86,7 +86,7 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
             WHERE Id = @Id AND CompanyId = @CompanyId AND Status = 'DRAFT'",
             new { Id = id, UserId = user.Id, CompanyId = company.Id });
         await audit.LogAsync("REJECT_VARIANCE", "PriceVariance", id, "Fiyat farkı reddedildi");
-        return RedirectToPage(new { tab = "DRAFT" });
+        return RedirectToPage(new { tab = DocStatus.Draft });
     }
 
     public record VarianceDto(

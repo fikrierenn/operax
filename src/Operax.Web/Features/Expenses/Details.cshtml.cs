@@ -151,7 +151,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         public DateTime? DueDate     { get; set; }
         public decimal   TotalAmount { get; set; }
         public string    Currency    { get; set; } = "TRY";
-        public string    Status      { get; set; } = "DRAFT";
+        public string    Status      { get; set; } = DocStatus.Draft;
     }
 
     public record InvoiceLineDto

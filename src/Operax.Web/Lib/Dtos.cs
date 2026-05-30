@@ -29,6 +29,9 @@ public static class DocStatus
     public const string Counting   = "COUNTING";
     public const string InProgress = "IN_PROGRESS";
     public const string Assigned   = "ASSIGNED";
+    public const string Paid       = "PAID";       // Gider faturası ödendi
+    public const string Rejected   = "REJECTED";   // Fiyat farkı reddedildi
+    public const string Pending    = "PENDING";    // Onay bekliyor
 }
 
 /// <summary>Stok hareket tipleri</summary>

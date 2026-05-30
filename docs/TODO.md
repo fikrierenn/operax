@@ -2,6 +2,88 @@
 
 ---
 
+## 🚨 F0.1 CODE REVIEW SONUÇLARI (2026-05-30 — sprint öncesi, canlı koddan doğrulandı)
+
+> code-reviewer (sonnet) + security-reviewer (opus) paralel. file:line kanıtlı. Stale maddeler kapalı.
+
+### 🔴 YENİ KRİTİK — GÜVENLİK
+- [ ] **SEC-1 · appsettings.json'da CANLI DB ŞİFRESİ** — `src/Operax.Web/appsettings.json:10` git TRACKED, `sa`+plain password. FİX: User Secrets/env'e taşı + `.gitignore` + **şifre ROTATE** (geçmişte kaldı) + sınırlı login. (spawn_task açıldı) Confidence 98.
+- [ ] **SEC-2 · switch-company CSRF+yetki (AR-003)** — `Program.cs:97-116` DisableAntiforgery + yetki kontrolü yok → firma atlama. plan 13. Conf 90.
+- [ ] **SEC-3 · Cookie flag eksik** — `Program.cs:33-40` SecurePolicy/SameSite/HttpOnly yok. Conf 82.
+
+### 🔴 AÇIK — CRIT/HIGH
+- [ ] **HIGH-1 · SP THROW kod aralığı** — db_objects_starter.sql 60001-60010/70001-70004/71001-71002/72001. C# catch `50000-59999` → **60001+ çek/fatura/PO hataları kullanıcıya ULAŞMIYOR** (fonksiyonel bloker). FİX: catch genişlet veya SP→51xxx.
+- [ ] **HIGH-2 · SO Approve/Cancel direct UPDATE** — SalesOrders/Details.cshtml.cs:157-175 sp_ValidateStatusTransition bypass.
+- [ ] **CRIT-4 · ILogger<T> DI eksik (10 dosya)** — Finance/Accounts/Index+Details, Loans/Index, CreditCards/Index, PaymentPlan/Index, Aging/Index+Details, SalesInvoices/Index+Details, SalesOrders/Details.
+- [ ] **CRIT-3 · magic string (10+ dosya)** — C# karşılaştırma+DTO default+SQL ham 'DRAFT'/'POSTED'/'CANCELLED': Expenses/Details:67,75,139,154, Budget/Details:59,66,90, Expenses/Index:31-32, Shipping/Index:30-32, Receiving/Index:31-33, Dashboard/Index:53,57,61, ProductionReceiptService:48.
+- [ ] **IMP-2 · sync ExecuteScalar** — Receiving/Details:87, Shipping/Details:87 → async.
+- [ ] **Türkçe yorum eksiği** — SalesOrders/Details+Index, Finance/Accounts/Aging/PaymentPlan Index, SalesInvoices Index+Details.
+
+### ✅ KAPALI (stale)
+CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit blok) · IMP-3 (vade→PaymentTermDays) · AR-001 (CompanyId filtre var) · DataTable.Compute(0) · IDOR(filtreli) · mass assignment(override güvenli).
+
+### F0.1 ÖNCELİK: 1) SEC-1 şifre 2) HIGH-1 SP kod 3) HIGH-2 SO bypass 4) CRIT-4 ILogger 5) SEC-2/3 6) CRIT-3+IMP-2+yorum
+> ⚠️ code-reviewer agent PowerShell deny'i Bash'le aştı (harness uyarısı) — çıktı salt-okuma zararsız.
+
+> ✅ F0.1 DURUMU (2026-05-30): SEC-1 ✅ HIGH-1 ✅ HIGH-2 ✅ CRIT-4 ✅ SEC-2 ✅ SEC-3 ✅ CRIT-3 ✅ IMP-2 ✅
+
+---
+
+## 🔐 F0.2 PRODUCTION GÜVENLİK SERTLEŞTİRMESİ (2026-05-30 — internet yayına hazırlık)
+
+> Sistem internet ortamında herkese açık hale gelecek. Aşağıdaki katmanlar eksik/yetersiz.
+> Kaynak: bu oturum güvenlik analizi (2026-05-30 22:19).
+
+### Öncelik Sırası
+
+**1. 🔴 Rate Limiting — Brute-Force Koruması**
+- [ ] **RL-1** `Program.cs` — ASP.NET Core `RateLimiter` middleware ekle
+  - `/Auth/Login` POST: IP başına 10 istek/dakika (5 dk bekleme)
+  - `/api/switch-company`: Kullanıcı başına 10 istek/dakika
+  - Global fallback: IP başına 200 istek/dakika
+  - Identity'nin 5-deneme kilidi IP değiştirilince bypass ediliyor → bu onu kapatır
+
+**2. 🔴 HTTP Security Headers**
+- [ ] **SH-1** `Lib/SecurityHeadersMiddleware.cs` — Yeni middleware oluştur, `app.Use()` ile ekle:
+  - `X-Content-Type-Options: nosniff` — MIME sniffing koruması
+  - `X-Frame-Options: SAMEORIGIN` — Clickjacking koruması
+  - `X-XSS-Protection: 1; mode=block` — Eski tarayıcı XSS filtresi
+  - `Referrer-Policy: strict-origin-when-cross-origin` — URL sızıntısı önleme
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()` — İzin kısıtlaması
+  - `Content-Security-Policy` — script/style kaynaklarını whitelist'le
+
+**3. 🟡 Rol Tabanlı Yetkilendirme**
+- [ ] **RB-1** `Lib/Roles.cs` — Rol sabitleri static class (magic string yasak kuralı gereği)
+- [ ] **RB-2** `Lib/SeedData.cs` — 7 rol seed et: Administrator, WarehouseManager, Finance, Purchasing, Sales, Manufacturing, Viewer
+- [ ] **RB-3** Modül → Rol eşleştirmesi (tüm `[Authorize]` attr'ları güncelle):
+  - `Administrator` → Her şey
+  - `WarehouseManager` → Receiving, Shipping, Transfer, Inventory, CycleCount, LPN, Lot, Picking
+  - `Finance` → Payments, Loans, CreditCards, Cheques, Accounts, Aging, PaymentPlan, Snapshot
+  - `Purchasing` → PurchaseOrders, Expenses, Budget
+  - `Sales` → SalesOrders, SalesInvoices, Incentives, Sales
+  - `Manufacturing` → Manufacturing, Production, BOM, WorkOrders, WorkCenters
+  - `Viewer` → Dashboard + MasterData (Items, Partners) — salt okuma
+  - `Admin` modülü → sadece `Administrator`
+
+**4. 🟡 Admin Panel Sıkılaştırması**
+- [ ] **AP-1** `Program.cs` — Hangfire dashboard `RequireAuthorization()` → `RequireAuthorization("AdministratorOnly")` policy ekle
+- [ ] **AP-2** `Features/Admin/**` — `[Authorize]` → `[Authorize(Roles = Roles.Administrator)]`
+
+**5. 🟢 HTTPS & TLS**
+- [ ] **TLS-1** `Program.cs` — `CookieSecurePolicy.SameAsRequest` → `CookieSecurePolicy.Always`
+- [ ] **TLS-2** `Program.cs` — HTTPS redirection tüm ortamlarda aktif (dev dahil)
+- [ ] **TLS-3** `appsettings.json` HSTS süresi 30 gün → 1 yıl (production)
+
+### Tasarım Kararları (onay bekliyor)
+- Rol eşleştirme tablosu yukarıdaki gibi mi? Değişiklik var mı?
+- Bir kullanıcı birden fazla rol alabilir (örn. hem Finance hem Purchasing)
+- CSP whitelist: Google Fonts + kendi JS/CSS → onaylı
+
+### Tahmini Süre
+RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
+
+---
+
 ## 📌 KARARLAR & GELECEK-İŞ (2026-05-30 — defter/muhasebe stratejisi)
 
 > Kaynak: `docs/VISION.md` §7.7 + `docs/REFERENCE_STUDY.md` §7 (K1–K7) + `docs/BUGS.md` AR-005/006/008/009.

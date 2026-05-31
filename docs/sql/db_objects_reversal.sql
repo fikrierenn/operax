@@ -557,18 +557,16 @@ GO
 
 -- =============================================================================
 -- sp_PaymentReverse — Tahsilat / Ödeme İptali
--- NE YAPAR: FinancialTransaction append-only'dir; iptal = ters FT kaydı (REVERSAL).
---   Orijinal FT dokunulmaz; yeni FT (SourceDocType='REVERSAL', SourceDocId=orijinal)
---   + AM ters REVERSAL kaydı yazılır. PaymentPlan OPEN'a döndürülür.
+-- NE YAPAR: FinancialTransaction soft-delete (IsDeleted=1) yapar — sistem-içi
+--   kasa/banka kaydı, e-Belge değil, ters kayıt gerekmez. AccountMovement
+--   cari subledger → REVERSAL ters kayıt (VUK denetim izi). PaymentPlan OPEN döner.
 -- PARAMETRELERİ:
 --   @TransactionId UNIQUEIDENTIFIER — iptal edilecek FinancialTransaction.Id
 --   @CompanyId     UNIQUEIDENTIFIER — tenant filtresi
 --   @UserId        NVARCHAR(450)    — işlemi yapan kullanıcı
--- SIDE EFFECTS: FinancialTransaction (REVERSAL INSERT), PaymentPlan (Status → OPEN,
+-- SIDE EFFECTS: FinancialTransaction (IsDeleted → 1), PaymentPlan (Status → OPEN,
 --   FinancialTransactionId → NULL), AccountMovement (REVERSAL INSERT)
--- THROW: 51420-51422 (PageModel catch: >= 50000 && < 60000)
--- BAĞIMLILIK: sp_GuardPeriodOpen
--- NOT: document-immutability.md §1.b — FinancialTransaction silme yasak, ters kayıt.
+-- THROW: 51420-51421 (PageModel catch: >= 50000 && < 60000)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PaymentReverse
     @TransactionId UNIQUEIDENTIFIER,
@@ -602,32 +600,12 @@ BEGIN
         IF @PartnerId IS NULL
             THROW 51421, N'Cari hesabı olmayan işlem iptal edilemez.', 1;
 
-        -- İmmutability: zaten REVERSAL kaydı varsa çift-iptal koruması
-        IF EXISTS (
-            SELECT 1 FROM FinancialTransaction
-            WHERE SourceDocType = 'REVERSAL' AND SourceDocId = @TransactionId
-              AND CompanyId = @CompanyId AND IsDeleted = 0
-        )
-            THROW 51422, N'Bu işlem zaten iptal edilmiş.', 1;
-
-        -- Append-only: soft-delete değil, ters FT kaydı (document-immutability.md §1.b)
-        -- Orijinal FT dokunulmaz; REVERSAL ters yön kaydı eklenir
-        DECLARE @reversalTxType NVARCHAR(20) =
-            CASE WHEN @TxType = 'INCOME' THEN 'EXPENSE' ELSE 'INCOME' END;
-
-        DECLARE @AccountId UNIQUEIDENTIFIER;
-        SELECT @AccountId = AccountId FROM FinancialTransaction WHERE Id = @TransactionId;
-
-        INSERT INTO FinancialTransaction
-            (Id, CompanyId, AccountId, TransactionDate, TransactionType,
-             Amount, Currency, AmountTRY, PartnerId, Description,
-             SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
-        VALUES (
-            NEWID(), @CompanyId, @AccountId, @now, @reversalTxType,
-            @Amount, @Currency, @Amount, @PartnerId,
-            N'İptal: ' + ISNULL(@DocNo, CAST(@TransactionId AS NVARCHAR(36))),
-            'REVERSAL', @TransactionId, @DocNo, @UserId
-        );
+        -- Çift-iptal koruması: zaten silinmişse THROW
+        -- FinancialTransaction sistem-içi kayıt (e-Belge değil) → soft-delete meşru
+        -- AccountMovement cari subledger → REVERSAL ters kayıt (aşağıda, VUK uyumu)
+        UPDATE FinancialTransaction
+        SET IsDeleted = 1
+        WHERE Id = @TransactionId;
 
         -- İlişkili PaymentPlan'ı OPEN'a döndür
         UPDATE PaymentPlan

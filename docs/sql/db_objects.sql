@@ -68,20 +68,20 @@ GROUP BY sm.CompanyId, sm.WarehouseId, sm.BinId, sm.ItemId, sm.UomId
 HAVING SUM(sm.QtyBase) <> 0;
 GO
 
--- Açık satınalma siparişleri — dropdown için (Status=APPROVED)
+-- Açık satınalma siparişleri — dropdown için (onaylı = POSTED; eski APPROVED veri toleransı)
 CREATE OR ALTER VIEW dbo.vw_OpenPurchaseOrders
 AS
 SELECT Id, CompanyId, OrderNo AS Code, '' AS Name
 FROM PurchaseOrderHeader
-WHERE Status = 'APPROVED' AND IsDeleted = 0;
+WHERE Status IN ('POSTED', 'APPROVED') AND IsDeleted = 0;
 GO
 
--- Açık satış siparişleri — dropdown için (Status=APPROVED)
+-- Açık satış siparişleri — dropdown için (onaylı = POSTED; eski APPROVED veri toleransı)
 CREATE OR ALTER VIEW dbo.vw_OpenSalesOrders
 AS
 SELECT Id, CompanyId, OrderNo AS Code, '' AS Name
 FROM SalesOrderHeader
-WHERE Status = 'APPROVED' AND IsDeleted = 0;
+WHERE Status IN ('POSTED', 'APPROVED') AND IsDeleted = 0;
 GO
 
 -- ============================================================
@@ -125,7 +125,7 @@ RETURN
     SELECT Id, OrderNo AS Code, '' AS Name
     FROM PurchaseOrderHeader
     WHERE CompanyId = @CompanyId
-      AND Status    = 'APPROVED'
+      AND Status    IN ('POSTED', 'APPROVED')
       AND IsDeleted = 0
 );
 GO
@@ -142,7 +142,7 @@ RETURN
     SELECT Id, OrderNo AS Code, '' AS Name
     FROM SalesOrderHeader
     WHERE CompanyId = @CompanyId
-      AND Status    = 'APPROVED'
+      AND Status    IN ('POSTED', 'APPROVED')
       AND IsDeleted = 0
 );
 GO

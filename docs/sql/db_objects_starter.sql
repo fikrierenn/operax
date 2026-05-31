@@ -1650,11 +1650,11 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- İş kuralı: girdi doğrulama
+        -- İş kuralı: girdi doğrulama (PaymentPlan/FIFO aralığı 51250-51299)
         IF @Amount <= 0
-            THROW 51500, N'Dağıtılacak tutar pozitif olmalıdır.', 1;
+            THROW 51250, N'Dağıtılacak tutar pozitif olmalıdır.', 1;
         IF @Direction NOT IN ('RECEIVABLE', 'PAYABLE')
-            THROW 51501, N'Geçersiz yön: RECEIVABLE veya PAYABLE olmalıdır.', 1;
+            THROW 51251, N'Geçersiz yön: RECEIVABLE veya PAYABLE olmalıdır.', 1;
 
         DECLARE @Remaining DECIMAL(18,2) = @Amount;
         DECLARE @PpId UNIQUEIDENTIFIER, @PpRemaining DECIMAL(18,2), @PpAmount DECIMAL(18,2),
@@ -1663,9 +1663,10 @@ BEGIN
         -- Ödeme/tahsilat hareketinin AM karşılığı (reconciliation için)
         -- INCOME→COLLECTION (Credit), EXPENSE→PAYMENT (Debit) — SourceDocId=@TransactionId
         DECLARE @PayAmId UNIQUEIDENTIFIER;
-        SELECT @PayAmId = Id FROM AccountMovement
+        SELECT TOP 1 @PayAmId = Id FROM AccountMovement
         WHERE CompanyId = @CompanyId AND SourceDocId = @TransactionId
-          AND SourceDocType IN ('COLLECTION','PAYMENT');
+          AND SourceDocType IN ('COLLECTION','PAYMENT')
+        ORDER BY CreatedAt;
 
         -- FIFO: en eski vade ilk kapatılır
         DECLARE c_pp CURSOR LOCAL FAST_FORWARD FOR
@@ -1697,9 +1698,10 @@ BEGIN
             -- Açık-kalem kapama (plan 18): faturanın AM hareketi ↔ ödeme AM hareketi eşleştir
             -- Fatura AM: SourceDocId=PaymentPlan.SourceDocId (başlık-bazlı, simetri kuruldu)
             DECLARE @InvAmId UNIQUEIDENTIFIER;
-            SELECT @InvAmId = Id FROM AccountMovement
+            SELECT TOP 1 @InvAmId = Id FROM AccountMovement
             WHERE CompanyId = @CompanyId AND SourceDocId = @PpSrcId
-              AND SourceDocType = @PpSrcType;
+              AND SourceDocType = @PpSrcType
+            ORDER BY CreatedAt;
 
             IF @InvAmId IS NOT NULL AND @PayAmId IS NOT NULL
             BEGIN
@@ -1710,13 +1712,27 @@ BEGIN
                 DECLARE @reconCredit UNIQUEIDENTIFIER =
                     CASE WHEN @Direction = 'RECEIVABLE' THEN @PayAmId ELSE @InvAmId END;
 
-                INSERT INTO dbo.AccountReconciliation
-                    (Id, CompanyId, PartnerId, DebitMovementId, CreditMovementId,
-                     Amount, MovementDate, IsReversal, CreatedBy)
-                VALUES
-                    (NEWID(), @CompanyId, @PartnerId, @reconDebit, @reconCredit,
-                     @ApplyAmount, GETUTCDATE(), 0,
-                     CAST(@UserId AS NVARCHAR(450)));
+                -- Aşım guard (manuel reconcile ile drift koruması): fatura AM açık tutarı aşılamaz
+                -- Hem manuel hem auto-close aynı faturayı kapatabilir → AccountReconciliation SUM kontrolü
+                DECLARE @invVal DECIMAL(18,2) =
+                    (SELECT CASE WHEN @Direction='RECEIVABLE' THEN Debit ELSE Credit END
+                     FROM AccountMovement WHERE Id = @InvAmId);
+                DECLARE @invUsed DECIMAL(18,2) = ISNULL((
+                    SELECT SUM(Amount) FROM AccountReconciliation
+                    WHERE (DebitMovementId = @InvAmId OR CreditMovementId = @InvAmId) AND IsReversal = 0), 0);
+
+                -- Yalnızca açık tutar kadar eşleştir (aşımı kırp; kalan başka plana FIFO devam eder)
+                DECLARE @reconAmount DECIMAL(18,2) =
+                    CASE WHEN @invUsed + @ApplyAmount > @invVal THEN @invVal - @invUsed ELSE @ApplyAmount END;
+
+                IF @reconAmount > 0
+                    INSERT INTO dbo.AccountReconciliation
+                        (Id, CompanyId, PartnerId, DebitMovementId, CreditMovementId,
+                         Amount, MovementDate, IsReversal, CreatedBy)
+                    VALUES
+                        (NEWID(), @CompanyId, @PartnerId, @reconDebit, @reconCredit,
+                         @reconAmount, GETUTCDATE(), 0,
+                         CAST(@UserId AS NVARCHAR(450)));
             END
 
             SET @Remaining -= @ApplyAmount;

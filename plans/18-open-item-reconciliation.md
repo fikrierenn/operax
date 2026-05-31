@@ -1,6 +1,6 @@
 # Plan 18 — Açık-Kalem Kapama (AccountReconciliation) [M-F1.2]
 
-**Tarih:** 2026-06-01 · **Güncelleme:** 2026-06-01 (reference-researcher doğrulaması) · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M11 · **Kaynak:** B16 (MASTER_EXECUTION_PLAN M-F1.2)
+**Tarih:** 2026-06-01 · **Güncelleme:** 2026-06-01 · **Durum:** `TAMAM` · **Modül:** M11 · **Kaynak:** B16 (MASTER_EXECUTION_PLAN M-F1.2)
 
 > **Referans doğrulaması (2026-06-01):** Mikro V17 `CARI_HAREKET_BORC_ALACAK_ESLEME` + ERPNext
 > `account.partial.reconcile` + Odoo `against_voucher` — üçü de `DebitMovementId↔CreditMovementId+Amount`
@@ -128,12 +128,13 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 
 ## 7. Adımlar
 
-- [ ] **Faz 1:** `AccountReconciliation` şema + index (`docs/sql/schema_M11_Reconciliation.sql`)
-- [ ] **Faz 2:** `sp_ReconcileMovements` + `sp_UnreconcileMovements` + `tvf_OpenItems` + `tvf_OpenItemAging`
-- [ ] **Faz 3:** `sp_AutoClosePayments` güncelle (reconciliation kayıt + THROW)
-- [ ] **Faz 4:** Reversal SP'lere recon guard (sp_*Reverse aktif recon varsa REJECT)
-- [ ] **Faz 5:** Backfill — mevcut PAID planlardan reconciliation seed
-- [ ] **Faz 6:** Smoke — bakiye tutarlılık kontrolü + sql-sp-reviewer
+- [x] **Faz 1:** `AccountReconciliation` şema + iki-yönlü index — `13d1bae`
+- [x] **Faz 2:** sp_Reconcile/Unreconcile + tvf_OpenItems/OpenItemAging — `13d1bae`
+- [x] **Ön-koşul:** alış AM başlık-bazı + v_ExpenseDistribution (asimetri giderildi) — `c9b53e5`
+- [x] **Faz 3:** sp_AutoClosePayments otomatik reconciliation — `c9b53e5`
+- [x] **Faz 4:** 3 reversal SP'ye recon guard (51405/51415/51423) — `c9b53e5`
+- [x] **Faz 5:** Backfill script (idempotent, migrate_backfill_reconciliation.sql)
+- [x] **Faz 6:** sql-sp-reviewer 3 bulgu fix (THROW aralık 51250, aşım guard, TOP 1)
 
 ---
 

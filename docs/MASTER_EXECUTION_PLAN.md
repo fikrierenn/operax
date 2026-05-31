@@ -75,12 +75,14 @@
 - [x] Backfill çakışma yok + idempotency smoke ✅
 - **Kapsam genişledi:** AM şema (DueDate/TaxAmount/NetAmount/CostCenterId/ExpenseTypeId), çek/senet tahsil, tüm SP Türkçe header.
 
-## M-F1.2 — Açık-Kalem Kapama [B16]
-- [ ] `AccountReconciliation(BorcMovementId, AlacakMovementId, Tutar, Bileşen)` tablosu (Mikro CARI_HAREKET_BORC_ALACAK_ESLEME deseni)
-- [ ] Kapama SP'si (hangi tahsilat hangi faturayı kapattı) + kısmi kapama
-- [ ] Yaşlandırma `tvf_PaymentPlanAging` kapama tablosunu okusun + "açık fatura" raporu
-- **DoD:** Açık/kapalı kalem ayırt edilebiliyor; doğru yaşlandırma; K9 mutabakat ile uyumlu.
-- **Bağımlılık:** M-F1.1.
+## M-F1.2 — Açık-Kalem Kapama [B16] [plan: 18] ✅ KAPANDI 2026-06-01
+- [x] `AccountReconciliation(DebitMovementId, CreditMovementId, Amount, IsReversal)` append-only (Mikro+ERPNext+Odoo deseni)
+- [x] sp_ReconcileMovements (kısmi + kümülatif aşım guard) + sp_UnreconcileMovements (ters satır)
+- [x] tvf_OpenItems (açık = tutar - SUM eşleşen) + tvf_OpenItemAging (AM bazlı yaşlandırma)
+- [x] sp_AutoClosePayments otomatik reconciliation; reversal SP'lere recon guard (REJECT)
+- [x] Alış AM başlık-bazı (satış simetri) + v_ExpenseDistribution gider analitiği
+- **DoD:** ✅ açık/kapalı ayırt edilir; smoke geçti (kapama+kısmi+aşım+reversal guard); 3 skill doğrulaması (ref+domain+mevzuat).
+- **KALAN:** Realize FX (FX_DIFF) ayrı mini-plan; UI ekranı ayrı; mutabakat turu plan 19.
 
 ---
 

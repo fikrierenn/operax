@@ -229,6 +229,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
+        DECLARE @nowR DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowR, @UserId;
+
         -- Belgeyi kilitle ve bilgilerini al
         DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
                 @Status NVARCHAR(20), @POId UNIQUEIDENTIFIER;
@@ -340,6 +344,10 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRANSACTION;
+
+    -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
+    DECLARE @nowS DATETIME2 = GETUTCDATE();
+    EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowS, @UserId;
 
     DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
 
@@ -495,6 +503,10 @@ BEGIN
 
     BEGIN TRANSACTION;
 
+    -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
+    DECLARE @nowT DATETIME2 = GETUTCDATE();
+    EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowT, @UserId;
+
     DECLARE @FromWarehouseId UNIQUEIDENTIFIER, @ToWarehouseId UNIQUEIDENTIFIER,
             @DocNo NVARCHAR(50), @Status NVARCHAR(20);
 
@@ -548,6 +560,10 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRANSACTION;
+
+    -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
+    DECLARE @nowC DATETIME2 = GETUTCDATE();
+    EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowC, @UserId;
 
     DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
 
@@ -681,6 +697,10 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRANSACTION;
+
+    -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
+    DECLARE @nowP DATETIME2 = GETUTCDATE();
+    EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowP, @UserId;
 
     DECLARE @ItemId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
             @WarehouseId UNIQUEIDENTIFIER, @BinId UNIQUEIDENTIFIER;

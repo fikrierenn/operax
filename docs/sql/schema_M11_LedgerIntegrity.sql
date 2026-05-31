@@ -142,6 +142,80 @@ BEGIN
     VALUES
         (@CompanyId, @LockType, @SourceDocType, @SourceDocId, @SourceDocNo, @TargetTable,
          @MovementDate, @UserId, @ReasonCategory, @ReasonText);
+
+    -- Trigger bypass: bu session'daki bir sonraki ledger INSERT'i geçsin (tek kullanımlık)
+    -- Trigger okur → reset eder → sonraki INSERT normale döner
+    EXEC sys.sp_set_session_context N'period_override_ok', N'1', @read_only = 0;
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- 5. tr_GuardPeriod_StockMovement — Emniyet ağı trigger (Plan 14)
+--    sp_GuardPeriodOpen doğrudan çağrılmadan yapılan INSERT/UPDATE'i engeller.
+--    SESSION_CONTEXT='1' → override onaylı, tek-kullanımlık bypass + reset.
+--    StockMovement.MovementDate kolonu yok → onay anı (GETUTCDATE()) dönemi kontrol edilir.
+-- THROW aralığı: 51210 (plan kuralı: 50000-59999).
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER TRIGGER dbo.tr_GuardPeriod_StockMovement
+ON dbo.StockMovement
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- İş kuralı: override onaylıysa tek-kullanımlık bypass, ardından session context temizle
+    DECLARE @ok NVARCHAR(10) = CAST(SESSION_CONTEXT(N'period_override_ok') AS NVARCHAR(10));
+    IF @ok = N'1'
+    BEGIN
+        EXEC sys.sp_set_session_context N'period_override_ok', NULL, @read_only = 0;
+        RETURN;
+    END
+
+    -- İş kuralı: onay anı dönemini kontrol et (StockMovement'ta ayrı MovementDate kolonu yok)
+    DECLARE @y SMALLINT = YEAR(GETUTCDATE());
+    DECLARE @m TINYINT  = MONTH(GETUTCDATE());
+
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.AccountingPeriod ap
+        JOIN INSERTED i ON ap.CompanyId = i.CompanyId
+        WHERE ap.PeriodYear = @y AND ap.PeriodMonth = @m
+          AND ap.Status IN ('CLOSED', 'LOCKED')
+    )
+        THROW 51210, N'Dönem kapalı veya kilitli. StockMovement yazılamaz; onay SP üzerinden giriniz.', 1;
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- 6. tr_GuardPeriod_AccountMovement — Emniyet ağı trigger (Plan 14)
+--    AccountMovement.MovementDate mevcuttur → INSERTED.MovementDate ile dönem kontrolü.
+-- THROW aralığı: 51211.
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER TRIGGER dbo.tr_GuardPeriod_AccountMovement
+ON dbo.AccountMovement
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- İş kuralı: override onaylıysa tek-kullanımlık bypass, ardından session context temizle
+    DECLARE @ok NVARCHAR(10) = CAST(SESSION_CONTEXT(N'period_override_ok') AS NVARCHAR(10));
+    IF @ok = N'1'
+    BEGIN
+        EXEC sys.sp_set_session_context N'period_override_ok', NULL, @read_only = 0;
+        RETURN;
+    END
+
+    -- İş kuralı: hareketin ait olduğu dönem (MovementDate) kontrol edilir — onay anı değil
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.AccountingPeriod ap
+        JOIN INSERTED i ON ap.CompanyId = i.CompanyId
+        WHERE ap.PeriodYear  = YEAR(i.MovementDate)
+          AND ap.PeriodMonth = MONTH(i.MovementDate)
+          AND ap.Status IN ('CLOSED', 'LOCKED')
+    )
+        THROW 51211, N'Dönem kapalı veya kilitli. AccountMovement yazılamaz; onay SP üzerinden giriniz.', 1;
 END
 GO
 

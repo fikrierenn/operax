@@ -243,3 +243,26 @@ RETURN
     GROUP BY oi.PartnerId, p.Name, oi.Direction
 );
 GO
+
+-- -----------------------------------------------------------------------------
+-- v_ExpenseDistribution — gider dağıtım analitiği (CostCenter/ExpenseType bazlı)
+-- AM başlık-bazlı olduğu için (reference-researcher B1) gider kırılımı burada.
+-- Sadece POSTED faturaların satırları; cari defteri kirletmeden raporlama.
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER VIEW dbo.v_ExpenseDistribution
+AS
+SELECT
+    ei.CompanyId,
+    ei.Id            AS InvoiceId,
+    ei.DocNo,
+    ei.PartnerId,
+    ei.InvoiceDate,
+    l.ExpenseTypeId,
+    l.CostCenterId,
+    l.Amount         AS NetAmount,
+    l.TaxAmount,
+    l.TotalAmount
+FROM ExpenseInvoice ei
+JOIN ExpenseInvoiceLine l ON l.ExpenseInvoiceId = ei.Id
+WHERE ei.Status = 'POSTED';
+GO

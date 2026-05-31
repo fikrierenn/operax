@@ -1657,11 +1657,19 @@ BEGIN
             THROW 51501, N'Geçersiz yön: RECEIVABLE veya PAYABLE olmalıdır.', 1;
 
         DECLARE @Remaining DECIMAL(18,2) = @Amount;
-        DECLARE @PpId UNIQUEIDENTIFIER, @PpRemaining DECIMAL(18,2), @PpAmount DECIMAL(18,2), @PpPaid DECIMAL(18,2);
+        DECLARE @PpId UNIQUEIDENTIFIER, @PpRemaining DECIMAL(18,2), @PpAmount DECIMAL(18,2),
+                @PpPaid DECIMAL(18,2), @PpSrcType NVARCHAR(30), @PpSrcId UNIQUEIDENTIFIER;
+
+        -- Ödeme/tahsilat hareketinin AM karşılığı (reconciliation için)
+        -- INCOME→COLLECTION (Credit), EXPENSE→PAYMENT (Debit) — SourceDocId=@TransactionId
+        DECLARE @PayAmId UNIQUEIDENTIFIER;
+        SELECT @PayAmId = Id FROM AccountMovement
+        WHERE CompanyId = @CompanyId AND SourceDocId = @TransactionId
+          AND SourceDocType IN ('COLLECTION','PAYMENT');
 
         -- FIFO: en eski vade ilk kapatılır
         DECLARE c_pp CURSOR LOCAL FAST_FORWARD FOR
-            SELECT Id, Amount - PaidAmount, Amount, PaidAmount
+            SELECT Id, Amount - PaidAmount, Amount, PaidAmount, SourceDocType, SourceDocId
             FROM PaymentPlan
             WHERE CompanyId = @CompanyId
               AND PartnerId = @PartnerId
@@ -1671,7 +1679,7 @@ BEGIN
             ORDER BY DueDate ASC, CreatedAt ASC;
 
         OPEN c_pp;
-        FETCH NEXT FROM c_pp INTO @PpId, @PpRemaining, @PpAmount, @PpPaid;
+        FETCH NEXT FROM c_pp INTO @PpId, @PpRemaining, @PpAmount, @PpPaid, @PpSrcType, @PpSrcId;
 
         WHILE @@FETCH_STATUS = 0 AND @Remaining > 0
         BEGIN
@@ -1686,9 +1694,34 @@ BEGIN
                 UpdatedAt              = GETUTCDATE()
             WHERE Id = @PpId;
 
+            -- Açık-kalem kapama (plan 18): faturanın AM hareketi ↔ ödeme AM hareketi eşleştir
+            -- Fatura AM: SourceDocId=PaymentPlan.SourceDocId (başlık-bazlı, simetri kuruldu)
+            DECLARE @InvAmId UNIQUEIDENTIFIER;
+            SELECT @InvAmId = Id FROM AccountMovement
+            WHERE CompanyId = @CompanyId AND SourceDocId = @PpSrcId
+              AND SourceDocType = @PpSrcType;
+
+            IF @InvAmId IS NOT NULL AND @PayAmId IS NOT NULL
+            BEGIN
+                -- DebitMovementId = Debit>0 olan, CreditMovementId = Credit>0 olan
+                -- RECEIVABLE: fatura(Debit) + tahsilat(Credit) · PAYABLE: ödeme(Debit) + fatura(Credit)
+                DECLARE @reconDebit UNIQUEIDENTIFIER =
+                    CASE WHEN @Direction = 'RECEIVABLE' THEN @InvAmId ELSE @PayAmId END;
+                DECLARE @reconCredit UNIQUEIDENTIFIER =
+                    CASE WHEN @Direction = 'RECEIVABLE' THEN @PayAmId ELSE @InvAmId END;
+
+                INSERT INTO dbo.AccountReconciliation
+                    (Id, CompanyId, PartnerId, DebitMovementId, CreditMovementId,
+                     Amount, MovementDate, IsReversal, CreatedBy)
+                VALUES
+                    (NEWID(), @CompanyId, @PartnerId, @reconDebit, @reconCredit,
+                     @ApplyAmount, GETUTCDATE(), 0,
+                     CAST(@UserId AS NVARCHAR(450)));
+            END
+
             SET @Remaining -= @ApplyAmount;
 
-            FETCH NEXT FROM c_pp INTO @PpId, @PpRemaining, @PpAmount, @PpPaid;
+            FETCH NEXT FROM c_pp INTO @PpId, @PpRemaining, @PpAmount, @PpPaid, @PpSrcType, @PpSrcId;
         END
 
         CLOSE c_pp;
@@ -2195,21 +2228,19 @@ BEGIN
              @PartnerId, 'PAYABLE', 1, 1,
              ISNULL(@DueDate, DATEADD(DAY, 30, @now)), @Amount, 'OPEN');
 
-        -- Cari hesap defteri: alış faturası satır bazlı → Credit (biz cariye borçluyuz)
-        -- SourceDocId = Line.Id → UX_AccountMovement_Source unique kalır
-        -- NetAmount = KDV hariç, TaxAmount = KDV, Credit = toplam
-        -- CostCenterId + ExpenseTypeId → gider merkezi/tipi bazlı raporlama
+        -- Cari hesap defteri: alış faturası → BAŞLIK bazlı tek Credit (biz cariye borçluyuz)
+        -- SourceDocId = InvoiceId (satış SALES_INVOICE ile simetrik; PaymentPlan + reconcile eşleşir)
+        -- NetAmount/TaxAmount satırlardan SUM; gider analitiği (CostCenter/ExpenseType) AM'de DEĞİL,
+        -- v_ExpenseDistribution view'ında ExpenseInvoiceLine'dan okunur (reference-researcher B1)
         INSERT INTO dbo.AccountMovement
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
              NetAmount, TaxAmount, DueDate, Currency,
-             SourceDocType, SourceDocId, SourceDocNo,
-             CostCenterId, ExpenseTypeId, Description, CreatedBy)
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
         SELECT
             NEWID(), @CompanyId, @PartnerId, @now,
-            0, l.TotalAmount,
-            l.Amount, l.TaxAmount, @DueDate, @Currency,
-            'PURCHASE_INVOICE', l.Id, @DocNo,
-            l.CostCenterId, l.ExpenseTypeId, N'Alış Faturası', @UserId
+            0, @Amount,
+            ISNULL(SUM(l.Amount), 0), ISNULL(SUM(l.TaxAmount), 0), @DueDate, @Currency,
+            'PURCHASE_INVOICE', @InvoiceId, @DocNo, N'Alış Faturası', @UserId
         FROM ExpenseInvoiceLine l
         WHERE l.ExpenseInvoiceId = @InvoiceId;
 

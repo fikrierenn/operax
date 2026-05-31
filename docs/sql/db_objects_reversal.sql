@@ -446,6 +446,16 @@ BEGIN
         )
             THROW 51403, N'Bağlı tahsilat mevcut; önce tahsilatı iptal edin.', 1;
 
+        -- Plan 18: faturanın AM hareketi açık-kalem eşleştirmesi varsa REJECT
+        -- Önce sp_UnreconcileMovements ile eşleştirme geri alınmalı
+        IF EXISTS (
+            SELECT 1 FROM AccountReconciliation r
+            JOIN AccountMovement am ON am.Id IN (r.DebitMovementId, r.CreditMovementId)
+            WHERE am.SourceDocType = 'SALES_INVOICE' AND am.SourceDocId = @InvoiceId
+              AND r.CompanyId = @CompanyId AND r.IsReversal = 0
+        )
+            THROW 51405, N'Fatura eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
+
         -- Fatura iptal
         UPDATE SalesInvoice
         SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
@@ -541,6 +551,15 @@ BEGIN
         )
             THROW 51413, N'Bağlı ödeme mevcut; önce ödemeyi iptal edin.', 1;
 
+        -- Plan 18: faturanın AM hareketi açık-kalem eşleştirmesi varsa REJECT
+        IF EXISTS (
+            SELECT 1 FROM AccountReconciliation r
+            JOIN AccountMovement am ON am.Id IN (r.DebitMovementId, r.CreditMovementId)
+            WHERE am.SourceDocType = 'PURCHASE_INVOICE' AND am.SourceDocId = @InvoiceId
+              AND r.CompanyId = @CompanyId AND r.IsReversal = 0
+        )
+            THROW 51415, N'Fatura eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
+
         -- Fatura iptal
         UPDATE ExpenseInvoice
         SET Status = 'CANCELLED', UpdatedBy = @UserId
@@ -552,21 +571,25 @@ BEGIN
         WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId
           AND Status = 'OPEN';
 
-        -- AM ters kayıt: satır bazlı Debit (ters Credit); REVERSAL ile unique
+        -- AM ters kayıt: BAŞLIK bazlı tek Debit (ters Credit); SourceDocId=InvoiceId
+        -- (sp_ExpenseInvoicePost ile simetrik — başlık bazlı, gider analitiği view'da)
+        DECLARE @revTotal DECIMAL(18,2), @revNet DECIMAL(18,2), @revTax DECIMAL(18,2);
+        SELECT @revTotal = ISNULL(SUM(TotalAmount), 0),
+               @revNet   = ISNULL(SUM(Amount), 0),
+               @revTax   = ISNULL(SUM(TaxAmount), 0)
+        FROM ExpenseInvoiceLine WHERE ExpenseInvoiceId = @InvoiceId;
+
         INSERT INTO dbo.AccountMovement
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
              NetAmount, TaxAmount, Currency,
-             CostCenterId, ExpenseTypeId,
              SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
-        SELECT
+        VALUES (
             NEWID(), @CompanyId, @PartnerId, @now,
-            l.TotalAmount, 0,
-            -l.Amount, -l.TaxAmount, 'TRY',
-            l.CostCenterId, l.ExpenseTypeId,
-            'REVERSAL', l.Id, @DocNo,
+            @revTotal, 0,
+            -@revNet, -@revTax, 'TRY',
+            'REVERSAL', @InvoiceId, @DocNo,
             N'Alış Faturası İptali: ' + @DocNo, @UserId
-        FROM ExpenseInvoiceLine l
-        WHERE l.ExpenseInvoiceId = @InvoiceId;
+        );
 
         COMMIT TRANSACTION;
     END TRY
@@ -621,6 +644,15 @@ BEGIN
             THROW 51420, N'Finansal işlem bulunamadı veya zaten iptal edilmiş.', 1;
         IF @PartnerId IS NULL
             THROW 51421, N'Cari hesabı olmayan işlem iptal edilemez.', 1;
+
+        -- Plan 18: ödeme/tahsilat AM hareketi açık-kalem eşleştirmesi varsa REJECT
+        IF EXISTS (
+            SELECT 1 FROM AccountReconciliation r
+            JOIN AccountMovement am ON am.Id IN (r.DebitMovementId, r.CreditMovementId)
+            WHERE am.SourceDocType IN ('COLLECTION','PAYMENT') AND am.SourceDocId = @TransactionId
+              AND r.CompanyId = @CompanyId AND r.IsReversal = 0
+        )
+            THROW 51423, N'İşlem eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
 
         -- Çift-iptal koruması: zaten silinmişse THROW
         -- FinancialTransaction sistem-içi kayıt (e-Belge değil) → soft-delete meşru

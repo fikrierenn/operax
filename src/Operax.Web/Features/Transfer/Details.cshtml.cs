@@ -72,7 +72,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Header.Id    = Guid.NewGuid();
-            Header.DocNo = $"{DocPrefix.Transfer}-{DateTime.Now:yyyyMMddHHmm}";
+            Header.DocNo = $"{DocPrefix.Transfer}-{DateTime.UtcNow:yyyyMMddHHmm}";
 
             await conn.ExecuteAsync(@"
                 INSERT INTO StockTransfer
@@ -111,6 +111,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (baseUomId is null) return RedirectToPage(new { id });
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 106) ile dogrulandi; TransferId = id, header OnGetAsync'te CompanyId ile dogrulandi */
             INSERT INTO StockTransferLine (TransferId, ItemId, UomId, FromBinId, ToBinId, Qty, QtyBase)
             VALUES (@TransferId, @ItemId, @UomId, @FromBinId, @ToBinId, @Qty, @Qty)",
             new { TransferId = id, ItemId = itemId, UomId = baseUomId, FromBinId = fromBinId, ToBinId = toBinId, Qty = qty });

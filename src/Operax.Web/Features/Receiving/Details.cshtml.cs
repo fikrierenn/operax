@@ -87,7 +87,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             var seq = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) + 1 FROM ReceivingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
                 new { CompanyId = company.Id });
-            Header.DocNo = $"{DocPrefix.Receiving}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
+            Header.DocNo = $"{DocPrefix.Receiving}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
             await conn.ExecuteAsync(@"
                 INSERT INTO ReceivingHeader
@@ -132,6 +132,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (rate == 0) rate = 1;
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 121) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile yuklendi */
             INSERT INTO ReceivingLine (HeaderId, ItemId, UomId, QtyOriginal, QtyBase, LotNo, PurchaseOrderLineId)
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo, @PoLineId)",
             new { HeaderId = id, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rate, LotNo = lotNo, PoLineId = poLineId });

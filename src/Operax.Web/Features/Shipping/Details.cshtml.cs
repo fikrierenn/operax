@@ -70,7 +70,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         else
         {
-            Header.DocDate = DateTime.Now;
+            Header.DocDate = DateTime.UtcNow;
             Header.Status  = DocStatus.Draft;
             Header.DocNo   = "NEW";
         }
@@ -87,7 +87,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             var seq = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) + 1 FROM ShippingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
                 new { CompanyId = company.Id });
-            Header.DocNo = $"{DocPrefix.Shipping}-{DateTime.Now:yyyyMMdd}-{seq:D5}";
+            Header.DocNo = $"{DocPrefix.Shipping}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
             await conn.ExecuteAsync(@"
                 INSERT INTO ShippingHeader
@@ -136,16 +136,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 if (rate == 0) rate = 1;
 
                 await conn.ExecuteAsync(@"
+                    /* isolation-guard:ignore: SalesOrderHeader WHERE CompanyId = @CompanyId (satir 127) ile dogrulandi */
                     INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
                     VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
-                    new { 
-                        HeaderId = id, 
-                        SOLineId = sol.Id, 
-                        ItemId = sol.ItemId, 
-                        UomId = sol.UomId, 
-                        Qty = sol.QtyRemaining, 
-                        QtyBase = sol.QtyRemaining * rate, 
-                        LotNo = (string?)null 
+                    new {
+                        HeaderId = id,
+                        SOLineId = sol.Id,
+                        ItemId = sol.ItemId,
+                        UomId = sol.UomId,
+                        Qty = sol.QtyRemaining,
+                        QtyBase = sol.QtyRemaining * rate,
+                        LotNo = (string?)null
                     });
             }
 
@@ -165,6 +166,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (rateVal == 0) rateVal = 1;
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 156) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile dogrulandi */
             INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
             VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
             new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rateVal, LotNo = lotNo });

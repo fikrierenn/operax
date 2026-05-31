@@ -5,20 +5,26 @@ namespace Operax.Web.Features.Receiving;
 
 public class AutoTraceabilityService(Db db)
 {
-    public async Task<string> GenerateLotAsync(Guid itemId)
+    // Lot numarası üretir — şirket izolasyonu için companyId zorunlu
+    public async Task<string> GenerateLotAsync(Guid itemId, Guid companyId)
     {
         using var conn = db.Open();
-        var item = await conn.QueryFirstOrDefaultAsync("SELECT LotPrefix FROM Item WHERE Id = @Id", new { Id = itemId });
+        var item = await conn.QueryFirstOrDefaultAsync(
+            "SELECT LotPrefix FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = itemId, CompanyId = companyId });
         string prefix = item?.LotPrefix ?? "LOT";
-        return $"{prefix}-{DateTime.Now:yyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
+        return $"{prefix}-{DateTime.UtcNow:yyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
     }
 
-    public async Task<string> GenerateSerialAsync(Guid itemId)
+    // Seri numarası üretir — şirket izolasyonu için companyId zorunlu
+    public async Task<string> GenerateSerialAsync(Guid itemId, Guid companyId)
     {
         using var conn = db.Open();
-        var item = await conn.QueryFirstOrDefaultAsync("SELECT SerialPrefix FROM Item WHERE Id = @Id", new { Id = itemId });
+        var item = await conn.QueryFirstOrDefaultAsync(
+            "SELECT SerialPrefix FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = itemId, CompanyId = companyId });
         string prefix = item?.SerialPrefix ?? "SN";
-        return $"{prefix}-{DateTime.Now:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+        return $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
     }
 
     public async Task EnqueueLabelPrintAsync(string code, string type, string itemName)

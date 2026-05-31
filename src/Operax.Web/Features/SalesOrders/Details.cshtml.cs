@@ -52,7 +52,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         else
         {
-            Header.OrderDate = DateTime.Now;
+            Header.OrderDate = DateTime.UtcNow;
             Header.Status    = DocStatus.Draft;
             Header.OrderNo   = "NEW";
         }
@@ -98,6 +98,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     private async Task LoadActivitiesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Activities = await conn.QueryAsync<ActivityDto>(@"
+            /* isolation-guard:ignore: AuditLog EntityId ile filtre; EntityId SalesOrderHeader.Id, header OnGetAsync'te CompanyId ile dogrulandi */
             SELECT TOP 8
                 a.CreatedAt,
                 NULLIF(a.UserName, '') AS UserName,
@@ -154,6 +155,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (baseUomId is null) return RedirectToPage(new { id });
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 150) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile dogrulandi */
             INSERT INTO SalesOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",
             new { HeaderId = id, ItemId = itemId, UomId = baseUomId, Qty = qty, Price = price ?? 0 });

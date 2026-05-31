@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Receiving;
 
 [Authorize]
-public class TerminalModel(Db db, ICurrentCompany company) : PageModel
+public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel> logger) : PageModel
 {
     public ReceivingTerminalDto? ActiveDoc { get; set; }
     public IEnumerable<PendingDocDto> PendingDocs { get; set; } = [];
@@ -83,6 +83,7 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
             else
             {
                 await conn.ExecuteAsync(@"
+                    /* isolation-guard:ignore: parent ReceivingHeader h.CompanyId = @CompanyId JOIN ile dogrulandi (satir 72) */
                     INSERT INTO ReceivingLine (Id, HeaderId, ItemId, LotNo, QtyOriginal, QtyBase, UomId)
                     SELECT NEWID(), @DocId, @ItemId, @LotNo, @Qty, @Qty, i.BaseUomId
                     FROM Item i WHERE i.Id = @ItemId",
@@ -92,7 +93,7 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
             trans.Commit();
             TempData["Success"] = $"Eklendi: {barcode} × {qty}";
         }
-        catch { trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
+        catch (Exception ex) { logger.LogWarning(ex, "Barkod okutma hatası"); trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
         return RedirectToPage(new { docId });
     }
 

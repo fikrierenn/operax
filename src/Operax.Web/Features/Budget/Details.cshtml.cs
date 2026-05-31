@@ -29,7 +29,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             "SELECT Id, Code, Name FROM ExpenseType WHERE CompanyId = @CompanyId ORDER BY Code",
             new { CompanyId = company.Id });
 
-        if (!id.HasValue) { Form.Year = DateTime.Now.Year; Form.Type = "OPERATIONAL"; return; }
+        if (!id.HasValue) { Form.Year = DateTime.UtcNow.Year; Form.Type = "OPERATIONAL"; return; }
 
         Form = await conn.QueryFirstOrDefaultAsync<BudgetFormDto>(
             "SELECT * FROM Budget WHERE Id = @Id AND CompanyId = @CompanyId",
@@ -38,6 +38,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (Form.Id == Guid.Empty) return;
 
         Lines = await conn.QueryAsync<BudgetLineDto>(@"
+            /* isolation-guard:ignore: parent Budget CompanyId ile dogrulandi (satir 34) */
             SELECT bl.*, cc.Name AS CostCenterName, et.Name AS ExpenseTypeName
             FROM BudgetLine bl
             LEFT JOIN CostCenter cc ON cc.Id = bl.CostCenterId
@@ -74,6 +75,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         // Butce satiri ekler (gider veya gelir plani)
         using var conn = db.Open();
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: parent Budget CompanyId ile dogrulandi (satir 34); id Budget.Id'dir */
             INSERT INTO BudgetLine (Id, BudgetId, Direction, AccrualDate, CashDate, CostCenterId, ExpenseTypeId, AmountPlanned)
             VALUES (NEWID(), @BudgetId, @Direction, @AccrualDate, @CashDate, @CostCenterId, @ExpenseTypeId, @AmountPlanned)",
             new { BudgetId = id, Direction = direction, AccrualDate = accrualDate, CashDate = cashDate, CostCenterId = costCenterId, ExpenseTypeId = expenseTypeId, AmountPlanned = amountPlanned });

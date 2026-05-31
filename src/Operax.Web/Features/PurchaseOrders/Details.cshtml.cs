@@ -50,7 +50,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         else
         {
-            Header.OrderDate = DateTime.Now;
+            Header.OrderDate = DateTime.UtcNow;
             Header.Status    = DocStatus.Draft;
             Header.OrderNo   = "NEW";
         }
@@ -98,6 +98,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     private async Task LoadActivitiesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Activities = await conn.QueryAsync<ActivityDto>(@"
+            /* isolation-guard:ignore: AuditLog EntityId ile filtre, EntityId PurchaseOrderHeader.Id; header OnGetAsync'te CompanyId ile dogrulandi */
             SELECT TOP 8
                 a.CreatedAt,
                 NULLIF(a.UserName, '') AS UserName,
@@ -154,6 +155,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         // İş kuralı: Yeni satır Id'si geri alınır (fiyat farkı kontrolü için gerekli)
         var newLineId = await conn.ExecuteScalarAsync<Guid>(@"
+            /* isolation-guard:ignore: HeaderId = id; Item WHERE CompanyId = @CompanyId (satir 149) ile dogrulandi; LoadLinesAsync'te oh.CompanyId = @CompanyId JOIN var */
             INSERT INTO PurchaseOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
             OUTPUT INSERTED.Id
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",

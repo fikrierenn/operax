@@ -69,7 +69,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Header.Id    = Guid.NewGuid();
-            Header.DocNo = $"{DocPrefix.CycleCount}-{DateTime.Now:yyyyMMddHHmm}";
+            Header.DocNo = $"{DocPrefix.CycleCount}-{DateTime.UtcNow:yyyyMMddHHmm}";
 
             await conn.ExecuteAsync(@"
                 INSERT INTO CycleCount (Id, CompanyId, DocNo, Status, WarehouseId, CreatedBy)
@@ -97,6 +97,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { CompanyId = company.Id, BinId = binId, ItemId = itemId });
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: parent CycleCount CompanyId ile dogrulandi (satir 33); ayni handler'da UPDATE CycleCount WHERE CompanyId = @CompanyId (satir 106) */
             INSERT INTO CycleCountLine (CycleCountId, BinId, ItemId, QtySystem, QtyCounted, CountedBy, CountedAt)
             VALUES (@Id, @BinId, @ItemId, @QtySystem, @QtyCounted, @UserId, GETUTCDATE())",
             new { Id = id, BinId = binId, ItemId = itemId, QtySystem = qtySystem, QtyCounted = qtyCounted, UserId = user.Id.ToString() });

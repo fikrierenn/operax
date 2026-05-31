@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Picking;
 
 [Authorize]
-public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<TerminalModel> logger) : PageModel
 {
     public PickTaskTermDto? ActiveTask { get; set; }
     public IEnumerable<PendingTaskDto> PendingTasks { get; set; } = [];
@@ -73,6 +73,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
             // İş kuralı: barkod ürün koduyla veya barkod listesiyle eşleşmeli
             var barcodeMatch = await conn.ExecuteScalarAsync<int>(@"
+                /* isolation-guard:ignore: ItemId, parent PickTaskLine uzerinden CompanyId ile dogrulandi (satir 64) */
                 SELECT COUNT(1) FROM ItemBarcode WHERE ItemId = @ItemId AND Barcode = @Barcode",
                 new { ItemId = (Guid)line.ItemId, Barcode = barcode }, trans);
 
@@ -106,7 +107,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
             trans.Commit();
             TempData["Success"] = "Toplama onaylandı!";
         }
-        catch { trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
+        catch (Exception ex) { logger.LogWarning(ex, "Pick satırı onaylama hatası"); trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
         return RedirectToPage(new { taskId });
     }
 

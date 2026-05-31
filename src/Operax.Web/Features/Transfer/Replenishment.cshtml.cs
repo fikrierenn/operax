@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Transfer;
 
 [Authorize]
-public class ReplenishmentModel(Db db, ICurrentCompany company) : PageModel
+public class ReplenishmentModel(Db db, ICurrentCompany company, ILogger<ReplenishmentModel> logger) : PageModel
 {
     public IEnumerable<ReplenishmentSuggestionDto> Suggestions { get; set; } = [];
 
@@ -42,7 +42,7 @@ public class ReplenishmentModel(Db db, ICurrentCompany company) : PageModel
             {
                 var qtyToMove  = Math.Min(neededQty, (decimal)source.QtyBalance);
                 var transferId = Guid.NewGuid();
-                var docNo      = $"{DocPrefix.Replenishment}-{DateTime.Now:yyyyMMddHHmm}";
+                var docNo      = $"{DocPrefix.Replenishment}-{DateTime.UtcNow:yyyyMMddHHmm}";
 
                 // Transfer başlığı — aynı depo içinde bin-to-bin
                 await conn.ExecuteAsync(@"
@@ -52,17 +52,17 @@ public class ReplenishmentModel(Db db, ICurrentCompany company) : PageModel
                     FROM Bin b JOIN Warehouse w ON w.Id = b.WarehouseId WHERE b.Id = @BinId",
                     new { Id = transferId, DocNo = docNo, Status = DocStatus.Draft, BinId = pickingBinId }, trans);
 
-                // Transfer satırı
+                // Transfer satırı — CompanyId ile ürün doğrulaması yapılır
                 await conn.ExecuteAsync(@"
                     INSERT INTO StockTransferLine (TransferId, ItemId, UomId, FromBinId, ToBinId, Qty, QtyBase)
                     SELECT @TransferId, @ItemId, BaseUomId, @FromBin, @ToBin, @Qty, @Qty
-                    FROM Item WHERE Id = @ItemId",
-                    new { TransferId = transferId, ItemId = itemId, FromBin = source.BinId, ToBin = pickingBinId, Qty = qtyToMove }, trans);
+                    FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId",
+                    new { TransferId = transferId, ItemId = itemId, CompanyId = company.Id, FromBin = source.BinId, ToBin = pickingBinId, Qty = qtyToMove }, trans);
             }
 
             trans.Commit();
         }
-        catch { trans.Rollback(); throw; }
+        catch (Exception ex) { logger.LogWarning(ex, "İkmal transferi oluşturma hatası"); trans.Rollback(); throw; }
 
         return RedirectToPage();
     }

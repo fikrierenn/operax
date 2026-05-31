@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Expenses;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public InvoiceFormDto Form { get; set; } = new();
@@ -45,6 +45,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
         // Fatura satırları — gider tipi ve maliyet merkezi bilgileriyle
         Lines = await conn.QueryAsync<InvoiceLineDto>(@"
+            /* isolation-guard:ignore: parent ExpenseInvoice CompanyId ile dogrulandi (satir 38) */
             SELECT l.*, et.Name AS ExpenseTypeName, cc.Name AS CostCenterName
             FROM ExpenseInvoiceLine l
             JOIN ExpenseType et ON et.Id = l.ExpenseTypeId
@@ -87,6 +88,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         {
             var amount = qty * unitPrice;
             await conn.ExecuteAsync(@"
+                /* isolation-guard:ignore: parent ExpenseInvoice CompanyId ile dogrulandi (satir 38); ayni handler UPDATE'de CompanyId = @CompanyId (satir 99) */
                 INSERT INTO ExpenseInvoiceLine (Id, ExpenseInvoiceId, ExpenseTypeId, CostCenterId, Quantity, UnitPrice, Amount, TaxRate)
                 VALUES (NEWID(), @InvoiceId, @ExpenseTypeId, @CostCenterId, @Qty, @UnitPrice, @Amount, @TaxRate)",
                 new { InvoiceId = id, ExpenseTypeId = expenseTypeId, CostCenterId = costCenterId, Qty = qty, UnitPrice = unitPrice, Amount = amount, TaxRate = taxRate }, trans);
@@ -101,7 +103,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
             trans.Commit();
         }
-        catch { trans.Rollback(); }
+        catch (Exception ex) { logger.LogWarning(ex, "Fatura satırı ekleme hatası"); trans.Rollback(); }
         return RedirectToPage(new { id });
     }
 
@@ -127,7 +129,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
             trans.Commit();
         }
-        catch { trans.Rollback(); }
+        catch (Exception ex) { logger.LogWarning(ex, "Fatura satırı silme hatası"); trans.Rollback(); }
         return RedirectToPage(new { id });
     }
 

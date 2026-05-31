@@ -53,6 +53,15 @@ Fatura satırının StockMovement yazıp yazmaması KAYNAĞINA bağlı (çift-sa
   entegrasyonu bu planda tasarlanır ama Item.IsStockItem + hizmet kalem tipi M-F6.1'e bağlı olabilir →
   Faz sıralaması: önce irsaliye→fatura (StockMovement YOK yolu), sonra direkt mallı (StockMovement VAR).
 
+### Mikro V16 doğrulaması (MIKRO_V16_ANALYSIS §1)
+- Mikro stok hareketi TEK `STOK_HAREKETLERI` + `sth_evraktip`/`sth_cins` (irsaliye vs fatura tip kolonuyla).
+  Operax ayrı belge (Shipping≠SalesInvoice) + polymorphic StockMovement → **daha normalize, Mikro'dan üstün**.
+- Mikro'da da **stok hareketi irsaliyede** (`sth_cins`=satış irsaliyesi), fatura ayrı cins → belge ayrımı (§1.b) DOĞRULANDI.
+- `sth_normal_iade` (iade ayrı satır) → M-F2.2 RETURN_IN/OUT'ta uygulanacak (bu plan değil).
+- 3 tarih (`sth_belge_tarih`/`sth_tarih`/`sth_fis_tarihi`) → Operax DocDate/MovementDate/IssueDate ile eşleşir.
+- **Sonuç:** Mikro yeni tablo gerektirmiyor; mevcut ledger + ayrı belge kararı doğrulanıyor. İnce katkı:
+  `sth_normal_iade` ayrı-satır iade prensibi (M-F2.2) + SourceDocType kataloğu (DELIVERY_NOTE — opsiyonel).
+
 ## 2. Scope
 
 ### Dahili

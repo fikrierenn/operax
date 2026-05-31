@@ -322,10 +322,11 @@ BEGIN
             0, 0, 0, 'POSTED', @UserId
         );
 
-        -- Satırları sevkiyat satırlarından doldur
+        -- Satırları sevkiyat satırlarından doldur (Plan 21: SourceShipmentLineId iz)
         INSERT INTO SalesInvoiceLine (
             Id, InvoiceId, ItemId, UomId, Description,
-            Qty, UnitPrice, LineSubtotal, TaxRatePercent, TaxAmount, LineTotal, UnitCost
+            Qty, UnitPrice, LineSubtotal, TaxRatePercent, TaxAmount, LineTotal, UnitCost,
+            SourceShipmentLineId
         )
         SELECT
             NEWID(),
@@ -339,12 +340,17 @@ BEGIN
             ISNULL(i.TaxRate, 20)                                                      AS TaxRatePercent,
             sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, 20) / 100 AS TaxAmount,
             sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, 20) / 100) AS LineTotal,
-            ic.AvgCost                                                                 AS UnitCost
+            ic.AvgCost                                                                 AS UnitCost,
+            sl.Id
         FROM ShippingLine sl
         JOIN Item i ON i.Id = sl.ItemId
         LEFT JOIN SalesOrderLine sol ON sol.Id = sl.SalesOrderLineId
         LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId
         WHERE sl.HeaderId = @ShippingId;
+
+        -- Plan 21: faturalanan miktarı işaretle (kısmi/N:1 izi, çift-sayım önleme)
+        UPDATE sl SET sl.InvoicedQty = sl.QtyBase
+        FROM ShippingLine sl WHERE sl.HeaderId = @ShippingId;
 
         -- Başlık toplamlarını güncelle
         UPDATE SalesInvoice
@@ -377,6 +383,148 @@ BEGIN
             Subtotal, TaxAmount, @DueDate, 'TRY',
             'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
             N'Satış Faturası', CAST(@UserId AS NVARCHAR(450))
+        FROM SalesInvoice WHERE Id = @NewInvoiceId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- sp_GenerateSalesInvoiceFromShippings — Plan 21: N irsaliye → 1 fatura (DEFERRED N:1)
+-- NE YAPAR: birden çok POSTED sevkiyatı tek faturada birleştirir. Aynı cari zorunlu;
+--   7-gün VUK guard (MIN sevk tarihi + 7 ≥ fatura). Stok YAZMAZ (irsaliyede yazıldı);
+--   yalnızca SalesInvoice + AccountMovement + PaymentPlan üretir, InvoicedQty günceller.
+-- PARAMETRELERİ:
+--   @CompanyId, @PartnerId, @ShippingIdsJson (JSON dizi: ["guid",...]), @UserId, @NewInvoiceId OUT
+-- SIDE EFFECTS: SalesInvoice/Line (INSERT), ShippingLine.InvoicedQty (UPDATE),
+--   AccountMovement (Debit), PaymentPlan (RECEIVABLE/OPEN)
+-- THROW: 50210-50219 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen, sp_GuardPartnerReconciled, OPENJSON
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_GenerateSalesInvoiceFromShippings
+    @CompanyId       UNIQUEIDENTIFIER,
+    @PartnerId       UNIQUEIDENTIFIER,
+    @ShippingIdsJson NVARCHAR(MAX),
+    @UserId          UNIQUEIDENTIFIER = NULL,
+    @NewInvoiceId    UNIQUEIDENTIFIER OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @ships TABLE (Id UNIQUEIDENTIFIER PRIMARY KEY);
+        INSERT INTO @ships (Id)
+        SELECT TRY_CAST(value AS UNIQUEIDENTIFIER) FROM OPENJSON(@ShippingIdsJson)
+        WHERE TRY_CAST(value AS UNIQUEIDENTIFIER) IS NOT NULL;
+
+        IF NOT EXISTS (SELECT 1 FROM @ships)
+            THROW 50210, N'Birleştirilecek sevkiyat seçilmedi.', 1;
+
+        -- Guard: tüm sevkiyatlar aktif firmaya + aynı cariye ait + POSTED
+        IF EXISTS (
+            SELECT 1 FROM @ships s
+            LEFT JOIN ShippingHeader sh ON sh.Id = s.Id
+            WHERE sh.Id IS NULL OR sh.IsDeleted = 1
+               OR sh.CompanyId <> @CompanyId OR sh.PartnerId <> @PartnerId
+               OR sh.Status <> 'POSTED'
+        )
+            THROW 50211, N'Seçili sevkiyatlar aynı cariye ait, onaylı ve geçerli olmalıdır.', 1;
+
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @userStr;
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
+
+        -- 7-GÜN VUK guard (md.231/5): en eski sevk + 7 gün
+        DECLARE @minShipDate DATETIME2;
+        SELECT @minShipDate = MIN(sh.DocDate) FROM @ships s JOIN ShippingHeader sh ON sh.Id = s.Id;
+        IF DATEDIFF(DAY, @minShipDate, @now) > 7
+            THROW 50212, N'En eski sevkiyattan bu yana 7 günü aştı (VUK md.231/5); fatura ayrı kesilmeli.', 1;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM ShippingLine sl JOIN @ships s ON s.Id = sl.HeaderId
+            WHERE sl.QtyBase - sl.InvoicedQty > 0.000001)
+            THROW 50213, N'Seçili sevkiyatlarda faturalanmamış satır yok.', 1;
+
+        DECLARE @InvoiceNo NVARCHAR(50), @InvoiceCount INT;
+        SELECT @InvoiceCount = ISNULL(MAX(CAST(SUBSTRING(InvoiceNo, 10, 5) AS INT)), 0)
+        FROM SalesInvoice
+        WHERE CompanyId = @CompanyId AND InvoiceNo LIKE 'INV-' + CAST(YEAR(@now) AS NVARCHAR(4)) + '-%';
+        SET @InvoiceNo = 'INV-' + CAST(YEAR(@now) AS NVARCHAR(4)) + '-'
+                       + RIGHT('00000' + CAST(@InvoiceCount + 1 AS NVARCHAR(5)), 5);
+
+        SET @NewInvoiceId = NEWID();
+
+        DECLARE @PaymentTermDays INT;
+        SELECT @PaymentTermDays = ISNULL(PaymentTermDays, 30) FROM Partner WHERE Id = @PartnerId;
+        DECLARE @DueDate DATE = DATEADD(DAY, @PaymentTermDays, CAST(@now AS DATE));
+
+        -- Fatura başlığı: ShippingId NULL (N:1 — bağ satırda)
+        INSERT INTO SalesInvoice (
+            Id, CompanyId, InvoiceNo, InvoiceDate, IssueDate, DueDate,
+            PartnerId, ShippingId, SalesOrderId,
+            Subtotal, TaxAmount, GrandTotal, Status, CreatedBy)
+        VALUES (
+            @NewInvoiceId, @CompanyId, @InvoiceNo, @now, @now, @DueDate,
+            @PartnerId, NULL, NULL, 0, 0, 0, 'POSTED', @UserId);
+
+        INSERT INTO SalesInvoiceLine (
+            Id, InvoiceId, ItemId, UomId, Description,
+            Qty, UnitPrice, LineSubtotal, TaxRatePercent, TaxAmount, LineTotal, UnitCost,
+            SourceShipmentLineId)
+        SELECT
+            NEWID(), @NewInvoiceId, sl.ItemId, sl.UomId, i.Name,
+            (sl.QtyBase - sl.InvoicedQty),
+            ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)),
+            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)),
+            ISNULL(i.TaxRate, 20),
+            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, 20) / 100,
+            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, 20) / 100),
+            ic.AvgCost,
+            sl.Id
+        FROM ShippingLine sl
+        JOIN @ships s ON s.Id = sl.HeaderId
+        JOIN Item i ON i.Id = sl.ItemId
+        LEFT JOIN SalesOrderLine sol ON sol.Id = sl.SalesOrderLineId
+        LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId
+        WHERE sl.QtyBase - sl.InvoicedQty > 0.000001;
+
+        UPDATE sl SET sl.InvoicedQty = sl.QtyBase
+        FROM ShippingLine sl JOIN @ships s ON s.Id = sl.HeaderId
+        WHERE sl.QtyBase - sl.InvoicedQty > 0.000001;
+
+        UPDATE SalesInvoice
+        SET Subtotal   = (SELECT ISNULL(SUM(LineSubtotal), 0) FROM SalesInvoiceLine WHERE InvoiceId = @NewInvoiceId),
+            TaxAmount  = (SELECT ISNULL(SUM(TaxAmount), 0)    FROM SalesInvoiceLine WHERE InvoiceId = @NewInvoiceId),
+            GrandTotal = (SELECT ISNULL(SUM(LineTotal), 0)    FROM SalesInvoiceLine WHERE InvoiceId = @NewInvoiceId)
+        WHERE Id = @NewInvoiceId;
+
+        INSERT INTO PaymentPlan (
+            Id, CompanyId, SourceDocType, SourceDocId, SourceDocNo,
+            PartnerId, Direction, InstallmentNo, TotalInstallments, DueDate, Amount, Status)
+        SELECT
+            NEWID(), @CompanyId, 'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
+            @PartnerId, 'RECEIVABLE', 1, 1, @DueDate, GrandTotal, 'OPEN'
+        FROM SalesInvoice WHERE Id = @NewInvoiceId;
+
+        -- Cari defter: fatura → Debit (irsaliye AM yazmaz)
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, DueDate, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId, @PartnerId, @now,
+            GrandTotal, 0, Subtotal, TaxAmount, @DueDate, 'TRY',
+            'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
+            N'Satış Faturası (birleşik)', @userStr
         FROM SalesInvoice WHERE Id = @NewInvoiceId;
 
         COMMIT TRANSACTION;
@@ -2282,4 +2430,42 @@ BEGIN
         THROW;
     END CATCH
 END
+GO
+
+-- =============================================================================
+-- tvf_UninvoicedShipments — Plan 21: faturalanmamış sevkiyat satırları (N:1 adayı)
+-- POSTED sevkiyat + RemainingQty>0. UI partner bazlı GROUP BY ile birleştirme listesi.
+-- Statü: SUM(InvoicedQty)=0 → TO_BILL · kısmi → PARTIAL · tam → satır listede çıkmaz.
+-- =============================================================================
+CREATE OR ALTER FUNCTION dbo.tvf_UninvoicedShipments
+(
+    @CompanyId UNIQUEIDENTIFIER
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        sh.Id              AS ShippingId,
+        sh.DocNo           AS ShippingNo,
+        sh.DocDate         AS ShipDate,
+        sh.PartnerId,
+        p.Name             AS PartnerName,
+        sl.Id              AS ShippingLineId,
+        sl.ItemId,
+        i.Name             AS ItemName,
+        sl.QtyBase,
+        sl.InvoicedQty,
+        sl.QtyBase - sl.InvoicedQty AS RemainingQty,
+        CASE WHEN sl.InvoicedQty = 0 THEN 'TO_BILL' ELSE 'PARTIAL' END AS LineStatus,
+        DATEDIFF(DAY, sh.DocDate, GETUTCDATE()) AS AgeDays  -- 7-gün VUK uyarısı için
+    FROM ShippingHeader sh
+    JOIN ShippingLine sl ON sl.HeaderId = sh.Id
+    JOIN Item i ON i.Id = sl.ItemId
+    JOIN Partner p ON p.Id = sh.PartnerId
+    WHERE sh.CompanyId = @CompanyId
+      AND sh.Status = 'POSTED'
+      AND sh.IsDeleted = 0
+      AND sl.QtyBase - sl.InvoicedQty > 0.000001
+);
 GO

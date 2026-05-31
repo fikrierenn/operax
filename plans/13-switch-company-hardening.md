@@ -54,7 +54,7 @@ Omurga tam (firma-başına farklı rol yetenek), bugün herkes her firmada tek r
 - [x] CurrentUser.Roles firma-bağlamlı — factory global AspNetUserRoles yerine firma rolünü yazar; `CurrentUser.Roles` (ClaimTypes.Role) otomatik firma-bağlamlı
 - [x] Sidebar firma listesi UserCompany'ye göre filtreli (`_Layout.cshtml` — JOIN UserCompany WHERE UserId + IsActive)
 - [x] Audit log: COMPANY_SWITCH — `IAuditService.LogAsync` (kim, hangi firma)
-- [ ] **Runtime smoke (opsiyonel):** login→rol claim doğru mu, switch→rol değişiyor mu, yetkisiz POST→403, CSRF token'sız→403
+- [x] **Runtime smoke (kısmi, 2026-05-31):** login→firma-bağlamlı rol 'Administrator' çözüldü, Admin-only klasör (Ayarlar) erişildi, Dashboard yüklendi, factory login'i kırmadı, sidebar filtreli liste crash'siz. KALAN (tek-firma ortamında test edilemedi): switch→rol değişimi, CSRF token'sız→403, yetkisiz companyId→403 (çok-firmalı seed gerek).
 
 ## 6. Onay
 - [x] §3 kararı alındı: **Model 3 (K10, 2026-05-29)** · [x] Onay: 2026-05-29 · Uygulandı: 2026-05-31

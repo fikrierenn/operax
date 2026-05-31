@@ -29,6 +29,11 @@ public class DynamicBomService(Db db)
         {
             // Model reçetesi satırlarını getir
             var bomLines = await conn.QueryAsync<BomLineDto>(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT * FROM ProductModelBOM WHERE ProductModelId = @ModelId",
                 new { ModelId = productModelId }, trans);
 
@@ -50,13 +55,23 @@ public class DynamicBomService(Db db)
                 if (grossQty <= 0) continue;
 
                 // Hammadde birim maliyetini çek
-                decimal itemCost = await conn.ExecuteScalarAsync<decimal>(
-                    "SELECT ISNULL(LastPurchasePrice, 0) FROM Item WHERE Id = @ItemId",
+                decimal itemCost = await conn.ExecuteScalarAsync<decimal>(@"
+                    -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                    -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                    -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                    -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                    -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                    SELECT ISNULL(LastPurchasePrice, 0) FROM Item WHERE Id = @ItemId",
                     new { ItemId = bom.ComponentItemId }, trans);
 
                 totalPlannedMaterialCost += grossQty * itemCost;
 
                 await conn.ExecuteAsync(@"
+                    -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                    -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                    -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                    -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                    -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                     INSERT INTO ProductionOrderLine (Id, ProductionOrderId, ItemId, QtyRequired)
                     VALUES (NEWID(), @OrderId, @ItemId, @Qty)",
                     new { OrderId = productionOrderId, ItemId = bom.ComponentItemId, Qty = grossQty },
@@ -65,6 +80,11 @@ public class DynamicBomService(Db db)
 
             // Rota standart maliyetlerini hesapla
             decimal totalPlannedResourceCost = await conn.ExecuteScalarAsync<decimal>(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT ISNULL(SUM(StandardLaborCost + StandardMachineCost), 0)
                 FROM ProductRouteStep
                 WHERE ProductRouteId = @RouteId",
@@ -72,6 +92,11 @@ public class DynamicBomService(Db db)
 
             // Tahmini maliyetleri üretim emrine kaydet
             await conn.ExecuteAsync(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 UPDATE ProductionOrder
                 SET PlannedMaterialCost = @MatCost,
                     PlannedResourceCost = @ResCost

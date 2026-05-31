@@ -28,6 +28,13 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 
 > ✅ F0.1 DURUMU (2026-05-30): SEC-1 ✅ HIGH-1 ✅ HIGH-2 ✅ CRIT-4 ✅ SEC-2 ✅ SEC-3 ✅ CRIT-3 ✅ IMP-2 ✅
 
+## 🔒 PLAN 12 — MULTI-COMPANY İZOLASYON GUARD (2026-05-31 — uygulandı)
+- [x] **scan-isolation guard** — `operax-cli scan-isolation` (`src/Operax.Cli/IsolationScanner.cs`); 52 doğrudan + 27 dolaylı company-scoped tablo envanteri. CompanyId predikatsız ham sorgu → exit 1.
+- [x] **İhlal sweep** — 55 aday → 2 gerçek fix (AutoTraceability, Transfer/Replenishment) + 33 suppress (defense-in-depth, kendini-açıklayan yorum) + Production/Terminal gerçek fix (order firma guard).
+- [x] **Production/Terminal izolasyon açığı** ✅ KAPALI — OnPostStart firma-doğrulama guard'ı + ProductionOrder UPDATE CompanyId + bare-catch→logger.
+- [ ] **DEAD/WIP production servisleri** (ProductionReceiptService, ProductionActivityService, DynamicBomService) — caller/DI yok, kırık StockMovement INSERT'leri (canlı VT'de `Qty`/`ReferenceId` kolonu yok, NOT NULL CompanyId/UomId/QtyOriginal eksik). Şimdilik guard'da `isolation-guard:ignore` (dead/WIP gerekçesi) ile bastırıldı. **Karar ertelendi:** WIP atölye terminali feature'ı planlanırsa SP'ye taşınarak (`sp_ProductionConsume`/`sp_ProductionInspect`) yeniden yazılmalı; planlanmazsa silinmeli. Architecture §4: ham C# stok insert yasak, SP zorunlu.
+- [ ] **Sprint-kapanış (plan 12 §4):** dead servisler çözülünce guard 0 → blocking hook'a bağla (pre-commit/session-start).
+
 ---
 
 ## 🔐 F0.2 PRODUCTION GÜVENLİK SERTLEŞTİRMESİ (2026-05-30 — internet yayına hazırlık)

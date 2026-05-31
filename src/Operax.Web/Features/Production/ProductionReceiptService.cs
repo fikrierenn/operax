@@ -5,7 +5,7 @@ using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Production;
 
-public class ProductionReceiptService(Db db)
+public class ProductionReceiptService(Db db, ILogger<ProductionReceiptService> logger)
 {
     public async Task RecordInspectionAsync(Guid productionOrderId, decimal qty, string result, string? failAction = null, Guid? defectId = null)
     {
@@ -15,6 +15,11 @@ public class ProductionReceiptService(Db db)
         {
             // 1. Teftiş Kaydı
             await conn.ExecuteAsync(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ProductionInspection (ProductionOrderId, CompanyId, InspectorUserId, QtyInspected, QtyPassed, Result, FailAction, DefectCodeId)
                 SELECT @OrderId, CompanyId, CreatedBy, @Qty, (CASE WHEN @Result='PASS' THEN @Qty ELSE 0 END), @Result, @Action, @Defect
                 FROM ProductionOrder WHERE Id = @OrderId",
@@ -32,6 +37,11 @@ public class ProductionReceiptService(Db db)
                     // 1. Rework Emri Oluştur (Esnek Akış)
                     var reworkId = Guid.NewGuid();
                     await conn.ExecuteAsync(@"
+                        -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                        -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                        -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                        -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                        -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                         INSERT INTO ProductionRework (Id, CompanyId, ProductionOrderId, InspectionId, Status, ReworkStepId)
                         SELECT @Id, CompanyId, @OrderId, @InspId, 'OPEN', @ReworkStep
                         FROM ProductionOrder WHERE Id = @OrderId",
@@ -39,13 +49,24 @@ public class ProductionReceiptService(Db db)
 
                     // 2. İş Emrini Rework Adımına Çek
                     await conn.ExecuteAsync(@"
-                        UPDATE ProductionOrder SET Status = 'REWORK', 
+                        -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                        -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                        -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                        -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                        -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                        UPDATE ProductionOrder SET Status = 'REWORK',
                         CurrentRouteStepId = @StepId WHERE Id = @OrderId",
                         new { OrderId = productionOrderId, StepId = defectId }, trans);
                 }
                 else if (failAction == "CANCEL_ORDER")
                 {
-                    await conn.ExecuteAsync("UPDATE ProductionOrder SET Status = @StCancelled WHERE Id = @OrderId", new { OrderId = productionOrderId, StCancelled = DocStatus.Cancelled }, trans);
+                    await conn.ExecuteAsync(@"
+                        -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                        -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                        -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                        -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                        -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                        UPDATE ProductionOrder SET Status = @StCancelled WHERE Id = @OrderId", new { OrderId = productionOrderId, StCancelled = DocStatus.Cancelled }, trans);
                     // TODO: Sales Order Notify Logic
                 }
             }
@@ -57,7 +78,13 @@ public class ProductionReceiptService(Db db)
 
             trans.Commit();
         }
-        catch { trans.Rollback(); throw; }
+        catch (Exception ex)
+        {
+            // Hata durumunda transaction geri alınır; sessiz yutma yasak, log'a yazılır
+            trans.Rollback();
+            logger.LogError(ex, "Üretim mamul/teftiş kaydı hatası: {OrderId}", productionOrderId);
+            throw;
+        }
     }
 
     private async Task CompleteProductionInternalAsync(Guid productionOrderId, decimal qty, string? lotNo, string? serialNo, System.Data.IDbConnection conn, System.Data.IDbTransaction trans)
@@ -73,6 +100,11 @@ public class ProductionReceiptService(Db db)
         {
             // 1. İş Emri Bilgilerini Çek
             var order = await conn.QueryFirstOrDefaultAsync<dynamic>(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT ItemId, TargetWarehouseId, TargetBinId, ActualMaterialCost, ActualResourceCost, QtyTarget, QtyProduced
                 FROM ProductionOrder WHERE Id = @Id", new { Id = productionOrderId }, trans);
 
@@ -80,16 +112,21 @@ public class ProductionReceiptService(Db db)
 
             // 2. Mamül Stok Girişi (PRODUCTION)
             await conn.ExecuteAsync(@"
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO StockMovement (ItemId, MovementType, Qty, ReferenceId, WarehouseId, BinId, LotNo, SerialNo)
                 VALUES (@ItemId, 'PRODUCTION', @Qty, @OrderId, @WhId, @BinId, @Lot, @Serial)",
-                new { 
-                    ItemId = (Guid)order.ItemId, 
-                    Qty = qty, 
-                    OrderId = productionOrderId, 
+                new {
+                    ItemId = (Guid)order.ItemId,
+                    Qty = qty,
+                    OrderId = productionOrderId,
                     WhId = (Guid?)order.TargetWarehouseId,
                     BinId = (Guid?)order.TargetBinId,
                     Lot = lotNo,
-                    Serial = serialNo 
+                    Serial = serialNo
                 }, trans);
 
             // 3. İş Emrini Güncelle
@@ -98,8 +135,13 @@ public class ProductionReceiptService(Db db)
             var completedAt = status == "COMPLETED" ? (DateTime?)DateTime.UtcNow : null;
 
             await conn.ExecuteAsync(@"
-                UPDATE ProductionOrder 
-                SET QtyProduced = @Qty, 
+                -- DEAD/WIP kod — çoklu-firma izolasyonu burada uygulanmıyor çünkü bu servis hiçbir yerden
+                -- çağrılmıyor (caller yok, DI kaydı yok) ve şemaya uymuyor (kırık StockMovement INSERT'leri).
+                -- Gerçek üretim akışı SP kullanır (sp_ProductionFinish). Bu kod ileride yarım kalan WIP atölye
+                -- terminali için SP'ye taşınarak yeniden yazılacak; o zamana kadar etkin değildir.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                UPDATE ProductionOrder
+                SET QtyProduced = @Qty,
                     Status = @Status,
                     CompletedAt = @CompletedAt
                 WHERE Id = @Id",
@@ -107,6 +149,12 @@ public class ProductionReceiptService(Db db)
 
             trans.Commit();
         }
-        catch { trans.Rollback(); throw; }
+        catch (Exception ex)
+        {
+            // Hata durumunda transaction geri alınır; sessiz yutma yasak, log'a yazılır
+            trans.Rollback();
+            logger.LogError(ex, "Üretim mamul/teftiş kaydı hatası: {OrderId}", productionOrderId);
+            throw;
+        }
     }
 }

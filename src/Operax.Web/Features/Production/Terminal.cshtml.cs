@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Production;
 
 [Authorize]
-public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<TerminalModel> logger) : PageModel
 {
     public IEnumerable<ActiveTaskDto> ActiveTasks   { get; set; } = [];
     public ActiveActivityDto?         CurrentActivity { get; set; }
@@ -52,7 +52,19 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
 
         try
         {
-            // Varsa operatörün mevcut açık aktivitesini kapat
+            // Çoklu-firma izolasyon guard'ı: dışarıdan POST edilen orderId başka firmaya
+            // ait olabilir. Aktivite/durum yazmadan önce üretim emrinin oturum firmasına
+            // ait olduğunu doğrula; değilse hiçbir kayda dokunmadan yetki hatası dön.
+            var orderBelongsToCompany = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM ProductionOrder WHERE Id = @OrderId AND CompanyId = @CompanyId",
+                new { OrderId = orderId, CompanyId = company.Id }, trans);
+            if (orderBelongsToCompany == 0)
+            {
+                trans.Rollback();
+                return Forbid();
+            }
+
+            // Varsa operatörün mevcut açık aktivitesini kapat (yalnızca kendi kayıtları)
             await conn.ExecuteAsync(
                 "UPDATE ProductionActivity SET EndTime = GETUTCDATE() WHERE UserId = @UserId AND EndTime IS NULL",
                 new { UserId = user.Id }, trans);
@@ -62,22 +74,33 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
                 "SELECT WorkCenterId FROM ProductRouteStep WHERE Id = @StepId",
                 new { StepId = stepId }, trans);
 
-            // Yeni aktivite kaydı oluştur
+            // Yeni aktivite kaydı oluştur.
             await conn.ExecuteAsync(@"
+                -- Çoklu-firma izolasyon notu: ProductionActivity tablosunda CompanyId kolonu yoktur;
+                -- izolasyon üst belge ProductionOrder üzerinden sağlanır. @OrderId bu handler'ın
+                -- başında ProductionOrder.CompanyId = oturum firması koşuluyla doğrulandığından
+                -- bu kayıt güvenle yazılır.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ProductionActivity
                     (Id, ProductionOrderId, UserId, WorkCenterId, RouteStepId, StartTime)
                 VALUES
                     (NEWID(), @OrderId, @UserId, @WorkCenterId, @StepId, GETUTCDATE())",
                 new { OrderId = orderId, UserId = user.Id, WorkCenterId = workCenterId, StepId = stepId }, trans);
 
-            // İş kuralı: üretim emri IN_PROGRESS değilse güncelle
+            // İş kuralı: üretim emri IN_PROGRESS değilse güncelle (firma filtresi guard'la birlikte)
             await conn.ExecuteAsync(
-                "UPDATE ProductionOrder SET Status = 'IN_PROGRESS', CurrentRouteStepId = @StepId WHERE Id = @OrderId AND Status <> 'COMPLETED'",
-                new { StepId = stepId, OrderId = orderId }, trans);
+                "UPDATE ProductionOrder SET Status = 'IN_PROGRESS', CurrentRouteStepId = @StepId WHERE Id = @OrderId AND CompanyId = @CompanyId AND Status <> 'COMPLETED'",
+                new { StepId = stepId, OrderId = orderId, CompanyId = company.Id }, trans);
 
             trans.Commit();
         }
-        catch { trans.Rollback(); throw; }
+        catch (Exception ex)
+        {
+            // Hata durumunda transaction geri alınır; sessiz yutma yasak, log'a yazılır
+            trans.Rollback();
+            logger.LogError(ex, "Üretim terminali aktivite başlatma hatası: {OrderId}", orderId);
+            throw;
+        }
 
         return RedirectToPage();
     }

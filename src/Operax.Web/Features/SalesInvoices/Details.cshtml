@@ -13,7 +13,7 @@
         SubHtml: $"{System.Web.HttpUtility.HtmlEncode(h.PartnerName)} · {UiHelpers.FmtDateShort(h.InvoiceDate)} · {L.T("Vade", "Due")} <span class=\"mono\">{(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")}</span>",
         ActionsHtml: $"<a href=\"/SalesInvoices\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">PDF</button>" +
                      (h.EBelgeStatus == null ? $"<button class=\"btn btn-primary btn-sm\">{L.T("e-Fatura'ya Çevir", "Convert to e-Invoice")}</button>" : "") +
-                     (h.Status == "POSTED" ? $"<button class=\"btn btn-danger btn-sm\">{L.T("İptal", "Cancel")}</button>" : "")
+                     (h.Status == DocStatus.Posted ? $"<button class=\"btn btn-danger btn-sm\">{L.T("İptal", "Cancel")}</button>" : "")
     );
 }
 
@@ -32,7 +32,7 @@
         }
         @if (h.EBelgeUuid.HasValue)
         {
-            <span class="muted mono" style="font-size:10px;">UUID: @UiHelpers.ShortGuid(h.EBelgeUuid.Value)…</span>
+            <span class="muted mono doc-uuid">UUID: @UiHelpers.ShortGuid(h.EBelgeUuid.Value)…</span>
         }
     </div>
 
@@ -44,7 +44,7 @@
                 <div class="card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
                     <div>
                         <div class="form-label">@L.T("Müşteri", "Customer")</div>
-                        <div class="row-strong" style="margin-top:4px;color:var(--brand-500);">@h.PartnerName</div>
+                        <div class="row-strong text-brand" style="margin-top:4px;">@h.PartnerName</div>
                         @if (!string.IsNullOrEmpty(h.TaxNumber))
                         {
                             <div class="row-sub mono">VKN @h.TaxNumber</div>
@@ -104,7 +104,7 @@
                             @foreach (var l in Model.Lines)
                             {
                                 <tr>
-                                    <td><span class="mono row-strong" style="color:var(--brand-500);">@l.ItemCode</span></td>
+                                    <td><span class="mono row-strong text-brand">@l.ItemCode</span></td>
                                     <td>@l.ItemName</td>
                                     <td><span class="badge badge-neutral" style="height:18px;">@(l.UomCode ?? "")</span></td>
                                     <td class="num">@UiHelpers.FmtNum(l.Qty, 2)</td>
@@ -119,19 +119,19 @@
                     </table>
                 </div>
                 <div class="card-foot">
-                    <div style="font-size:11.5px;color:var(--text-3);">@L.T("Tüm tutarlar", "All amounts") @h.Currency</div>
-                    <div style="display:flex;gap:24px;font-size:12.5px;">
-                        <div style="display:flex;flex-direction:column;align-items:flex-end;">
-                            <span style="color:var(--text-3);">@L.T("Ara Toplam", "Subtotal")</span>
-                            <span class="mono" style="font-weight:600;">@UiHelpers.FmtTL(h.Subtotal)</span>
+                    <div class="doc-foot-note">@L.T("Tüm tutarlar", "All amounts") @h.Currency</div>
+                    <div class="row doc-totals">
+                        <div class="doc-total">
+                            <span class="text-mute">@L.T("Ara Toplam", "Subtotal")</span>
+                            <span class="mono text-strong">@UiHelpers.FmtTL(h.Subtotal)</span>
                         </div>
-                        <div style="display:flex;flex-direction:column;align-items:flex-end;">
-                            <span style="color:var(--text-3);">@L.T("KDV Toplamı", "Total Tax")</span>
-                            <span class="mono" style="font-weight:600;">@UiHelpers.FmtTL(h.TaxAmount)</span>
+                        <div class="doc-total">
+                            <span class="text-mute">@L.T("KDV Toplamı", "Total Tax")</span>
+                            <span class="mono text-strong">@UiHelpers.FmtTL(h.TaxAmount)</span>
                         </div>
-                        <div style="display:flex;flex-direction:column;align-items:flex-end;">
-                            <span style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">@L.T("Genel Toplam", "Grand Total")</span>
-                            <span class="mono" style="font-size:17px;font-weight:700;color:var(--brand-500);">@UiHelpers.FmtTL(h.GrandTotal)</span>
+                        <div class="doc-total">
+                            <span class="doc-total-cap">@L.T("Genel Toplam", "Grand Total")</span>
+                            <span class="mono doc-grand">@UiHelpers.FmtTL(h.GrandTotal)</span>
                         </div>
                     </div>
                 </div>
@@ -145,13 +145,13 @@
                 <div class="card-body" style="padding:14px 18px;">
                     @if (Model.Envelopes.Count == 0)
                     {
-                        <div class="muted" style="text-align:center;padding:20px 0;font-size:12px;">@L.T("Henüz gönderim yok", "No submissions yet")</div>
+                        <div class="muted doc-empty">@L.T("Henüz gönderim yok", "No submissions yet")</div>
                     }
                     else
                     {
                         foreach (var e in Model.Envelopes)
                         {
-                            <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                            <div class="doc-sub-item">
                                 <div class="row" style="justify-content:space-between;margin-bottom:4px;">
                                     <span class="row-strong">@e.DocumentType</span>
                                     <span class="badge badge-neutral">@e.Status</span>
@@ -163,11 +163,11 @@
                                 }
                                 @if (e.AcceptedAt.HasValue)
                                 {
-                                    <div class="row-sub" style="color:var(--success-text);">@L.T("Kabul:", "Accepted:") @UiHelpers.FmtDateShort(e.AcceptedAt.Value)</div>
+                                    <div class="row-sub text-success">@L.T("Kabul:", "Accepted:") @UiHelpers.FmtDateShort(e.AcceptedAt.Value)</div>
                                 }
                                 @if (e.RejectedAt.HasValue)
                                 {
-                                    <div class="row-sub" style="color:var(--danger-text);">@L.T("Red:", "Rejected:") @UiHelpers.FmtDateShort(e.RejectedAt.Value)</div>
+                                    <div class="row-sub text-danger">@L.T("Red:", "Rejected:") @UiHelpers.FmtDateShort(e.RejectedAt.Value)</div>
                                 }
                             </div>
                         }

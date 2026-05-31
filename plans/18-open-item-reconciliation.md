@@ -1,6 +1,10 @@
 # Plan 18 — Açık-Kalem Kapama (AccountReconciliation) [M-F1.2]
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M11 · **Kaynak:** B16 (MASTER_EXECUTION_PLAN M-F1.2)
+**Tarih:** 2026-06-01 · **Güncelleme:** 2026-06-01 (reference-researcher doğrulaması) · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M11 · **Kaynak:** B16 (MASTER_EXECUTION_PLAN M-F1.2)
+
+> **Referans doğrulaması (2026-06-01):** Mikro V17 `CARI_HAREKET_BORC_ALACAK_ESLEME` + ERPNext
+> `account.partial.reconcile` + Odoo `against_voucher` — üçü de `DebitMovementId↔CreditMovementId+Amount`
+> modelini kullanıyor. Plan 18 endüstri standardıyla uyumlu. Aşağıdaki güncellemeler araştırmadan eklendi.
 
 ---
 
@@ -28,18 +32,29 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
   - `DebitMovementId` → AccountMovement.Id (fatura/borç hareketi)
   - `CreditMovementId` → AccountMovement.Id (tahsilat/alacak hareketi)
   - `Amount` — eşleştirilen tutar (kısmi kapama için)
-  - `CompanyId`, `PartnerId`, `CreatedAt`, `CreatedBy`
-  - **Append-only** (Plan 14 immutability): silme yok, iptal → ters reconciliation kaydı
+  - `IsReversal BIT DEFAULT 0` — ters kayıt mı (append-only iptal mekanizması)
+  - `ReversalOfId UNIQUEIDENTIFIER NULL` → ters kayıt hangi orijinal satırı iptal ediyor
+  - `CompanyId`, `PartnerId`, `MovementDate`, `CreatedAt`, `CreatedBy`
+  - **Append-only** (Plan 14 immutability): silme yok, iptal → `IsReversal=1` ters satır
+  - ⚠️ `IsDeleted` EKLEME — append-only AM ile tutarlı (Mikro `_iptal`, ERPNext `delinked` ruhunda)
+  - **İki yönlü index ZORUNLU** (Mikro+Odoo kanıtı):
+    - `IX_Recon_Debit (CompanyId, DebitMovementId)` — "bu faturayı ne kapattı?"
+    - `IX_Recon_Credit (CompanyId, CreditMovementId)` — "bu tahsilat neyi kapattı?"
 - **`sp_ReconcileMovements`:** Manuel veya otomatik eşleştirme SP'si
   - Debit/Credit AM ID'leri + tutar → doğrulama + kayıt
-  - Aşım koruması: toplam eşleştirilen tutar > hareket tutarı → THROW
+  - **Kümülatif aşım guard (CHECK yetmez — SP'de SUM):**
+    `SUM(Amount WHERE DebitMovementId=@x AND IsReversal=0) + @newAmount <= AM.Debit`
+    Hem Debit hem Credit tarafı ayrı kontrol (Mikro iki-yön index'i bunun içindir)
+  - THROW: 51500-51599 aralığı
   - sp_GuardPeriodOpen dönem kilidi
 - **`tvf_OpenItems`:** Kapatılmamış AM hareketleri (fatura − eşleştirilen = açık)
   - CompanyId + PartnerId + Direction parametreli
-  - Her Debit/Credit'in kapatılan tutarını `AccountReconciliation`'dan SUM ile hesapla
-  - Açık kalem = `Debit/Credit - SUM(Amount WHERE DebitMovementId/CreditMovementId = AM.Id)`
+  - Açık tutar = `AM.Debit - ISNULL(SUM(r.Amount) WHERE r.IsReversal=0, 0)`
+    (Odoo `amount_residual` deseni — snapshot TUTULMAZ, her seferinde SUM, K6 uyumlu)
 - **`tvf_OpenItemAging`:** `tvf_OpenItems` üzerine yaşlandırma (0-30/31-60/61-90/>90 gün)
-  - `tvf_PaymentPlanAging`'in AM bazlı karşılığı
+  - Mevcut `tvf_PaymentPlanAging` CASE/DATEDIFF iskeletini kullan (`db_objects_starter.sql:1180`)
+  - Vade için `AM.DueDate` kullan (plan 16'da eklendi, `schema_M11_AccountMovement.sql:43`)
+  - `tvf_PaymentPlanAging` korunur (taksit planlaması için hâlâ gerekli)
 - **sp_AutoCloseWithReconciliation güncelleme:** `sp_AutoClosePayments` çağrıldığında
   PaymentPlan kapatmanın yanı sıra `AccountReconciliation`'a da kayıt yazar
 

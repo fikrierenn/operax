@@ -27,7 +27,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (Route.Id == Guid.Empty) return;
 
         Steps = await conn.QueryAsync<RouteStepDto>(@"
-            /* isolation-guard:ignore: parent ProductRoute CompanyId ile dogrulandi (satir 21) */
+            /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+               Gerekçe: üst kayıt ProductRoute aynı handler içinde daha önce
+               WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş döndü.
+               Bu sorgu yalnızca o doğrulanmış ProductRoute.Id üzerinden adımları okuyduğundan
+               başka firmanın verisine erişilemez.
+               isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar) */
             SELECT s.Id, s.StepOrder, s.OperationCode, s.OperationName,
                    s.WorkCenterId, wc.Name AS WorkCenterName,
                    s.StandardDurationSec / 60 AS StandardDurationMin,
@@ -71,7 +76,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             new { RouteId = id });
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: parent ProductRoute CompanyId ile dogrulandi (satir 56); WorkCenter de CompanyId ile dogrulandi (satir 62) */
+            /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+               Gerekçe: üst kayıt ProductRoute bu handler'da
+               WHERE Id = @Id AND CompanyId = @CompanyId ile doğrulandı; bulunamazsa Index'e yönlendirildi.
+               Ek olarak WorkCenter da WHERE Id = @WcId AND CompanyId = @CompanyId ile
+               aynı şirkete ait olduğu teyit edildi; bulunamazsa işlem iptal edildi.
+               isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar) */
             INSERT INTO ProductRouteStep
                 (Id, ProductRouteId, StepOrder, OperationCode, OperationName,
                  WorkCenterId, StandardDurationSec, StandardLaborCost, StandardMachineCost)

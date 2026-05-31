@@ -111,7 +111,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (baseUomId is null) return RedirectToPage(new { id });
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 106) ile dogrulandi; TransferId = id, header OnGetAsync'te CompanyId ile dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId ile
+            -- doğrulandı; bulunamazsa işlem iptal edildi (BaseUomId null döndü).
+            -- @TransferId değeri OnGetAsync'te WHERE Id = @Id AND CompanyId = @CompanyId ile
+            -- yüklenen StockTransfer.Id'dir; farklı firmanın transferine satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO StockTransferLine (TransferId, ItemId, UomId, FromBinId, ToBinId, Qty, QtyBase)
             VALUES (@TransferId, @ItemId, @UomId, @FromBinId, @ToBinId, @Qty, @Qty)",
             new { TransferId = id, ItemId = itemId, UomId = baseUomId, FromBinId = fromBinId, ToBinId = toBinId, Qty = qty });

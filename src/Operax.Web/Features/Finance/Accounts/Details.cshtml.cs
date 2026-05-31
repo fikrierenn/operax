@@ -43,7 +43,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             Balance = Account.Balance;
 
             Transactions = (await conn.QueryAsync<TxRowDto>(@"
-                /* isolation-guard:ignore: parent FinancialAccount CompanyId ile dogrulandi (satir 33); AccountId o hesaba aittir */
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst kayıt FinancialAccount aynı handler içinde daha önce
+                -- WHERE a.Id = @Id AND a.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+                -- Bu sorgu yalnızca o doğrulanmış FinancialAccount.Id üzerinden işlemleri okuyduğundan
+                -- başka firmanın hesap ekstresine erişilemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT TOP 100
                     t.Id, t.TransactionDate, t.TransactionType,
                     t.Amount, t.Currency, t.AmountTRY,

@@ -38,7 +38,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (Form.Id == Guid.Empty) return;
 
         Lines = await conn.QueryAsync<BudgetLineDto>(@"
-            /* isolation-guard:ignore: parent Budget CompanyId ile dogrulandi (satir 34) */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst belge Budget aynı handler içinde daha önce
+            -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- Bu sorgu yalnızca o doğrulanmış Budget.Id üzerinden BudgetLine okuyduğundan başka
+            -- firmanın verisine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT bl.*, cc.Name AS CostCenterName, et.Name AS ExpenseTypeName
             FROM BudgetLine bl
             LEFT JOIN CostCenter cc ON cc.Id = bl.CostCenterId
@@ -75,7 +80,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         // Butce satiri ekler (gider veya gelir plani)
         using var conn = db.Open();
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: parent Budget CompanyId ile dogrulandi (satir 34); id Budget.Id'dir */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst belge Budget aynı handler içinde daha önce
+            -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- @BudgetId parametresi o doğrulanmış Budget.Id değeridir;
+            -- farklı firmanın bütçesine satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO BudgetLine (Id, BudgetId, Direction, AccrualDate, CashDate, CostCenterId, ExpenseTypeId, AmountPlanned)
             VALUES (NEWID(), @BudgetId, @Direction, @AccrualDate, @CashDate, @CostCenterId, @ExpenseTypeId, @AmountPlanned)",
             new { BudgetId = id, Direction = direction, AccrualDate = accrualDate, CashDate = cashDate, CostCenterId = costCenterId, ExpenseTypeId = expenseTypeId, AmountPlanned = amountPlanned });

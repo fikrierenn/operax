@@ -45,7 +45,12 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
         // Fatura satırları — gider tipi ve maliyet merkezi bilgileriyle
         Lines = await conn.QueryAsync<InvoiceLineDto>(@"
-            /* isolation-guard:ignore: parent ExpenseInvoice CompanyId ile dogrulandi (satir 38) */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst belge ExpenseInvoice aynı handler içinde daha önce
+            -- WHERE e.Id = @Id AND e.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- Bu sorgu yalnızca o doğrulanmış ExpenseInvoice.Id üzerinden satırları okuyduğundan
+            -- başka firmanın verisine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT l.*, et.Name AS ExpenseTypeName, cc.Name AS CostCenterName
             FROM ExpenseInvoiceLine l
             JOIN ExpenseType et ON et.Id = l.ExpenseTypeId
@@ -88,7 +93,12 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         {
             var amount = qty * unitPrice;
             await conn.ExecuteAsync(@"
-                /* isolation-guard:ignore: parent ExpenseInvoice CompanyId ile dogrulandi (satir 38); ayni handler UPDATE'de CompanyId = @CompanyId (satir 99) */
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst belge ExpenseInvoice OnGetAsync'te WHERE e.Id = @Id AND e.CompanyId = @CompanyId
+                -- ile doğrulandı; @InvoiceId o doğrulanmış ExpenseInvoice.Id değeridir.
+                -- Aynı handler içinde başlık toplamını güncelleyen UPDATE sorgusu da
+                -- WHERE e.Id = @InvoiceId AND e.CompanyId = @CompanyId koşulu taşır.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ExpenseInvoiceLine (Id, ExpenseInvoiceId, ExpenseTypeId, CostCenterId, Quantity, UnitPrice, Amount, TaxRate)
                 VALUES (NEWID(), @InvoiceId, @ExpenseTypeId, @CostCenterId, @Qty, @UnitPrice, @Amount, @TaxRate)",
                 new { InvoiceId = id, ExpenseTypeId = expenseTypeId, CostCenterId = costCenterId, Qty = qty, UnitPrice = unitPrice, Amount = amount, TaxRate = taxRate }, trans);

@@ -17,11 +17,19 @@ public class DetailsModel(Db db) : PageModel
     {
         using var conn = db.Open();
         Type = await conn.QueryFirstOrDefaultAsync<DictionaryTypeDto>(
-            @"/* isolation-guard:ignore: DictionaryType global sistem verisi, CompanyId tasimaz (Administrator-only sayfa) */
+            @"-- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: DictionaryType tüm firmalar tarafından paylaşılan global sistem verisidir
+            -- (birim, para birimi, ülke kodları vb.). Şirkete özel kayıt içermez.
+            -- Bu sayfa yalnızca Administrator rolüne açıktır; veri sızıntısı riski yoktur.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT * FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
 
         Values = await conn.QueryAsync<DictionaryValueDto>(
-            @"/* isolation-guard:ignore: DictionaryValue global sistem verisi, DictionaryTypeId ile yalitilmis (Administrator-only sayfa) */
+            @"-- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: DictionaryValue, tüm firmalar tarafından paylaşılan global sözlük değerleridir
+            -- (ölçü birimi kodları, ülke adları, kategori değerleri vb.).
+            -- DictionaryTypeId filtresi tür kapsamını sınırlar; şirkete özel veri içermez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT * FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
             new { Id = id });
     }
@@ -30,7 +38,10 @@ public class DetailsModel(Db db) : PageModel
     {
         using var conn = db.Open();
         const string sql = @"
-            /* isolation-guard:ignore: DictionaryValue global sistem verisi, CompanyId tasimaz (Administrator-only sayfa) */
+            -- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: DictionaryValue tüm firmaların paylaştığı global sistem verisidir;
+            -- şirkete özel alan içermez. Bu sayfa yalnızca Administrator rolüne açıktır.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO DictionaryValue (DictionaryTypeId, Code, NameTr, NameEn, SortNo)
             VALUES (@TypeId, @Code, @NameTr, @NameEn, @SortNo)";
         

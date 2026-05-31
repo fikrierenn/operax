@@ -136,7 +136,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 if (rate == 0) rate = 1;
 
                 await conn.ExecuteAsync(@"
-                    /* isolation-guard:ignore: SalesOrderHeader WHERE CompanyId = @CompanyId (satir 127) ile dogrulandi */
+                    -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                    -- Gerekçe: kaynak SalesOrderLine'lar bu handler'da
+                    -- JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId ... AND soh.CompanyId = @CompanyId
+                    -- filtresiyle çekildi; yalnızca aynı firmanın açık sipariş satırları döndü.
+                    -- Döngüdeki her sol kaydı o doğrulanmış sorgudan geldiğinden farklı firmaya satır eklenemez.
+                    -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                     INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
                     VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
                     new {
@@ -166,7 +171,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (rateVal == 0) rateVal = 1;
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 156) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+            -- doğrulandı; bulunamazsa işlem iptal edildi (exists == 0).
+            -- @HeaderId değeri OnGetAsync'te WHERE Id = @Id AND CompanyId = @CompanyId ile
+            -- yüklenen ShippingHeader.Id'dir; farklı firmanın sevkiyatına satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
             VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
             new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rateVal, LotNo = lotNo });

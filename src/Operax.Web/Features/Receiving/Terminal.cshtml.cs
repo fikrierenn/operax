@@ -83,7 +83,13 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
             else
             {
                 await conn.ExecuteAsync(@"
-                    /* isolation-guard:ignore: parent ReceivingHeader h.CompanyId = @CompanyId JOIN ile dogrulandi (satir 72) */
+                    -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                    -- Gerekçe: üst belge ReceivingHeader bu handler'da
+                    -- JOIN ReceivingHeader h ON h.Id = l.HeaderId ... AND h.CompanyId = @CompanyId ile
+                    -- doğrulandı; eşleşmezse mevcut satır güncelleme yoluna girildi (lineId null döndü).
+                    -- @DocId değeri CompanyId filtreli sorgudan dönen ReceivingHeader.Id'dir;
+                    -- farklı firmanın mal kabul belgesine satır eklenemez.
+                    -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                     INSERT INTO ReceivingLine (Id, HeaderId, ItemId, LotNo, QtyOriginal, QtyBase, UomId)
                     SELECT NEWID(), @DocId, @ItemId, @LotNo, @Qty, @Qty, i.BaseUomId
                     FROM Item i WHERE i.Id = @ItemId",

@@ -26,7 +26,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             Bins = await conn.QueryAsync<BinDto>(@"
-                /* isolation-guard:ignore: parent Warehouse CompanyId ile dogrulandi (satir 24); WarehouseId o depoya aittir */
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst kayıt Warehouse aynı handler içinde daha önce
+                -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+                -- Bu sorgu yalnızca o doğrulanmış Warehouse.Id üzerinden Bin kayıtlarını okuyduğundan
+                -- başka firmanın deposuna ait raf verisi dönemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT * FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
                 new { Id = id });
         }
@@ -68,7 +73,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (whExists == 0) return RedirectToPage("./Index");
 
         const string sql = @"
-            /* isolation-guard:ignore: parent Warehouse CompanyId ile dogrulandi (satir 64); WarehouseId = id o depoya aittir */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt Warehouse bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
+            -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
+            -- @WarehouseId parametresi o doğrulanmış Warehouse.Id değeridir;
+            -- farklı firmanın deposuna raf eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO Bin (WarehouseId, Code, Zone, IsPickingArea, IsReceivingArea, IsStorageArea, IsActive)
             VALUES (@WarehouseId, @Code, @Zone, @IsPicking, @IsReceiving, 1, 1)";
         await conn.ExecuteAsync(sql, new { WarehouseId = id, Code = code, Zone = zone, IsPicking = isPicking, IsReceiving = isReceiving });

@@ -132,7 +132,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (rate == 0) rate = 1;
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 121) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile yuklendi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+            -- doğrulandı; bulunamazsa işlem iptal edildi (exists == 0).
+            -- @HeaderId değeri OnGetAsync'te WHERE r.Id = @Id AND r.CompanyId = @CompanyId ile
+            -- yüklenen ReceivingHeader.Id'dir; farklı firmanın mal kabul belgesine satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO ReceivingLine (HeaderId, ItemId, UomId, QtyOriginal, QtyBase, LotNo, PurchaseOrderLineId)
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo, @PoLineId)",
             new { HeaderId = id, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rate, LotNo = lotNo, PoLineId = poLineId });

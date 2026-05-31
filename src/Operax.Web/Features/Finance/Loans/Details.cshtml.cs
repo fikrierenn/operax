@@ -43,7 +43,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         if (Loan == null) return NotFound();
 
         Payments = (await conn.QueryAsync<PaymentDto>(@"
-            /* isolation-guard:ignore: parent Loan CompanyId ile dogrulandi (satir 36); LoanId o krediye aittir */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst belge Loan aynı handler içinde daha önce
+            -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+            -- Bu sorgu yalnızca o doğrulanmış Loan.Id üzerinden taksit planını okuyduğundan
+            -- başka firmanın kredi taksitine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT Id, InstallmentNo, DueDate, PrincipalAmount, InterestAmount,
                    TotalAmount, PaidAmount, PaidAt, IsPaid
             FROM LoanPayment

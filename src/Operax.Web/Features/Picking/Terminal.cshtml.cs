@@ -73,7 +73,12 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
 
             // İş kuralı: barkod ürün koduyla veya barkod listesiyle eşleşmeli
             var barcodeMatch = await conn.ExecuteScalarAsync<int>(@"
-                /* isolation-guard:ignore: ItemId, parent PickTaskLine uzerinden CompanyId ile dogrulandi (satir 64) */
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: @ItemId değeri bu handler'da PickTaskLine sorgusuyla alındı; o sorgu
+                -- JOIN PickTask pt ON pt.Id = l.PickTaskId ... AND pt.CompanyId = @CompanyId filtresi
+                -- taşıdığından yalnızca aynı firmanın toplama görevine ait satır döndü.
+                -- ItemBarcode yalnızca barkod eşleşme kontrolü içindir; firma verisi içermez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT COUNT(1) FROM ItemBarcode WHERE ItemId = @ItemId AND Barcode = @Barcode",
                 new { ItemId = (Guid)line.ItemId, Barcode = barcode }, trans);
 

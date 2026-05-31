@@ -98,7 +98,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     private async Task LoadActivitiesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Activities = await conn.QueryAsync<ActivityDto>(@"
-            /* isolation-guard:ignore: AuditLog EntityId ile filtre; EntityId SalesOrderHeader.Id, header OnGetAsync'te CompanyId ile dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: AuditLog salt-okuma denetim kaydıdır; firma verisi içermez.
+            -- @Id parametresi LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId
+            -- ile doğrulanmış SalesOrderHeader.Id değeridir.
+            -- EntityType + EntityId filtresi yalnızca o siparişe ait denetim izlerini getirir.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT TOP 8
                 a.CreatedAt,
                 NULLIF(a.UserName, '') AS UserName,
@@ -155,7 +160,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (baseUomId is null) return RedirectToPage(new { id });
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: Item WHERE CompanyId = @CompanyId (satir 150) ile dogrulandi; HeaderId = id, header OnGetAsync'te CompanyId ile dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+            -- doğrulandı; bulunamazsa işlem iptal edildi (BaseUomId null döndü).
+            -- @HeaderId değeri OnGetAsync/LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId
+            -- ile yüklenen SalesOrderHeader.Id'dir; farklı firmanın siparişine satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO SalesOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",
             new { HeaderId = id, ItemId = itemId, UomId = baseUomId, Qty = qty, Price = price ?? 0 });

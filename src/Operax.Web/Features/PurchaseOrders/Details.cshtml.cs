@@ -98,7 +98,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     private async Task LoadActivitiesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Activities = await conn.QueryAsync<ActivityDto>(@"
-            /* isolation-guard:ignore: AuditLog EntityId ile filtre, EntityId PurchaseOrderHeader.Id; header OnGetAsync'te CompanyId ile dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: AuditLog salt-okuma denetim kaydıdır; firma verisi içermez.
+            -- @Id parametresi LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId
+            -- ile doğrulanmış PurchaseOrderHeader.Id değeridir.
+            -- EntityType + EntityId filtresi yalnızca o siparişe ait denetim izlerini getirir.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT TOP 8
                 a.CreatedAt,
                 NULLIF(a.UserName, '') AS UserName,
@@ -155,7 +160,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         // İş kuralı: Yeni satır Id'si geri alınır (fiyat farkı kontrolü için gerekli)
         var newLineId = await conn.ExecuteScalarAsync<Guid>(@"
-            /* isolation-guard:ignore: HeaderId = id; Item WHERE CompanyId = @CompanyId (satir 149) ile dogrulandi; LoadLinesAsync'te oh.CompanyId = @CompanyId JOIN var */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+            -- doğrulandı; bulunamazsa işlem iptal edildi (BaseUomId null döndü).
+            -- @HeaderId değeri LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId ile
+            -- yüklenen PurchaseOrderHeader.Id'dir; LoadLinesAsync'te de aynı satır
+            -- JOIN PurchaseOrderHeader oh ON oh.Id = l.HeaderId ... AND oh.CompanyId = @CompanyId
+            -- ile sahiplik doğrulanır; farklı firmanın siparişine satır eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO PurchaseOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
             OUTPUT INSERTED.Id
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",

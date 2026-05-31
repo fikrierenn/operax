@@ -42,7 +42,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             if (Header == null) return NotFound();
 
             Lines = (await conn.QueryAsync<LineDto>(@"
-                /* isolation-guard:ignore: parent SalesInvoice CompanyId ile dogrulandi (satir 32) */
+                /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                   Gerekçe: üst belge SalesInvoice aynı handler içinde daha önce
+                   WHERE si.Id = @Id AND si.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+                   Bu sorgu yalnızca o doğrulanmış SalesInvoice.Id üzerinden kalem satırlarını okuyduğundan
+                   başka firmanın fatura verisine erişilemez.
+                   isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar) */
                 SELECT sil.Id, sil.ItemId, i.Code AS ItemCode, i.Name AS ItemName,
                        sil.Description, sil.UomId, dv.Code AS UomCode,
                        sil.Qty, sil.UnitPrice, sil.LineSubtotal,
@@ -54,7 +59,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                 ORDER BY sil.CreatedAt", p)).ToList();
 
             Envelopes = (await conn.QueryAsync<EnvelopeDto>(@"
-                /* isolation-guard:ignore: parent SalesInvoice CompanyId ile dogrulandi (satir 32); InvoiceId o faturaya aittir */
+                /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                   Gerekçe: üst belge SalesInvoice aynı handler içinde daha önce
+                   WHERE si.Id = @Id AND si.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+                   @Id parametresi o doğrulanmış SalesInvoice.Id değeridir; InvoiceEnvelope yalnızca
+                   o faturanın e-Belge zarf kayıtlarını getirir, farklı firmanın zarfına erişilemez.
+                   isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar) */
                 SELECT Id, DocumentType, Uuid, EttN, Status, SentAt, AcceptedAt,
                        RejectedAt, ResponseText, RetryCount
                 FROM InvoiceEnvelope

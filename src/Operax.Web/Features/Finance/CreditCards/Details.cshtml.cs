@@ -39,7 +39,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         if (Card == null) return NotFound();
 
         Statements = (await conn.QueryAsync<StatementDto>(@"
-            /* isolation-guard:ignore: parent CreditCard CompanyId ile dogrulandi (satir 30); CardId o karta aittir */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt CreditCard aynı handler içinde daha önce
+            -- WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+            -- Bu sorgu yalnızca o doğrulanmış CreditCard.Id üzerinden ekstreleri okuyduğundan
+            -- başka firmanın kredi kartı ekstresine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT TOP 12 Id, PeriodStart, PeriodEnd, StatementDate, DueDate,
                    ClosingBalance, MinPayment, PaidAmount, IsClosed
             FROM CreditCardStatement
@@ -47,7 +52,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             ORDER BY PeriodEnd DESC", new { Id })).ToList();
 
         Transactions = (await conn.QueryAsync<TxnDto>(@"
-            /* isolation-guard:ignore: parent CreditCard CompanyId ile dogrulandi (satir 30); CardId o karta aittir */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt CreditCard aynı handler içinde daha önce
+            -- WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+            -- Bu sorgu yalnızca o doğrulanmış CreditCard.Id üzerinden slip işlemlerini okuyduğundan
+            -- başka firmanın kart hareketlerine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT TOP 30 Id, TransactionDate, MerchantName, Category,
                    Amount, Currency, InstallmentCount, InstallmentNo
             FROM CreditCardTransaction

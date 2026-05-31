@@ -97,7 +97,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { CompanyId = company.Id, BinId = binId, ItemId = itemId });
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: parent CycleCount CompanyId ile dogrulandi (satir 33); ayni handler'da UPDATE CycleCount WHERE CompanyId = @CompanyId (satir 106) */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst belge CycleCount aynı handler içinde daha önce
+            -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- @Id parametresi o doğrulanmış CycleCount.Id değeridir.
+            -- Aynı handler içinde çalışan UPDATE CycleCount ... WHERE Id = @Id AND CompanyId = @CompanyId
+            -- sorgusu da şirket sahipliğini teyit eder.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO CycleCountLine (CycleCountId, BinId, ItemId, QtySystem, QtyCounted, CountedBy, CountedAt)
             VALUES (@Id, @BinId, @ItemId, @QtySystem, @QtyCounted, @UserId, GETUTCDATE())",
             new { Id = id, BinId = binId, ItemId = itemId, QtySystem = qtySystem, QtyCounted = qtyCounted, UserId = user.Id.ToString() });

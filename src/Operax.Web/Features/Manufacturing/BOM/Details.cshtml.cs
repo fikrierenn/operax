@@ -40,7 +40,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         // Model parametreleri (WIDTH, HEIGHT, vb.)
         Parameters = await conn.QueryAsync<ParameterDto>(@"
-            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 32) */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt ProductModel aynı handler içinde daha önce
+            -- WHERE m.Id = @Id AND m.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- Bu sorgu yalnızca o doğrulanmış ProductModel.Id üzerinden parametreleri okuyduğundan
+            -- başka firmanın model verisine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT * FROM ProductModelParameter
             WHERE ProductModelId = @ModelId
             ORDER BY Code",
@@ -48,7 +53,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         // BOM satırları (formüllü bileşenler)
         BomLines = await conn.QueryAsync<BomLineDto>(@"
-            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 32) */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt ProductModel aynı handler içinde daha önce
+            -- WHERE m.Id = @Id AND m.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
+            -- Bu sorgu yalnızca o doğrulanmış ProductModel.Id üzerinden BOM satırlarını okuyduğundan
+            -- başka firmanın reçete verisine erişilemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT b.*, i.Code AS ItemCode, i.Name AS ItemName
             FROM ProductModelBOM b
             JOIN Item i ON i.Id = b.ComponentItemId
@@ -95,7 +105,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (exists == 0) return RedirectToPage("./Index");
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 90); model sahipligi dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
+            -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
+            -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
+            -- farklı firmanın modeline parametre eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO ProductModelParameter (ProductModelId, Code, Name, DataType, DefaultValue, Unit)
             VALUES (@ModelId, @Code, @Name, @DataType, @DefaultValue, @Unit)",
             new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit });
@@ -126,7 +141,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (exists == 0) return RedirectToPage("./Index");
 
         await conn.ExecuteAsync(@"
-            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 120); model sahipligi dogrulandi */
+            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+            -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
+            -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
+            -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
+            -- farklı firmanın reçetesine bileşen eklenemez.
+            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO ProductModelBOM (ProductModelId, ComponentItemId, QtyFormula, WastePercentage, ConditionFormula)
             VALUES (@ModelId, @ItemId, @QtyFormula, @WastePercentage, @ConditionFormula)",
             new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula });

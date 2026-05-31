@@ -110,6 +110,23 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
 - **e-Belge (8 gün geçti):** iade faturası (alıcı) veya düzeltici fatura (satıcı iade) zorunlu.
 - **Alış faturası (gelen e-Fatura yanlış):** Ticari → Red Yanıtı; Temel → harici itiraz + GİB bildirim → tedarikçi yeni keser. KDV indirimi yanlış faturada kullanılamaz [YORUM — özelge DOĞRULANMADI].
 
+## 3.4 BİLDİRİM KANALI MEVZUATI — KEP / İYS / WhatsApp (Plan 20)
+
+| Bildirim tipi | Kanal kuralı | Dayanak |
+|---|---|---|
+| **İhtar / itiraz / fesih / temerrüt** | KEP/noter/taahhütlü/telgraf ZORUNLU (4'ten biri) | TTK md.18/3 [DOC] |
+| **Mutabakat mektubu** | KEP önerilir (delil), zorunlu değil | TTK md.18/3 dışı [YORUM] |
+| **Fatura/bakiye/ödeme hatırlatma/sevkiyat** | İYS onayı GEREKMEZ (bilgilendirme istisnası) | 6563 md.6/3 [YORUM] |
+| **Pazarlama/kampanya** | İYS onayı ZORUNLU | 6563 md.6 [DOC] |
+| **WhatsApp** | yalnızca bilgilendirme; ihtar/itiraz YETERSİZ; delivery receipt resmi delil DEĞİL | [YORUM] |
+
+- **Bilgilendirme + pazarlama karışırsa** (fatura + indirim) → ticari ileti sayılır, İYS gerekir.
+- **KEP delivery receipt = resmi tebliğ delili** (zaman damgalı, ispat yükü tersine). İtiraz süresi
+  **KEP teslim (DeliveredAt) tarihinden** başlar — gönderim/SentAt değil.
+- **Saklama:** ihtar/mutabakat 10 yıl (TTK md.82) · İYS onay kaydı ≥1 yıl · KVKK kişisel veri amaçla-sınırlı + imha.
+- Operax kod kuralı: `NotificationMessage.LegalChannelRequirement` (NONE/QUALIFIED) +
+  `IsCommercialMessage` + `RetentionClass`. QUALIFIED → KEP/NOTER zorunlu, EMAIL THROW (Plan 20).
+
 ## 3.5 TTK md.65 — DEFTER SİLME YASAĞI [DOC]
 - "Defterlere geçirilen kayıt kazımak, çizmek veya silmek suretiyle okunamaz hâle getirilemez."
 - Düzeltme: yanlış satır **okunacak şekilde çizilir**, doğrusu yanına yazılır, paraflanır.

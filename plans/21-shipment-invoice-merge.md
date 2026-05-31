@@ -36,6 +36,23 @@ içinde). Mevcut model bunu yapamaz. Ayrıca kısmi faturalama (1 sevkiyat satı
 - **Kritik:** N:1 birleştirme StockMovement'a DOKUNMAZ (stok zaten irsaliyede yazıldı); yalnızca
   fatura + AccountMovement üretir, InvoicedQty günceller. Stok çift-sayım riski YOK.
 
+### Direkt fatura senaryoları (irsaliyesiz) — fatura StockMovement yapar MI?
+
+Fatura satırının StockMovement yazıp yazmaması KAYNAĞINA bağlı (çift-sayım önleme):
+
+| Fatura satırı | SourceShipmentLineId | Kalem tipi | StockMovement | AccountMovement |
+|---|---|---|---|---|
+| İrsaliyeden gelen | DOLU | mal | ❌ (irsaliyede yazıldı) | ✅ |
+| Direkt mallı (irsaliyesiz) | NULL | mal | ✅ (irsaliye yerine geçer) | ✅ |
+| Hizmet/masraf | NULL | hizmet | ❌ (stok yok) | ✅ |
+
+- **VUK [DOC md.230]:** hizmet faturası irsaliye gerektirmez; mallı direkt fatura "irsaliye yerine geçer".
+- **Kod kuralı:** fatura post SP'sinde satır bazında: `SourceShipmentLineId IS NULL AND Item.IsStockItem=1`
+  → StockMovement ISSUE yaz. Aksi → yazma. Çift-sayım guard satır-bazlı.
+- **Bu plan kapsamı:** irsaliyeden N:1 birleştirme ANA hedef. Direkt mallı fatura StockMovement
+  entegrasyonu bu planda tasarlanır ama Item.IsStockItem + hizmet kalem tipi M-F6.1'e bağlı olabilir →
+  Faz sıralaması: önce irsaliye→fatura (StockMovement YOK yolu), sonra direkt mallı (StockMovement VAR).
+
 ## 2. Scope
 
 ### Dahili

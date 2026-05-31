@@ -8,7 +8,7 @@
     ViewData["Title"] = titleText;
 
     var isDraft     = Model.Header.Status == DocStatus.Draft;
-    var isPosted    = Model.Header.Status == DocStatus.Posted || Model.Header.Status == "APPROVED";
+    var isPosted    = Model.Header.Status == DocStatus.Posted || Model.Header.Status == DocStatus.Approved;
     var isCancelled = Model.Header.Status == DocStatus.Cancelled;
 
     // Status flow adımları
@@ -33,7 +33,7 @@
     }
     if (isPosted)
     {
-        actions += $"<button type=\"submit\" form=\"po-cancel\" class=\"btn btn-secondary btn-sm\" style=\"color:var(--danger-text);border-color:var(--danger-border);\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>{L.T("İptal Et", "Cancel")}</button>";
+        actions += $"<button type=\"submit\" form=\"po-cancel\" class=\"btn btn-secondary btn-sm btn-danger-outline\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>{L.T("İptal Et", "Cancel")}</button>";
     }
 
     var crumbs = Model.IsNew
@@ -67,7 +67,7 @@
     @if (!Model.IsNew)
     {
         <div class="row" style="gap:10px;margin-top:-10px;margin-bottom:14px;">
-            <span class="mono text-strong" style="font-size:14px;">@Model.Header.OrderNo</span>
+            <span class="mono text-strong doc-no">@Model.Header.OrderNo</span>
             @Html.Raw(UiHelpers.StatusBadge(Model.Header.Status))
         </div>
 
@@ -99,8 +99,8 @@
                         }
                         else
                         {
-                            <div style="font-size:13px;font-weight:600;margin-top:4px;color:var(--brand-500);">@Model.Header.PartnerName</div>
-                            <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">
+                            <div class="doc-val brand">@Model.Header.PartnerName</div>
+                            <div class="doc-sub">
                                 @if (!string.IsNullOrEmpty(Model.Header.PartnerTaxNumber))
                                 {
                                     <text>VKN <span class="mono">@Model.Header.PartnerTaxNumber</span></text>
@@ -111,19 +111,19 @@
 
                     <div>
                         <div class="form-label">@L.T("Şehir", "City")</div>
-                        <div style="font-size:13px;font-weight:600;margin-top:4px;">@(Model.Header.PartnerCity ?? "—")</div>
-                        <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">Türkiye</div>
+                        <div class="doc-val">@(Model.Header.PartnerCity ?? "—")</div>
+                        <div class="doc-sub">Türkiye</div>
                     </div>
 
                     <div>
                         <div class="form-label">@L.T("Para Birimi", "Currency")</div>
-                        <div class="mono" style="font-size:13px;font-weight:600;margin-top:4px;">TRY · ₺</div>
+                        <div class="mono doc-val">TRY · ₺</div>
                     </div>
 
                     <div>
                         <div class="form-label">@L.T("Vade Tarihi", "Due Date")</div>
-                        <div class="mono" style="font-size:13px;font-weight:600;margin-top:4px;">@(Model.Header.DueDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.DueDate.Value) : "—")</div>
-                        <div style="font-size:11.5px;color:var(--text-3);margin-top:1px;">@Model.Header.PaymentTermDays @L.T("gün", "days")</div>
+                        <div class="mono doc-val">@(Model.Header.DueDate.HasValue ? UiHelpers.FmtDateShort(Model.Header.DueDate.Value) : "—")</div>
+                        <div class="doc-sub">@Model.Header.PaymentTermDays @L.T("gün", "days")</div>
                     </div>
 
                     <div>
@@ -140,7 +140,7 @@
                         }
                         else
                         {
-                            <div style="font-size:13px;font-weight:600;margin-top:4px;">@Model.Header.WarehouseName</div>
+                            <div class="doc-val">@Model.Header.WarehouseName</div>
                         }
                     </div>
 
@@ -152,7 +152,7 @@
                         }
                         else
                         {
-                            <div style="font-size:13px;font-weight:500;margin-top:4px;color:var(--text-2);">@(string.IsNullOrEmpty(Model.Header.Notes) ? "—" : Model.Header.Notes)</div>
+                            <div class="doc-val note">@(string.IsNullOrEmpty(Model.Header.Notes) ? "—" : Model.Header.Notes)</div>
                         }
                     </div>
 
@@ -207,7 +207,7 @@
                                     lineNo++;
                                     <tr>
                                         <td class="num muted mono">@lineNo</td>
-                                        <td><span class="mono row-strong" style="color:var(--brand-500);">@l.ItemCode</span></td>
+                                        <td><span class="mono row-strong text-brand">@l.ItemCode</span></td>
                                         <td>@l.ItemName</td>
                                         <td><span class="badge badge-neutral" style="height:18px;">@l.UomCode</span></td>
                                         <td class="num">@UiHelpers.FmtNum(l.QtyOrdered)</td>
@@ -218,7 +218,7 @@
                                 }
                                 @if (isDraft && !Model.IsNew)
                                 {
-                                    <tr id="add-line-row" style="display:none;background:var(--surface-2);">
+                                    <tr id="add-line-row" class="row-inset" style="display:none;">
                                         <td colspan="8">
                                             <form method="post" asp-page-handler="AddLine" class="row" style="gap:8px;padding:6px;">
                                                 @Html.AntiForgeryToken()
@@ -244,19 +244,19 @@
                 @if (Model.Lines.Any())
                 {
                     <div class="card-foot">
-                        <div style="font-size:11.5px;color:var(--text-3);">@L.T("Tüm tutarlar TRY (₺) cinsindendir", "All amounts in TRY (₺)")</div>
-                        <div class="row" style="gap:24px;font-size:12.5px;">
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                        <div class="doc-foot-note">@L.T("Tüm tutarlar TRY (₺) cinsindendir", "All amounts in TRY (₺)")</div>
+                        <div class="row doc-totals">
+                            <div class="doc-total">
                                 <span class="text-mute">@L.T("Ara Toplam", "Subtotal")</span>
                                 <span class="mono text-strong">@UiHelpers.FmtTL(Model.Subtotal)</span>
                             </div>
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                            <div class="doc-total">
                                 <span class="text-mute">KDV (%20)</span>
                                 <span class="mono text-strong">@UiHelpers.FmtTL(Model.Vat)</span>
                             </div>
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;">
-                                <span style="color:var(--text-3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">@L.T("Genel Toplam", "Grand Total")</span>
-                                <span class="mono" style="font-size:17px;font-weight:700;color:var(--brand-500);">@UiHelpers.FmtTL(Model.Grand)</span>
+                            <div class="doc-total">
+                                <span class="doc-total-cap">@L.T("Genel Toplam", "Grand Total")</span>
+                                <span class="mono doc-grand">@UiHelpers.FmtTL(Model.Grand)</span>
                             </div>
                         </div>
                     </div>
@@ -271,7 +271,7 @@
                 <div class="card-body" style="padding:14px 18px;">
                     @if (!Model.Activities.Any())
                     {
-                        <div class="text-mute" style="font-size:12px;">@L.T("Henüz aktivite yok.", "No activity yet.")</div>
+                        <div class="text-mute activity-text">@L.T("Henüz aktivite yok.", "No activity yet.")</div>
                     }
                     else
                     {
@@ -290,20 +290,21 @@
                                 _          => "var(--text-3)"
                             };
                             var notLast = i < actList.Count - 1;
-                            <div class="row" style="gap:10px;position:relative;margin-bottom:14px;align-items:flex-start;">
+                            <div class="row activity-item" style="gap:10px;margin-bottom:14px;align-items:flex-start;">
                                 <div style="position:relative;flex-shrink:0;">
-                                    <div class="avatar" style="width:26px;height:26px;font-size:9.5px;background:@color;">@UiHelpers.Initials(userName)</div>
+                                    @* avatar zemini aksiyon tipine göre veri-driven *@
+                                    <div class="avatar sm" style="background:@color;">@UiHelpers.Initials(userName)</div>
                                     @if (notLast)
                                     {
-                                        <div style="position:absolute;top:30px;left:12.5px;bottom:-14px;width:1.5px;background:var(--border);"></div>
+                                        <div class="activity-line"></div>
                                     }
                                 </div>
                                 <div style="flex:1;">
-                                    <div style="font-size:12px;line-height:1.4;">
+                                    <div class="activity-text">
                                         <span class="text-strong">@userName</span>
                                         <span class="text-mute">@UiHelpers.AuditActionLabel(a.Action)</span>
                                     </div>
-                                    <div class="mono" style="font-size:10.5px;color:var(--text-4);margin-top:1px;">@a.CreatedAt.ToString("dd MMM · HH:mm")</div>
+                                    <div class="mono activity-time">@a.CreatedAt.ToString("dd MMM · HH:mm")</div>
                                 </div>
                             </div>
                         }

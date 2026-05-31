@@ -1,0 +1,138 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    // İş kuralı: mutabakat tabı yalnızca mevcut kayıtta render edilir
+    var prep = Model.ReconciliationPrep;
+    var pid = Model.Partner.Id;
+}
+
+@* Mutabakat hazırlık özeti — bugün itibarıyla cari durum *@
+@if (prep != null)
+{
+    <div class="kpi-grid">
+        <partial name="_KpiCard" model="@(new KpiCardVm("NET BAKİYE", UiHelpers.FmtTL(prep.NetBalance), Glow: prep.NetBalance >= 0 ? "success" : "danger", TrendText: prep.NetBalance >= 0 ? "alacaklı" : "borçlu"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm("HAREKET SAYISI", prep.MovementCount.ToString(), Glow: "brand"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm("AÇIK KALEM", prep.OpenItemCount.ToString(), Glow: "warn"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm("AÇIK TUTAR", UiHelpers.FmtTL(prep.OpenItemTotal), Glow: "danger"))" />
+    </div>
+}
+
+@* Yeni mutabakat turu başlat — muhasebe kesim tarihi + kanal girer *@
+<div class="card" style="margin-top:14px;">
+    <div class="card-hdr">
+        <div class="card-title">Yeni Mutabakat Turu</div>
+        <div class="card-sub">Kesim tarihi itibarıyla bakiye dondurulur, karşı tarafa gönderilir</div>
+    </div>
+    <div class="card-body">
+        <form method="post" asp-page-handler="CreateReconciliation">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@pid" />
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label class="form-label">Kesim Tarihi <span class="req">*</span></label>
+                    <input type="date" name="statementDate" class="form-ctrl" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gönderim Kanalı <span class="req">*</span></label>
+                    <select name="channel" class="form-ctrl" required>
+                        <option value="KEP">KEP (yasal delil)</option>
+                        <option value="NOTER">Noter</option>
+                        <option value="EMAIL">E-posta</option>
+                        <option value="POST">Posta</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;">
+                    <button type="submit" class="btn btn-primary">Mutabakat Oluştur</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Mutabakat geçmişi *@
+<div class="card" style="margin-top:14px;">
+    <div class="card-hdr">
+        <div class="card-title">Mutabakat Geçmişi</div>
+        <div class="card-sub">@Model.ReconciliationLog.Count tur</div>
+    </div>
+    <div class="card-body">
+        @if (Model.ReconciliationLog.Count == 0)
+        {
+            var empty = new EmptyStateVm("Mutabakat yok", "Bu cariyle henüz mutabakat turu başlatılmadı.");
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Kesim Tarihi</th>
+                        <th class="num">Bakiye</th>
+                        <th>Kanal</th>
+                        <th>Durum</th>
+                        <th>Son Yanıt Tarihi</th>
+                        <th class="num">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.ReconciliationLog)
+                    {
+                        <tr>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(r.StatementDate)</td>
+                            <td class="num mono">@UiHelpers.FmtTL(r.BalanceSnapshot)</td>
+                            <td>@(r.SentChannel ?? "—")</td>
+                            <td>
+                                @{
+                                    var (badge, label) = r.Status switch
+                                    {
+                                        "CONFIRMED"          => ("badge-success", "ONAYLANDI"),
+                                        "EXPIRED_CONFIRMED"  => ("badge-success", "SESSİZ ONAY"),
+                                        "DISPUTED"           => ("badge-danger", "İTİRAZ"),
+                                        _                    => ("badge-warn", "BEKLİYOR")
+                                    };
+                                }
+                                <span class="badge @badge"><span class="badge-dot"></span>@label</span>
+                                @if (r.Status == "SENT" && r.DeadlineAt.HasValue)
+                                {
+                                    <span class="muted" style="font-size:11px;"> (son: @UiHelpers.FmtDateShort(r.DeadlineAt.Value))</span>
+                                }
+                            </td>
+                            <td class="mono muted">@(r.ResponseAt.HasValue ? UiHelpers.FmtDateShort(r.ResponseAt.Value) : "—")</td>
+                            <td class="num">
+                                @if (r.Status == "SENT")
+                                {
+                                    <form method="post" asp-page-handler="RespondReconciliation" style="display:inline;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@pid" />
+                                        <input type="hidden" name="reconciliationId" value="@r.Id" />
+                                        <input type="hidden" name="confirmed" value="true" />
+                                        <button type="submit" class="btn btn-sm btn-success">Onayla</button>
+                                    </form>
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('dispute-@r.Id').style.display='block'">İtiraz</button>
+                                    <div id="dispute-@r.Id" style="display:none;margin-top:6px;">
+                                        <form method="post" asp-page-handler="RespondReconciliation">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@pid" />
+                                            <input type="hidden" name="reconciliationId" value="@r.Id" />
+                                            <input type="hidden" name="confirmed" value="false" />
+                                            <input type="text" name="note" class="form-ctrl" placeholder="İtiraz gerekçesi (zorunlu)" required />
+                                            <button type="submit" class="btn btn-sm btn-danger" style="margin-top:4px;">İtirazı Kaydet</button>
+                                        </form>
+                                    </div>
+                                }
+                                else if (!string.IsNullOrEmpty(r.ResponseNote))
+                                {
+                                    <span class="muted" title="@r.ResponseNote">not</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

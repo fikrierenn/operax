@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Partners;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries) : PageModel
 {
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
@@ -48,6 +48,10 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
     // Ekstre hareket listesi (lazy) — fatura + ödeme birleşik; devir + yürüyen bakiye
     public List<LedgerRowDto>      Ledger         { get; set; } = [];
     public decimal                 OpeningBalance { get; set; }
+
+    // Mutabakat tabı (lazy) — geçmiş turlar + güncel hazırlık özeti (Plan 19)
+    public List<ReconciliationRowDto> ReconciliationLog { get; set; } = [];
+    public ReconciliationPrepDto?     ReconciliationPrep { get; set; }
 
     // Faturalar / Çek-Senet / Fiyatlar tabları (lazy)
     public List<InvoiceRowDto>     Invoices    { get; set; } = [];
@@ -95,6 +99,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
                 if (Tab == "faturalar")  await LoadInvoicesAsync(conn, Partner.Id);
                 if (Tab == "cekssenet")  await LoadInstrumentsAsync(conn, Partner.Id);
                 if (Tab == "fiyatlar")   await LoadPriceListsAsync(conn, Partner.Id);
+                if (Tab == "mutabakat")  await LoadReconciliationAsync(conn, Partner.Id);
             }
         }
         else
@@ -246,6 +251,67 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
             FROM PriceList pl
             WHERE pl.PartnerId = @PartnerId AND pl.CompanyId = @CompanyId
             ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p)).ToList();
+    }
+
+    // Cari mutabakat geçmişi + güncel açık kalem özeti (Plan 19)
+    private async Task LoadReconciliationAsync(System.Data.IDbConnection conn, Guid partnerId)
+    {
+        var p = new { CompanyId = company.Id, PartnerId = partnerId };
+        // Mutabakat turu geçmişi (en yeni üstte)
+        ReconciliationLog = (await conn.QueryAsync<ReconciliationRowDto>(@"
+            SELECT Id, StatementDate, BalanceSnapshot, Status, SentChannel,
+                   SentAt, DeadlineAt, ResponseAt, ResponseNote
+            FROM PartnerReconciliationLog
+            WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
+            ORDER BY StatementDate DESC, CreatedAt DESC", p)).ToList();
+        // Bugün itibarıyla mutabakat hazırlık özeti (muhasebe tarih girince yenilenir)
+        ReconciliationPrep = await conn.QueryFirstOrDefaultAsync<ReconciliationPrepDto>(@"
+            SELECT NetBalance, MovementCount, OpenItemCount, OpenItemTotal
+            FROM dbo.tvf_ReconciliationPrep(@CompanyId, @PartnerId, @AsOf)",
+            new { CompanyId = company.Id, PartnerId = partnerId, AsOf = DateTime.Today });
+    }
+
+    // Mutabakat turu başlat — muhasebe kesim tarihi + kanal girer, bakiye snapshot alınır
+    public async Task<IActionResult> OnPostCreateReconciliationAsync(Guid id, DateTime statementDate, string channel)
+    {
+        using var conn = db.Open();
+        try
+        {
+            var prm = new DynamicParameters();
+            prm.Add("@CompanyId", company.Id);
+            prm.Add("@PartnerId", id);
+            prm.Add("@StatementDate", statementDate);
+            prm.Add("@SentChannel", channel);
+            prm.Add("@UserId", user.Id.ToString());
+            prm.Add("@NewId", dbType: System.Data.DbType.Guid, direction: System.Data.ParameterDirection.Output);
+            await conn.ExecuteAsync("sp_CreateReconciliationStatement", prm,
+                commandType: System.Data.CommandType.StoredProcedure);
+            TempData["Success"] = "Mutabakat oluşturuldu ve gönderim için işaretlendi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        return RedirectToPage(new { id, tab = "mutabakat" });
+    }
+
+    // Mutabakata yanıt — onay (CONFIRMED) veya itiraz (DISPUTED, gerekçe zorunlu)
+    public async Task<IActionResult> OnPostRespondReconciliationAsync(Guid id, Guid reconciliationId, bool confirmed, string? note)
+    {
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_RespondReconciliation",
+                new { ReconciliationId = reconciliationId, CompanyId = company.Id,
+                      Confirmed = confirmed, ResponseNote = note, UserId = user.Id.ToString() },
+                commandType: System.Data.CommandType.StoredProcedure);
+            TempData["Success"] = confirmed ? "Mutabakat onaylandı." : "Mutabakat itirazı kaydedildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        return RedirectToPage(new { id, tab = "mutabakat" });
     }
 
     // Cari kodu otomatik üretir: belge seri yönetiminden (NumberSeries, ayarlardan) — tip'e göre seri
@@ -437,4 +503,23 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         decimal? AvgInvoiceAmount,
         decimal  TotalPaidAmount,
         DateTime? LastPayment);
+
+    // Mutabakat turu satırı (geçmiş)
+    public record ReconciliationRowDto(
+        Guid      Id,
+        DateTime  StatementDate,
+        decimal   BalanceSnapshot,
+        string    Status,
+        string?   SentChannel,
+        DateTime? SentAt,
+        DateTime? DeadlineAt,
+        DateTime? ResponseAt,
+        string?   ResponseNote);
+
+    // Mutabakat hazırlık özeti (kesim tarihine kadar)
+    public record ReconciliationPrepDto(
+        decimal NetBalance,
+        int     MovementCount,
+        int     OpenItemCount,
+        decimal OpenItemTotal);
 }

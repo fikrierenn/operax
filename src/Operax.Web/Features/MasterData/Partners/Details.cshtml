@@ -30,6 +30,7 @@
             <a class="tab @(Model.Tab == "siparisler" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=siparisler">Siparişler</a>
             <a class="tab @(Model.Tab == "faturalar" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=faturalar">Faturalar</a>
             <a class="tab @(Model.Tab == "cekssenet" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=cekssenet">Çek / Senet</a>
+            <a class="tab @(Model.Tab == "mutabakat" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=mutabakat">Mutabakat</a>
             <a class="tab @(Model.Tab == "fiyatlar" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=fiyatlar">Fiyatlar</a>
         </div>
     }
@@ -296,6 +297,12 @@
     @if (Model.Tab == "cekssenet" && !Model.IsNew)
     {
         <partial name="Tabs/_CekSenet" model="Model" />
+    }
+
+    @* ── Mutabakat tabı ── *@
+    @if (Model.Tab == "mutabakat" && !Model.IsNew)
+    {
+        <partial name="Tabs/_Mutabakat" model="Model" />
     }
 
     @* ── Fiyatlar tabı ── *@

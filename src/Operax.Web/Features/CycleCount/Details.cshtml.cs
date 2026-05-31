@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.CycleCount;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public CountHeaderDto Header { get; set; } = new();
@@ -124,6 +124,31 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
             commandType: CommandType.StoredProcedure);
         await audit.LogAsync("POST", "CycleCount", id, "Stok sayımı kapatıldı, düzeltme hareketleri oluşturuldu");
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    {
+        // sp_CycleCountReverse: COMPLETED sayımı CANCELLED yapar, COUNT_ADJ hareketlerini kapatıp ters REVERSAL yazar
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_CycleCountReverse",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            await audit.LogAsync("CANCEL", "CycleCount", id, "Sayım iptal edildi, ters düzeltme hareketi yazıldı");
+            TempData["Success"] = "Sayım iptal edildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı (dönem kilidi vb.)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Sayım iptal hatası: {HeaderId}", id);
+            TempData["Error"] = "Sayım iptal edilirken veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

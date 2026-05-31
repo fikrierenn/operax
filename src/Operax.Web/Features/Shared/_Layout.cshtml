@@ -372,6 +372,15 @@
 
         <!-- PAGE CONTENT -->
         <main class="fade-in" style="flex:1;overflow-y:auto;padding:24px;background:hsl(220,14%,97%);">
+            @* Global bildirim bandı — TempData mesajları (onay/iptal/hata) tüm sayfalarda görünür *@
+            @if (TempData["Error"] is string bannerErr)
+            {
+                <div class="alert-banner alert-danger">@bannerErr</div>
+            }
+            @if (TempData["Success"] is string bannerOk)
+            {
+                <div class="alert-banner alert-success">@bannerOk</div>
+            }
             @RenderBody()
         </main>
 

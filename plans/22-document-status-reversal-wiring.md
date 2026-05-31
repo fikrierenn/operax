@@ -77,8 +77,11 @@ tvf/vw CREATE OR ALTER önceki; SO migration ters UPDATE; transition seed DELETE
 ## 7. Adımlar
 - [x] **Faz A:** tvf/vw OpenPO/SO POSTED IN(POSTED,APPROVED) — PO dropdown 2→207 `a161f68`
 - [~] **Faz B:** DÜŞÜRÜLDÜ — reversal SP ValidateStatusTransition çağırmıyor, inline guard yeterli
-- [ ] **Faz C1:** Shipping/Transfer/CycleCount/Production reversal UI (4 WMS)
-- [ ] **Faz C2:** SalesInvoice/Expense/Payment reversal UI (3 finans/fatura)
+- [x] **Faz C1:** Shipping/Transfer/CycleCount/Production reversal UI (4 WMS) — OnPostReverseAsync + "İptal Et" buton + THROW catch.
+  **+ 2 kritik düzeltme:** (1) `db_objects_reversal.sql` migrate listesinde değildi → CLI migrate'e eklendi (SP'ler hiç deploy edilmiyordu).
+  (2) **Ledger çift-sayım bug'ı:** 5 StockMovement reversal SP'si hem `IsCancelled=1` flag hem `-QtyBase` REVERSAL satırı yazıyordu; tvf_InventoryBalance `IsCancelled=0` filtrelediği için stok reversal sonrası 2× geri geliyordu (smoke ile +100 doğrulandı). Fix: REVERSAL INSERT kaldırıldı, flag-only model (guard UPDATE rowcount'a taşındı). Smoke: reversal sonrası aktif net=0, tek restorasyon ✓. document-immutability.md §1.b güncellendi.
+  > ⚠️ **Scope notu:** C1 4 WMS'i tek grup aldı ama yalnızca Shipping STARTER (M04). Transfer(M07)/CycleCount(M08)/Production(M10) STARTER dışı — yapıldı, kalıyor ama **bundan sonra STARTER odak** (M00/01/02/03/04/11). Sıradaki iş STARTER'a öncelik vermeli.
+- [ ] **Faz C2:** SalesInvoice/Expense/Payment reversal UI (3 finans/fatura) — hepsi STARTER (M04/M03/M11)
 - [ ] **Faz D:** Cari besleme fix (loan/card AM + card CompanyId)
 - [ ] **Faz E:** Smoke + sql-sp-reviewer + security-reviewer
 

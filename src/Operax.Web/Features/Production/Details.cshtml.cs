@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Production;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     public ProductionOrderDto           Order            { get; set; } = new();
     public IEnumerable<ProductionLineDto> Lines          { get; set; } = [];
@@ -74,6 +74,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user) : P
             new { OrderId = id, CompanyId = company.Id, Qty = qty, UserId = user.Id },
             commandType: CommandType.StoredProcedure);
         return RedirectToPage("./Index");
+    }
+
+    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    {
+        // sp_ProductionReverse: COMPLETED üretim emrini CANCELLED yapar, hammadde sarfı (ISSUE) ve
+        // mamul girişi (RECEIPT) hareketlerini kapatıp ters REVERSAL yazar
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_ProductionReverse",
+                new { OrderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            await audit.LogAsync("CANCEL", "ProductionOrder", id, "Üretim emri iptal edildi, ters stok hareketi yazıldı");
+            TempData["Success"] = "Üretim emri iptal edildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı (dönem kilidi vb.)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Üretim emri iptal hatası: {OrderId}", id);
+            TempData["Error"] = "Üretim emri iptal edilirken veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
     }
 
     public record ProductionOrderDto

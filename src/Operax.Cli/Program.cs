@@ -100,6 +100,9 @@ class Program
                     // 4. STARTER paketi için ek SP'ler (M02 maliyet, M03 fiyat farkı, M04 fatura, M11 finans)
                     var starter = Path.Combine(sqlDir, "db_objects_starter.sql");
                     if (File.Exists(starter)) await ExecuteScriptAsync(starter, tolerant: false);
+                    // 5. Reversal SP'leri (Plan 14/16/22) — POSTED evrak iptali + ters StockMovement/AccountMovement
+                    var reversal = Path.Combine(sqlDir, "db_objects_reversal.sql");
+                    if (File.Exists(reversal)) await ExecuteScriptAsync(reversal, tolerant: false);
                     break;
 
                 case "seed":

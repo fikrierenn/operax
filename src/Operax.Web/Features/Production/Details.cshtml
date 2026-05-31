@@ -44,6 +44,16 @@
                 Finish Production
             </button>
         }
+
+        @if (Model.Order.Status == DocStatus.Completed)
+        {
+            <form method="post" asp-page-handler="Reverse">
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Bu üretim emri iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                    Üretim Emrini İptal Et
+                </button>
+            </form>
+        }
     </div>
 </div>
 

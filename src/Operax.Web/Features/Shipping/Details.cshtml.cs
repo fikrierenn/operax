@@ -229,6 +229,31 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    {
+        // sp_ShippingReverse: POSTED sevkiyatı CANCELLED yapar, ISSUE hareketlerini kapatıp ters REVERSAL yazar
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_ShippingReverse",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            await audit.LogAsync("CANCEL", "ShippingHeader", id, "Sevkiyat iptal edildi, ters stok hareketi yazıldı");
+            TempData["Success"] = "Sevkiyat iptal edildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı (bağlı fatura/dönem kilidi vb.)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Sevkiyat iptal hatası: {HeaderId}", id);
+            TempData["Error"] = "Sevkiyat iptal edilirken veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
+    }
+
     public record ShippingHeaderDto
     {
         public Guid     Id           { get; set; }

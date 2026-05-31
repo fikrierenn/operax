@@ -49,25 +49,14 @@ BEGIN
         IF @Status <> 'POSTED'
             THROW 51302, N'Yalnızca onaylanmış belgeler iptal edilebilir.', 1;
 
-        -- Mevcut hareketleri kapat
+        -- Mevcut hareketleri IsCancelled=1 ile kapat (bakiye = SUM(QtyBase WHERE IsCancelled=0))
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'RECEIVING' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        -- Ters hareket yaz (negatif QtyBase)
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal, UnitCost,
-             SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
-        SELECT
-            CompanyId, WarehouseId, BinId, ItemId, 'REVERSAL',
-            -QtyBase, UomId, QtyOriginal, UnitCost,
-            'RECEIVING', @HeaderId, @DocNo, LotNo, @UserId
-        FROM StockMovement
-        WHERE SourceDocType = 'RECEIVING' AND SourceDocId = @HeaderId
-          AND MovementType <> 'REVERSAL';
-
-        -- İş kuralı: stok hareketi yoksa veri tutarsızlığı — guard
+        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketi zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar (stok 2x geri gelir).
         IF @@ROWCOUNT = 0
             THROW 51303, N'İptal edilecek mal kabul hareketi bulunamadı (veri tutarsızlığı).', 1;
 
@@ -124,22 +113,14 @@ BEGIN
         IF @Status <> 'POSTED'
             THROW 51312, N'Yalnızca onaylanmış belgeler iptal edilebilir.', 1;
 
+        -- Mevcut hareketleri IsCancelled=1 ile kapat (bakiye = SUM(QtyBase WHERE IsCancelled=0))
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'SHIPPING' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal,
-             SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
-        SELECT
-            CompanyId, WarehouseId, BinId, ItemId, 'REVERSAL',
-            -QtyBase, UomId, QtyOriginal,
-            'SHIPPING', @HeaderId, @DocNo, LotNo, @UserId
-        FROM StockMovement
-        WHERE SourceDocType = 'SHIPPING' AND SourceDocId = @HeaderId
-          AND MovementType <> 'REVERSAL';
-
+        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketi zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar (stok 2x geri gelir).
         IF @@ROWCOUNT = 0
             THROW 51313, N'İptal edilecek sevkiyat hareketi bulunamadı (veri tutarsızlığı).', 1;
 
@@ -196,23 +177,15 @@ BEGIN
         IF @Status <> 'POSTED'
             THROW 51322, N'Yalnızca onaylanmış belgeler iptal edilebilir.', 1;
 
+        -- Çıkış ve giriş hareketlerinin tümünü IsCancelled=1 ile kapat
+        -- (bakiye = SUM(QtyBase WHERE IsCancelled=0))
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'TRANSFER' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        -- Çıkış ve giriş hareketi ikisi de ters çevrilir
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal,
-             SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
-        SELECT
-            CompanyId, WarehouseId, BinId, ItemId, 'REVERSAL',
-            -QtyBase, UomId, QtyOriginal,
-            'TRANSFER', @HeaderId, @DocNo, @UserId
-        FROM StockMovement
-        WHERE SourceDocType = 'TRANSFER' AND SourceDocId = @HeaderId
-          AND MovementType <> 'REVERSAL';
-
+        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketleri zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar.
         IF @@ROWCOUNT = 0
             THROW 51323, N'İptal edilecek transfer hareketi bulunamadı (veri tutarsızlığı).', 1;
 
@@ -268,22 +241,14 @@ BEGIN
         IF @Status <> 'COMPLETED'
             THROW 51332, N'Yalnızca tamamlanmış sayımlar iptal edilebilir.', 1;
 
+        -- Sayım düzeltme hareketlerini IsCancelled=1 ile kapat (bakiye = SUM(QtyBase WHERE IsCancelled=0))
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'COUNT' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal,
-             SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
-        SELECT
-            CompanyId, WarehouseId, BinId, ItemId, 'REVERSAL',
-            -QtyBase, UomId, QtyOriginal,
-            'COUNT', @HeaderId, @DocNo, @UserId
-        FROM StockMovement
-        WHERE SourceDocType = 'COUNT' AND SourceDocId = @HeaderId
-          AND MovementType <> 'REVERSAL';
-
+        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketi zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar.
         IF @@ROWCOUNT = 0
             THROW 51333, N'İptal edilecek sayım hareketi bulunamadı (veri tutarsızlığı).', 1;
 
@@ -340,22 +305,15 @@ BEGIN
         IF @Status <> 'COMPLETED'
             THROW 51342, N'Yalnızca tamamlanmış üretim emirleri iptal edilebilir.', 1;
 
+        -- Hammadde sarfı (ISSUE) + mamul girişi (RECEIPT) hareketlerini IsCancelled=1 ile kapat
+        -- (bakiye = SUM(QtyBase WHERE IsCancelled=0))
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'PRODUCTION' AND SourceDocId = @OrderId AND IsCancelled = 0;
 
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal,
-             SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
-        SELECT
-            CompanyId, WarehouseId, BinId, ItemId, 'REVERSAL',
-            -QtyBase, UomId, QtyOriginal,
-            'PRODUCTION', @OrderId, @DocNo, @UserId
-        FROM StockMovement
-        WHERE SourceDocType = 'PRODUCTION' AND SourceDocId = @OrderId
-          AND MovementType <> 'REVERSAL';
-
+        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketleri zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar.
         IF @@ROWCOUNT = 0
             THROW 51343, N'İptal edilecek üretim hareketi bulunamadı (veri tutarsızlığı).', 1;
 

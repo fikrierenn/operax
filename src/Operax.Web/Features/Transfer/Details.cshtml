@@ -25,9 +25,19 @@
             <a asp-page="./Index" class="btn btn-secondary">
                 Listeye Dön
             </a>
-            <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
-                Bilgileri Kaydet
-              </button>
+            @if (Model.IsNew || Model.Header.Status == DocStatus.Draft)
+            {
+                <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
+                    Bilgileri Kaydet
+                </button>
+            }
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+            {
+                <button type="submit" asp-page-handler="Reverse" class="btn btn-danger"
+                        onclick="return confirm('Bu transfer iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                    Transferi İptal Et
+                </button>
+            }
           </div>
       </div>
 

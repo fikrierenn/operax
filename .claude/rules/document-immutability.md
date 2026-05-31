@@ -16,7 +16,10 @@ Operax'taki tüm evrak modülleri (PO / Receiving / SO / Shipping / ExpenseInvoi
 
 Ledger tabloları (`StockMovement`, `AccountMovement`, `FinancialTransaction`) **append-only**'dir:
 
-- **Silme YOK, düzeltme = ters kayıt (reversal/contra-entry).** `AccountMovement` için düzeltme `SourceDocType='REVERSAL'` ters satır; `StockMovement` cancel → ters hareket + `IsCancelled=1`. Bakiye = `SUM(Borc-Alacak)` / `SUM(QtyBase)` — silinen satır kavramı yoktur. (`AccountMovement.IsDeleted` kaldırılıyor — vestigial.)
+- **Silme YOK; düzeltme mekanizması tabloya göre iki ayrı yöntem (Plan 22 Faz C1 ile netleşti):**
+  - **`AccountMovement`** (IsCancelled kolonu YOK) → düzeltme = `SourceDocType='REVERSAL'` **ters satır**. Bakiye = `SUM(Borc-Alacak)` tüm satırlar; ters satır orijinali nötrler.
+  - **`StockMovement`** (IsCancelled kolonu VAR) → cancel = orijinal hareketlere **`IsCancelled=1`** flag (+`CancelledAt`/`CancelledBy` audit izi). **Ters hareket YAZILMAZ.** Bakiye = `SUM(QtyBase WHERE IsCancelled=0)` (tvf_InventoryBalance + 11 okuyucu bu filtreyi kullanır). ⚠️ Hem flag hem ters-satır yazmak **çift-sayım** (stok 2× geri gelir) — yasak.
+  - İki yöntem de append-only: hiçbir satır fiziksel silinmez. (`AccountMovement.IsDeleted` kaldırılıyor — vestigial.)
 - **Dönem kilidi (ZAMAN bazlı):** `AccountingPeriod(CompanyId, Year, Month, Status)` — `OPEN/CLOSED/LOCKED`. Her ledger hareket/onay SP'sinin ilk satırı `sp_GuardPeriodOpen(@CompanyId, @MovementDate, @UserId, ...)`:
   - **OPEN** (veya dönem kaydı yok) → serbest, iz yok.
   - **CLOSED** → yalnızca dar yetki (`UserCompany.Role IN Administrator/Finance`) + zorunlu gerekçe (kategori + metin) ile aşılır → `PeriodOverrideLog`'a **atomik** iz; aksi `THROW`.

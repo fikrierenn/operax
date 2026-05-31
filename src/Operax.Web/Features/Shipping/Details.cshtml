@@ -37,6 +37,13 @@
                     Sevkiyatı Tamamla (Onayla)
                 </button>
             }
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+            {
+                <button type="submit" asp-page-handler="Reverse" class="btn btn-danger"
+                        onclick="return confirm('Bu sevkiyat iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                    Sevkiyatı İptal Et
+                </button>
+            }
         </div>
     </div>
 

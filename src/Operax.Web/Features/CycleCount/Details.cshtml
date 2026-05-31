@@ -36,6 +36,13 @@
                     Sayımı Kesinleştir ve Kapat
                 </button>
             }
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Completed)
+            {
+                <button type="submit" asp-page-handler="Reverse" class="btn btn-danger"
+                        onclick="return confirm('Bu sayım iptal edilecek ve ters düzeltme hareketi yazılacak. Onaylıyor musunuz?');">
+                    Sayımı İptal Et
+                </button>
+            }
         </div>
     </div>
 

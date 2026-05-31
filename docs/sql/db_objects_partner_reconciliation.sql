@@ -190,3 +190,39 @@ RETURN
                 WHERE MovementDate < DATEADD(DAY, 1, @AsOf)), 0) AS OpenItemTotal
 );
 GO
+
+-- -----------------------------------------------------------------------------
+-- sp_ExpireReconciliations — sessiz onay job'ı (TTK md.94, 1 ay deadline)
+-- NE YAPAR: DeadlineAt geçmiş + SENT + İSPATLI kanal (KEP/NOTER) mutabakatları
+--   EXPIRED_CONFIRMED yapar. deep-research: EMAIL/POST ispatı zayıf → otomatik onay YAPMAZ
+--   (manuel CONFIRMED bekler). Hangfire NotificationDispatcher günlük çağırır.
+-- SIDE EFFECTS: PartnerReconciliationLog (UPDATE Status=EXPIRED_CONFIRMED, ResponseAt)
+-- THROW: yok (toplu job, hata yutmaz — XACT_ABORT + CATCH THROW)
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER PROCEDURE dbo.sp_ExpireReconciliations
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Sessiz onay: süresi dolmuş, ispatlanabilir kanaldan gönderilmiş, yanıtsız
+        UPDATE PartnerReconciliationLog
+        SET Status     = 'EXPIRED_CONFIRMED',
+            ResponseAt = GETUTCDATE(),
+            ResponseNote = N'Süre doldu — 1 ay içinde itiraz edilmedi (TTK md.94 zımni kabul).'
+        WHERE Status = 'SENT'
+          AND DeadlineAt IS NOT NULL
+          AND DeadlineAt < GETUTCDATE()
+          AND SentChannel IN ('KEP','NOTER');  -- ispatlı kanal şartı (deep-research)
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO

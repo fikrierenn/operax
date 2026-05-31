@@ -128,6 +128,7 @@ builder.Services.AddHangfire(config => config
     .UseRecommendedSerializerSettings()
     .UseSqlServerStorage(connectionString));
 builder.Services.AddHangfireServer();
+builder.Services.AddScoped<Operax.Web.Lib.Jobs.ReconciliationExpiryJob>();
 
 // Razor Pages — Feature-based yapı + klasör bazlı yetkilendirme (RBAC)
 builder.Services.AddRazorPages()
@@ -198,6 +199,10 @@ app.MapStaticAssets();
 app.MapRazorPages();
 // F0.2: Hangfire dashboard sadece Administrator
 app.MapHangfireDashboard("/admin/jobs").RequireAuthorization("AdministratorOnly");
+
+// Plan 19: cari mutabakat sessiz onay job'ı — her gün 02:00 (TTK md.94 1 ay deadline)
+RecurringJob.AddOrUpdate<Operax.Web.Lib.Jobs.ReconciliationExpiryJob>(
+    "reconciliation-expiry", j => j.RunAsync(), "0 2 * * *");
 
 // Root URL: giriş yapılmışsa Dashboard'a, yapılmamışsa Login'e yönlendir
 app.MapGet("/", (HttpContext ctx) =>

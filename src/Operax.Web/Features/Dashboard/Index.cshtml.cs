@@ -33,7 +33,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
+        // DocStatus sabitleri parametre olarak geçilir; SQL içinde literal yasak
+        var p = new
+        {
+            CompanyId  = company.Id,
+            StDraft    = DocStatus.Draft,
+            StPosted   = DocStatus.Posted,
+            StCancelled = DocStatus.Cancelled,
+            StApproved = DocStatus.Approved
+        };
 
         await LoadKpisAsync(conn, p);
         await LoadIncomingShipmentsAsync(conn, p);
@@ -50,15 +58,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             SELECT ISNULL(SUM(l.QtyOrdered * l.Price), 0)
             FROM PurchaseOrderLine l
             JOIN PurchaseOrderHeader h ON h.Id = l.HeaderId
-            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0 AND h.Status <> 'CANCELLED'", p);
+            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0 AND h.Status <> @StCancelled", p);
 
         ApprovedPoCount = await conn.ExecuteScalarAsync<int>(@"
             SELECT COUNT(*) FROM PurchaseOrderHeader
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('POSTED', 'APPROVED')", p);
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN (@StPosted, @StApproved)", p);
 
         DraftPoCount = await conn.ExecuteScalarAsync<int>(@"
             SELECT COUNT(*) FROM PurchaseOrderHeader
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status = 'DRAFT'", p);
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status = @StDraft", p);
 
         // İş kuralı: Stoklu hücre sayısının toplam aktif hücreye oranı yüzde olarak
         WarehouseFillRate = await conn.ExecuteScalarAsync<decimal>(@"
@@ -96,7 +104,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             JOIN Partner p ON p.Id = rh.PartnerId
             JOIN Item i ON i.Id = rl.ItemId
             JOIN DictionaryValue dv ON dv.Id = rl.UomId
-            WHERE rh.CompanyId = @CompanyId AND rh.Status = 'DRAFT'
+            WHERE rh.CompanyId = @CompanyId AND rh.Status = @StDraft
             GROUP BY rh.DocNo, p.Name, i.Code, dv.Code, rh.UpdatedAt, rh.Id
             ORDER BY rh.UpdatedAt DESC", p);
         IncomingShipments = rows.ToList();
@@ -165,9 +173,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             )
             SELECT
                 FORMAT(m.MonthStart, 'MMM', 'tr-TR') AS MonthName,
-                ISNULL(SUM(CASE WHEN ht.Status IN ('POSTED','APPROVED') THEN ht.LineTotal ELSE 0 END), 0) AS PostedAmount,
-                ISNULL(SUM(CASE WHEN ht.Status = 'DRAFT'                THEN ht.LineTotal ELSE 0 END), 0) AS DraftAmount,
-                ISNULL(SUM(CASE WHEN ht.Status = 'CANCELLED'            THEN ht.LineTotal ELSE 0 END), 0) AS CancelledAmount
+                ISNULL(SUM(CASE WHEN ht.Status IN (@StPosted, @StApproved) THEN ht.LineTotal ELSE 0 END), 0) AS PostedAmount,
+                ISNULL(SUM(CASE WHEN ht.Status = @StDraft                  THEN ht.LineTotal ELSE 0 END), 0) AS DraftAmount,
+                ISNULL(SUM(CASE WHEN ht.Status = @StCancelled              THEN ht.LineTotal ELSE 0 END), 0) AS CancelledAmount
             FROM Months m
             LEFT JOIN HeaderTotals ht
                 ON ht.OrderDate >= m.MonthStart

@@ -112,7 +112,9 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
     // Bakiye özeti + devir + tarih aralığı ekstresi + vade analizi — QueryMultiple ile tek round-trip
     private async Task LoadLedgerAsync(System.Data.IDbConnection conn, Guid partnerId)
     {
-        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo };
+        // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
+        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo,
+                      StApproved = DocStatus.Approved, StPosted = DocStatus.Posted };
         using var multi = await conn.QueryMultipleAsync(@"
             -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). Borç/Alacak GROSS toplam.
             --    NetBakiye = SUM(Borc) - SUM(Alacak). + = cari bize borçlu, - = biz cariye borçluyuz.
@@ -124,13 +126,13 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
                         FROM SalesOrderHeader soh
                         JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
                         WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId
-                          AND soh.Status IN ('APPROVED', 'POSTED') AND soh.IsDeleted = 0
+                          AND soh.Status IN (@StApproved, @StPosted) AND soh.IsDeleted = 0
                           AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenSalesOrder,
                 ISNULL((SELECT SUM((pol.QtyOrdered - pol.QtyReceived) * pol.Price)
                         FROM PurchaseOrderHeader poh
                         JOIN PurchaseOrderLine pol ON pol.HeaderId = poh.Id
                         WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId
-                          AND poh.Status IN ('APPROVED', 'POSTED') AND poh.IsDeleted = 0
+                          AND poh.Status IN (@StApproved, @StPosted) AND poh.IsDeleted = 0
                           AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenPurchaseOrder
             FROM AccountMovement am
             WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId AND am.IsDeleted = 0;
@@ -171,7 +173,9 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
     // Cariye ait satış (SO) + satınalma (PO) siparişleri — birleşik liste, satırlardan tutar hesaplanır
     private async Task LoadOrdersAsync(System.Data.IDbConnection conn, Guid partnerId)
     {
-        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo, Sf = OrderStatus };
+        // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
+        var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo, Sf = OrderStatus,
+                      StCancelled = DocStatus.Cancelled };
         // Açık tutar = (sipariş - sevk/kabul) * fiyat; sipariş ledger/bakiyeyi etkilemez (bilgi amaçlı)
         // HasInvoice/HasDelivery: belge zinciri durumu (SO→Shipping/SalesInvoice, PO→Receiving)
         // Durum filtresi: @Sf boşsa tümü, doluysa eşleşen Status
@@ -181,7 +185,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
                            FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id), 0) AS Total,
                    ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
                            FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id AND sol.QtyOrdered > sol.QtyShipped), 0) AS OpenAmount,
-                   CAST(CASE WHEN EXISTS (SELECT 1 FROM SalesInvoice si WHERE si.SalesOrderId = soh.Id AND si.IsDeleted = 0 AND si.Status <> 'CANCELLED') THEN 1 ELSE 0 END AS BIT) AS HasInvoice,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM SalesInvoice si WHERE si.SalesOrderId = soh.Id AND si.IsDeleted = 0 AND si.Status <> @StCancelled) THEN 1 ELSE 0 END AS BIT) AS HasInvoice,
                    CAST(CASE WHEN EXISTS (SELECT 1 FROM ShippingHeader sh WHERE sh.SalesOrderId = soh.Id AND sh.IsDeleted = 0) THEN 1 ELSE 0 END AS BIT) AS HasDelivery
             FROM SalesOrderHeader soh
             WHERE soh.PartnerId = @PartnerId AND soh.CompanyId = @CompanyId AND soh.IsDeleted = 0

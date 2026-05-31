@@ -24,9 +24,9 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
                    (SELECT COUNT(*) FROM ReceivingLine WHERE HeaderId = h.Id) AS LineCount
             FROM ReceivingHeader h
             LEFT JOIN Partner p ON p.Id = h.PartnerId
-            WHERE h.CompanyId = @CompanyId AND h.Status = 'DRAFT'
+            WHERE h.CompanyId = @CompanyId AND h.Status = @StDraft
             ORDER BY h.CreatedAt DESC",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
 
         if (!docId.HasValue) return;
 

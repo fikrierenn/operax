@@ -24,9 +24,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id) AS TotalLines,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase >= QtyRequestedBase) AS DoneLines
             FROM PickTask t
-            WHERE t.CompanyId = @CompanyId AND t.Status IN ('DRAFT', 'ASSIGNED', 'IN_PROGRESS')
+            WHERE t.CompanyId = @CompanyId AND t.Status IN (@StDraft, @StAssigned, @StInProgress)
             ORDER BY t.CreatedAt ASC",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress });
 
         if (!taskId.HasValue) return;
 
@@ -89,10 +89,10 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
                 "UPDATE PickTaskLine SET QtyPickedBase = QtyRequestedBase WHERE Id = @LineId",
                 new { LineId = lineId }, trans);
 
-            // İş emri durumunu güncelle: IN_PROGRESS
+            // İş kuralı: DRAFT toplama görevi ilk barkodla IN_PROGRESS'e geçer
             await conn.ExecuteAsync(
-                "UPDATE PickTask SET Status = 'IN_PROGRESS', AssignedUserId = @UserId WHERE Id = @TaskId AND Status = 'DRAFT'",
-                new { UserId = user.Id, TaskId = taskId }, trans);
+                "UPDATE PickTask SET Status = @StInProgress, AssignedUserId = @UserId WHERE Id = @TaskId AND Status = @StDraft",
+                new { UserId = user.Id, TaskId = taskId, StDraft = DocStatus.Draft, StInProgress = DocStatus.InProgress }, trans);
 
             // Tüm satırlar tamamlandıysa COMPLETED yap
             var remaining = await conn.ExecuteScalarAsync<int>(
@@ -100,8 +100,8 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
                 new { TaskId = taskId }, trans);
             if (remaining == 0)
                 await conn.ExecuteAsync(
-                    "UPDATE PickTask SET Status = 'COMPLETED' WHERE Id = @TaskId",
-                    new { TaskId = taskId }, trans);
+                    "UPDATE PickTask SET Status = @StCompleted WHERE Id = @TaskId",
+                    new { TaskId = taskId, StCompleted = DocStatus.Completed }, trans);
 
             trans.Commit();
             TempData["Success"] = "Toplama onaylandı!";

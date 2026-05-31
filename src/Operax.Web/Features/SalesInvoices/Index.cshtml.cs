@@ -23,58 +23,74 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal              TotalAmount { get; set; }
     public decimal              TotalPaid   { get; set; }
 
+    // Fatura listesi verilerini ve sekme sayaçlarını veritabanından yükler
     public async Task OnGetAsync()
     {
-        using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
-
-        Counts = await conn.QuerySingleAsync<InvoiceCountsDto>(@"
-            SELECT
-                COUNT(*) AS Total,
-                SUM(CASE WHEN Status = 'DRAFT'     THEN 1 ELSE 0 END) AS Draft,
-                SUM(CASE WHEN Status = 'POSTED'    THEN 1 ELSE 0 END) AS Posted,
-                SUM(CASE WHEN Status = 'CANCELLED' THEN 1 ELSE 0 END) AS Cancelled
-            FROM SalesInvoice
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
-
-        TotalAmount = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(SUM(GrandTotal), 0)
-            FROM SalesInvoice
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> 'CANCELLED'", p);
-        TotalPaid = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(SUM(PaidAmount), 0)
-            FROM SalesInvoice
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> 'CANCELLED'", p);
-
-        var sql = @"
-            SELECT
-                si.Id, si.InvoiceNo, si.InvoiceDate, si.DueDate,
-                si.PartnerId, p.Name AS PartnerName,
-                si.Subtotal, si.TaxAmount, si.GrandTotal, si.PaidAmount,
-                si.Status, si.EBelgeType, si.EBelgeStatus,
-                (SELECT COUNT(*) FROM SalesInvoiceLine WHERE InvoiceId = si.Id) AS LineCount,
-                DATEDIFF(DAY, si.DueDate, GETUTCDATE()) AS DaysOverdue
-            FROM SalesInvoice si
-            JOIN Partner p ON p.Id = si.PartnerId
-            WHERE si.CompanyId = @CompanyId AND si.IsDeleted = 0";
-
-        var parms = new DynamicParameters();
-        parms.Add("CompanyId", company.Id);
-
-        if (Status != "all")
+        try
         {
-            sql += " AND si.Status = @Status";
-            parms.Add("Status", Status);
+            using var conn = db.Open();
+            // DocStatus sabitleri parametre olarak geçilir; SQL içinde literal yasak
+            var p = new
+            {
+                CompanyId   = company.Id,
+                StDraft     = DocStatus.Draft,
+                StPosted    = DocStatus.Posted,
+                StCancelled = DocStatus.Cancelled
+            };
+
+            Counts = await conn.QuerySingleAsync<InvoiceCountsDto>(@"
+                SELECT
+                    COUNT(*) AS Total,
+                    SUM(CASE WHEN Status = @StDraft     THEN 1 ELSE 0 END) AS Draft,
+                    SUM(CASE WHEN Status = @StPosted    THEN 1 ELSE 0 END) AS Posted,
+                    SUM(CASE WHEN Status = @StCancelled THEN 1 ELSE 0 END) AS Cancelled
+                FROM SalesInvoice
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+
+            TotalAmount = await conn.ExecuteScalarAsync<decimal>(@"
+                SELECT ISNULL(SUM(GrandTotal), 0)
+                FROM SalesInvoice
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p);
+            TotalPaid = await conn.ExecuteScalarAsync<decimal>(@"
+                SELECT ISNULL(SUM(PaidAmount), 0)
+                FROM SalesInvoice
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p);
+
+            var sql = @"
+                SELECT
+                    si.Id, si.InvoiceNo, si.InvoiceDate, si.DueDate,
+                    si.PartnerId, p.Name AS PartnerName,
+                    si.Subtotal, si.TaxAmount, si.GrandTotal, si.PaidAmount,
+                    si.Status, si.EBelgeType, si.EBelgeStatus,
+                    (SELECT COUNT(*) FROM SalesInvoiceLine WHERE InvoiceId = si.Id) AS LineCount,
+                    DATEDIFF(DAY, si.DueDate, GETUTCDATE()) AS DaysOverdue
+                FROM SalesInvoice si
+                JOIN Partner p ON p.Id = si.PartnerId
+                WHERE si.CompanyId = @CompanyId AND si.IsDeleted = 0";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+
+            if (Status != "all")
+            {
+                sql += " AND si.Status = @Status";
+                parms.Add("Status", Status);
+            }
+            if (!string.IsNullOrWhiteSpace(Q))
+            {
+                sql += " AND (si.InvoiceNo LIKE @Q OR p.Name LIKE @Q)";
+                parms.Add("Q", $"%{Q.Trim()}%");
+            }
+
+            sql += " ORDER BY si.InvoiceDate DESC, si.InvoiceNo DESC";
+
+            Invoices = (await conn.QueryAsync<InvoiceRowDto>(sql, parms)).ToList();
         }
-        if (!string.IsNullOrWhiteSpace(Q))
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            sql += " AND (si.InvoiceNo LIKE @Q OR p.Name LIKE @Q)";
-            parms.Add("Q", $"%{Q.Trim()}%");
+            logger.LogError(sqlEx, "Satış faturaları liste veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
         }
-
-        sql += " ORDER BY si.InvoiceDate DESC, si.InvoiceNo DESC";
-
-        Invoices = (await conn.QueryAsync<InvoiceRowDto>(sql, parms)).ToList();
     }
 
     public record InvoiceRowDto(

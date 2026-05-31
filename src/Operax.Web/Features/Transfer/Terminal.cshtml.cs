@@ -22,9 +22,9 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
             SELECT t.Id, t.DocNo,
                    (SELECT COUNT(*) FROM StockTransferLine WHERE TransferId = t.Id) AS LineCount
             FROM StockTransfer t
-            WHERE t.CompanyId = @CompanyId AND t.Status = 'DRAFT'
+            WHERE t.CompanyId = @CompanyId AND t.Status = @StDraft
             ORDER BY t.CreatedAt DESC",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
 
         if (!transferId.HasValue) return;
 

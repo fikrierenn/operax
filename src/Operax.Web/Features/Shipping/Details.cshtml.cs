@@ -182,13 +182,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Toplama görevi oluşturma hatası: {HeaderId}", id);
+            logger.LogError(sqlEx, "Toplama görevi oluşturma hatası: {HeaderId}", id);
             TempData["Error"] = "Toplama görevi oluşturulurken hata oluştu.";
         }
         return RedirectToPage(new { id });
@@ -205,13 +205,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 commandType: CommandType.StoredProcedure);
             await audit.LogAsync("POST", "ShippingHeader", id, "Sevkiyat irsaliyesi onaylandı, stok çıkışı yapıldı");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Sevkiyat onay hatası: {HeaderId}", id);
+            logger.LogError(sqlEx, "Sevkiyat onay hatası: {HeaderId}", id);
             TempData["Error"] = "Sevkiyat onaylanırken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });

@@ -29,6 +29,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public decimal Vat      => System.Math.Round(Subtotal * 0.20m, 2);
     public decimal Grand    => Subtotal + Vat;
 
+    // Sipariş detay sayfasını yükler: yeni sipariş ise boş form, mevcut ise başlık+satır+aktivite
     public async Task OnGetAsync(Guid? id)
     {
         using var conn = db.Open();
@@ -57,6 +58,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
     }
 
+    // Sipariş başlık bilgilerini ve müşteri/depo adlarını yükler
     private async Task LoadHeaderAsync(System.Data.IDbConnection conn, Guid id)
     {
         Header = await conn.QueryFirstOrDefaultAsync<SalesOrderHeaderDto>(@"
@@ -76,6 +78,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { Id = id, CompanyId = company.Id }) ?? new();
     }
 
+    // Sipariş satırlarını madde/UOM detaylarıyla yükler
     private async Task LoadLinesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Lines = await conn.QueryAsync<SalesOrderLineDto>(@"
@@ -91,6 +94,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { Id = id, CompanyId = company.Id });
     }
 
+    // Son 8 denetim izi kaydını (aktivite akışı) yükler
     private async Task LoadActivitiesAsync(System.Data.IDbConnection conn, Guid id)
     {
         Activities = await conn.QueryAsync<ActivityDto>(@"
@@ -105,6 +109,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { Id = id });
     }
 
+    // Yeni sipariş oluşturur veya mevcut sipariş başlığını günceller
     public async Task<IActionResult> OnPostAsync()
     {
         using var conn = db.Open();
@@ -138,6 +143,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id = Header.Id });
     }
 
+    // Sipariş satırı ekler; maddenin temel UOM'u otomatik seçilir
     public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, decimal qty, decimal? price)
     {
         using var conn = db.Open();
@@ -179,13 +185,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { Status = DocStatus.Approved, UserId = user.Id, Id = id, CompanyId = company.Id });
             await audit.LogAsync("APPROVE", "SalesOrderHeader", id, "Satış siparişi onaylandı");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Satış siparişi onaylama hatası: {OrderId}", id);
+            logger.LogError(sqlEx, "Satış siparişi onaylama hatası: {OrderId}", id);
             TempData["Error"] = "Sipariş onaylanırken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });
@@ -214,13 +220,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
             await audit.LogAsync("CANCEL", "SalesOrderHeader", id, "Satış siparişi iptal edildi");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Satış siparişi iptal hatası: {OrderId}", id);
+            logger.LogError(sqlEx, "Satış siparişi iptal hatası: {OrderId}", id);
             TempData["Error"] = "Sipariş iptal edilirken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });

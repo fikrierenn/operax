@@ -3,9 +3,12 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Operax.Web.Features.Auth;
 
+// F0.2: Brute-force koruması — login uçunda IP başına 10 istek/dk (RL-1)
+[EnableRateLimiting("login")]
 public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<LoginModel> logger) : PageModel
 {
     [BindProperty]

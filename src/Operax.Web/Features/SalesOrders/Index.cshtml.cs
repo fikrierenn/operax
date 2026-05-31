@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
 using Dapper;
 using Operax.Web.Lib;
 
@@ -12,7 +13,7 @@ namespace Operax.Web.Features.SalesOrders;
 /// Tüm sayısal değerler veritabanından gelir; hardcoded fallback yoktur.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Tab { get; set; } = "all";
     [BindProperty(SupportsGet = true)] public string? Q  { get; set; }
@@ -21,13 +22,30 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public StatusCountsDto  StatusCounts  { get; set; } = new(0, 0, 0, 0);
     public decimal          TotalActive   { get; set; }
 
+    // Sipariş listesi ve sekme sayaçlarını veritabanından yükler
     public async Task OnGetAsync()
     {
-        using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
+        try
+        {
+            using var conn = db.Open();
+            // DocStatus sabitleri parametre olarak geçilir; SQL içinde literal yasak
+            var p = new
+            {
+                CompanyId   = company.Id,
+                StDraft     = DocStatus.Draft,
+                StPosted    = DocStatus.Posted,
+                StCancelled = DocStatus.Cancelled,
+                StApproved  = DocStatus.Approved
+            };
 
-        await LoadStatusCountsAsync(conn, p);
-        await LoadOrdersAsync(conn);
+            await LoadStatusCountsAsync(conn, p);
+            await LoadOrdersAsync(conn);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Satış siparişleri liste veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
+        }
     }
 
     private async Task LoadStatusCountsAsync(System.Data.IDbConnection conn, object p)
@@ -36,9 +54,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         const string sql = @"
             SELECT
                 COUNT(*) AS Total,
-                SUM(CASE WHEN Status = 'DRAFT'                THEN 1 ELSE 0 END) AS Draft,
-                SUM(CASE WHEN Status IN ('APPROVED','POSTED') THEN 1 ELSE 0 END) AS Posted, -- DocStatus.Posted|Approved
-                SUM(CASE WHEN Status = 'CANCELLED'            THEN 1 ELSE 0 END) AS Cancelled
+                SUM(CASE WHEN Status = @StDraft                        THEN 1 ELSE 0 END) AS Draft,
+                SUM(CASE WHEN Status IN (@StApproved, @StPosted)       THEN 1 ELSE 0 END) AS Posted,
+                SUM(CASE WHEN Status = @StCancelled                    THEN 1 ELSE 0 END) AS Cancelled
             FROM SalesOrderHeader
             WHERE CompanyId = @CompanyId AND IsDeleted = 0";
         StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(sql, p);
@@ -67,17 +85,19 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0";
 
         var parms = new DynamicParameters();
-        parms.Add("CompanyId", company.Id);
+        parms.Add("CompanyId",   company.Id);
+        // DocStatus sabitleri parametre olarak; SQL concat ile literal gömülmez
+        parms.Add("StDraft",     DocStatus.Draft);
+        parms.Add("StPosted",    DocStatus.Posted);
+        parms.Add("StCancelled", DocStatus.Cancelled);
+        parms.Add("StApproved",  DocStatus.Approved);
 
         if (Tab == DocStatus.Draft)
-            sql += " AND h.Status = @Status";
+            sql += " AND h.Status = @StDraft";
         else if (Tab == DocStatus.Posted)
-            sql += $" AND h.Status IN ('{DocStatus.Approved}','{DocStatus.Posted}')";
+            sql += " AND h.Status IN (@StApproved, @StPosted)";
         else if (Tab == DocStatus.Cancelled)
-            sql += " AND h.Status = @Status";
-
-        if (Tab != "all" && Tab != DocStatus.Posted)
-            parms.Add("Status", Tab);
+            sql += " AND h.Status = @StCancelled";
 
         if (!string.IsNullOrWhiteSpace(Q))
         {

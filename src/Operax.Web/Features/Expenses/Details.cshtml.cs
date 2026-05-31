@@ -64,16 +64,16 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
             var registryNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.PurchaseInvoice);
             await conn.ExecuteAsync(@"
                 INSERT INTO ExpenseInvoice (Id, CompanyId, PartnerId, DocNo, RegistryNo, InvoiceDate, DueDate, TotalAmount, Currency, Status)
-                VALUES (@Id, @CompanyId, @PartnerId, @DocNo, @RegistryNo, @InvoiceDate, @DueDate, 0, @Currency, 'DRAFT')",
-                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, RegistryNo = registryNo, Form.InvoiceDate, Form.DueDate, Form.Currency });
+                VALUES (@Id, @CompanyId, @PartnerId, @DocNo, @RegistryNo, @InvoiceDate, @DueDate, 0, @Currency, @StDraft)",
+                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, RegistryNo = registryNo, Form.InvoiceDate, Form.DueDate, Form.Currency, StDraft = DocStatus.Draft });
         }
         else
         {
             await conn.ExecuteAsync(@"
                 UPDATE ExpenseInvoice SET PartnerId = @PartnerId, DocNo = @DocNo,
                     InvoiceDate = @InvoiceDate, DueDate = @DueDate, Currency = @Currency
-                WHERE Id = @Id AND CompanyId = @CompanyId AND Status = 'DRAFT'",
-                new { Form.PartnerId, Form.DocNo, Form.InvoiceDate, Form.DueDate, Form.Currency, Form.Id, CompanyId = company.Id });
+                WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
+                new { Form.PartnerId, Form.DocNo, Form.InvoiceDate, Form.DueDate, Form.Currency, Form.Id, CompanyId = company.Id, StDraft = DocStatus.Draft });
         }
         return RedirectToPage(new { id = Form.Id });
     }
@@ -136,8 +136,8 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         // Faturayı POSTED durumuna alır
         using var conn = db.Open();
         await conn.ExecuteAsync(
-            "UPDATE ExpenseInvoice SET Status = 'POSTED' WHERE Id = @Id AND CompanyId = @CompanyId AND Status = 'DRAFT'",
-            new { Id = id, CompanyId = company.Id });
+            "UPDATE ExpenseInvoice SET Status = @StPosted WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
+            new { Id = id, CompanyId = company.Id, StPosted = DocStatus.Posted, StDraft = DocStatus.Draft });
         return RedirectToPage(new { id });
     }
 

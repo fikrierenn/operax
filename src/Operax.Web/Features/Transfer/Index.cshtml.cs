@@ -29,19 +29,19 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             ORDER BY t.CreatedAt DESC", new { CompanyId = company.Id });
 
         DraftCount = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = 'DRAFT'",
-            new { CompanyId = company.Id });
+            "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = @StDraft",
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
 
         PostedCount = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = 'POSTED'",
-            new { CompanyId = company.Id });
+            "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = @StPosted",
+            new { CompanyId = company.Id, StPosted = DocStatus.Posted });
 
         TotalTransferQty = await conn.ExecuteScalarAsync<decimal>(@"
             SELECT ISNULL(SUM(l.QtyBase), 0)
             FROM StockTransferLine l
             JOIN StockTransfer t ON t.Id = l.TransferId
-            WHERE t.CompanyId = @CompanyId AND t.Status = 'POSTED'",
-            new { CompanyId = company.Id });
+            WHERE t.CompanyId = @CompanyId AND t.Status = @StPosted",
+            new { CompanyId = company.Id, StPosted = DocStatus.Posted });
     }
 
     public record TransferDto { public Guid Id { get; set; } public string DocNo { get; set; } = ""; public string Status { get; set; } = ""; public string FromWhCode { get; set; } = ""; public string ToWhCode { get; set; } = ""; public int LineCount { get; set; } public DateTime CreatedAt { get; set; } }

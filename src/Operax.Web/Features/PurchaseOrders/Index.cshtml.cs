@@ -37,12 +37,20 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         const string sql = @"
             SELECT
                 COUNT(*) AS Total,
-                SUM(CASE WHEN Status = 'DRAFT'                 THEN 1 ELSE 0 END) AS Draft,
-                SUM(CASE WHEN Status IN ('POSTED','APPROVED')  THEN 1 ELSE 0 END) AS Posted, -- DocStatus.Posted|Approved
-                SUM(CASE WHEN Status = 'CANCELLED'             THEN 1 ELSE 0 END) AS Cancelled
+                SUM(CASE WHEN Status = @StDraft                        THEN 1 ELSE 0 END) AS Draft,
+                SUM(CASE WHEN Status IN (@StPosted, @StApproved)       THEN 1 ELSE 0 END) AS Posted,
+                SUM(CASE WHEN Status = @StCancelled                    THEN 1 ELSE 0 END) AS Cancelled
             FROM PurchaseOrderHeader
             WHERE CompanyId = @CompanyId AND IsDeleted = 0";
-        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(sql, p);
+        // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
+        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(sql, new
+        {
+            ((dynamic)p).CompanyId,
+            StDraft     = DocStatus.Draft,
+            StPosted    = DocStatus.Posted,
+            StApproved  = DocStatus.Approved,
+            StCancelled = DocStatus.Cancelled
+        });
     }
 
     // Sekme + arama filtresine göre evrak listesi (header total = sum of QtyOrdered * Price)
@@ -73,16 +81,19 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         var parms = new DynamicParameters();
         parms.Add("CompanyId", company.Id);
 
+        // İş kuralı: durum filtreleri DocStatus sabitleriyle parametrik olarak eklenir
+        parms.Add("StDraft",     DocStatus.Draft);
+        parms.Add("StPosted",    DocStatus.Posted);
+        parms.Add("StApproved",  DocStatus.Approved);
+        parms.Add("StCancelled", DocStatus.Cancelled);
+
         // Sekme filtresi: Tab değeri DocStatus sabitleri ile eşlenir
         if (Tab == DocStatus.Draft)
-            sql += " AND h.Status = @Status";
+            sql += " AND h.Status = @StDraft";
         else if (Tab == DocStatus.Posted)
-            sql += $" AND h.Status IN ('{DocStatus.Posted}','{DocStatus.Approved}')";
+            sql += " AND h.Status IN (@StPosted, @StApproved)";
         else if (Tab == DocStatus.Cancelled)
-            sql += " AND h.Status = @Status";
-
-        if (Tab != "all" && Tab != DocStatus.Posted)
-            parms.Add("Status", Tab);
+            sql += " AND h.Status = @StCancelled";
 
         // Serbest metin arama: evrak no veya tedarikçi adı
         if (!string.IsNullOrWhiteSpace(Q))

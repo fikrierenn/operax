@@ -45,7 +45,7 @@ public class ProductionReceiptService(Db db)
                 }
                 else if (failAction == "CANCEL_ORDER")
                 {
-                    await conn.ExecuteAsync("UPDATE ProductionOrder SET Status = 'CANCELLED' WHERE Id = @OrderId", new { OrderId = productionOrderId }, trans);
+                    await conn.ExecuteAsync("UPDATE ProductionOrder SET Status = @StCancelled WHERE Id = @OrderId", new { OrderId = productionOrderId, StCancelled = DocStatus.Cancelled }, trans);
                     // TODO: Sales Order Notify Logic
                 }
             }

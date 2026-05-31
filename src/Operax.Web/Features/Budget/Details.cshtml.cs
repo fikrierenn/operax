@@ -56,15 +56,15 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             Form.Id = Guid.NewGuid();
             await conn.ExecuteAsync(@"
                 INSERT INTO Budget (Id, CompanyId, Year, Code, Name, Type, Status)
-                VALUES (@Id, @CompanyId, @Year, @Code, @Name, @Type, 'DRAFT')",
-                new { Form.Id, CompanyId = company.Id, Form.Year, Form.Code, Form.Name, Form.Type });
+                VALUES (@Id, @CompanyId, @Year, @Code, @Name, @Type, @StDraft)",
+                new { Form.Id, CompanyId = company.Id, Form.Year, Form.Code, Form.Name, Form.Type, StDraft = DocStatus.Draft });
         }
         else
         {
             await conn.ExecuteAsync(@"
                 UPDATE Budget SET Year = @Year, Code = @Code, Name = @Name, Type = @Type
-                WHERE Id = @Id AND CompanyId = @CompanyId AND Status = 'DRAFT'",
-                new { Form.Year, Form.Code, Form.Name, Form.Type, Form.Id, CompanyId = company.Id });
+                WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
+                new { Form.Year, Form.Code, Form.Name, Form.Type, Form.Id, CompanyId = company.Id, StDraft = DocStatus.Draft });
         }
         return RedirectToPage(new { id = Form.Id });
     }

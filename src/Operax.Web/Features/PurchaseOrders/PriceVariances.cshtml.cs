@@ -31,13 +31,15 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
 
     private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p)
     {
+        // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
         var counts = await conn.QuerySingleAsync<(int Draft, int Approved, int Rejected)>(@"
             SELECT
-                SUM(CASE WHEN Status = 'DRAFT'    THEN 1 ELSE 0 END) AS Draft,
-                SUM(CASE WHEN Status = 'APPROVED' THEN 1 ELSE 0 END) AS Approved,
-                SUM(CASE WHEN Status = 'REJECTED' THEN 1 ELSE 0 END) AS Rejected
+                SUM(CASE WHEN Status = @StDraft    THEN 1 ELSE 0 END) AS Draft,
+                SUM(CASE WHEN Status = @StApproved THEN 1 ELSE 0 END) AS Approved,
+                SUM(CASE WHEN Status = 'REJECTED'  THEN 1 ELSE 0 END) AS Rejected
             FROM PriceVariance
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND SourceDocType = 'PURCHASE_ORDER'", p);
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND SourceDocType = 'PURCHASE_ORDER'",
+            new { ((dynamic)p).CompanyId, StDraft = DocStatus.Draft, StApproved = DocStatus.Approved });
         DraftCount = counts.Draft;
         ApprovedCount = counts.Approved;
         RejectedCount = counts.Rejected;
@@ -80,11 +82,12 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
     {
         // İş kuralı: Reddedildiğinde PO satır fiyatı değişmez, kayıt REJECTED işaretlenir
         using var conn = db.Open();
+        // İş kuralı: yalnızca DRAFT fiyat farkı reddedilebilir; REJECTED DocStatus dışı sabit
         await conn.ExecuteAsync(@"
             UPDATE PriceVariance
             SET Status = 'REJECTED', ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
-            WHERE Id = @Id AND CompanyId = @CompanyId AND Status = 'DRAFT'",
-            new { Id = id, UserId = user.Id, CompanyId = company.Id });
+            WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
+            new { Id = id, UserId = user.Id, CompanyId = company.Id, StDraft = DocStatus.Draft });
         await audit.LogAsync("REJECT_VARIANCE", "PriceVariance", id, "Fiyat farkı reddedildi");
         return RedirectToPage(new { tab = DocStatus.Draft });
     }

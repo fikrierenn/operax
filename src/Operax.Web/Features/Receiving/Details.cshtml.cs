@@ -150,13 +150,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 commandType: CommandType.StoredProcedure);
             await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul irsaliyesi onaylandı");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Mal kabul onay hatası: {HeaderId}", id);
+            logger.LogError(sqlEx, "Mal kabul onay hatası: {HeaderId}", id);
             TempData["Error"] = "Mal kabul onaylanırken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });

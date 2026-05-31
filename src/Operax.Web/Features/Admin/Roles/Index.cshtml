@@ -61,23 +61,29 @@
                             <span class="text-xs font-medium text-slate-400 italic">Tüm Modüller</span>
                         </td>
                         <td class="text-right">
-                            @if (r.Name != "Administrator")
-                            {
-                                <form method="post" class="inline"
-                                      onsubmit="return confirm('@r.Name rolünü silmek istediğinizden emin misiniz?')">
-                                    <input type="hidden" name="id" value="@r.Id" />
-                                    <button asp-page-handler="Delete"
-                                            class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition">
-                                        Sil
-                                    </button>
-                                </form>
-                            }
-                            else
-                            {
-                                <span class="text-[11px] font-semibold text-slate-400 tracking-wide uppercase bg-slate-100 py-1 px-2.5 rounded-md border border-slate-200">
-                                    Sistem Rolü
-                                </span>
-                            }
+                            <div class="flex items-center justify-end gap-2">
+                                @if (r.Name != "Administrator")
+                                {
+                                    <a asp-page="./Permissions" asp-route-id="@r.Id"
+                                       class="btn btn-secondary btn-sm">
+                                        Modül İzinleri
+                                    </a>
+                                    <form method="post" class="inline"
+                                          onsubmit="return confirm('@r.Name rolünü silmek istediğinizden emin misiniz?')">
+                                        <input type="hidden" name="id" value="@r.Id" />
+                                        <button asp-page-handler="Delete"
+                                                class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition">
+                                            Sil
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-[11px] font-semibold text-slate-400 tracking-wide uppercase bg-slate-100 py-1 px-2.5 rounded-md border border-slate-200">
+                                        Sistem Rolü
+                                    </span>
+                                }
+                            </div>
                         </td>
                     </tr>
                 }

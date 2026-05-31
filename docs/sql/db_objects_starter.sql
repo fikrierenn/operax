@@ -222,12 +222,17 @@ BEGIN
         FROM ShippingHeader
         WHERE Id = @ShippingId AND IsDeleted = 0;
 
-        IF @CompanyId IS NULL THROW 70001, N'Sevkiyat bulunamadı.', 1;
-        IF @ShipStatus <> 'POSTED' THROW 70002, N'Sadece POSTED sevkiyatlar faturalanabilir.', 1;
+        IF @CompanyId IS NULL THROW 50201, N'Sevkiyat bulunamadı.', 1;
+        IF @ShipStatus <> 'POSTED' THROW 50202, N'Sadece POSTED sevkiyatlar faturalanabilir.', 1;
 
-        -- Bu sevkiyat için zaten fatura varsa hata
+        -- Dönem kilidi: fatura oluşturma anının dönemi açık olmalı (Plan 14)
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @userStr;
+
+        -- Bu sevkiyat için zaten fatura varsa hata (çift-post koruması)
         IF EXISTS (SELECT 1 FROM SalesInvoice WHERE ShippingId = @ShippingId AND IsDeleted = 0)
-            THROW 70003, N'Bu sevkiyat için zaten fatura oluşturulmuş.', 1;
+            THROW 50203, N'Bu sevkiyat için zaten fatura oluşturulmuş.', 1;
 
         -- PartnerId boşsa ilk satırdaki SO'dan al
         IF @PartnerId IS NULL
@@ -392,14 +397,18 @@ BEGIN
                @PartnerId = PartnerId, @CompanyId = CompanyId, @ChequeNo = ChequeNo
         FROM Cheque WHERE Id = @ChequeId AND IsDeleted = 0;
 
-        IF @Status IS NULL THROW 60001, N'Çek bulunamadı.', 1;
+        IF @Status IS NULL THROW 50600, N'Çek bulunamadı.', 1;
         IF @Status <> 'IN_BANK'
-            THROW 60003, N'Sadece bankaya verilmiş çekler tahsil edilebilir.', 1;
+            THROW 50603, N'Sadece bankaya verilmiş çekler tahsil edilebilir.', 1;
         IF @AccountId IS NULL
-            THROW 60005, N'Çekin tahsile verildiği banka hesabı bulunamadı.', 1;
+            THROW 50605, N'Çekin tahsile verildiği banka hesabı bulunamadı.', 1;
 
         DECLARE @TxId UNIQUEIDENTIFIER = NEWID();
         DECLARE @Now  DATETIME2        = ISNULL(@CollectDate, GETUTCDATE());
+
+        -- Dönem kilidi: tahsilat anının dönemi açık olmalı (Plan 14)
+        DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @Now, @userStr;
 
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
@@ -624,12 +633,16 @@ BEGIN
                @PartnerId = PartnerId, @CompanyId = CompanyId, @NoteNo = NoteNo
         FROM PromissoryNote WHERE Id = @NoteId AND IsDeleted = 0;
 
-        IF @Status IS NULL THROW 51310, N'Senet bulunamadı.', 1;
-        IF @Status <> 'IN_BANK' THROW 51312, N'Sadece bankaya verilmiş senetler tahsil edilebilir.', 1;
-        IF @AccountId IS NULL THROW 51313, N'Senetin tahsile verildiği banka hesabı bulunamadı.', 1;
+        IF @Status IS NULL THROW 50610, N'Senet bulunamadı.', 1;
+        IF @Status <> 'IN_BANK' THROW 50612, N'Sadece bankaya verilmiş senetler tahsil edilebilir.', 1;
+        IF @AccountId IS NULL THROW 50613, N'Senetin tahsile verildiği banka hesabı bulunamadı.', 1;
 
         DECLARE @TxId UNIQUEIDENTIFIER = NEWID();
         DECLARE @Now  DATETIME2        = ISNULL(@CollectDate, GETUTCDATE());
+
+        -- Dönem kilidi: tahsilat anının dönemi açık olmalı (Plan 14)
+        DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @Now, @userStr;
 
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
@@ -651,7 +664,7 @@ BEGIN
         VALUES (
             NEWID(), @CompanyId, @PartnerId, @Now,
             0, @Amount, 'TRY',
-            'CHEQUE_IN', @NoteId, @NoteNo,
+            'NOTE_IN', @NoteId, @NoteNo,
             N'Senet Tahsili: ' + @NoteNo, CAST(@UserId AS NVARCHAR(450))
         );
 
@@ -1529,13 +1542,18 @@ BEGIN
 
         SET @NewTxId = NEWID();
 
+        -- Dönem kilidi: ödeme/tahsilat anının dönemi açık olmalı (Plan 14)
+        DECLARE @txNow DATETIME2 = GETUTCDATE();
+        DECLARE @txUserStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @txNow, @txUserStr;
+
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
             Amount, Currency, AmountTRY, PartnerId, Description,
             InstrumentType, InstrumentId, CreatedBy
         )
         VALUES (
-            @NewTxId, @CompanyId, @AccountId, GETUTCDATE(), @TxType,
+            @NewTxId, @CompanyId, @AccountId, @txNow, @TxType,
             @Amount, @Currency, @Amount, @PartnerId, @Description,
             @InstrumentType, @InstrumentId, @UserId
         );

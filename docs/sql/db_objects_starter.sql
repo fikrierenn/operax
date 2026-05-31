@@ -1596,7 +1596,7 @@ BEGIN
              UnitCost, CreatedBy)
         SELECT
             @CompanyId, @WarehouseId, ISNULL(sl.BinId, @PickingBinId), sl.ItemId, 'ISSUE',
-            -sl.QtyBase, sl.UomId, -sl.QtyBase, 'SHIPMENT', @HeaderId, @DocNo, sl.LotNo,
+            -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo,
             ISNULL(ic.AvgCost, 0), @UserId
         FROM ShippingLine sl
         LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId

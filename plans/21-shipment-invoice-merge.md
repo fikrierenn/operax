@@ -20,6 +20,22 @@ içinde). Mevcut model bunu yapamaz. Ayrıca kısmi faturalama (1 sevkiyat satı
 - `SalesInvoice.IssueDate` / sevk tarihi (MovementDate) ayrımı YOK → 7-gün guard yapılamaz
 - e-Belge `DespatchDocumentReference` / `BillingReference` alanları YOK
 
+## 1.b BELGE AYRIMI PRENSİBİ (kullanıcı kuralı 2026-06-01 — DEĞİŞMEZ)
+
+| Belge | StockMovement | AccountMovement | Gerekçe |
+|---|---|---|---|
+| **İrsaliye** (Shipping/Receiving POSTED) | ✅ mal hareketi | ❌ YOK | Mali belge değil; cari borç/alacak doğmaz |
+| **Fatura** (Sales/Expense Invoice) | ❌ (stok zaten irsaliyede) | ✅ Debit/Credit | Mali belge; cari hareket fatura ile doğar |
+
+- **Mevcut kod bu kurala uyuyor:** `sp_ShippingPost`/`sp_ReceivingPost` yalnızca StockMovement;
+  AccountMovement sadece fatura SP'lerinde (`sp_GenerateSalesInvoiceFromShipping`, `sp_ExpenseInvoicePost`).
+- **İki mod (Parameter.InvoiceMode):**
+  - **INSTANT** → irsaliye onayı otomatik fatura tetikler (1:1); StockMovement + (fatura→AM) aynı an.
+  - **DEFERRED** (varsayılan hedef) → irsaliye yalnızca StockMovement; fatura SONRA ayrı kesilir → AM o an.
+    **N:1 birleştirme yalnızca DEFERRED modda** çalışır (INSTANT zaten 1:1 otomatik).
+- **Kritik:** N:1 birleştirme StockMovement'a DOKUNMAZ (stok zaten irsaliyede yazıldı); yalnızca
+  fatura + AccountMovement üretir, InvoicedQty günceller. Stok çift-sayım riski YOK.
+
 ## 2. Scope
 
 ### Dahili

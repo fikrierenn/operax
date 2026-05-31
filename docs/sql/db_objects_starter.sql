@@ -314,15 +314,18 @@ BEGIN
         FROM SalesInvoice WHERE Id = @NewInvoiceId;
 
         -- Cari hesap defteri: satış faturası → Debit (müşteri bize borçlandı)
+        -- NetAmount = Subtotal (KDV hariç) — iç raporlar bu değeri kullanır
         -- Çift-post koruması: UX_AccountMovement_Source (SourceDocType, SourceDocId) unique
         INSERT INTO dbo.AccountMovement
-            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, TaxAmount,
-             DueDate, Currency, SourceDocType, SourceDocId, SourceDocNo,
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, DueDate, Currency,
+             SourceDocType, SourceDocId, SourceDocNo,
              Description, CreatedBy)
         SELECT
             NEWID(), @CompanyId, @PartnerId, GETUTCDATE(),
-            GrandTotal, 0, TaxAmount,
-            @DueDate, 'TRY', 'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
+            GrandTotal, 0,
+            Subtotal, TaxAmount, @DueDate, 'TRY',
+            'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
             N'Satış Faturası', CAST(@UserId AS NVARCHAR(450))
         FROM SalesInvoice WHERE Id = @NewInvoiceId;
 
@@ -1904,18 +1907,23 @@ BEGIN
         SET Status = 'POSTED', UpdatedBy = @UserId
         WHERE Id = @InvoiceId;
 
-        -- Cari hesap defteri: alış faturası → Credit (biz cariye borçluyuz)
-        -- Çift-post koruması: UX_AccountMovement_Source unique
+        -- Cari hesap defteri: alış faturası satır bazlı → Credit (biz cariye borçluyuz)
+        -- SourceDocId = Line.Id → UX_AccountMovement_Source unique kalır
+        -- NetAmount = KDV hariç, TaxAmount = KDV, Credit = toplam
+        -- CostCenterId + ExpenseTypeId → gider merkezi/tipi bazlı raporlama
         INSERT INTO dbo.AccountMovement
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
-             DueDate, Currency, SourceDocType, SourceDocId, SourceDocNo,
-             Description, CreatedBy)
-        VALUES (
+             NetAmount, TaxAmount, DueDate, Currency,
+             SourceDocType, SourceDocId, SourceDocNo,
+             CostCenterId, ExpenseTypeId, Description, CreatedBy)
+        SELECT
             NEWID(), @CompanyId, @PartnerId, @now,
-            0, @Amount,
-            @DueDate, @Currency, 'PURCHASE_INVOICE', @InvoiceId, @DocNo,
-            N'Alış Faturası', @UserId
-        );
+            0, l.TotalAmount,
+            l.Amount, l.TaxAmount, @DueDate, @Currency,
+            'PURCHASE_INVOICE', l.Id, @DocNo,
+            l.CostCenterId, l.ExpenseTypeId, N'Alış Faturası', @UserId
+        FROM ExpenseInvoiceLine l
+        WHERE l.ExpenseInvoiceId = @InvoiceId;
 
         COMMIT TRANSACTION;
     END TRY

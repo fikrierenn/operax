@@ -54,6 +54,20 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.
                WHERE t.name = 'AccountMovement' AND c.name = 'AmountForeign')
     ALTER TABLE dbo.AccountMovement ADD AmountForeign DECIMAL(18,2) NULL;
 GO
+-- NetAmount: KDV hariç tutar — iç raporlar (karlılık, satış performans) bu değeri kullanır
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'NetAmount')
+    ALTER TABLE dbo.AccountMovement ADD NetAmount DECIMAL(18,2) NULL;
+GO
+-- Gider analitik boyutları — cost center ve gider tipi bazlı raporlama
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'CostCenterId')
+    ALTER TABLE dbo.AccountMovement ADD CostCenterId UNIQUEIDENTIFIER NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'ExpenseTypeId')
+    ALTER TABLE dbo.AccountMovement ADD ExpenseTypeId UNIQUEIDENTIFIER NULL;
+GO
 
 -- =============================================================================
 -- PLAN 14 MIGRATION: IsDeleted kaldır + Borc/Alacak → Debit/Credit rename

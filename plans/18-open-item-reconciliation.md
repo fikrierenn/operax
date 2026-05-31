@@ -134,7 +134,20 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 
 ---
 
-## 9. İlişkili
+## 9. Referans + Mimari Audit Notları (2026-06-01)
+
+**reference-researcher (Mikro/ERPNext/Odoo):**
+- AM satır-bazlı/başlık-bazlı asimetri: **auditor haklı** — alış analitiği satır, satış subledger başlık
+- Kur farkı (realized FX) mekanizması yok — `SourceDocType='FX_DIFF'` ayrı AM satırı gerekecek (K1 öncesi borç)
+- Double-reversal guard: Faz 5A'ya eklendi (THROW 51422)
+- `Debit/Credit` = her zaman TRY; `AmountForeign` = döviz → GL gelince netleştirilecek (ADR borcu)
+
+**operax-erp-wms-auditor:**
+- FIFO + manuel eşleştirme her ikisi de gerekli — plan 18 bunu doğru kurguluyor
+- PREPAYMENT (avans) backfill: `sp_AutoClosePayments` PREPAYMENT satırı → reconciliation backfill (Faz 4) bu kenar durumu ele almalı — Faz 4'e not eklendi
+- FinancialTransaction soft-delete immutability ihlali → **DÜZELTİLDİ** (sp_PaymentReverse ters FT kaydı, `db_objects_reversal.sql`)
+
+## 10. İlişkili
 
 - `plans/16-account-movement-auto-feed.md` — AM kayıt omurgası (ön koşul)
 - `plans/14-ledger-pk-immutability.md` — immutability kuralı (silme yok)

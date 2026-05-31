@@ -298,3 +298,232 @@ BEGIN
     END CATCH
 END
 GO
+
+-- =============================================================================
+-- FATURA + ÖDEME REVERSAL SP'LERİ — Plan 16 Faz 5A
+-- AccountMovement immutability: silme yok — ters kayıt (REVERSAL).
+-- THROW aralığı: 51400-51499.
+-- =============================================================================
+
+-- Satış Faturası İptali
+-- POSTED → CANCELLED; AM Debit ters Credit (REVERSAL); tahsilat varsa REJECT.
+CREATE OR ALTER PROCEDURE dbo.sp_SalesInvoiceReverse
+    @InvoiceId UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Dönem kilidi (Plan 14)
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
+
+        -- Belge bilgilerini al ve kilitle
+        DECLARE @Status     NVARCHAR(20),
+                @PartnerId  UNIQUEIDENTIFIER,
+                @InvoiceNo  NVARCHAR(50),
+                @GrandTotal DECIMAL(18,2),
+                @Subtotal   DECIMAL(18,2),
+                @TaxAmt     DECIMAL(18,2);
+
+        SELECT @Status = Status, @PartnerId = PartnerId, @InvoiceNo = InvoiceNo,
+               @GrandTotal = GrandTotal, @Subtotal = Subtotal, @TaxAmt = TaxAmount
+        FROM SalesInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 51400, N'Satış faturası bulunamadı.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 51401, N'Fatura zaten iptal edilmiş.', 1;
+        IF @Status <> 'POSTED'
+            THROW 51402, N'Yalnızca onaylanmış faturalar iptal edilebilir.', 1;
+
+        -- İmmutability: tahsil edilmiş ödeme varsa reject
+        IF EXISTS (
+            SELECT 1 FROM PaymentPlan
+            WHERE SourceDocType = 'SALES_INVOICE' AND SourceDocId = @InvoiceId
+              AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL
+        )
+            THROW 51403, N'Bağlı tahsilat mevcut; önce tahsilatı iptal edin.', 1;
+
+        -- Fatura iptal
+        UPDATE SalesInvoice
+        SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+        WHERE Id = @InvoiceId;
+
+        -- PaymentPlan açıkları iptal
+        UPDATE PaymentPlan
+        SET Status = 'CANCELLED'
+        WHERE SourceDocType = 'SALES_INVOICE' AND SourceDocId = @InvoiceId
+          AND Status = 'OPEN';
+
+        -- AM ters kayıt: Debit ters → Credit (REVERSAL SourceDocType ile unique)
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, @now,
+            0, @GrandTotal,
+            -@Subtotal, -@TaxAmt, 'TRY',
+            'REVERSAL', @InvoiceId, @InvoiceNo,
+            N'Satış Faturası İptali: ' + @InvoiceNo, @UserId
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- Alış Faturası İptali
+-- POSTED → CANCELLED; AM Credit satırlarını ters Debit (REVERSAL); ödeme varsa REJECT.
+CREATE OR ALTER PROCEDURE dbo.sp_ExpenseInvoiceReverse
+    @InvoiceId UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
+
+        DECLARE @Status    NVARCHAR(20),
+                @PartnerId UNIQUEIDENTIFIER,
+                @DocNo     NVARCHAR(50);
+
+        SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo
+        FROM ExpenseInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 51410, N'Alış faturası bulunamadı.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 51411, N'Fatura zaten iptal edilmiş.', 1;
+        IF @Status <> 'POSTED'
+            THROW 51412, N'Yalnızca onaylanmış faturalar iptal edilebilir.', 1;
+
+        -- İmmutability: ödenmiş PaymentPlan varsa reject
+        IF EXISTS (
+            SELECT 1 FROM PaymentPlan
+            WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId
+              AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL
+        )
+            THROW 51413, N'Bağlı ödeme mevcut; önce ödemeyi iptal edin.', 1;
+
+        -- Fatura iptal
+        UPDATE ExpenseInvoice
+        SET Status = 'CANCELLED', UpdatedBy = @UserId
+        WHERE Id = @InvoiceId;
+
+        -- PaymentPlan açıkları iptal
+        UPDATE PaymentPlan
+        SET Status = 'CANCELLED'
+        WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId
+          AND Status = 'OPEN';
+
+        -- AM ters kayıt: satır bazlı Debit (ters Credit); REVERSAL ile unique
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, Currency,
+             CostCenterId, ExpenseTypeId,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId, @PartnerId, @now,
+            l.TotalAmount, 0,
+            -l.Amount, -l.TaxAmount, 'TRY',
+            l.CostCenterId, l.ExpenseTypeId,
+            'REVERSAL', l.Id, @DocNo,
+            N'Alış Faturası İptali: ' + @DocNo, @UserId
+        FROM ExpenseInvoiceLine l
+        WHERE l.ExpenseInvoiceId = @InvoiceId;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- Tahsilat/Ödeme İptali
+-- FinancialTransaction soft-delete + AM ters kayıt + PaymentPlan geri aç.
+-- INCOME iptali → Debit; EXPENSE iptali → Credit.
+CREATE OR ALTER PROCEDURE dbo.sp_PaymentReverse
+    @TransactionId UNIQUEIDENTIFIER,
+    @CompanyId     UNIQUEIDENTIFIER,
+    @UserId        NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
+
+        DECLARE @TxType    NVARCHAR(20),
+                @Amount    DECIMAL(18,2),
+                @Currency  NVARCHAR(3),
+                @PartnerId UNIQUEIDENTIFIER,
+                @DocNo     NVARCHAR(50);
+
+        SELECT @TxType = TransactionType, @Amount = Amount,
+               @Currency = ISNULL(Currency,'TRY'), @PartnerId = PartnerId,
+               @DocNo = SourceDocNo
+        FROM FinancialTransaction WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @TransactionId AND CompanyId = @CompanyId AND IsDeleted = 0;
+
+        IF @TxType IS NULL
+            THROW 51420, N'Finansal işlem bulunamadı veya zaten iptal edilmiş.', 1;
+        IF @PartnerId IS NULL
+            THROW 51421, N'Cari hesabı olmayan işlem iptal edilemez.', 1;
+
+        -- İşlemi soft-delete
+        UPDATE FinancialTransaction
+        SET IsDeleted = 1
+        WHERE Id = @TransactionId;
+
+        -- İlişkili PaymentPlan'ı OPEN'a döndür
+        UPDATE PaymentPlan
+        SET Status = 'OPEN', FinancialTransactionId = NULL
+        WHERE FinancialTransactionId = @TransactionId AND Status IN ('PAID','PARTIAL');
+
+        -- AM ters kayıt: INCOME iptali → Debit / EXPENSE iptali → Credit
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, @now,
+            CASE WHEN @TxType = 'INCOME'  THEN @Amount ELSE 0 END,
+            CASE WHEN @TxType = 'EXPENSE' THEN @Amount ELSE 0 END,
+            @Currency,
+            'REVERSAL', @TransactionId, @DocNo,
+            N'İşlem İptali: ' + ISNULL(@DocNo, CAST(@TransactionId AS NVARCHAR(36))),
+            @UserId
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO

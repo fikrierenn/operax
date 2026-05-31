@@ -39,6 +39,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         if (Card == null) return NotFound();
 
         Statements = (await conn.QueryAsync<StatementDto>(@"
+            /* isolation-guard:ignore: parent CreditCard CompanyId ile dogrulandi (satir 30); CardId o karta aittir */
             SELECT TOP 12 Id, PeriodStart, PeriodEnd, StatementDate, DueDate,
                    ClosingBalance, MinPayment, PaidAmount, IsClosed
             FROM CreditCardStatement
@@ -46,6 +47,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             ORDER BY PeriodEnd DESC", new { Id })).ToList();
 
         Transactions = (await conn.QueryAsync<TxnDto>(@"
+            /* isolation-guard:ignore: parent CreditCard CompanyId ile dogrulandi (satir 30); CardId o karta aittir */
             SELECT TOP 30 Id, TransactionDate, MerchantName, Category,
                    Amount, Currency, InstallmentCount, InstallmentNo
             FROM CreditCardTransaction

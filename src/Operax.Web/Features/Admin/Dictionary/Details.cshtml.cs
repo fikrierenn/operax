@@ -17,10 +17,12 @@ public class DetailsModel(Db db) : PageModel
     {
         using var conn = db.Open();
         Type = await conn.QueryFirstOrDefaultAsync<DictionaryTypeDto>(
-            "SELECT * FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
-        
+            @"/* isolation-guard:ignore: DictionaryType global sistem verisi, CompanyId tasimaz (Administrator-only sayfa) */
+            SELECT * FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
+
         Values = await conn.QueryAsync<DictionaryValueDto>(
-            "SELECT * FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
+            @"/* isolation-guard:ignore: DictionaryValue global sistem verisi, DictionaryTypeId ile yalitilmis (Administrator-only sayfa) */
+            SELECT * FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
             new { Id = id });
     }
 
@@ -28,6 +30,7 @@ public class DetailsModel(Db db) : PageModel
     {
         using var conn = db.Open();
         const string sql = @"
+            /* isolation-guard:ignore: DictionaryValue global sistem verisi, CompanyId tasimaz (Administrator-only sayfa) */
             INSERT INTO DictionaryValue (DictionaryTypeId, Code, NameTr, NameEn, SortNo)
             VALUES (@TypeId, @Code, @NameTr, @NameEn, @SortNo)";
         

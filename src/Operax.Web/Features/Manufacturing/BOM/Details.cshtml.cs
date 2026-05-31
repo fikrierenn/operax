@@ -40,6 +40,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         // Model parametreleri (WIDTH, HEIGHT, vb.)
         Parameters = await conn.QueryAsync<ParameterDto>(@"
+            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 32) */
             SELECT * FROM ProductModelParameter
             WHERE ProductModelId = @ModelId
             ORDER BY Code",
@@ -47,6 +48,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         // BOM satırları (formüllü bileşenler)
         BomLines = await conn.QueryAsync<BomLineDto>(@"
+            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 32) */
             SELECT b.*, i.Code AS ItemCode, i.Name AS ItemName
             FROM ProductModelBOM b
             JOIN Item i ON i.Id = b.ComponentItemId
@@ -93,6 +95,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (exists == 0) return RedirectToPage("./Index");
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 90); model sahipligi dogrulandi */
             INSERT INTO ProductModelParameter (ProductModelId, Code, Name, DataType, DefaultValue, Unit)
             VALUES (@ModelId, @Code, @Name, @DataType, @DefaultValue, @Unit)",
             new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit });
@@ -123,6 +126,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (exists == 0) return RedirectToPage("./Index");
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: parent ProductModel CompanyId ile dogrulandi (satir 120); model sahipligi dogrulandi */
             INSERT INTO ProductModelBOM (ProductModelId, ComponentItemId, QtyFormula, WastePercentage, ConditionFormula)
             VALUES (@ModelId, @ItemId, @QtyFormula, @WastePercentage, @ConditionFormula)",
             new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula });

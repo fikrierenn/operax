@@ -43,6 +43,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             Balance = Account.Balance;
 
             Transactions = (await conn.QueryAsync<TxRowDto>(@"
+                /* isolation-guard:ignore: parent FinancialAccount CompanyId ile dogrulandi (satir 33); AccountId o hesaba aittir */
                 SELECT TOP 100
                     t.Id, t.TransactionDate, t.TransactionType,
                     t.Amount, t.Currency, t.AmountTRY,

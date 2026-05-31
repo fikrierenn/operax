@@ -42,6 +42,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             if (Header == null) return NotFound();
 
             Lines = (await conn.QueryAsync<LineDto>(@"
+                /* isolation-guard:ignore: parent SalesInvoice CompanyId ile dogrulandi (satir 32) */
                 SELECT sil.Id, sil.ItemId, i.Code AS ItemCode, i.Name AS ItemName,
                        sil.Description, sil.UomId, dv.Code AS UomCode,
                        sil.Qty, sil.UnitPrice, sil.LineSubtotal,
@@ -53,6 +54,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                 ORDER BY sil.CreatedAt", p)).ToList();
 
             Envelopes = (await conn.QueryAsync<EnvelopeDto>(@"
+                /* isolation-guard:ignore: parent SalesInvoice CompanyId ile dogrulandi (satir 32); InvoiceId o faturaya aittir */
                 SELECT Id, DocumentType, Uuid, EttN, Status, SentAt, AcceptedAt,
                        RejectedAt, ResponseText, RetryCount
                 FROM InvoiceEnvelope

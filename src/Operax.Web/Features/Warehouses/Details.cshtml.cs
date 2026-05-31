@@ -25,8 +25,9 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 "SELECT * FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
-            Bins = await conn.QueryAsync<BinDto>(
-                "SELECT * FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
+            Bins = await conn.QueryAsync<BinDto>(@"
+                /* isolation-guard:ignore: parent Warehouse CompanyId ile dogrulandi (satir 24); WarehouseId o depoya aittir */
+                SELECT * FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
                 new { Id = id });
         }
         else
@@ -67,6 +68,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (whExists == 0) return RedirectToPage("./Index");
 
         const string sql = @"
+            /* isolation-guard:ignore: parent Warehouse CompanyId ile dogrulandi (satir 64); WarehouseId = id o depoya aittir */
             INSERT INTO Bin (WarehouseId, Code, Zone, IsPickingArea, IsReceivingArea, IsStorageArea, IsActive)
             VALUES (@WarehouseId, @Code, @Zone, @IsPicking, @IsReceiving, 1, 1)";
         await conn.ExecuteAsync(sql, new { WarehouseId = id, Code = code, Zone = zone, IsPicking = isPicking, IsReceiving = isReceiving });

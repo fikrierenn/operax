@@ -27,6 +27,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (Route.Id == Guid.Empty) return;
 
         Steps = await conn.QueryAsync<RouteStepDto>(@"
+            /* isolation-guard:ignore: parent ProductRoute CompanyId ile dogrulandi (satir 21) */
             SELECT s.Id, s.StepOrder, s.OperationCode, s.OperationName,
                    s.WorkCenterId, wc.Name AS WorkCenterName,
                    s.StandardDurationSec / 60 AS StandardDurationMin,
@@ -70,6 +71,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             new { RouteId = id });
 
         await conn.ExecuteAsync(@"
+            /* isolation-guard:ignore: parent ProductRoute CompanyId ile dogrulandi (satir 56); WorkCenter de CompanyId ile dogrulandi (satir 62) */
             INSERT INTO ProductRouteStep
                 (Id, ProductRouteId, StepOrder, OperationCode, OperationName,
                  WorkCenterId, StandardDurationSec, StandardLaborCost, StandardMachineCost)

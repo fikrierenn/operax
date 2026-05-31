@@ -36,7 +36,8 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         if (!id.HasValue) { Form.InvoiceDate = DateTime.Today; Form.Currency = "TRY"; return; }
 
         Form = await conn.QueryFirstOrDefaultAsync<InvoiceFormDto>(@"
-            SELECT e.*, p.Name AS PartnerName
+            SELECT e.Id, e.PartnerId, e.DocNo, e.RegistryNo, e.InvoiceDate, e.DueDate,
+                   e.TotalAmount, e.Currency, e.Status, p.Name AS PartnerName
             FROM ExpenseInvoice e LEFT JOIN Partner p ON p.Id = e.PartnerId
             WHERE e.Id = @Id AND e.CompanyId = @CompanyId",
             new { Id = id, CompanyId = company.Id }) ?? new();
@@ -113,7 +114,18 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
             trans.Commit();
         }
-        catch (Exception ex) { logger.LogWarning(ex, "Fatura satırı ekleme hatası"); trans.Rollback(); }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fatura satırı ekleme DB hatası: {InvoiceId}", id);
+            trans.Rollback();
+            TempData["Error"] = "Satır eklenirken veritabanı hatası oluştu.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Fatura satırı ekleme beklenmeyen hata: {InvoiceId}", id);
+            trans.Rollback();
+            TempData["Error"] = "Satır eklenirken beklenmeyen hata oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
@@ -139,7 +151,18 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
             trans.Commit();
         }
-        catch (Exception ex) { logger.LogWarning(ex, "Fatura satırı silme hatası"); trans.Rollback(); }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fatura satırı silme DB hatası: {LineId}", lineId);
+            trans.Rollback();
+            TempData["Error"] = "Satır silinirken veritabanı hatası oluştu.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Fatura satırı silme beklenmeyen hata: {LineId}", lineId);
+            trans.Rollback();
+            TempData["Error"] = "Satır silinirken beklenmeyen hata oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

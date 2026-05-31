@@ -401,6 +401,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_DepositCheque
     @ChequeId    UNIQUEIDENTIFIER,
     @AccountId   UNIQUEIDENTIFIER,
+    @CompanyId   UNIQUEIDENTIFIER,
     @DepositDate DATETIME2 = NULL,
     @UserId      UNIQUEIDENTIFIER = NULL
 AS
@@ -409,7 +410,7 @@ BEGIN
     SET XACT_ABORT ON;
 
     DECLARE @Status NVARCHAR(20);
-    SELECT @Status = Status FROM Cheque WHERE Id = @ChequeId AND IsDeleted = 0;
+    SELECT @Status = Status FROM Cheque WHERE Id = @ChequeId AND CompanyId = @CompanyId AND IsDeleted = 0;
 
     IF @Status IS NULL THROW 60001, N'Çek bulunamadı.', 1;
     IF @Status <> 'PORTFOLIO' THROW 60002, N'Sadece portföydeki çekler bankaya verilebilir.', 1;
@@ -439,6 +440,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CollectCheque
     @ChequeId    UNIQUEIDENTIFIER,
+    @CompanyId   UNIQUEIDENTIFIER,
     @CollectDate DATETIME2 = NULL,
     @UserId      UNIQUEIDENTIFIER = NULL
 AS
@@ -451,11 +453,11 @@ BEGIN
 
         DECLARE @Status NVARCHAR(20), @Amount DECIMAL(18,2),
                 @AccountId UNIQUEIDENTIFIER, @PartnerId UNIQUEIDENTIFIER,
-                @CompanyId UNIQUEIDENTIFIER, @ChequeNo NVARCHAR(50);
+                @ChequeNo NVARCHAR(50);
 
         SELECT @Status = Status, @Amount = Amount, @AccountId = DepositedToAccountId,
-               @PartnerId = PartnerId, @CompanyId = CompanyId, @ChequeNo = ChequeNo
-        FROM Cheque WHERE Id = @ChequeId AND IsDeleted = 0;
+               @PartnerId = PartnerId, @ChequeNo = ChequeNo
+        FROM Cheque WHERE Id = @ChequeId AND CompanyId = @CompanyId AND IsDeleted = 0;
 
         IF @Status IS NULL THROW 50600, N'Çek bulunamadı.', 1;
         IF @Status <> 'IN_BANK'
@@ -522,6 +524,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReturnCheque
     @ChequeId  UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
     @Reason    NVARCHAR(500),
     @UserId    UNIQUEIDENTIFIER = NULL
 AS
@@ -533,7 +536,7 @@ BEGIN
         ReturnReason = @Reason,
         UpdatedAt    = GETUTCDATE(),
         UpdatedBy    = @UserId
-    WHERE Id = @ChequeId AND Status IN ('IN_BANK', 'PORTFOLIO');
+    WHERE Id = @ChequeId AND CompanyId = @CompanyId AND Status IN ('IN_BANK', 'PORTFOLIO');
 
     IF @@ROWCOUNT = 0
         THROW 60004, N'Çek karşılıksız olarak işaretlenemiyor (statü uygun değil).', 1;
@@ -686,6 +689,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_DepositNote
     @NoteId      UNIQUEIDENTIFIER,
     @AccountId   UNIQUEIDENTIFIER,
+    @CompanyId   UNIQUEIDENTIFIER,
     @DepositDate DATETIME2 = NULL,
     @UserId      UNIQUEIDENTIFIER = NULL
 AS
@@ -694,7 +698,7 @@ BEGIN
     SET XACT_ABORT ON;
 
     DECLARE @Status NVARCHAR(20);
-    SELECT @Status = Status FROM PromissoryNote WHERE Id = @NoteId AND IsDeleted = 0;
+    SELECT @Status = Status FROM PromissoryNote WHERE Id = @NoteId AND CompanyId = @CompanyId AND IsDeleted = 0;
 
     IF @Status IS NULL THROW 51310, N'Senet bulunamadı.', 1;
     IF @Status <> 'PORTFOLIO' THROW 51311, N'Sadece portföydeki senetler bankaya verilebilir.', 1;
@@ -724,6 +728,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CollectNote
     @NoteId      UNIQUEIDENTIFIER,
+    @CompanyId   UNIQUEIDENTIFIER,
     @CollectDate DATETIME2 = NULL,
     @UserId      UNIQUEIDENTIFIER = NULL
 AS
@@ -736,11 +741,11 @@ BEGIN
 
         DECLARE @Status NVARCHAR(20), @Amount DECIMAL(18,2),
                 @AccountId UNIQUEIDENTIFIER, @PartnerId UNIQUEIDENTIFIER,
-                @CompanyId UNIQUEIDENTIFIER, @NoteNo NVARCHAR(50);
+                @NoteNo NVARCHAR(50);
 
         SELECT @Status = Status, @Amount = Amount, @AccountId = DepositedToAccountId,
-               @PartnerId = PartnerId, @CompanyId = CompanyId, @NoteNo = NoteNo
-        FROM PromissoryNote WHERE Id = @NoteId AND IsDeleted = 0;
+               @PartnerId = PartnerId, @NoteNo = NoteNo
+        FROM PromissoryNote WHERE Id = @NoteId AND CompanyId = @CompanyId AND IsDeleted = 0;
 
         IF @Status IS NULL THROW 50610, N'Senet bulunamadı.', 1;
         IF @Status <> 'IN_BANK' THROW 50612, N'Sadece bankaya verilmiş senetler tahsil edilebilir.', 1;
@@ -799,9 +804,10 @@ GO
 -- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReturnNote
-    @NoteId  UNIQUEIDENTIFIER,
-    @Reason  NVARCHAR(500),
-    @UserId  UNIQUEIDENTIFIER = NULL
+    @NoteId    UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @Reason    NVARCHAR(500),
+    @UserId    UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -809,7 +815,7 @@ BEGIN
     UPDATE PromissoryNote
     SET Status = 'RETURNED', ReturnReason = @Reason,
         UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
-    WHERE Id = @NoteId AND Status IN ('IN_BANK', 'PORTFOLIO');
+    WHERE Id = @NoteId AND CompanyId = @CompanyId AND Status IN ('IN_BANK', 'PORTFOLIO');
 
     IF @@ROWCOUNT = 0 THROW 51314, N'Senet karşılıksız olarak işaretlenemiyor (statü uygun değil).', 1;
 END
@@ -1643,6 +1649,12 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- İş kuralı: girdi doğrulama
+        IF @Amount <= 0
+            THROW 51500, N'Dağıtılacak tutar pozitif olmalıdır.', 1;
+        IF @Direction NOT IN ('RECEIVABLE', 'PAYABLE')
+            THROW 51501, N'Geçersiz yön: RECEIVABLE veya PAYABLE olmalıdır.', 1;
+
         DECLARE @Remaining DECIMAL(18,2) = @Amount;
         DECLARE @PpId UNIQUEIDENTIFIER, @PpRemaining DECIMAL(18,2), @PpAmount DECIMAL(18,2), @PpPaid DECIMAL(18,2);
 
@@ -2157,18 +2169,30 @@ BEGIN
         WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
 
         IF @Status IS NULL
-            THROW 70100, N'Masraf faturası bulunamadı.', 1;
+            THROW 50710, N'Masraf faturası bulunamadı.', 1;
         IF @Status = 'POSTED'
-            THROW 70101, N'Fatura zaten onaylanmış.', 1;
+            THROW 50711, N'Fatura zaten onaylanmış.', 1;
         IF @Status = 'CANCELLED'
-            THROW 70102, N'İptal edilmiş fatura onaylanamaz.', 1;
+            THROW 50712, N'İptal edilmiş fatura onaylanamaz.', 1;
         IF @PartnerId IS NULL
-            THROW 70103, N'Fatura tedarikçi bilgisi eksik.', 1;
+            THROW 50713, N'Fatura tedarikçi bilgisi eksik.', 1;
 
         -- Fatura onayla
         UPDATE ExpenseInvoice
         SET Status = 'POSTED', UpdatedBy = @UserId
         WHERE Id = @InvoiceId;
+
+        -- Ödeme planı: alış faturası → PAYABLE (biz cariye borçluyuz)
+        -- sp_AutoClosePayments FIFO için gerekli; yoksa ödeme "avans" olarak düşer
+        -- sp_ExpenseInvoiceReverse immutability guard'ı da bu kayda bakar
+        INSERT INTO PaymentPlan
+            (Id, CompanyId, SourceDocType, SourceDocId, SourceDocNo,
+             PartnerId, Direction, InstallmentNo, TotalInstallments,
+             DueDate, Amount, Status)
+        VALUES
+            (NEWID(), @CompanyId, 'PURCHASE_INVOICE', @InvoiceId, @DocNo,
+             @PartnerId, 'PAYABLE', 1, 1,
+             ISNULL(@DueDate, DATEADD(DAY, 30, @now)), @Amount, 'OPEN');
 
         -- Cari hesap defteri: alış faturası satır bazlı → Credit (biz cariye borçluyuz)
         -- SourceDocId = Line.Id → UX_AccountMovement_Source unique kalır

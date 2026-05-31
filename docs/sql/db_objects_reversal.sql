@@ -67,6 +67,10 @@ BEGIN
         WHERE SourceDocType = 'RECEIVING' AND SourceDocId = @HeaderId
           AND MovementType <> 'REVERSAL';
 
+        -- İş kuralı: stok hareketi yoksa veri tutarsızlığı — guard
+        IF @@ROWCOUNT = 0
+            THROW 51303, N'İptal edilecek mal kabul hareketi bulunamadı (veri tutarsızlığı).', 1;
+
         -- Header iptal
         UPDATE ReceivingHeader
         SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
@@ -135,6 +139,9 @@ BEGIN
         FROM StockMovement
         WHERE SourceDocType = 'SHIPPING' AND SourceDocId = @HeaderId
           AND MovementType <> 'REVERSAL';
+
+        IF @@ROWCOUNT = 0
+            THROW 51313, N'İptal edilecek sevkiyat hareketi bulunamadı (veri tutarsızlığı).', 1;
 
         UPDATE ShippingHeader
         SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
@@ -206,6 +213,9 @@ BEGIN
         WHERE SourceDocType = 'TRANSFER' AND SourceDocId = @HeaderId
           AND MovementType <> 'REVERSAL';
 
+        IF @@ROWCOUNT = 0
+            THROW 51323, N'İptal edilecek transfer hareketi bulunamadı (veri tutarsızlığı).', 1;
+
         UPDATE StockTransfer
         SET Status = 'CANCELLED', UpdatedBy = @UserId
         WHERE Id = @HeaderId;
@@ -273,6 +283,9 @@ BEGIN
         FROM StockMovement
         WHERE SourceDocType = 'COUNT' AND SourceDocId = @HeaderId
           AND MovementType <> 'REVERSAL';
+
+        IF @@ROWCOUNT = 0
+            THROW 51333, N'İptal edilecek sayım hareketi bulunamadı (veri tutarsızlığı).', 1;
 
         UPDATE CycleCount
         SET Status = 'CANCELLED', UpdatedBy = @UserId
@@ -342,6 +355,9 @@ BEGIN
         FROM StockMovement
         WHERE SourceDocType = 'PRODUCTION' AND SourceDocId = @OrderId
           AND MovementType <> 'REVERSAL';
+
+        IF @@ROWCOUNT = 0
+            THROW 51343, N'İptal edilecek üretim hareketi bulunamadı (veri tutarsızlığı).', 1;
 
         UPDATE ProductionOrder
         SET Status = 'CANCELLED', UpdatedBy = @UserId

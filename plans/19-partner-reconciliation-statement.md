@@ -32,6 +32,16 @@ Operax bunu izlemiyor → "bu cariyle en son mutabakat ne zaman, bakiye tuttu mu
 - **`sp_RespondReconciliation`:** CONFIRMED / DISPUTED işle
 - **Partner kartı tab:** son mutabakat tarihi + bakiye + statü (salt görüntü); `_Ekstre` yanına
 - **Hangfire job (opsiyonel):** DeadlineAt geçen SENT → EXPIRED_CONFIRMED (sessiz onay)
+- **🔒 MUTABAKAT KİLİDİ (plan 14 üçüncü kilit ailesi — K9):** CONFIRMED/EXPIRED_CONFIRMED
+  mutabakat sonrası, o partner için `StatementDate` öncesine yeni AM hareketi/iptal girilemez.
+  - `sp_GuardPartnerReconciled(@CompanyId, @PartnerId, @MovementDate)` — plan 14'te `sp_GuardStockFrozen`
+    no-op kancası gibi açılır; bu planda GERÇEK gövde yazılır.
+  - Davranış: en son CONFIRMED mutabakatın StatementDate'inden ESKİ tarihe hareket → THROW
+    (yetkili override → `PeriodOverrideLog` LockType='PARTNER_RECONCILED', iz zaten hazır).
+  - Çağrı noktası: AM yazan onay SP'leri (sp_*InvoicePost, sp_RecordPayment, sp_*Reverse) —
+    `sp_GuardPeriodOpen` yanında ZAMAN+PARTNER iki kilit yan yana.
+  - **Kilit aileleri ayrı (document-immutability.md):** ZAMAN=AccountingPeriod · STOK=sayım freeze ·
+    PARTNER+TARİH=bu. Ortak nokta sadece guard zinciri + PeriodOverrideLog.LockType izi.
 
 ### Kapsam Dışı
 - Otomatik mutabakat mektubu PDF/KEP gönderimi (M16 entegrasyon ilerisi)
@@ -62,8 +72,10 @@ Operax bunu izlemiyor → "bu cariyle en son mutabakat ne zaman, bakiye tuttu mu
 - [ ] `PartnerReconciliationLog` tablosu (append-only, deadline + statü makinesi)
 - [ ] `sp_CreateReconciliationStatement` — snapshot + SENT + dönem guard
 - [ ] `sp_RespondReconciliation` — CONFIRMED/DISPUTED
+- [ ] `sp_GuardPartnerReconciled` — mutabakat kilidi (StatementDate öncesi hareket → THROW)
+- [ ] AM yazan SP'lere guard enjeksiyonu (sp_*InvoicePost, sp_RecordPayment, sp_*Reverse)
 - [ ] Partner kartı mutabakat tab (son tarih + bakiye + statü)
-- [ ] Smoke: snapshot bakiyesi `tvf_PartnerBalance` ile tutarlı
+- [ ] Smoke: snapshot bakiyesi `tvf_PartnerBalance` ile tutarlı + mutabakat kilidi testi
 - [ ] mali-evrak-mevzuat + sql-sp-reviewer
 
 ## 6. Rollback
@@ -73,9 +85,10 @@ Tablo DROP, SP'ler önceki sürüm, Partner tab kaldır.
 - [ ] **Faz 0:** Plan 18 (açık-kalem kapama) bitmiş olmalı — bakiye/açık kalem kaynağı hazır
 - [ ] **Faz 1:** `PartnerReconciliationLog` şema
 - [ ] **Faz 2:** sp_CreateReconciliationStatement + sp_RespondReconciliation
-- [ ] **Faz 3:** Partner kartı mutabakat tab (UI)
-- [ ] **Faz 4:** Hangfire deadline → EXPIRED_CONFIRMED job (opsiyonel)
-- [ ] **Faz 5:** Smoke + reviewer
+- [ ] **Faz 3:** `sp_GuardPartnerReconciled` gerçek gövde + AM yazan SP'lere enjeksiyon (plan 14 kanca tamamlanır)
+- [ ] **Faz 4:** Partner kartı mutabakat tab (UI)
+- [ ] **Faz 5:** Hangfire deadline → EXPIRED_CONFIRMED job (opsiyonel)
+- [ ] **Faz 6:** Smoke + mutabakat kilidi testi + reviewer
 
 ## 8. 5 Lens
 - 🔴 **Contrarian:** BalanceSnapshot geç gelen belgeyle çelişir mi? AM append-only + dönem kilidi koruyor.
@@ -85,6 +98,8 @@ Tablo DROP, SP'ler önceki sürüm, Partner tab kaldır.
 - 🟡 **Executor:** Plan 18 bitsin, sonra tablo + 2 SP + tab.
 
 ## 9. İlişkili
+- `plans/14-ledger-pk-immutability.md` — guard kanca mimarisi; bu plan 3. kilit ailesini (PARTNER) tamamlar
+- `docs/sql/schema_M11_LedgerIntegrity.sql` — PeriodOverrideLog.LockType='PARTNER_RECONCILED' (iz hazır), sp_GuardStockFrozen kanca deseni
 - `plans/18-open-item-reconciliation.md` — açık-kalem kapama (ÖN KOŞUL, karıştırma)
 - TTK md.94 (cari hesap bakiye onayı) · md.82 (10 yıl saklama)
 - `.claude/skills/mali-evrak-mevzuat/SKILL.md` (TTK md.94 notu)

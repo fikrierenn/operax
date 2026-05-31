@@ -2,14 +2,14 @@
 -- Plan 09 Faz 2 — Cari Hesap Defteri Backfill (TEK SEFERLİK)
 -- Mevcut SalesInvoice / ExpenseInvoice / FinancialTransaction → AccountMovement.
 -- Idempotent: (SourceDocType, SourceDocId) zaten varsa atlar (tekrar çalıştırılabilir).
--- İşaret: Satış faturası→Borç · Alış faturası→Alacak · Tahsilat→Alacak · Ödeme→Borç
+-- İşaret: Satış faturası→Borç · Alış faturası→Credit · Tahsilat→Credit · Ödeme→Borç
 -- Çalıştır: operax-cli script docs/sql/migrate_backfill_accountmovement.sql
 -- =============================================================================
 SET NOCOUNT ON;
 
 -- 1) Satış faturaları → SALES_INVOICE (Borç) ────────────────────────────────
 INSERT INTO AccountMovement
-    (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency,
+    (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
      SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), si.CompanyId, si.PartnerId, si.InvoiceDate, si.GrandTotal, 0, 'TRY',
        'SALES_INVOICE', si.Id, si.InvoiceNo, N'Satış Faturası', N'BACKFILL'
@@ -19,9 +19,9 @@ WHERE si.IsDeleted = 0 AND si.Status <> 'CANCELLED' AND si.PartnerId IS NOT NULL
                   WHERE am.SourceDocType = 'SALES_INVOICE' AND am.SourceDocId = si.Id);
 GO
 
--- 2) Alış faturaları → PURCHASE_INVOICE (Alacak) ─────────────────────────────
+-- 2) Alış faturaları → PURCHASE_INVOICE (Credit) ─────────────────────────────
 INSERT INTO AccountMovement
-    (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency,
+    (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
      SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), ei.CompanyId, ei.PartnerId, ei.InvoiceDate, 0, ei.TotalAmount, 'TRY',
        'PURCHASE_INVOICE', ei.Id, ei.DocNo, N'Alış Faturası', N'BACKFILL'
@@ -31,11 +31,11 @@ WHERE ei.Status <> 'CANCELLED' AND ei.PartnerId IS NOT NULL
                   WHERE am.SourceDocType = 'PURCHASE_INVOICE' AND am.SourceDocId = ei.Id);
 GO
 
--- 3) Finansal hareketler → tahsilat (Alacak) / ödeme (Borç) ──────────────────
--- INCOME = müşteriden tahsilat → COLLECTION (Alacak); EXPENSE = ödeme → PAYMENT (Borç)
+-- 3) Finansal hareketler → tahsilat (Credit) / ödeme (Borç) ──────────────────
+-- INCOME = müşteriden tahsilat → COLLECTION (Credit); EXPENSE = ödeme → PAYMENT (Borç)
 -- TRANSFER_IN/OUT (kasalar arası) cari değil → hariç.
 INSERT INTO AccountMovement
-    (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency,
+    (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
      SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), ft.CompanyId, ft.PartnerId, ft.TransactionDate,
        CASE WHEN ft.TransactionType = 'EXPENSE' THEN ft.AmountTRY ELSE 0 END,

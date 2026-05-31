@@ -116,12 +116,12 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo,
                       StApproved = DocStatus.Approved, StPosted = DocStatus.Posted };
         using var multi = await conn.QueryMultipleAsync(@"
-            -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). Borç/Alacak GROSS toplam.
-            --    NetBakiye = SUM(Borc) - SUM(Alacak). + = cari bize borçlu, - = biz cariye borçluyuz.
+            -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). Debit/Credit GROSS toplam.
+            --    NetBakiye = SUM(Debit) - SUM(Credit). + = cari bize borçlu, - = biz cariye borçluyuz.
             SELECT
-                ISNULL(SUM(am.Borc), 0)            AS TotalBorc,
-                ISNULL(SUM(am.Alacak), 0)          AS TotalAlacak,
-                ISNULL(SUM(am.Borc - am.Alacak), 0) AS NetBalance,
+                ISNULL(SUM(am.Debit), 0)            AS TotalDebit,
+                ISNULL(SUM(am.Credit), 0)          AS TotalCredit,
+                ISNULL(SUM(am.Debit - am.Credit), 0) AS NetBalance,
                 ISNULL((SELECT SUM((sol.QtyOrdered - sol.QtyShipped) * sol.Price)
                         FROM SalesOrderHeader soh
                         JOIN SalesOrderLine sol ON sol.HeaderId = soh.Id
@@ -135,7 +135,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
                           AND poh.Status IN (@StApproved, @StPosted) AND poh.IsDeleted = 0
                           AND pol.QtyOrdered > pol.QtyReceived), 0) AS OpenPurchaseOrder
             FROM AccountMovement am
-            WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId AND am.IsDeleted = 0;
+            WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId;
 
             -- 2) Devir: tarih aralığı başlangıcından önceki net bakiye (defterden)
             SELECT dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, @From);
@@ -155,7 +155,7 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
                     WHEN 'REVERSAL'         THEN N'İptal'
                     ELSE l.SourceDocType
                 END AS [Type],
-                l.SourceDocNo AS DocNo, l.Borc, l.Alacak
+                l.SourceDocNo AS DocNo, l.Debit, l.Credit
             FROM dbo.tvf_AccountLedger(@CompanyId, @PartnerId, @From, @To) l
             ORDER BY l.MovementDate, l.SourceDocType;
 
@@ -416,16 +416,16 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         int       LineCount);
 
     public record BalanceSummaryDto(
-        decimal TotalBorc, decimal TotalAlacak, decimal NetBalance,
+        decimal TotalDebit, decimal TotalCredit, decimal NetBalance,
         decimal OpenSalesOrder, decimal OpenPurchaseOrder);
 
-    // Ekstre hareket satırı — fatura + ödeme birleşik (Borç/Alacak)
+    // Ekstre hareket satırı — fatura + ödeme birleşik (Debit/Credit)
     public record LedgerRowDto(
         DateTime Date,
         string   Type,
         string?  DocNo,
-        decimal  Borc,
-        decimal  Alacak);
+        decimal  Debit,
+        decimal  Credit);
 
     // Tarih filtresi formu için (Ekstre + Siparişler tabları)
     public record DateFilterVm(Guid PartnerId, string Tab, DateTime DateFrom, DateTime DateTo);

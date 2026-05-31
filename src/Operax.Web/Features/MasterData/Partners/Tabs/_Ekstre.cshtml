@@ -16,8 +16,8 @@ else
 
     @* Cari hesap özeti — ortak _KpiCard (dashboard tipi). Net = Borç-Alacak; açık sipariş bilgi. *@
     <div class="kpi-grid">
-        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM BORÇ","TOTAL DEBIT"), UiHelpers.FmtTL(b.TotalBorc), Glow: "danger"))" />
-        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM ALACAK","TOTAL CREDIT"), UiHelpers.FmtTL(b.TotalAlacak), Glow: "success"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM BORÇ","TOTAL DEBIT"), UiHelpers.FmtTL(b.TotalDebit), Glow: "danger"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM ALACAK","TOTAL CREDIT"), UiHelpers.FmtTL(b.TotalCredit), Glow: "success"))" />
         <partial name="_KpiCard" model="@(new KpiCardVm(L.T("NET BAKİYE","NET BALANCE"), UiHelpers.FmtTL(b.NetBalance), Glow: b.NetBalance >= 0 ? "success" : "danger", TrendText: b.NetBalance >= 0 ? L.T("alacaklı","receivable") : L.T("borçlu","payable")))" />
         <partial name="_KpiCard" model="@(new KpiCardVm(L.T("AÇIK SİPARİŞ","OPEN ORDERS"), UiHelpers.FmtTL(openOrder), Glow: "brand"))" />
     </div>
@@ -88,13 +88,13 @@ else
                     </tr>
                     @foreach (var r in Model.Ledger)
                     {
-                        running += r.Borc - r.Alacak;
+                        running += r.Debit - r.Credit;
                         <tr>
                             <td class="mono muted">@UiHelpers.FmtDateShort(r.Date)</td>
                             <td>@r.Type</td>
                             <td class="mono muted">@(string.IsNullOrEmpty(r.DocNo) ? "—" : r.DocNo)</td>
-                            <td class="num">@(r.Borc != 0 ? UiHelpers.FmtTL(r.Borc) : "")</td>
-                            <td class="num">@(r.Alacak != 0 ? UiHelpers.FmtTL(r.Alacak) : "")</td>
+                            <td class="num">@(r.Debit != 0 ? UiHelpers.FmtTL(r.Debit) : "")</td>
+                            <td class="num">@(r.Credit != 0 ? UiHelpers.FmtTL(r.Credit) : "")</td>
                             <td class="num mono row-strong">@UiHelpers.FmtTL(running)</td>
                         </tr>
                     }

@@ -169,14 +169,14 @@ VALUES ('F1E00001-0000-0000-0000-000000000001', @CompanyId, 'RECEIVED', 'SNT-202
 PRINT '  3 çek + 1 senet.';
 
 -- ─── 9. Cari Hesap Defteri (AccountMovement) — fatura + ödeme ──────
--- Satış faturası → Borç · Alış faturası → Alacak · Tahsilat → Alacak · Ödeme → Borç
-INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+-- Satış faturası → Debit · Alış faturası → Credit · Tahsilat → Credit · Ödeme → Debit
+INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), CompanyId, PartnerId, InvoiceDate, GrandTotal, 0, 'TRY', 'SALES_INVOICE', Id, InvoiceNo, N'Satış Faturası', N'SEED'
 FROM SalesInvoice WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> 'CANCELLED';
-INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), CompanyId, PartnerId, InvoiceDate, 0, TotalAmount, 'TRY', 'PURCHASE_INVOICE', Id, DocNo, N'Alış Faturası', N'SEED'
 FROM ExpenseInvoice WHERE CompanyId = @CompanyId AND Status <> 'CANCELLED';
-INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Borc, Alacak, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+INSERT INTO AccountMovement (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
 SELECT NEWID(), CompanyId, PartnerId, TransactionDate,
        CASE WHEN TransactionType='EXPENSE' THEN AmountTRY ELSE 0 END,
        CASE WHEN TransactionType='INCOME'  THEN AmountTRY ELSE 0 END,

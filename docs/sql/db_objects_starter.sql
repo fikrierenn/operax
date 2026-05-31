@@ -1021,7 +1021,7 @@ GO
 -- Plan 09 — Cari Hesap Defteri (AccountMovement) sorgu fonksiyonları
 -- =============================================================================
 
--- fn_PartnerBalanceAsOf — bir tarihten ÖNCEKİ net bakiye (DEVİR). SUM(Borc-Alacak).
+-- fn_PartnerBalanceAsOf — bir tarihten ÖNCEKİ net bakiye (DEVİR). SUM(Debit-Credit).
 CREATE OR ALTER FUNCTION dbo.fn_PartnerBalanceAsOf
 (
     @CompanyId UNIQUEIDENTIFIER,
@@ -1032,15 +1032,15 @@ RETURNS DECIMAL(18,2)
 AS
 BEGIN
     DECLARE @bal DECIMAL(18,2);
-    SELECT @bal = ISNULL(SUM(Borc - Alacak), 0)
+    SELECT @bal = ISNULL(SUM(Debit - Credit), 0)
     FROM AccountMovement
     WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
-      AND IsDeleted = 0 AND MovementDate < @AsOf;
+      AND MovementDate < @AsOf;
     RETURN ISNULL(@bal, 0);
 END
 GO
 
--- tvf_PartnerBalance — cari bazlı net bakiye + toplam borç/alacak (tüm zaman). KPI kaynağı.
+-- tvf_PartnerBalance — cari bazlı net bakiye + toplam debit/credit (tüm zaman). KPI kaynağı.
 -- NetBalance > 0: cari bize borçlu (alacağımız). < 0: biz cariye borçluyuz.
 CREATE OR ALTER FUNCTION dbo.tvf_PartnerBalance
 (
@@ -1052,11 +1052,11 @@ RETURN
 (
     SELECT
         am.PartnerId,
-        SUM(am.Borc)            AS TotalBorc,
-        SUM(am.Alacak)          AS TotalAlacak,
-        SUM(am.Borc - am.Alacak) AS NetBalance
+        SUM(am.Debit)             AS TotalDebit,
+        SUM(am.Credit)            AS TotalCredit,
+        SUM(am.Debit - am.Credit) AS NetBalance
     FROM AccountMovement am
-    WHERE am.CompanyId = @CompanyId AND am.IsDeleted = 0
+    WHERE am.CompanyId = @CompanyId
     GROUP BY am.PartnerId
 );
 GO
@@ -1076,10 +1076,9 @@ RETURN
 (
     SELECT
         am.Id, am.MovementDate, am.SourceDocType, am.SourceDocNo,
-        am.Description, am.Borc, am.Alacak
+        am.Description, am.Debit, am.Credit
     FROM AccountMovement am
     WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
-      AND am.IsDeleted = 0
       AND am.MovementDate >= @From
       AND am.MovementDate < DATEADD(DAY, 1, @To)
 );

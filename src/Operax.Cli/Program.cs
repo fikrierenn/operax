@@ -86,7 +86,9 @@ class Program
                         "schema_M00_NumberSeries.sql",        // Plan 10: belge seri yönetimi (otomatik numaralama)
                         "schema_M11_DocumentRegistry.sql",    // Plan 11: gelen belge kayıt no (RegistryNo)
                         "schema_UserCompany.sql",             // Plan 13: UserCompany yetki tablosu
-                        "schema_M00_Security.sql"             // Plan 17: RoleModuleAccess (DB-driven RBAC)
+                        "schema_M00_Security.sql",            // Plan 17: RoleModuleAccess (DB-driven RBAC)
+                        "schema_M11_LedgerIntegrity.sql"      // Plan 14: AccountingPeriod + PeriodOverrideLog + dönem guard
+
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

@@ -427,6 +427,17 @@ BEGIN
         IF @Status <> 'POSTED'
             THROW 51402, N'Yalnızca onaylanmış faturalar iptal edilebilir.', 1;
 
+        -- GİB e-belge koruması: OUTBOUND gönderilmiş fatura iptal edilemez
+        -- Sadece DRAFT/CANCELLED/FAILED durumundaki envelope iptal akışına izin verir
+        IF EXISTS (
+            SELECT 1 FROM InvoiceEnvelope
+            WHERE InvoiceId = @InvoiceId
+              AND DirectionType = 'OUTBOUND'
+              AND Status NOT IN ('DRAFT', 'CANCELLED', 'FAILED')
+              AND IsDeleted = 0
+        )
+            THROW 51404, N'GİB e-belge gönderilmiş fatura iptal edilemez; iade faturası kesin.', 1;
+
         -- İmmutability: tahsil edilmiş ödeme varsa reject
         IF EXISTS (
             SELECT 1 FROM PaymentPlan
@@ -510,6 +521,17 @@ BEGIN
             THROW 51411, N'Fatura zaten iptal edilmiş.', 1;
         IF @Status <> 'POSTED'
             THROW 51412, N'Yalnızca onaylanmış faturalar iptal edilebilir.', 1;
+
+        -- GİB e-belge koruması: INBOUND (tedarikçi gönderdi) kayıtlı fatura
+        -- sistem iptali yapılamaz — iade/düzeltme faturası ile çözülmeli
+        IF EXISTS (
+            SELECT 1 FROM InvoiceEnvelope
+            WHERE InvoiceId = @InvoiceId
+              AND DirectionType = 'INBOUND'
+              AND Status NOT IN ('DRAFT', 'CANCELLED', 'FAILED')
+              AND IsDeleted = 0
+        )
+            THROW 51414, N'GİB üzerinden alınan e-fatura iptal edilemez; iade faturası kesin.', 1;
 
         -- İmmutability: ödenmiş PaymentPlan varsa reject
         IF EXISTS (

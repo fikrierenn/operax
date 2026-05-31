@@ -89,6 +89,14 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
     {
         // Fatura satırı ekler, başlık toplamını günceller
         using var conn = db.Open();
+
+        // Evrak bütünlüğü: yalnızca DRAFT faturaya satır eklenebilir (document-immutability.md §3)
+        if (!await IsDraftAsync(conn, id))
+        {
+            TempData["Error"] = "Onaylanmış faturaya satır eklenemez.";
+            return RedirectToPage(new { id });
+        }
+
         using var trans = conn.BeginTransaction();
         try
         {
@@ -133,6 +141,14 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
     {
         // Satırı siler ve toplamı günceller
         using var conn = db.Open();
+
+        // Evrak bütünlüğü: yalnızca DRAFT faturadan satır silinebilir (document-immutability.md §3)
+        if (!await IsDraftAsync(conn, id))
+        {
+            TempData["Error"] = "Onaylanmış faturadan satır silinemez.";
+            return RedirectToPage(new { id });
+        }
+
         using var trans = conn.BeginTransaction();
         try
         {
@@ -164,6 +180,15 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
             TempData["Error"] = "Satır silinirken beklenmeyen hata oluştu.";
         }
         return RedirectToPage(new { id });
+    }
+
+    // Evrak bütünlüğü guard'ı: fatura DRAFT mı? (POSTED/CANCELLED satır değişimi engellenir)
+    private async Task<bool> IsDraftAsync(System.Data.IDbConnection conn, Guid invoiceId)
+    {
+        var status = await conn.ExecuteScalarAsync<string?>(
+            "SELECT Status FROM ExpenseInvoice WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = invoiceId, CompanyId = company.Id });
+        return status == DocStatus.Draft;
     }
 
     public async Task<IActionResult> OnPostPostAsync(Guid id)

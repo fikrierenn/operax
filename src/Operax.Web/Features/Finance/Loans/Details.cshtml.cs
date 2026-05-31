@@ -71,7 +71,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         try
         {
             await conn.ExecuteAsync("sp_PayLoanInstallment",
-                new { PaymentId = paymentId, PayDate = (DateTime?)null, FromAccountId = fromAccountId, UserId = user.Id },
+                new { PaymentId = paymentId, CompanyId = company.Id, PayDate = (DateTime?)null, FromAccountId = fromAccountId, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
             TempData["Success"] = "Taksit ödendi.";
         }

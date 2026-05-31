@@ -1066,6 +1066,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PayLoanInstallment
     @PaymentId      UNIQUEIDENTIFIER,
+    @CompanyId      UNIQUEIDENTIFIER,
     @PayDate        DATETIME2 = NULL,
     @FromAccountId  UNIQUEIDENTIFIER,
     @UserId         UNIQUEIDENTIFIER = NULL
@@ -1078,17 +1079,17 @@ BEGIN
         BEGIN TRANSACTION;
 
         DECLARE @LoanId UNIQUEIDENTIFIER, @Total DECIMAL(18,2),
-                @InstNo INT, @CompanyId UNIQUEIDENTIFIER,
-                @LoanNo NVARCHAR(50), @PrincipalPaid DECIMAL(18,2);
+                @InstNo INT, @LoanNo NVARCHAR(50), @PrincipalPaid DECIMAL(18,2);
 
-        SELECT @LoanId = LoanId, @Total = TotalAmount, @InstNo = InstallmentNo,
-               @PrincipalPaid = PrincipalAmount
-        FROM LoanPayment WHERE Id = @PaymentId AND IsPaid = 0;
+        -- IDOR koruması: taksit, aktif firmaya ait bir krediye bağlı olmalı (JOIN Loan + CompanyId)
+        SELECT @LoanId = lp.LoanId, @Total = lp.TotalAmount, @InstNo = lp.InstallmentNo,
+               @PrincipalPaid = lp.PrincipalAmount, @LoanNo = l.LoanNo
+        FROM LoanPayment lp
+        JOIN Loan l ON l.Id = lp.LoanId
+        WHERE lp.Id = @PaymentId AND lp.IsPaid = 0 AND l.CompanyId = @CompanyId;
 
         IF @LoanId IS NULL
             THROW 60010, N'Ödeme bulunamadı veya zaten ödenmiş.', 1;
-
-        SELECT @CompanyId = CompanyId, @LoanNo = LoanNo FROM Loan WHERE Id = @LoanId;
 
         DECLARE @TxId UNIQUEIDENTIFIER = NEWID();
         INSERT INTO FinancialTransaction (

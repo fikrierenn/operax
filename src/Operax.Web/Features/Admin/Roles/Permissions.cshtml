@@ -1,0 +1,65 @@
+@page "{id?}"
+@model Operax.Web.Features.Admin.Roles.PermissionsModel
+@{
+    ViewData["Title"] = $"{Model.RoleName} — Modül İzinleri";
+}
+
+<div class="page-hdr">
+    <div>
+        <div class="flex items-center gap-2 mb-2 text-xs">
+            <a asp-page="./Index" class="btn btn-secondary btn-sm py-1 px-2.5 min-h-0">
+                <svg fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3" viewBox="0 0 24 24">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Yetki Grupları
+            </a>
+            <span class="text-slate-400">/</span>
+            <span class="text-slate-600 font-semibold">@Model.RoleName</span>
+        </div>
+        <h1>Modül İzinleri</h1>
+        <p class="page-hdr-sub">@Model.RoleName rolünün hangi modüllere hangi seviyede eriştiğini belirleyin</p>
+    </div>
+</div>
+
+@if (TempData["Success"] is string ok)
+{
+    <div class="alert-banner alert-info mb-4">@ok</div>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="RoleId" />
+    <div class="card">
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Modül</th>
+                        <th class="text-right">Erişim Seviyesi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var key in Model.ModuleKeys)
+                    {
+                        var level = Model.Current.TryGetValue(key, out var v) ? v : 0;
+                        <tr>
+                            <td>
+                                <span class="font-semibold text-xs tracking-wide text-slate-700">@key</span>
+                            </td>
+                            <td class="text-right">
+                                <select name="Access[@key]" class="form-ctrl inline-block w-auto">
+                                    <option value="0" selected="@(level == 0)">Yok</option>
+                                    <option value="1" selected="@(level == 1)">Görüntüle</option>
+                                    <option value="2" selected="@(level == 2)">Düzenle</option>
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end gap-2 p-4 border-t border-slate-100">
+            <a asp-page="./Index" class="btn btn-secondary">İptal</a>
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+        </div>
+    </div>
+</form>

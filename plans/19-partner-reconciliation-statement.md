@@ -1,6 +1,10 @@
 # Plan 19 — Cari Mutabakat Turu / Mutabakat Mektubu (PartnerReconciliationLog)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M11 · **Kaynak:** TTK md.94 + plan 18 kapsam-dışı devamı
+**Tarih:** 2026-06-01 · **Durum:** `TAMAM (UI+job dahil)` · **Modül:** M11 · **Kaynak:** TTK md.94 + plan 18 kapsam-dışı devamı
+
+> **Faz 1-6 TAMAM:** şema + 3 SP + kilit (8 SP enjeksiyon) + UI tab + Hangfire sessiz onay job.
+> sql-sp-reviewer: CRIT-1 (AM MovementDate ↔ guard tutarlılığı) düzeltildi.
+> Backlog: override yolu (simetrik), AM AFTER INSERT trigger emniyet ağı, EXPIRED yumuşak kilit + HasCariSozlesme.
 
 > **AYRIM — KARIŞTIRMA:** Bu plan **mutabakat turu** (partner'a bakiye gönder, onay/itiraz al).
 > Plan 18 `AccountReconciliation` ise **açık-kalem kapama** (hangi tahsilat hangi faturayı kapattı).

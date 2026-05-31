@@ -372,7 +372,7 @@ BEGIN
              SourceDocType, SourceDocId, SourceDocNo,
              Description, CreatedBy)
         SELECT
-            NEWID(), @CompanyId, @PartnerId, GETUTCDATE(),
+            NEWID(), @CompanyId, @PartnerId, @now,
             GrandTotal, 0,
             Subtotal, TaxAmount, @DueDate, 'TRY',
             'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
@@ -1855,7 +1855,7 @@ BEGIN
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
              SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
         VALUES (
-            NEWID(), @CompanyId, @PartnerId, GETUTCDATE(),
+            NEWID(), @CompanyId, @PartnerId, @txNow,
             CASE WHEN @TxType = 'EXPENSE' THEN @Amount ELSE 0 END,  -- ödeme → Debit
             CASE WHEN @TxType = 'INCOME'  THEN @Amount ELSE 0 END,  -- tahsilat → Credit
             @Currency,

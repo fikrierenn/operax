@@ -210,10 +210,21 @@
 - **DoD:** Dondurulmuş kaleme hareket reddediliyor; biten oturumlar korunuyor.
 - **Bağımlılık:** M-F0.4, M-F2.3. Detay: `docs/MODULE_SPECS/M08_CycleCount_Freeze.md`.
 
-## M-F7.3 — Cari Mutabakat Freeze (partner+tarih) [K9/M11]
-- [ ] `sp_GuardPartnerReconciled` + mutabakat tablosu
-- **DoD:** Mutabık partnerin geçmiş hareketleri kilitli; geçmişe giriş override+log.
-- **Bağımlılık:** M-F1.2, M-F0.4 (K8 override).
+## M-F7.3 — Cari Mutabakat Turu + Freeze (partner+tarih) [K9/M11] [plan: 19] ✅ KAPANDI 2026-06-01
+> Öne çekildi (FAZ 7'den) — plan 18 bitince doğal devam.
+- [x] PartnerReconciliationLog (mutabakat turu: SENT/CONFIRMED/DISPUTED/EXPIRED_CONFIRMED, TTK md.94)
+- [x] sp_CreateReconciliationStatement (snapshot) + sp_RespondReconciliation (onay/itiraz)
+- [x] sp_GuardPartnerReconciled (CONFIRMED-only sert kilit) + 8 AM-SP enjeksiyon
+- [x] tvf_ReconciliationPrep (hazırlık) + Partner kartı mutabakat UI tab
+- [x] sp_ExpireReconciliations + Hangfire günlük job (sessiz onay, KEP/NOTER)
+- **DoD:** ✅ mutabakat turu+kilit canlı; 3 skill (ref+mevzuat+deep-research TTK md.94); sql-sp-reviewer CRIT-1 fix.
+- **KALAN backlog:** override yolu (simetrik), AM AFTER INSERT trigger, EXPIRED yumuşak kilit + HasCariSozlesme bayrağı.
+
+## M-F7.5 — Genel Bildirim Hub (Email/SMS/WhatsApp/KEP) [plan: 20] 📋 PLAN HAZIR
+- [ ] 4 tablo (Message/Dispatch/Template/Provider) + mevzuat guard (TTK md.18/3 KEP, 6563 İYS)
+- [ ] sp_NotificationEnqueue/ApplyReceipt + Hangfire dispatcher + INotificationChannel adapter
+- **Durum:** Plan yazıldı (3 skill doğrulaması), implementasyon EN SON (kullanıcı kararı).
+- **Bağımlılık:** M-F7.3 (mutabakat SentChannel tüketicisi).
 
 ## M-F7.4 — Kapsam Dışı (değerlendirme bekleyen)
 - [ ] Demirbaş/Amortisman · Personel/Bordro · İthalat/İhracat+GTİP · Konsinye (E6) · Fason (E8) · Perakende/POS (E3) · Kur farkı (E10) · B2B Portal · Servis/RMA (M12) · ASN (B10)

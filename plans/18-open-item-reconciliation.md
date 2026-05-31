@@ -57,6 +57,15 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
   - `tvf_PaymentPlanAging` korunur (taksit planlaması için hâlâ gerekli)
 - **sp_AutoCloseWithReconciliation güncelleme:** `sp_AutoClosePayments` çağrıldığında
   PaymentPlan kapatmanın yanı sıra `AccountReconciliation`'a da kayıt yazar
+- **`sp_UnreconcileMovements`:** Eşleştirmeyi geri al (IsReversal=1 ters satır + ReversalOfId).
+  Açık kalem matematiği yeniden açılır. sp_GuardPeriodOpen + THROW 51500-51599.
+- **REVERSAL ↔ RECONCILIATION TUTARLILIĞI (KRİTİK):** Evrak iptal/silme eşleştirmeyi de etkiler.
+  Karar (2026-06-01): **REJECT yaklaşımı** — mevcut "bağlı tahsilat varsa reject" guard'ıyla simetrik.
+  - `sp_SalesInvoiceReverse` / `sp_ExpenseInvoiceReverse` / `sp_PaymentReverse`: iptal edilecek AM
+    hareketinde **aktif (IsReversal=0) AccountReconciliation varsa THROW** —
+    "Bu hareket eşleştirilmiş; önce eşleştirmeyi geri alın (sp_UnreconcileMovements)."
+  - Akış: kullanıcı önce sp_UnreconcileMovements → sonra evrak iptali. Gizli cascade yok, denetim izi temiz.
+  - Guard her iki tarafı kontrol eder: `EXISTS recon WHERE (DebitMovementId=@amId OR CreditMovementId=@amId) AND IsReversal=0`
 
 ### Kapsam Dışı
 - UI / ekran (sadece backend + sorgular)
@@ -91,6 +100,7 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 | Çift eşleştirme | Aynı Debit iki kez Credit'e bağlanır | `CHECK`: toplam Amount ≤ Debit tutarı |
 | AM ↔ PaymentPlan drift | İki kaynak çelişirse hangisi doğru? | AM öncelikli; PaymentPlan ikincil gösterge |
 | sp_AutoClosePayments sessiz failure | THROW yok, hata yutulur | THROW 51500+ ekle |
+| Reconcile edilmiş AM iptal edilirse açık kalem bozulur | Bakiye tutarsız | Reversal SP'lerde aktif recon varsa REJECT + sp_UnreconcileMovements |
 
 ---
 
@@ -101,6 +111,8 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 - [ ] `tvf_OpenItems(@CompanyId, @PartnerId, @Direction)` — açık AM hareketleri
 - [ ] `tvf_OpenItemAging(@CompanyId)` — yaşlandırma analizi
 - [ ] `sp_AutoClosePayments` → reconciliation kayıt ekle + THROW aralığı 51500-51599
+- [ ] `sp_UnreconcileMovements` — eşleştirme geri al (IsReversal ters satır)
+- [ ] Reversal SP'lere recon guard: aktif reconciliation varsa iptal REJECT (THROW)
 - [ ] Backfill: mevcut PAID PaymentPlan'lardan AccountReconciliation seed
 - [ ] Smoke: `tvf_OpenItems` + `tvf_PartnerBalance` tutarlı (açık = bakiye)
 - [ ] sql-sp-reviewer
@@ -117,10 +129,11 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 ## 7. Adımlar
 
 - [ ] **Faz 1:** `AccountReconciliation` şema + index (`docs/sql/schema_M11_Reconciliation.sql`)
-- [ ] **Faz 2:** `sp_ReconcileMovements` + `tvf_OpenItems` + `tvf_OpenItemAging`
+- [ ] **Faz 2:** `sp_ReconcileMovements` + `sp_UnreconcileMovements` + `tvf_OpenItems` + `tvf_OpenItemAging`
 - [ ] **Faz 3:** `sp_AutoClosePayments` güncelle (reconciliation kayıt + THROW)
-- [ ] **Faz 4:** Backfill — mevcut PAID planlardan reconciliation seed
-- [ ] **Faz 5:** Smoke — bakiye tutarlılık kontrolü + sql-sp-reviewer
+- [ ] **Faz 4:** Reversal SP'lere recon guard (sp_*Reverse aktif recon varsa REJECT)
+- [ ] **Faz 5:** Backfill — mevcut PAID planlardan reconciliation seed
+- [ ] **Faz 6:** Smoke — bakiye tutarlılık kontrolü + sql-sp-reviewer
 
 ---
 
@@ -141,6 +154,13 @@ Ancak **AccountMovement (AM) bazlı doğrudan eşleştirme yok:**
 - Kur farkı (realized FX) mekanizması yok — `SourceDocType='FX_DIFF'` ayrı AM satırı gerekecek (K1 öncesi borç)
 - Double-reversal guard: Faz 5A'ya eklendi (THROW 51422)
 - `Debit/Credit` = her zaman TRY; `AmountForeign` = döviz → GL gelince netleştirilecek (ADR borcu)
+
+**mali-evrak-mevzuat (VUK/TTK):**
+- Append-only kararı **yasal zorunluluk** — TTK md.82 (10 yıl saklama, silme=ziya) + VUK md.280 → `IsDeleted` eklenmez (doğrulandı [DOC])
+- Cari mutabakat (TTK md.94): yıl sonu kapatma + 1 ay sessiz onay = AYRI domain (partner onay/itiraz M11 ilerisi); AccountReconciliation kapama defteri, mutabakat belgesi değil
+- **Ba-Bs kaldırıldı (Eylül 2024)** — backlog'a Ba-Bs export EKLENMEMELİ (ölü iş)
+- Açık-kalem yöntemi VUK'ta zorunlu değil ama **dövizde md.280 dolaylı zorunlu** → `tvf_OpenItems` dövizli müşteri için vergisel gereklilik
+- Realize FX: iki ayrı an (dönem sonu değerleme + kapama anı) — `SourceDocType='FX_DIFF'` AM satırı, reconciliation.Amount'a GÖMME (matematik bozulur)
 
 **operax-erp-wms-auditor:**
 - FIFO + manuel eşleştirme her ikisi de gerekli — plan 18 bunu doğru kurguluyor

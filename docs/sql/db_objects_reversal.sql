@@ -8,7 +8,18 @@ SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 GO
 
--- Mal Kabul İptali — ters RECEIPT hareketi yazar
+-- =============================================================================
+-- sp_ReceivingReverse — Mal Kabul İptali
+-- NE YAPAR: POSTED mal kabul belgesini CANCELLED yapar; mevcut RECEIPT hareketlerini
+--           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek ReceivingHeader.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (IsCancelled güncelleme + REVERSAL INSERT), ReceivingHeader (Status → CANCELLED)
+-- THROW: 51300-51302 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReceivingReverse
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -70,7 +81,18 @@ BEGIN
 END
 GO
 
--- Sevkiyat İptali — ters ISSUE hareketi yazar
+-- =============================================================================
+-- sp_ShippingReverse — Sevkiyat İptali
+-- NE YAPAR: POSTED sevkiyat belgesini CANCELLED yapar; mevcut ISSUE hareketlerini
+--           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek ShippingHeader.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (IsCancelled güncelleme + REVERSAL INSERT), ShippingHeader (Status → CANCELLED)
+-- THROW: 51310-51312 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ShippingReverse
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -127,7 +149,19 @@ BEGIN
 END
 GO
 
--- Transfer İptali — ters TRANSFER hareketi (çıkış+giriş ikisi birden) yazar
+-- =============================================================================
+-- sp_TransferReverse — Transfer İptali
+-- NE YAPAR: POSTED transfer belgesini CANCELLED yapar; kaynak depodaki çıkış ve
+--           hedef depodaki giriş hareketlerinin tamamını IsCancelled=1 yapar,
+--           her ikisi için de negatif QtyBase'li REVERSAL hareketi yazar.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek StockTransfer.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (IsCancelled güncelleme + REVERSAL INSERT), StockTransfer (Status → CANCELLED)
+-- THROW: 51320-51322 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_TransferReverse
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -185,7 +219,18 @@ BEGIN
 END
 GO
 
--- Sayım İptali — COUNT_ADJ hareketini ters çevirir
+-- =============================================================================
+-- sp_CycleCountReverse — Döngüsel Sayım İptali
+-- NE YAPAR: COMPLETED sayım belgesini CANCELLED yapar; COUNT_ADJ hareketlerini
+--           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek CycleCount.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (IsCancelled güncelleme + REVERSAL INSERT), CycleCount (Status → CANCELLED)
+-- THROW: 51330-51332 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CycleCountReverse
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -242,7 +287,19 @@ BEGIN
 END
 GO
 
--- Üretim Çıkışı İptali — PRODUCTION hareketi ters çevirir
+-- =============================================================================
+-- sp_ProductionReverse — Üretim Emri İptali
+-- NE YAPAR: COMPLETED üretim emrini CANCELLED yapar; hammadde sarfı (ISSUE) ve
+--           mamul girişi (RECEIPT) dahil tüm PRODUCTION hareketlerini IsCancelled=1
+--           ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+-- PARAMETRELERİ:
+--   @OrderId   UNIQUEIDENTIFIER — iptal edilecek ProductionOrder.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (IsCancelled güncelleme + REVERSAL INSERT), ProductionOrder (Status → CANCELLED)
+-- THROW: 51340-51342 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ProductionReverse
     @OrderId   UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -305,8 +362,19 @@ GO
 -- THROW aralığı: 51400-51499.
 -- =============================================================================
 
--- Satış Faturası İptali
--- POSTED → CANCELLED; AM Debit ters Credit (REVERSAL); tahsilat varsa REJECT.
+-- =============================================================================
+-- sp_SalesInvoiceReverse — Satış Faturası İptali
+-- NE YAPAR: POSTED satış faturasını CANCELLED yapar; açık PaymentPlan satırlarını
+--           CANCELLED yapar ve AccountMovement'a negatif (Credit→ters Debit) REVERSAL
+--           kaydı ekler. Bağlı tahsilat varsa işlemi reddeder.
+-- PARAMETRELERİ:
+--   @InvoiceId UNIQUEIDENTIFIER — iptal edilecek SalesInvoice.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: SalesInvoice (Status → CANCELLED), PaymentPlan (Status → CANCELLED), AccountMovement (REVERSAL INSERT)
+-- THROW: 51400-51403 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_SalesInvoiceReverse
     @InvoiceId UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -384,8 +452,19 @@ BEGIN
 END
 GO
 
--- Alış Faturası İptali
--- POSTED → CANCELLED; AM Credit satırlarını ters Debit (REVERSAL); ödeme varsa REJECT.
+-- =============================================================================
+-- sp_ExpenseInvoiceReverse — Alış Faturası İptali
+-- NE YAPAR: POSTED alış faturasını CANCELLED yapar; açık PaymentPlan satırlarını
+--           CANCELLED yapar ve ExpenseInvoiceLine satır bazında AccountMovement'a
+--           negatif (Debit→ters Credit) REVERSAL kaydı ekler. Ödenmiş kayıt varsa reddeder.
+-- PARAMETRELERİ:
+--   @InvoiceId UNIQUEIDENTIFIER — iptal edilecek ExpenseInvoice.Id
+--   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: ExpenseInvoice (Status → CANCELLED), PaymentPlan (Status → CANCELLED), AccountMovement (satır bazlı REVERSAL INSERT)
+-- THROW: 51410-51413 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ExpenseInvoiceReverse
     @InvoiceId UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -460,9 +539,20 @@ BEGIN
 END
 GO
 
--- Tahsilat/Ödeme İptali
--- FinancialTransaction soft-delete + AM ters kayıt + PaymentPlan geri aç.
--- INCOME iptali → Debit; EXPENSE iptali → Credit.
+-- =============================================================================
+-- sp_PaymentReverse — Tahsilat / Ödeme İptali
+-- NE YAPAR: FinancialTransaction'ı soft-delete (IsDeleted=1) yapar; ilişkili
+--           PaymentPlan satırını OPEN'a döndürür (FinancialTransactionId=NULL);
+--           AccountMovement'a ters REVERSAL kaydı ekler (INCOME iptali → Debit,
+--           EXPENSE iptali → Credit). Cari hesabı olmayan işlemler reddedilir.
+-- PARAMETRELERİ:
+--   @TransactionId UNIQUEIDENTIFIER — iptal edilecek FinancialTransaction.Id
+--   @CompanyId     UNIQUEIDENTIFIER — tenant filtresi
+--   @UserId        NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: FinancialTransaction (IsDeleted → 1), PaymentPlan (Status → OPEN, FinancialTransactionId → NULL), AccountMovement (REVERSAL INSERT)
+-- THROW: 51420-51421 (PageModel catch: >= 50000 && < 60000)
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PaymentReverse
     @TransactionId UNIQUEIDENTIFIER,
     @CompanyId     UNIQUEIDENTIFIER,

@@ -182,9 +182,19 @@ GO
 -- STORED PROCEDURES
 -- ============================================================
 
--- Durum Geçiş Doğrulama Motoru (StatusTransition Engine)
--- Belirtilen şirket, evrak tipi ve durum geçişi için aktif bir kural olup olmadığını kontrol eder.
--- Geçiş yetkisi ve kuralı yoksa hata fırlatır.
+-- =============================================================================
+-- sp_ValidateStatusTransition — Durum geçiş kuralını doğrular
+-- NE YAPAR: StatusTransition tablosunda eşleşen aktif geçiş kuralı yoksa THROW fırlatır.
+-- PARAMETRELERİ:
+--   @CompanyId    UNIQUEIDENTIFIER — şirket kimliği
+--   @DocumentType NVARCHAR(100)    — evrak tipi (örn. 'RECEIVING', 'SHIPMENT')
+--   @FromStatus   NVARCHAR(100)    — mevcut durum kodu
+--   @ToStatus     NVARCHAR(100)    — hedef durum kodu
+--   @UserId       NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: Yalnızca okuma; hiçbir tabloya INSERT/UPDATE yazmaz.
+-- THROW: 51000 — geçersiz veya tanımsız durum geçişi
+-- BAĞIMLILIK: —
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ValidateStatusTransition
     @CompanyId    UNIQUEIDENTIFIER,
     @DocumentType NVARCHAR(100),
@@ -214,9 +224,21 @@ BEGIN
 END
 GO
 
--- Mal Kabul Onay
--- Stok hareketi (RECEIPT) yazar, PO satırlarını günceller,
--- PO tamamen teslim alındıysa PO durumunu RECEIVED yapar.
+-- =============================================================================
+-- sp_ReceivingPost — Mal kabul belgesini onaylar
+-- NE YAPAR: ReceivingLine satırları için RECEIPT hareketi yazar, PO satır miktarlarını
+--           günceller, PO tamamen teslim alındıysa Status=RECEIVED yapar,
+--           her satır için moving average maliyeti günceller.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak mal kabul başlık ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (INSERT), PurchaseOrderLine.QtyReceived (UPDATE),
+--               PurchaseOrderHeader.Status (UPDATE), ReceivingHeader.Status (UPDATE),
+--               ItemCost (UPDATE — sp_UpdateItemCostMovingAvg üzerinden)
+-- THROW: 50001 — belge bulunamadı; 51000 — geçersiz durum geçişi
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_GuardPeriodOpen, sp_UpdateItemCostMovingAvg
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReceivingPost
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -332,8 +354,19 @@ BEGIN
 END
 GO
 
--- Sevkiyat Onay
--- Picking alanından stok hareketi (ISSUE, eksi) yazar, SO satırlarını günceller.
+-- =============================================================================
+-- sp_ShippingPost — Sevkiyat belgesini onaylar
+-- NE YAPAR: ShippingLine satırları için ISSUE hareketi (eksi miktar) yazar,
+--           ilişkili SO satırlarının QtyShipped değerini günceller.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak sevkiyat başlık ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (INSERT), SalesOrderLine.QtyShipped (UPDATE),
+--               ShippingHeader.Status (UPDATE)
+-- THROW: 50001 — belge bulunamadı; 51000 — geçersiz durum geçişi
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ShippingPost
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -392,10 +425,20 @@ BEGIN
 END
 GO
 
--- Sevkiyat Pick Task Oluştur
--- Stok olanlar için FIFO raf rezervasyonu ile pick task açar;
--- stok olmayanlar için üretim emri (DRAFT) oluşturur.
--- Sonuç: oluşturulan TaskId döner (NULL = tümü üretime gitti).
+-- =============================================================================
+-- sp_ShippingCreatePickTask — Sevkiyat için pick task oluşturur
+-- NE YAPAR: Yeterli stoğu olan satırlar için FIFO raf seçimiyle PickTask ve
+--           PickTaskLine kayıtları açar; stok yetersiz satırlar için DRAFT
+--           üretim emri (ProductionOrder) oluşturur. TaskId döner.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — sevkiyat başlık ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PickTask (INSERT), PickTaskLine (INSERT),
+--               ProductionOrder (INSERT — stok yetersiz satırlar için)
+-- THROW: 50001 — belge bulunamadı
+-- BAĞIMLILIK: —
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ShippingCreatePickTask
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -490,8 +533,19 @@ BEGIN
 END
 GO
 
--- Transfer Onay
--- İki yönlü stok hareketi yazar: kaynak depoda çıkış, hedef depoda giriş.
+-- =============================================================================
+-- sp_TransferPost — Depo transfer belgesini onaylar
+-- NE YAPAR: Her satır için çift yönlü TRANSFER hareketi yazar; kaynak depoda
+--           eksi (çıkış), hedef depoda artı (giriş) StockMovement kaydı açar.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak transfer başlık ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (INSERT ×2 per satır — çıkış ve giriş),
+--               StockTransfer.Status (UPDATE)
+-- THROW: 50001 — belge bulunamadı; 51000 — geçersiz durum geçişi
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_TransferPost
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -548,8 +602,20 @@ BEGIN
 END
 GO
 
--- Sayım Düzeltme Onay
--- Fark olan satırlar için COUNT_ADJ hareketi yazar, sayım durumunu COMPLETED yapar.
+-- =============================================================================
+-- sp_CycleCountPost — Döngüsel sayım belgesini onaylar
+-- NE YAPAR: Sayılan ile sistemdeki miktar arasında fark olan satırlar için
+--           COUNT_ADJ hareketi yazar (fark = QtyCounted - QtySystem); sayım
+--           belgesini COMPLETED durumuna geçirir.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak sayım başlık ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (INSERT — yalnızca fark olan satırlar),
+--               CycleCount.Status (UPDATE)
+-- THROW: 50001 — belge bulunamadı; 51000 — geçersiz durum geçişi
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CycleCountPost
     @HeaderId  UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -601,9 +667,18 @@ BEGIN
 END
 GO
 
--- Üretim BOM Yükle
--- Ürünün reçetesinden (ItemBOM) hammadde ihtiyaçlarını üretim emrine kopyalar.
--- Mevcut satırları temizleyip yeniden yükler (idempotent).
+-- =============================================================================
+-- sp_ProductionLoadBOM — Üretim emrine BOM satırlarını yükler
+-- NE YAPAR: Ürünün aktif reçetesinden (ItemBOM) hammadde kalemlerini alır,
+--           QtyRequired × QtyTarget çarpımıyla ProductionOrderLine satırlarını
+--           yeniden oluşturur (önce mevcut satırları siler — idempotent).
+-- PARAMETRELERİ:
+--   @OrderId   UNIQUEIDENTIFIER — BOM yüklenecek üretim emri ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+-- SIDE EFFECTS: ProductionOrderLine (DELETE + INSERT)
+-- THROW: 50001 — üretim emri bulunamadı
+-- BAĞIMLILIK: —
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ProductionLoadBOM
     @OrderId   UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER
@@ -636,9 +711,18 @@ BEGIN
 END
 GO
 
--- Üretim Pick Task Oluştur
--- Üretim emri hammaddeleri için picking görev açar.
--- Sonuç: oluşturulan TaskId döner.
+-- =============================================================================
+-- sp_ProductionCreatePickTask — Üretim için hammadde pick task oluşturur
+-- NE YAPAR: ProductionOrderLine satırlarındaki hammaddeler için PickTask başlığı
+--           ve PickTaskLine kayıtları açar; TaskId döner.
+-- PARAMETRELERİ:
+--   @OrderId   UNIQUEIDENTIFIER — kaynak üretim emri ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PickTask (INSERT), PickTaskLine (INSERT)
+-- THROW: 50001 — üretim emri bulunamadı
+-- BAĞIMLILIK: —
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ProductionCreatePickTask
     @OrderId   UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -684,8 +768,19 @@ BEGIN
 END
 GO
 
--- Üretim Tamamla
--- Mamul ürünü stoğa girer (PRODUCTION hareketi), emri COMPLETED yapar.
+-- =============================================================================
+-- sp_ProductionFinish — Üretim emrini tamamlar ve mamulü stoğa girer
+-- NE YAPAR: Üretilen mamul için PRODUCTION tipi StockMovement yazar,
+--           ProductionOrder.QtyProduced ve Status=COMPLETED günceller.
+-- PARAMETRELERİ:
+--   @OrderId   UNIQUEIDENTIFIER — tamamlanacak üretim emri ID'si
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @Qty       DECIMAL(18,4)    — üretilen mamul miktarı
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: StockMovement (INSERT — PRODUCTION), ProductionOrder (UPDATE)
+-- THROW: 50001 — üretim emri bulunamadı
+-- BAĞIMLILIK: sp_GuardPeriodOpen
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ProductionFinish
     @OrderId   UNIQUEIDENTIFIER,
     @CompanyId UNIQUEIDENTIFIER,
@@ -730,9 +825,23 @@ BEGIN
 END
 GO
 
--- Picking Satırı Tamamla
--- Satırı günceller, stok hareketi yazar, üretim sarfiyatını günceller,
--- tüm satırlar bittiyse görevi COMPLETED yapar.
+-- =============================================================================
+-- sp_PickLinePost — Tek bir picking satırını tamamlar
+-- NE YAPAR: PickTaskLine.QtyPicked'ı günceller, ISSUE StockMovement yazar;
+--           görev PRD-PCK- ise ProductionOrderLine.QtyIssued artırır;
+--           görevin tüm satırları bittiyse PickTask.Status=COMPLETED yapar.
+-- PARAMETRELERİ:
+--   @LineId    UNIQUEIDENTIFIER — tamamlanan pick satır ID'si
+--   @TaskId    UNIQUEIDENTIFIER — bağlı pick task ID'si
+--   @Qty       DECIMAL(18,4)    — toplanan miktar
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450)    — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PickTaskLine (UPDATE), StockMovement (INSERT — ISSUE),
+--               ProductionOrderLine.QtyIssued (UPDATE — PRD-PCK- görevlerinde),
+--               PickTask.Status (UPDATE)
+-- THROW: —
+-- BAĞIMLILIK: —
+-- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PickLinePost
     @LineId    UNIQUEIDENTIFIER,
     @TaskId    UNIQUEIDENTIFIER,

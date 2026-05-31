@@ -7,7 +7,19 @@ SET NOCOUNT ON;
 GO
 
 -- =============================================================================
--- M02 MALİYET: sp_UpdateItemCostMovingAvg
+-- sp_UpdateItemCostMovingAvg — Hareketli ağırlıklı ortalama maliyet güncelleme
+-- NE YAPAR: Bir stok hareketi (RECEIPT/ISSUE/ADJUSTMENT) sonrasında ItemCost
+--   tablosundaki AvgCost ve OnHandQty değerlerini günceller; kayıt yoksa oluşturur.
+-- PARAMETRELERİ:
+--   @CompanyId   UNIQUEIDENTIFIER — şirket kimliği
+--   @ItemId      UNIQUEIDENTIFIER — malzeme kimliği
+--   @WarehouseId UNIQUEIDENTIFIER (NULL) — depo bazlı maliyet; NULL = genel
+--   @Qty         DECIMAL(18,6) — hareket miktarı (hep pozitif, yön @MovementType ile)
+--   @UnitCost    DECIMAL(18,4) (NULL) — RECEIPT'ta birim maliyet; ISSUE'da NULL
+--   @MovementType NVARCHAR(20) — RECEIPT | ISSUE | ADJUSTMENT
+-- SIDE EFFECTS: ItemCost (UPSERT — AvgCost, OnHandQty, LastReceiptDate, UpdatedAt)
+-- THROW: yok (hata fırlatmaz; eksik kayıt varsa INSERT ile düzeltir)
+-- BAĞIMLILIK: sp_ReceivingPost, sp_ShippingPost (her ikisi de bu SP'yi çağırır)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateItemCostMovingAvg
     @CompanyId   UNIQUEIDENTIFIER,
@@ -68,8 +80,21 @@ END
 GO
 
 -- =============================================================================
--- M03 SATINALMA: sp_CheckPriceVariance
--- PO/PurchaseOrderLine eklenirken çağrılır; tedarikçi liste fiyatı ile karşılaştırır
+-- sp_CheckPriceVariance — PO satır fiyat sapması kontrolü
+-- NE YAPAR: PO satırındaki gerçek fiyatı tedarikçiye özel veya genel PriceList ile
+--   karşılaştırır; sapma toleransı aşılırsa PriceVariance DRAFT kaydı oluşturur.
+-- PARAMETRELERİ:
+--   @CompanyId   UNIQUEIDENTIFIER — şirket kimliği
+--   @PoHeaderId  UNIQUEIDENTIFIER — PO başlık kimliği
+--   @PoLineId    UNIQUEIDENTIFIER — PO satır kimliği
+--   @ItemId      UNIQUEIDENTIFIER — malzeme kimliği
+--   @PartnerId   UNIQUEIDENTIFIER — tedarikçi kimliği
+--   @ActualPrice DECIMAL(18,4) — PO'daki gerçek birim fiyat
+--   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+--   @VarianceId  UNIQUEIDENTIFIER OUTPUT — oluşan PriceVariance kaydının kimliği (sapma yoksa NULL)
+-- SIDE EFFECTS: PriceVariance (INSERT — tolerans aşılırsa DRAFT kayıt)
+-- THROW: yok (liste fiyatı yoksa sessizce döner)
+-- BAĞIMLILIK: Parameter (PriceTolerancePercent), PriceList, PriceListLine
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CheckPriceVariance
     @CompanyId      UNIQUEIDENTIFIER,
@@ -144,10 +169,16 @@ END
 GO
 
 -- =============================================================================
--- M03 SATINALMA: sp_ApprovePriceVariance
--- Fiyat farkı onayı — PriceVariance DRAFT → APPROVED.
--- PO satır fiyatı gerçek (ActualPrice) değere güncellenir.
--- THROW kodları: 51100-51199 (M03 slot).
+-- sp_ApprovePriceVariance — Fiyat farkı onayı
+-- NE YAPAR: PriceVariance kaydını DRAFT'tan APPROVED'a taşır ve ilgili PO satırının
+--   fiyatını ActualPrice (gerçek fiyat) ile günceller.
+-- PARAMETRELERİ:
+--   @VarianceId UNIQUEIDENTIFIER — onaylanacak PriceVariance kaydının kimliği
+--   @UserId     UNIQUEIDENTIFIER (NULL) — onaylayan kullanıcı kimliği
+-- SIDE EFFECTS: PriceVariance (UPDATE — Status=APPROVED, ApprovedBy, ApprovedAt);
+--   PurchaseOrderLine (UPDATE — Price=ActualPrice, SourceDocType=PURCHASE_ORDER ise)
+-- THROW: 51101 — kayıt bulunamadı; 51102 — yalnızca DRAFT onaylanabilir
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ApprovePriceVariance
     @VarianceId UNIQUEIDENTIFIER,
@@ -195,8 +226,19 @@ END
 GO
 
 -- =============================================================================
--- M04 SATIŞ FATURASI: sp_GenerateSalesInvoiceFromShipping
--- Sevkiyat POSTED olunca otomatik fatura üretir, PaymentPlan kaydı oluşturur
+-- sp_GenerateSalesInvoiceFromShipping — Sevkiyattan otomatik satış faturası üretme
+-- NE YAPAR: POSTED sevkiyat için SalesInvoice ve SalesInvoiceLine oluşturur; toplamları
+--   hesaplar, tek taksitlik PaymentPlan açar ve cari hesap defterine Debit kaydı yazar.
+-- PARAMETRELERİ:
+--   @ShippingId   UNIQUEIDENTIFIER — kaynak sevkiyat başlık kimliği
+--   @UserId       UNIQUEIDENTIFIER (NULL) — işlemi başlatan kullanıcı
+--   @NewInvoiceId UNIQUEIDENTIFIER OUTPUT — oluşturulan fatura kimliği
+-- SIDE EFFECTS: SalesInvoice (INSERT); SalesInvoiceLine (INSERT);
+--   PaymentPlan (INSERT — RECEIVABLE/OPEN); AccountMovement (INSERT — Debit);
+--   ShippingHeader (UPDATE — PartnerId/SalesOrderId, partner eksikse)
+-- THROW: 50201 — sevkiyat bulunamadı; 50202 — POSTED değil; 50203 — çift-fatura koruması;
+--   70004 — partner belirlenemedi
+-- BAĞIMLILIK: sp_GuardPeriodOpen (dönem kilidi), Partner (PaymentTermDays)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GenerateSalesInvoiceFromShipping
     @ShippingId    UNIQUEIDENTIFIER,
@@ -344,8 +386,17 @@ END
 GO
 
 -- =============================================================================
--- M11 ÇEKİ: sp_DepositCheque
--- PORTFOLIO -> IN_BANK (bankaya tahsile verme)
+-- sp_DepositCheque — Çeki bankaya tahsile verme
+-- NE YAPAR: PORTFOLIO statüsündeki çeki IN_BANK'a taşır; hangi banka hesabına verildiğini
+--   ve tarihi kaydeder.
+-- PARAMETRELERİ:
+--   @ChequeId    UNIQUEIDENTIFIER — işlem görecek çek kimliği
+--   @AccountId   UNIQUEIDENTIFIER — çekin tahsile verileceği banka hesabı kimliği
+--   @DepositDate DATETIME2 (NULL) — tahsil tarihi; NULL ise GETUTCDATE()
+--   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: Cheque (UPDATE — Status=IN_BANK, DepositedToAccountId, DepositedAt)
+-- THROW: 60001 — çek bulunamadı; 60002 — statü PORTFOLIO değil
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DepositCheque
     @ChequeId    UNIQUEIDENTIFIER,
@@ -374,8 +425,17 @@ END
 GO
 
 -- =============================================================================
--- M11 ÇEKİ: sp_CollectCheque
--- IN_BANK -> COLLECTED + FinancialTransaction (INCOME)
+-- sp_CollectCheque — Çek tahsili (banka tarafından ödeme alındı)
+-- NE YAPAR: IN_BANK statüsündeki çeki COLLECTED'a taşır; FinancialTransaction (INCOME)
+--   ve AccountMovement (Credit — müşteri borcu kapandı) kaydı oluşturur.
+-- PARAMETRELERİ:
+--   @ChequeId    UNIQUEIDENTIFIER — tahsil edilecek çek kimliği
+--   @CollectDate DATETIME2 (NULL) — tahsilat tarihi; NULL ise GETUTCDATE()
+--   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: Cheque (UPDATE — Status=COLLECTED, CollectedAt);
+--   FinancialTransaction (INSERT — INCOME); AccountMovement (INSERT — Credit)
+-- THROW: 50600 — çek bulunamadı; 50603 — statü IN_BANK değil; 50605 — banka hesabı yok
+-- BAĞIMLILIK: sp_GuardPeriodOpen (dönem kilidi)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CollectCheque
     @ChequeId    UNIQUEIDENTIFIER,
@@ -449,8 +509,16 @@ END
 GO
 
 -- =============================================================================
--- M11 ÇEKİ: sp_ReturnCheque
--- Karşılıksız çek (IN_BANK/PORTFOLIO -> RETURNED). FinancialTransaction üretmez.
+-- sp_ReturnCheque — Karşılıksız çek işlemi
+-- NE YAPAR: IN_BANK veya PORTFOLIO statüsündeki çeki RETURNED'a taşır; iade sebebini
+--   kaydeder. Finansal hareket üretmez (stornaj gerekmez, çek hiç tahsil edilmedi).
+-- PARAMETRELERİ:
+--   @ChequeId UNIQUEIDENTIFIER — karşılıksız işaretlenecek çek kimliği
+--   @Reason   NVARCHAR(500) — iade gerekçesi (zorunlu)
+--   @UserId   UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: Cheque (UPDATE — Status=RETURNED, ReturnReason)
+-- THROW: 60004 — çek statüsü IN_BANK veya PORTFOLIO değil (güncelleme satırı 0)
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReturnCheque
     @ChequeId  UNIQUEIDENTIFIER,
@@ -473,9 +541,19 @@ END
 GO
 
 -- =============================================================================
--- M11 KART: sp_CloseStatement — dönem ekstre kapatma
--- Periyot içi ekstresiz slipleri toplar, CreditCardStatement oluşturur,
--- slipleri ekstreye bağlar, önceki dönem devrini ekler.
+-- sp_CloseStatement — Kredi kartı dönem ekstresi kapatma
+-- NE YAPAR: Belirtilen periyottaki ekstresiz slipleri toplar, CreditCardStatement
+--   oluşturur, önceki dönem devrini açılış bakiyesi olarak ekler ve slipleri ekstreye bağlar.
+-- PARAMETRELERİ:
+--   @CardId         UNIQUEIDENTIFIER — kredi kartı kimliği
+--   @PeriodStart    DATE — ekstre dönemi başlangıcı
+--   @PeriodEnd      DATE — ekstre dönemi bitişi
+--   @UserId         UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+--   @NewStatementId UNIQUEIDENTIFIER OUTPUT — oluşturulan ekstre kimliği
+-- SIDE EFFECTS: CreditCardStatement (INSERT — IsClosed=1);
+--   CreditCardTransaction (UPDATE — StatementId set edilir)
+-- THROW: 51320 — kredi kartı bulunamadı
+-- BAĞIMLILIK: CreditCard (DueDay), CreditCardStatement (önceki kapanış bakiyesi)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CloseStatement
     @CardId          UNIQUEIDENTIFIER,
@@ -533,8 +611,19 @@ END
 GO
 
 -- =============================================================================
--- M11 KART: sp_PayCreditCardStatement — ekstre ödeme
--- Banka hesabından gider yazar, ekstre PaidAmount günceller, kart limit iade.
+-- sp_PayCreditCardStatement — Kredi kartı ekstre ödemesi
+-- NE YAPAR: Banka hesabından EXPENSE hareketi yazar, ekstre PaidAmount değerini artırır
+--   ve kartın AvailableLimit'ini ödeme tutarı kadar iade eder.
+-- PARAMETRELERİ:
+--   @StatementId   UNIQUEIDENTIFIER — ödenecek ekstre kimliği
+--   @FromAccountId UNIQUEIDENTIFIER — ödemenin yapılacağı banka hesabı kimliği
+--   @Amount        DECIMAL(18,2) — ödeme tutarı (pozitif, ekstre borcunu aşamaz)
+--   @PayDate       DATETIME2 (NULL) — ödeme tarihi; NULL ise GETUTCDATE()
+--   @UserId        UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: FinancialTransaction (INSERT — EXPENSE); CreditCardStatement (UPDATE — PaidAmount);
+--   CreditCard (UPDATE — AvailableLimit artırılır)
+-- THROW: 51321 — ekstre bulunamadı; 51322 — tutar pozitif olmalı; 51323 — borcu aşıyor
+-- BAĞIMLILIK: CreditCard, CreditCardStatement
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PayCreditCardStatement
     @StatementId    UNIQUEIDENTIFIER,
@@ -582,7 +671,17 @@ END
 GO
 
 -- =============================================================================
--- M11 SENET: sp_DepositNote — PORTFOLIO → IN_BANK (bankaya tahsile verme)
+-- sp_DepositNote — Senedi bankaya tahsile verme
+-- NE YAPAR: PORTFOLIO statüsündeki senedi IN_BANK'a taşır; hangi banka hesabına verildiğini
+--   ve tarihi kaydeder. sp_DepositCheque'nin senet karşılığıdır.
+-- PARAMETRELERİ:
+--   @NoteId      UNIQUEIDENTIFIER — işlem görecek senet kimliği
+--   @AccountId   UNIQUEIDENTIFIER — senedin tahsile verileceği banka hesabı kimliği
+--   @DepositDate DATETIME2 (NULL) — tahsil tarihi; NULL ise GETUTCDATE()
+--   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PromissoryNote (UPDATE — Status=IN_BANK, DepositedToAccountId, DepositedAt)
+-- THROW: 51310 — senet bulunamadı; 51311 — statü PORTFOLIO değil
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_DepositNote
     @NoteId      UNIQUEIDENTIFIER,
@@ -611,7 +710,17 @@ END
 GO
 
 -- =============================================================================
--- M11 SENET: sp_CollectNote — IN_BANK → COLLECTED + FinancialTransaction (INCOME)
+-- sp_CollectNote — Senet tahsili (banka tarafından ödeme alındı)
+-- NE YAPAR: IN_BANK statüsündeki senedi COLLECTED'a taşır; FinancialTransaction (INCOME)
+--   ve AccountMovement (Credit — müşteri borcu kapandı) kaydı oluşturur.
+-- PARAMETRELERİ:
+--   @NoteId      UNIQUEIDENTIFIER — tahsil edilecek senet kimliği
+--   @CollectDate DATETIME2 (NULL) — tahsilat tarihi; NULL ise GETUTCDATE()
+--   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PromissoryNote (UPDATE — Status=COLLECTED, CollectedAt);
+--   FinancialTransaction (INSERT — INCOME); AccountMovement (INSERT — Credit)
+-- THROW: 50610 — senet bulunamadı; 50612 — statü IN_BANK değil; 50613 — banka hesabı yok
+-- BAĞIMLILIK: sp_GuardPeriodOpen (dönem kilidi)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CollectNote
     @NoteId      UNIQUEIDENTIFIER,
@@ -678,7 +787,16 @@ END
 GO
 
 -- =============================================================================
--- M11 SENET: sp_ReturnNote — karşılıksız (IN_BANK/PORTFOLIO → RETURNED)
+-- sp_ReturnNote — Karşılıksız senet işlemi
+-- NE YAPAR: IN_BANK veya PORTFOLIO statüsündeki senedi RETURNED'a taşır; iade sebebini
+--   kaydeder. sp_ReturnCheque'nin senet karşılığıdır; finansal hareket üretmez.
+-- PARAMETRELERİ:
+--   @NoteId UNIQUEIDENTIFIER — karşılıksız işaretlenecek senet kimliği
+--   @Reason NVARCHAR(500) — iade gerekçesi (zorunlu)
+--   @UserId UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PromissoryNote (UPDATE — Status=RETURNED, ReturnReason)
+-- THROW: 51314 — senet statüsü IN_BANK veya PORTFOLIO değil
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReturnNote
     @NoteId  UNIQUEIDENTIFIER,
@@ -698,16 +816,31 @@ END
 GO
 
 -- =============================================================================
--- M11 KREDİ: sp_CreateLoan (Plan 01 Faz 1)
--- 7 kredi hesap yöntemi destekler:
---   ANUITE           — taksit sabit (geleneksel), faiz azalır anapara artar
---   EQUAL_PRINCIPAL  — anapara sabit (P/n), faiz azalan bakiye üzerinden
---   BALLOON          — ilk n-1 küçük taksit (sadece faiz + min anapara), son taksit @BalloonAmount + kalan
---   SPOT             — tek taksit vade sonunda: P + (P × r × t)
---   ROTATIVE         — taksit tablosu yok; kullanım üzerinden günlük faiz işler
---   KMH              — Kredili Mevduat Hesabı (revolving, taksit yok)
---   DBS              — Doğrudan Borçlandırma Sistemi (taksit yok, otomatik tahsilat tetiklenir)
--- THROW kodları: 51300-51399 aralığı M11 slot.
+-- sp_CreateLoan — Banka kredisi açma ve taksit takvimi oluşturma
+-- NE YAPAR: Yeni Loan kaydı oluşturur; ANUITE/EQUAL_PRINCIPAL/BALLOON/SPOT yöntemlerinde
+--   taksit takvimini (LoanPayment) matematiksel olarak hesaplayarak yazar. ROTATIVE/KMH/DBS
+--   için taksit tablosu üretilmez. Banka hesabına açılış tutarı INCOME olarak işlenir.
+--   Desteklenen hesap yöntemleri: ANUITE | EQUAL_PRINCIPAL | BALLOON | SPOT | ROTATIVE | KMH | DBS
+-- PARAMETRELERİ:
+--   @CompanyId         UNIQUEIDENTIFIER — şirket kimliği
+--   @LoanNo            NVARCHAR(50) — kredi referans numarası
+--   @BankName          NVARCHAR(200) — banka adı
+--   @AccountId         UNIQUEIDENTIFIER — kredi tutarının yatacağı banka hesabı
+--   @Principal         DECIMAL(18,2) — anapara tutarı
+--   @InterestRate      DECIMAL(8,4) — yıllık faiz oranı (yüzde)
+--   @TermMonths        INT — vade ay sayısı
+--   @StartDate         DATE — kredi başlangıç tarihi
+--   @CalcMethod        NVARCHAR(30) — hesap yöntemi (varsayılan: ANUITE)
+--   @GracePeriodMonths INT — ödemesiz dönem ay sayısı (varsayılan: 0)
+--   @BalloonAmount     DECIMAL(18,2) (NULL) — BALLOON yöntemi için son taksit tutarı
+--   @UserId            UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+--   @NewLoanId         UNIQUEIDENTIFIER OUTPUT — oluşturulan kredi kimliği
+-- SIDE EFFECTS: Loan (INSERT); LoanPayment (INSERT — taksit sayısı kadar, tablo yönteme göre);
+--   FinancialTransaction (INSERT — INCOME, ROTATIVE/KMH/DBS hariç)
+-- THROW: 51301 — anapara ≤ 0; 51302 — faiz negatif; 51303 — geçersiz yöntem;
+--   51304 — vade ay sayısı gerekli; 51305 — balon tutarı eksik; 51306 — balon ≥ anapara;
+--   51307 — geçersiz ödemesiz dönem
+-- BAĞIMLILIK: yok
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CreateLoan
     @CompanyId        UNIQUEIDENTIFIER,
@@ -910,8 +1043,20 @@ END
 GO
 
 -- =============================================================================
--- M11 KREDİ: sp_PayLoanInstallment
--- Kredi taksidi öder, banka hesabından gider yazar, anapara bakiyesini düşürür
+-- sp_PayLoanInstallment — Kredi taksit ödemesi
+-- NE YAPAR: LoanPayment kaydını ödenmiş olarak işaretler, banka hesabından EXPENSE
+--   hareketi yazar, kredinin anapara bakiyesini düşürür. Tüm taksitler ödendiyse
+--   Loan.Status'u CLOSED'a getirir.
+-- PARAMETRELERİ:
+--   @PaymentId     UNIQUEIDENTIFIER — ödenecek LoanPayment kaydının kimliği
+--   @PayDate       DATETIME2 (NULL) — ödeme tarihi; NULL ise GETUTCDATE()
+--   @FromAccountId UNIQUEIDENTIFIER — ödemenin yapılacağı banka hesabı kimliği
+--   @UserId        UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: FinancialTransaction (INSERT — EXPENSE); LoanPayment (UPDATE — IsPaid=1,
+--   PaidAmount, PaidAt, FinancialTransactionId); Loan (UPDATE — OutstandingBalance düşer;
+--   tüm taksitler kapandıysa Status=CLOSED)
+-- THROW: 60010 — taksit bulunamadı veya zaten ödenmiş
+-- BAĞIMLILIK: Loan, LoanPayment
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PayLoanInstallment
     @PaymentId      UNIQUEIDENTIFIER,
@@ -1136,9 +1281,19 @@ RETURN
 GO
 
 -- =============================================================================
--- WIRE: sp_ReceivingPost (override) — orijinal sp + maliyet güncelleme
--- ItemCost.AvgCost'u her POSTED Receiving sonrasinda Moving Avg ile guncelle
--- StockMovement.UnitCost da kaydedilir (gecmise donuk maliyet izi).
+-- sp_ReceivingPost — Mal kabul onaylama (DRAFT → POSTED)
+-- NE YAPAR: Mal kabul belgesini POSTED yapar; her satır için StockMovement (RECEIPT)
+--   oluşturur, ilgili PO satırlarının QtyReceived değerini artırır, tüm satırlar
+--   tamamlandıysa PO'yu RECEIVED'a taşır ve Moving Average maliyet günceller.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak mal kabul başlık kimliği
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450) — işlemi yapan kullanıcı kimliği (string)
+-- SIDE EFFECTS: StockMovement (INSERT — RECEIPT, her satır için); ReceivingHeader (UPDATE — POSTED);
+--   PurchaseOrderLine (UPDATE — QtyReceived artırılır); PurchaseOrderHeader (UPDATE — RECEIVED,
+--   tüm satırlar tamamlandıysa); ItemCost (UPSERT — AvgCost, OnHandQty her ürün için)
+-- THROW: 50001 — mal kabul bulunamadı; sp_ValidateStatusTransition hataları
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_UpdateItemCostMovingAvg
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ReceivingPost
     @HeaderId  UNIQUEIDENTIFIER,
@@ -1230,8 +1385,20 @@ END
 GO
 
 -- =============================================================================
--- WIRE: sp_ShippingPost (override) — orijinal sp + otomatik fatura
--- Parameter.InvoiceMode='INSTANT' ise sp_GenerateSalesInvoiceFromShipping cagrilir
+-- sp_ShippingPost — Sevkiyat onaylama (DRAFT → POSTED)
+-- NE YAPAR: Sevkiyat belgesini POSTED yapar; her satır için StockMovement (ISSUE — negatif
+--   QtyBase) oluşturur; SO satırlarının QtyShipped değerini artırır; ItemCost OnHandQty'yi
+--   düşürür. Parameter.InvoiceMode='INSTANT' ise sp_GenerateSalesInvoiceFromShipping çağrılır.
+-- PARAMETRELERİ:
+--   @HeaderId  UNIQUEIDENTIFIER — onaylanacak sevkiyat başlık kimliği
+--   @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId    NVARCHAR(450) — işlemi yapan kullanıcı kimliği (string)
+-- SIDE EFFECTS: StockMovement (INSERT — ISSUE, her satır için); ShippingHeader (UPDATE — POSTED);
+--   SalesOrderLine (UPDATE — QtyShipped artırılır); ItemCost (UPDATE — OnHandQty düşer);
+--   SalesInvoice + PaymentPlan + AccountMovement (InvoiceMode=INSTANT ise, dolaylı)
+-- THROW: 50001 — sevkiyat bulunamadı; sp_ValidateStatusTransition hataları
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_UpdateItemCostMovingAvg,
+--   sp_GenerateSalesInvoiceFromShipping (koşullu), Parameter (InvoiceMode)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ShippingPost
     @HeaderId  UNIQUEIDENTIFIER,
@@ -1325,8 +1492,16 @@ END
 GO
 
 -- =============================================================================
--- WIRE: sp_GeneratePaymentPlanFromPO
--- PO POSTED olunca tedarikciye odeme planı uretilir
+-- sp_GeneratePaymentPlanFromPO — PO'dan tedarikçi ödeme planı üretme
+-- NE YAPAR: POSTED PO için tedarikçiye ait PAYABLE ödeme planı taksitlerini oluşturur.
+--   Mevcut PaymentPlan kayıtları önce silinir (idempotent). Taksit sayısı ve vade,
+--   PO başlığındaki PaymentInstallments ve PaymentTermDays alanlarından alınır.
+-- PARAMETRELERİ:
+--   @PoHeaderId UNIQUEIDENTIFIER — kaynak PO başlık kimliği
+--   @UserId     UNIQUEIDENTIFIER (NULL) — işlemi başlatan kullanıcı
+-- SIDE EFFECTS: PaymentPlan (DELETE mevcut; INSERT — PAYABLE/OPEN, taksit sayısı kadar)
+-- THROW: 71001 — PO bulunamadı; 71002 — sipariş toplamı sıfır
+-- BAĞIMLILIK: PurchaseOrderHeader, PurchaseOrderLine, Partner (PaymentTermDays yedek)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_GeneratePaymentPlanFromPO
     @PoHeaderId UNIQUEIDENTIFIER,
@@ -1389,7 +1564,18 @@ END
 GO
 
 -- =============================================================================
--- WIRE: sp_PoPost — PO'yu POSTED yapar + PaymentPlan uretir
+-- sp_PoPost — Satınalma siparişi onaylama (DRAFT → POSTED)
+-- NE YAPAR: PO'yu POSTED statüsüne taşır ve ardından sp_GeneratePaymentPlanFromPO
+--   çağırarak tedarikçiye ödeme planı üretir.
+-- PARAMETRELERİ:
+--   @PoHeaderId UNIQUEIDENTIFIER — onaylanacak PO başlık kimliği
+--   @CompanyId  UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId     UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PurchaseOrderHeader (UPDATE — Status=POSTED, PostedAt);
+--   PaymentPlan (INSERT — dolaylı, sp_GeneratePaymentPlanFromPO üzerinden)
+-- THROW: 72001 — PO bulunamadı; sp_ValidateStatusTransition hataları;
+--   sp_GeneratePaymentPlanFromPO hataları
+-- BAĞIMLILIK: sp_ValidateStatusTransition, sp_GeneratePaymentPlanFromPO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PoPost
     @PoHeaderId UNIQUEIDENTIFIER,
@@ -1427,10 +1613,20 @@ END
 GO
 
 -- =============================================================================
--- M11 OTOMATİK KAPATMA: sp_AutoClosePayments
--- Yeni FinancialTransaction (INCOME/EXPENSE) ile aynı Partner'ın açık
--- PaymentPlan kayıtlarını FIFO (vadeye göre) eşleştirerek kapatır.
--- Kullanıcı manuel kapatma da yapabilir; bu SP otomatik mod içindir.
+-- sp_AutoClosePayments — Tahsilat/ödemeyi FIFO mantığıyla ödeme planlarına dağıtma
+-- NE YAPAR: Gelen tutar, ilgili partnerin açık (OPEN/PARTIAL/OVERDUE) PaymentPlan
+--   kayıtlarına vade sırasıyla (FIFO) dağıtılır; fazla tutar PREPAYMENT olarak kaydedilir.
+-- PARAMETRELERİ:
+--   @CompanyId     UNIQUEIDENTIFIER — şirket kimliği
+--   @PartnerId     UNIQUEIDENTIFIER — ilgili cari hesap kimliği
+--   @Direction     NVARCHAR(10) — RECEIVABLE (tahsilat) | PAYABLE (ödeme)
+--   @Amount        DECIMAL(18,2) — dağıtılacak toplam tutar
+--   @TransactionId UNIQUEIDENTIFIER — referans FinancialTransaction kimliği
+--   @UserId        UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+-- SIDE EFFECTS: PaymentPlan (UPDATE — PaidAmount, Status=PAID/PARTIAL;
+--   INSERT — PREPAYMENT, kalan tutar varsa)
+-- THROW: yok (cursor boşsa sessizce avans kaydı açar)
+-- BAĞIMLILIK: PaymentPlan (FIFO cursor)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_AutoClosePayments
     @CompanyId    UNIQUEIDENTIFIER,
@@ -1516,9 +1712,27 @@ END
 GO
 
 -- =============================================================================
--- M11 OTOMATİK KAPATMA: sp_RecordPaymentAndAutoClose
--- Yeni FinancialTransaction ekler + PaymentPlan'lara FIFO dağıtır.
--- Partner.AutoClosePayments=1 ise otomatik, =0 ise manuel kapatma için yalın hareket.
+-- sp_RecordPaymentAndAutoClose — Tahsilat/ödeme kaydı ve otomatik plan kapatma
+-- NE YAPAR: FinancialTransaction ekler, AccountMovement'a cari defter hareketi yazar.
+--   Partner.AutoClosePayments=1 ise sp_AutoClosePayments çağırarak açık planları FIFO
+--   sırayla kapatır; 0 ise yalnızca ham hareket kaydı oluşturur.
+-- PARAMETRELERİ:
+--   @CompanyId      UNIQUEIDENTIFIER — şirket kimliği
+--   @AccountId      UNIQUEIDENTIFIER — işlemin yapıldığı finansal hesap kimliği
+--   @PartnerId      UNIQUEIDENTIFIER — ilgili cari hesap kimliği
+--   @Amount         DECIMAL(18,2) — işlem tutarı
+--   @Currency       NVARCHAR(10) — para birimi (varsayılan: TRY)
+--   @TxType         NVARCHAR(20) — INCOME (tahsilat) | EXPENSE (ödeme)
+--   @Description    NVARCHAR(500) (NULL) — açıklama
+--   @InstrumentType NVARCHAR(20) — ödeme aracı türü (varsayılan: CASH)
+--   @InstrumentId   UNIQUEIDENTIFIER (NULL) — ödeme aracı kimliği (çek/senet Id)
+--   @UserId         UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
+--   @NewTxId        UNIQUEIDENTIFIER OUTPUT — oluşturulan FinancialTransaction kimliği
+-- SIDE EFFECTS: FinancialTransaction (INSERT); AccountMovement (INSERT — Debit veya Credit);
+--   PaymentPlan (dolaylı — AutoClosePayments=1 ise sp_AutoClosePayments üzerinden)
+-- THROW: sp_GuardPeriodOpen hataları (dönem kilitli ise)
+-- BAĞIMLILIK: sp_GuardPeriodOpen (dönem kilidi), sp_AutoClosePayments (koşullu),
+--   Partner (AutoClosePayments bayrağı)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_RecordPaymentAndAutoClose
     @CompanyId    UNIQUEIDENTIFIER,
@@ -1895,10 +2109,19 @@ WHERE c.IsDeleted = 0;
 GO
 
 -- =============================================================================
--- M18 MASRAF FATURASI: sp_ExpenseInvoicePost (Plan 16)
--- DRAFT → POSTED + cari hesap defterine Credit kaydı (biz cariye borçlandık)
--- Architecture §4: atomik onay SP zorunlu — C# ham UPDATE yasak.
--- THROW aralığı: 70100-70199.
+-- sp_ExpenseInvoicePost — Masraf/alış faturası onaylama (DRAFT → POSTED)
+-- NE YAPAR: ExpenseInvoice belgesini POSTED yapar ve her fatura satırı için
+--   AccountMovement'a satır bazlı Credit kaydı yazar (biz cariye borçlandık).
+--   CostCenterId ve ExpenseTypeId ile gider merkezi/tipi bazlı raporlamaya destek verir.
+-- PARAMETRELERİ:
+--   @InvoiceId  UNIQUEIDENTIFIER — onaylanacak masraf faturası kimliği
+--   @CompanyId  UNIQUEIDENTIFIER — şirket kimliği
+--   @UserId     NVARCHAR(450) — işlemi yapan kullanıcı kimliği (string)
+-- SIDE EFFECTS: ExpenseInvoice (UPDATE — Status=POSTED);
+--   AccountMovement (INSERT — Credit, satır sayısı kadar; SourceDocId=Line.Id)
+-- THROW: 70100 — fatura bulunamadı; 70101 — zaten onaylı; 70102 — iptal edilmiş;
+--   70103 — tedarikçi bilgisi eksik; sp_GuardPeriodOpen hataları
+-- BAĞIMLILIK: sp_GuardPeriodOpen (dönem kilidi), ExpenseInvoiceLine
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ExpenseInvoicePost
     @InvoiceId  UNIQUEIDENTIFIER,

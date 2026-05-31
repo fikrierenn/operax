@@ -38,6 +38,11 @@ Kapsam: Her değişiklikte uygulanacak defansif ilkeler. `paths:` yok — compac
    - PageModel'de `ICurrentCompany.Id` kullan
    - SP girişlerinde `@CompanyId` parametre zorunlu
    - Multi-company test ortamında veri sızıntısı engellenir
+   - **Statik guard (plan 12):** `operax-cli scan-isolation` — Features/ altındaki ham Dapper
+     sorgularını tarar, company-kapsamlı tabloya `CompanyId` predikatsız dokunan sorguyu raporlar.
+     Yeni PageModel/servis yazınca çalıştır. Defense-in-depth güvenli (parent header aynı handler'da
+     CompanyId ile doğrulanmış) sorgular `/* isolation-guard:ignore: <gerekçe> */` ile bastırılır.
+     Tablo envanteri + bastırma kuralı: `src/Operax.Cli/IsolationScanner.cs`.
 
 9. **Password hashing:** ASP.NET Core Identity default (PBKDF2). Custom hash yazma.
 

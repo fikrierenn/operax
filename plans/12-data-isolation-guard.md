@@ -29,10 +29,11 @@ Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `
 **5 lens:** 🔴 False-positive (join üzerinden filtre) → whitelist + yorum-pragma ile bastırma. 🔵 Gerçek ihtiyaç: "hiçbir sorgu CompanyId'siz olmasın". 🟢 Aynı tarama IDOR/yetki testine genişler. ⚪ "Neden runtime değil?" → maliyet; statik %80'i yakalar. 🟡 grep + xunit test = yarım gün.
 
 ## 4. Done
-- [ ] Company-kapsamlı tablo listesi tanımlı
-- [ ] Tarama testi: CompanyId'siz company-tablo sorgusu → fail
-- [ ] Mevcut ihlaller raporlandı + düzeltildi (varsa)
-- [ ] `.claude/rules` kuralı + sprint-kapanış şartı
+- [x] Company-kapsamlı tablo listesi tanımlı — 52 doğrudan + 27 dolaylı + 11 global (IsolationScanner.cs, 2026-05-31)
+- [x] Tarama testi: CompanyId'siz company-tablo sorgusu → fail — `operax-cli scan-isolation` (exit 1)
+- [x] Mevcut ihlaller raporlandı + düzeltildi — 55 aday → 2 gerçek fix + 35 suppress (defense-in-depth) + 20 kalan (Features/Production kırık StockMovement INSERT'leri, ayrı işe alındı)
+- [x] `.claude/rules` kuralı — security-principles.md §8'e guard pointer eklendi
+- [ ] Sprint-kapanış şartı: production StockMovement düzeltilince guard 0'a inmeli + blocking hook'a bağlanmalı (pre-commit/session-start)
 
 ## 5. Adımlar
 1. [ ] Company-kapsamlı vs firma-bağımsız tablo envanteri (Meta sözlüğü — Plan 15 ile sinerji)
@@ -41,7 +42,7 @@ Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `
 4. [ ] Kural + hook
 
 ## 6. Onay
-- [ ] Gösterildi · [ ] Onay: <tarih>
+- [x] Gösterildi · [x] Onay: 2026-05-29 · Uygulandı: 2026-05-31 (commit 1051e87 guard, 9324c5d+f731136 fix/suppress)
 
 > ⚠️ **BAĞIMLILIK (K10):** İzolasyon güvenliği **plan 13 §3'e bağlı** (Model 3, rol-aware + erişim kontrollü
 > switch-company). Bu plan "claim neyse onu süz" der; plan 13 §3 "claim'i ancak hak ettiğin firmaya çevirebilirsin"

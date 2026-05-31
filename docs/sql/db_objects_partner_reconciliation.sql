@@ -140,6 +140,7 @@ BEGIN
     SET NOCOUNT ON;
 
     -- En son onaylanmış mutabakatın kesim tarihi
+    -- Yalnızca CONFIRMED + EXPIRED_CONFIRMED kilitler; DISPUTED/SENT bakiye kesinleşmemiş → serbest
     DECLARE @lockedThru DATETIME2;
     SELECT @lockedThru = MAX(StatementDate)
     FROM PartnerReconciliationLog
@@ -149,8 +150,9 @@ BEGIN
     IF @lockedThru IS NULL
         RETURN;  -- Onaylı mutabakat yok: serbest
 
-    -- İş kuralı: mutabakat kesim tarihinden öncesine geriye kayıt girilemez
-    IF @MovementDate <= @lockedThru
+    -- İş kuralı: mutabakat kesim günü DAHİL kapalı (snapshot SUM(<=StatementDate) ile tutarlı).
+    -- SARGable: fonksiyon WHERE'de değil; kesim gününün ertesini sınır al.
+    IF @MovementDate < DATEADD(DAY, 1, @lockedThru)
         THROW 51620, N'Cari mutabakatı yapılmış döneme kayıt girilemez; sonraki açık tarihe işleyin.', 1;
 END
 GO

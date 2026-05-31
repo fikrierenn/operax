@@ -97,6 +97,46 @@ Tablo DROP, SP'ler önceki sürüm, Partner tab kaldır.
 - ⚪ **Outsider:** "Mutabakat var ama gönderim yok" — manuel statü ilk sürümde yeterli.
 - 🟡 **Executor:** Plan 18 bitsin, sonra tablo + 2 SP + tab.
 
+## 8.b Faz 4 Enjeksiyon Planı (sp_GuardPartnerReconciled hangi SP'lere)
+
+8 SP partner+AM yazıyor → guard enjekte. Her birinde `@PartnerId` guard'dan ÖNCE set olmalı,
+`@MovementDate` = AM kaydının MovementDate'i (çoğu @now). Enjeksiyon noktası: `sp_GuardPeriodOpen`
+yanında veya `@PartnerId` kesinleştikten sonra.
+
+| SP | Dosya | @PartnerId kaynağı | Guard noktası | Tarih |
+|---|---|---|---|---|
+| sp_ExpenseInvoicePost | starter | SELECT (NULL-check sonrası) | NULL-check sonrası | @now |
+| sp_RecordPaymentAndAutoClose | starter | parametre | sp_GuardPeriodOpen yanı | @txNow |
+| sp_GenerateSalesInvoiceFromShipping | starter | shipping/SO'dan geç set | @PartnerId NULL-check sonrası | @now |
+| sp_CollectCheque | starter | SELECT | SELECT sonrası | @Now |
+| sp_CollectNote | starter | SELECT | SELECT sonrası | @Now |
+| sp_SalesInvoiceReverse | reversal | SELECT | mevcut guard'lar yanı | @now |
+| sp_ExpenseInvoiceReverse | reversal | SELECT | mevcut guard'lar yanı | @now |
+| sp_PaymentReverse | reversal | SELECT | mevcut guard'lar yanı | @now |
+
+**Dikkat:** sp_GenerateSalesInvoiceFromShipping'de @PartnerId boşsa SO'dan türetiliyor →
+guard MUTLAKA o türetmeden sonra. sp_CollectCheque/Note'ta SELECT @Company't değişti (IDOR fix),
+@PartnerId aynı SELECT'te. Reversal'larda reconciliation guard'ı zaten var, yanına mutabakat guard'ı.
+
+## 8.c Skill Doğrulama Notları (2026-06-01)
+
+**mali-evrak-mevzuat (VUK/TTK):**
+- ⚠️ **Kilit dayanağı TTK md.94 DEĞİL** — md.94 (cari hesap sözleşmesi) yazılı sözleşme ister; tipik
+  müşteri/tedarikçi carisi md.94 sayılmaz. Kilit dayanağı: **TTK md.65 (defter immutability) + iç-kontrol**;
+  md.94 yalnızca karine zemini (çürütülebilir, md.94/2 hata/hile itirazı + md.97 1 yıl).
+- **Override ZORUNLU** (md.219 geç gelen belge kayıt nizamı) — override'sız mutlak kilit VUK'a aykırı.
+  Tercih: cari döneme düzeltme; geriye-tarih sadece zorunluysa override + PeriodOverrideLog.
+- **DISPUTED kilit YOK** — filtre `Status IN ('CONFIRMED','EXPIRED_CONFIRMED')` ✅ (kodda var).
+- **StatementDate DAHİL** (`< DATEADD(DAY,1,...)` SARGable) — snapshot operatörüyle birebir ✅.
+- **EXPIRED_CONFIRMED kanal kısıtı:** Hangfire sessiz-onay sadece KEP/NOTER/iadeli; EMAIL/POST manuel CONFIRMED bekler.
+- **DOĞRULANMADI (YMM):** sessiz onay = açık onay eşit bağlayıcılık; Operax carisi md.94 sayılır mı.
+
+**reference-researcher (Mikro/ERPNext/Odoo):**
+- Partner-bazlı mutabakat kilidi endüstride YOK (hepsi tarih-bazlı global) — Operax daha granüler, TTK gerekçeli.
+- Override deseni ERPNext frozen_accounts_modifier + Odoo exception ile uyumlu → PeriodOverrideLog doğru.
+- **KALAN:** (a) sp_GuardPartnerReconciled override yolu (sp_GuardPeriodOpen ile simetrik @ReasonCategory/@ReasonText);
+  (b) AccountMovement AFTER INSERT trigger emniyet ağı (SP atlanırsa). İkisi ayrı backlog.
+
 ## 9. İlişkili
 - `plans/14-ledger-pk-immutability.md` — guard kanca mimarisi; bu plan 3. kilit ailesini (PARTNER) tamamlar
 - `docs/sql/schema_M11_LedgerIntegrity.sql` — PeriodOverrideLog.LockType='PARTNER_RECONCILED' (iz hazır), sp_GuardStockFrozen kanca deseni

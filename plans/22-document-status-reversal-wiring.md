@@ -20,11 +20,11 @@
 - **SO:** veri `APPROVED` (156), `tvf_OpenSalesOrders` `APPROVED` arıyor → tutarlı ama PO ile asimetrik.
 - Karar gerek: tek sözlük (POSTED) mü, çift (PO/SO farklı) mı?
 
-### P3 — StatusTransition seed eksik + duplike
-- **POSTED→CANCELLED geçişi HİÇ YOK** → cancel/reversal SP `sp_ValidateStatusTransition` çağırırsa THROW.
-- Tüm geçişler **çift kayıt** (idempotent değil seed).
-- SALES_ORDER transition `DRAFT→POSTED` ama veri APPROVED.
-- DocumentType `SHIPMENT` (transition) vs StockMovement SourceDocType `SHIPPING` — isim ikiliği.
+### P3 — StatusTransition seed (DÜZELTİLDİ — denetim varsayımı yanlıştı)
+- ⚠️ **Denetim "POSTED→CANCELLED yok → reversal THROW" dedi ama YANLIŞ:** reversal SP'leri
+  `sp_ValidateStatusTransition` **ÇAĞIRMIYOR** (0 kez); kendi inline guard'ı var
+  (`IF @Status <> 'POSTED' THROW` + `IF @Status = 'CANCELLED' THROW`). → **Faz B gereksiz, DÜŞÜRÜLDÜ.**
+- Kalan (düşük öncelik, P3): duplike seed temizlik + SHIPMENT/SHIPPING isim ikiliği — kozmetik, ertelendi.
 
 ### P4 — Cari defter eksik besleme (ayrı ama ilişkili)
 - `sp_PayLoanInstallment` + `sp_CloseStatement` → AccountMovement yazmıyor.
@@ -75,8 +75,8 @@
 tvf/vw CREATE OR ALTER önceki; SO migration ters UPDATE; transition seed DELETE+eski; UI handler sök; SP eski sürüm.
 
 ## 7. Adımlar
-- [ ] **Faz A:** tvf/vw OpenPO POSTED + SO migration + tvf — smoke dropdown
-- [ ] **Faz B:** StatusTransition idempotent seed + POSTED→CANCELLED + SHIPMENT/SHIPPING hizala
+- [x] **Faz A:** tvf/vw OpenPO/SO POSTED IN(POSTED,APPROVED) — PO dropdown 2→207 `a161f68`
+- [~] **Faz B:** DÜŞÜRÜLDÜ — reversal SP ValidateStatusTransition çağırmıyor, inline guard yeterli
 - [ ] **Faz C1:** Shipping/Transfer/CycleCount/Production reversal UI (4 WMS)
 - [ ] **Faz C2:** SalesInvoice/Expense/Payment reversal UI (3 finans/fatura)
 - [ ] **Faz D:** Cari besleme fix (loan/card AM + card CompanyId)

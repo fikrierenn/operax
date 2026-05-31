@@ -12,6 +12,22 @@ Operax'taki tüm evrak modülleri (PO / Receiving / SO / Shipping / ExpenseInvoi
 
 ---
 
+## 1.b Ledger Immutability + Dönem Kilidi (Plan 14)
+
+Ledger tabloları (`StockMovement`, `AccountMovement`, `FinancialTransaction`) **append-only**'dir:
+
+- **Silme YOK, düzeltme = ters kayıt (reversal/contra-entry).** `AccountMovement` için düzeltme `SourceDocType='REVERSAL'` ters satır; `StockMovement` cancel → ters hareket + `IsCancelled=1`. Bakiye = `SUM(Borc-Alacak)` / `SUM(QtyBase)` — silinen satır kavramı yoktur. (`AccountMovement.IsDeleted` kaldırılıyor — vestigial.)
+- **Dönem kilidi (ZAMAN bazlı):** `AccountingPeriod(CompanyId, Year, Month, Status)` — `OPEN/CLOSED/LOCKED`. Her ledger hareket/onay SP'sinin ilk satırı `sp_GuardPeriodOpen(@CompanyId, @MovementDate, @UserId, ...)`:
+  - **OPEN** (veya dönem kaydı yok) → serbest, iz yok.
+  - **CLOSED** → yalnızca dar yetki (`UserCompany.Role IN Administrator/Finance`) + zorunlu gerekçe (kategori + metin) ile aşılır → `PeriodOverrideLog`'a **atomik** iz; aksi `THROW`.
+  - **LOCKED** (e-Defter berat) → **koşulsuz `THROW`**, istisna yok. Tek çözüm: sonraki açık döneme düzeltme kaydı.
+- **`PeriodOverrideLog` SİLİNMEZ** — kim, hangi kilit, hangi tarih (giriş ≠ hareket tarihi ayrı), zorunlu gerekçe kategorisi. **Görevler ayrılığı:** `OverriddenBy ≠ ApprovedBy` (kendi override'ını onaylayamaz).
+- **Kilit aileleri ayrı:** ZAMAN → `AccountingPeriod` (bu plan) · stok SATIRI → sayım freeze (M08) · partner+tarih → cari mutabakat (M11 sonra). Ortak nokta yalnızca guard zinciri + `PeriodOverrideLog.LockType` izi.
+
+Mekanizma: `docs/sql/schema_M11_LedgerIntegrity.sql` · ADR: `docs/ADR/01-ledger-clustered-key.md`.
+
+---
+
 ## 2. Modül Zincirleri
 
 ### 2.1 Satınalma Zinciri

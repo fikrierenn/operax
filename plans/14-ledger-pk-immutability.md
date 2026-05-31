@@ -57,17 +57,18 @@
 **5 lens:** 🔴 PK değişimi mevcut FK/sorguları etkiler → GUID'i nonclustered koruyarak kır. 🔵 Gerçek ihtiyaç: sıralı insert + immutable defter. 🟢 Aynı strateji tüm büyüyen tablolara (AuditLog vb.). ⚪ "GUID neden vardı?" → dağıtık üretim/merge; tek-DB'de gerek yok ama dış ref için tut. 🟡 ADR + yeni tablolarda uygula (mevcut migrate dikkatli).
 
 ## 4. Done
-- [ ] **ÖN KOŞUL:** `sys.indexes` ile StockMovement/AccountMovement PK'sı clustered+NEWID teyit edildi + `IX_StockMovement_*` basılı doğrulandı
-- [ ] ADR yazıldı (`docs/ADR/NN-ledger-clustered-key.md`)
-- [ ] AccountMovement IsDeleted kaldırıldı + REVERSAL ile düzeltme akışı netleşti
-- [ ] StockMovement cancel → ters hareket + IsCancelled=1 (`sp_*Reverse`)
-- [ ] **K4:** AccountingPeriod (firma bazlı) + sp_GuardPeriodOpen + period trigger + OPEN/CLOSED/LOCKED statü makinesi (mekanizma; UI/otomasyon YOK)
-- [ ] **K5 kancası:** `sp_GuardStockFrozen` no-op kanca açıldı (gerçek gövde M08/S7'de — sayım freeze SATIR bazlı, bu plan ZAMAN bazlı)
-- [ ] **K8:** `PeriodOverrideLog` tablosu (silinmez; kategori+gerekçe zorunlu; CreatedAt≠MovementDate ayrı)
-- [ ] **K8:** sp_GuardPeriodOpen statü davranışı — OPEN serbest / CLOSED yetki+gerekçe→atomik log / LOCKED koşulsuz throw
-- [ ] **K8:** override dar rol + self-approval engeli (OverriddenBy ≠ ApprovedBy) — görevler ayrılığı
-- [ ] **K8:** Dönem İstisna Raporu view'a hazır veri modeli (ekran YOK)
-- [ ] document-immutability.md ledger reversal + dönem kilidi kuralıyla güncellendi
+- [x] **ÖN KOŞUL:** `sys.indexes` ile StockMovement/AccountMovement/FinTx PK'sı **CLUSTERED+random GUID** teyit edildi + `IX_StockMovement_*` / `IX_AccountMovement_Partner_Date` / `UX_AccountMovement_Source` basılı doğrulandı (canlı VT, 2026-05-31)
+- [x] ADR yazıldı (`docs/ADR/01-ledger-clustered-key.md`) — karar: BIGINT IDENTITY clustered + GUID nonclustered
+- [ ] AccountMovement IsDeleted kaldırıldı + REVERSAL ile düzeltme akışı netleşti — **KALAN** (2 filtreli index rebuild gerek; referans yok, contained)
+- [ ] StockMovement cancel → ters hareket + IsCancelled=1 (`sp_*Reverse`) — **KALAN**
+- [x] **K4:** AccountingPeriod (firma bazlı) + sp_GuardPeriodOpen + OPEN/CLOSED/LOCKED statü makinesi — canlı DB'de 5 senaryo doğrulandı · **KALAN: period trigger (emniyet ağı, SESSION_CONTEXT ile override uyumu)**
+- [x] **K5 kancası:** `sp_GuardStockFrozen` no-op kanca açıldı (imza sabit; gövde M08/S7)
+- [x] **K8:** `PeriodOverrideLog` tablosu (silinmez, ADR-01 BIGINT clustered; kategori+gerekçe CHECK; CreatedAt≠MovementDate ayrı)
+- [x] **K8:** sp_GuardPeriodOpen statü davranışı — OPEN serbest / CLOSED yetki+gerekçe→atomik log / LOCKED koşulsuz throw
+- [x] **K8:** override dar rol (UserCompany.Role Admin/Finance) + self-approval engeli (CHECK OverriddenBy≠ApprovedBy)
+- [x] **K8:** Dönem İstisna Raporu view'a hazır veri modeli (`IX_PeriodOverrideLog_Report`; ekran YOK)
+- [x] document-immutability.md §1.b ledger reversal + dönem kilidi kuralıyla güncellendi
+- [ ] **KALAN:** onay SP'lerine (Receiving/Shipping/Transfer/CycleCount/ProductionFinish) `sp_GuardPeriodOpen` ilk-satır enjeksiyonu (movement date kaynağı + trigger çakışması dikkat)
 
 ## 5. Adımlar
 1. [ ] **ÖN KOŞUL:** clustered PK + index gerçeğini sys.indexes ile teyit
@@ -80,6 +81,6 @@
 8. [ ] (Faz 2) mevcut tablolarda clustered key migrate (büyük — ayrı)
 
 ## 6. Onay
-- [ ] Gösterildi · [ ] ADR onayı · [ ] K4 kapsam onayı · [ ] Onay: <tarih>
+- [x] ADR onayı: BIGINT IDENTITY clustered (2026-05-31) · [x] K4 kapsam onayı: immutability+dönem mekanizması (2026-05-31) · Uygulama: 2026-05-31 (mekanizma çekirdeği — entegrasyon kısmen kaldı)
 
 > İlişkili: AR-004, AR-005, KARAR K4 (REFERENCE_STUDY.md §7), document-immutability.md, schema_M11_AccountMovement.sql, schema_all.sql (StockMovement), plan 16 (cari besleme — dönem guard'ı tüketir)

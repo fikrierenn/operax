@@ -149,6 +149,14 @@ class Program
                         "ORDER BY tp.name, fk.name");
                     break;
 
+                case "scan-isolation":
+                    // Plan 12: company-kapsamlı tablolara CompanyId'siz dokunan Dapper sorgularını tara
+                    var featuresDir = FindDir("src/Operax.Web/Features");
+                    if (featuresDir == null) { Console.WriteLine("Hata: Features klasörü bulunamadı."); Environment.Exit(1); return; }
+                    var exitCode = IsolationScanner.Report(featuresDir);
+                    Environment.Exit(exitCode);
+                    break;
+
                 default:
                     Console.WriteLine($"Bilinmeyen komut: {command}");
                     ShowHelp();
@@ -176,6 +184,7 @@ class Program
         Console.WriteLine("  operax-cli list-tables          -> Tablolari listele");
         Console.WriteLine("  operax-cli tables-empty         -> Tablo satir sayilarini goster");
         Console.WriteLine("  operax-cli check-fk             -> Foreign key listesi");
+        Console.WriteLine("  operax-cli scan-isolation       -> CompanyId'siz company-tablo sorgularini tarar (plan 12)");
         Console.WriteLine("\nBaglanti:");
         Console.WriteLine("  Env: OPERAX_CONN");
         Console.WriteLine("  appsettings.json > ConnectionStrings:Default");

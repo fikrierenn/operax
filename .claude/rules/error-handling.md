@@ -64,9 +64,9 @@ public async Task<IActionResult> OnPostAsync(PoCreateDto dto)
 ## Exception Handling (gerçek arızalar)
 
 ```csharp
-catch (SqlException sex)
+catch (SqlException sqlEx)
 {
-    _logger.LogError(sex, "DB error: {Op}", "PoCreate");
+    _logger.LogError(sqlEx, "DB error: {Op}", "PoCreate");
     return BadRequest("Veritabanı işleminde hata oluştu.");
 }
 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -98,16 +98,16 @@ try
     await conn.ExecuteAsync("sp_ReceivingPost", new { HeaderId = id, UserId = userId },
         commandType: CommandType.StoredProcedure);
 }
-catch (SqlException sex) when (sex.Number >= 50000 && sex.Number < 60000)
+catch (SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
 {
     // İş kuralı hatası — kullanıcıya gösterilebilir (SP Türkçe yazdı)
-    TempData["Error"] = sex.Message;
+    TempData["Error"] = sqlEx.Message;
     return RedirectToPage();
 }
-catch (SqlException sex)
+catch (SqlException sqlEx)
 {
     // Sistem hatası — log'a, generic mesaj
-    _logger.LogError(sex, "ReceivingPost SQL error");
+    _logger.LogError(sqlEx, "ReceivingPost SQL error");
     TempData["Error"] = "Veritabanı hatası.";
     return RedirectToPage();
 }

@@ -45,9 +45,9 @@ await conn.ExecuteAsync("sp_ReceivingPost",
 
 - **Spesifik exception önce, generic en son:**
   ```csharp
-  catch (SqlException sex)
+  catch (SqlException sqlEx)
   {
-      _logger.LogError(sex, "DB hatası: {Op}", "ReceivingPost");
+      _logger.LogError(sqlEx, "DB hatası: {Op}", "ReceivingPost");
       return BadRequest("Veritabanı hatası oluştu.");
   }
   catch (Exception ex)
@@ -105,6 +105,7 @@ await conn.ExecuteAsync(@"
 - **_underscorePrefix:** private readonly field (legacy — primary ctor'da kaldırılır)
 - **Interface:** `I` prefix (`ICurrentCompany`)
 - **Async method:** `Async` suffix
+- **Yanlış anlam çıkaran kısaltma YASAK:** Değişken/kısaltma adı argo veya farklı bir İngilizce kelimeye dönüşmemeli. `SqlException` → **`sqlEx`** (asla `sex`). Net olmayan kısaltma yerine açık ad: `ex`, `sqlEx`, `httpEx`.
 
 ## Modern C# 13 / .NET 10
 

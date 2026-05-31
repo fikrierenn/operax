@@ -1,141 +1,151 @@
-# Plan 17 — Production Güvenlik Sertleştirmesi (Güvenlik Duvarı, Rate Limiter ve Rol Tabanlı Yetkilendirme)
+# Plan 17 — Production Güvenlik Sertleştirmesi (Rate Limiter, Security Headers, DB-Driven RBAC)
 
-**Tarih:** 2026-05-30 · **Durum:** `Onay Bekliyor` · **Modül:** M00 (Güvenlik) · **Kaynak:** F0.2 (🔴 KRİTİK)
+**Tarih:** 2026-05-30 · **Revize:** 2026-05-31 (RBAC modeli DB-driven'a çevrildi) · **Durum:** `Onay Bekliyor` · **Modül:** M00 (Güvenlik) · **Kaynak:** F0.2 (🔴 KRİTİK)
 
 ---
 
 ## 1. Problem
-Operax internet ortamında herkese açık bir şekilde yayına alınmaya hazırlanıyor. Mevcut durumda uygulamada kimlik doğrulama bulunmasına karşın, internet üzerindeki saldırılara (brute-force, DDoS, clickjacking, XSS, yetkisiz modül erişimleri vb.) karşı yeterli koruma mekanizmaları mevcut değildir:
-1. **Brute-Force & DDoS:** `/Auth/Login` ve `/api/switch-company` gibi kritik uçlarda istek sınırlaması (Rate Limiting) bulunmamaktadır. IP engelleme veya brute-force koruması yoktur.
-2. **Eksik Güvenlik Header'ları:** Tarayıcı güvenliğini (CSP, Clickjacking, MIME-sniffing, vb.) yöneten hiçbir HTTP security header response'larda yer almamaktadır.
-3. **Rol ve Erişim Yönetimi:** 28 adet ERP/WMS modülü bulunmasına rağmen rol tabanlı yetkilendirme (`[Authorize(Roles = ...)]`) aktif değildir; sisteme giriş yapan her kullanıcı tüm modüllere tam yetkiyle erişebilmektedir.
-4. **Güvenlik Loglaması Eksikliği:** Olası saldırıları izlemek ve analiz etmek için yapılandırılmış (structured) IP/UserAgent loglama altyapısı bulunmamaktadır.
+Operax internet ortamında herkese açık yayına alınacak. Mevcut korumalar yetersiz:
+1. **Brute-Force & DDoS:** `/Auth/Login` ve `/api/switch-company` uçlarında istek sınırı (Rate Limiting) yok.
+2. **Eksik Security Header'ları:** CSP, Clickjacking, MIME-sniffing korumaları response'larda yok.
+3. **Rol/Erişim Yönetimi:** Roller `AspNetRoles`'ta dinamik (Admin/Roles UI ile yönetiliyor) **ama hangi rolün hangi modüle eriştiği eşleştirmesi yok** → giriş yapan her kullanıcı tüm modüllere erişiyor.
+4. **Güvenlik Loglaması:** Yapılandırılmış IP/UserAgent loglama altyapısı yok.
 
 ---
 
 ## 2. Scope
 ### Dahili
-- **Rate Limiting:** ASP.NET Core yerleşik `Microsoft.AspNetCore.RateLimiting` ile global, login uçlu ve şirket değiştirme uçlu kısıtlama.
-- **Security Headers:** `NetEscapades.AspNetCore.SecurityHeaders` paketi entegre edilerek OWASP uyumlu CSP, HSTS, X-Frame-Options, X-Content-Type-Options vb. uygulanması.
-- **Rol Tabanlı Yetkilendirme (RBAC):** `Roles.cs` sabit sınıfının tanımlanması, 7 temel rolün `SeedData.cs` ile oluşturulması ve 28 modülün Details/Index sayfalarına uygulanması.
-- **Admin Panel Koruması:** Hangfire dashboard ve `/Admin` klasörü erişiminin sadece `Administrator` rolü ile sınırlandırılması.
-- **TLS & HTTPS Sertleştirmesi:** Cookie secure politikalarının `Always` yapılması ve HTTPS yönlendirmesinin zorunlu kılınması.
-- **Yapılandırılmış Loglama:** Serilog + `Serilog.Enrichers.ClientInfo` entegrasyonu ile IP/UserAgent parametrelerinin otomatik loglanması.
+- **Rate Limiting:** ASP.NET Core yerleşik `Microsoft.AspNetCore.RateLimiting` (login 10/dk-IP, switch-company 10/dk-kullanıcı, global 200/dk-IP).
+- **Security Headers:** `NetEscapades.AspNetCore.SecurityHeaders` ile CSP/HSTS/XFO/nosniff/Referrer/Permissions.
+- **DB-Driven RBAC:** Yeni `RoleModuleAccess` tablosu (RoleId ↔ ModuleKey ↔ AccessLevel). Roller + eşleştirme **tam dinamik, admin-yönetimli**. Yetki DB'den okunur; kodda sadece ekran→modül (klasör) yapısal eşlemesi ve thin policy sarmalayıcı bulunur.
+- **7 Şablon Rol:** Administrator + WarehouseManager/Finance/Purchasing/Sales/Manufacturing/Viewer seed edilir (silinebilir/değiştirilebilir şablon).
+- **Admin/Roles UI Genişletmesi:** Rol başına modül izin grid'i (VIEW/EDIT) — `RoleModuleAccess`'i yönetir.
+- **Admin Panel Koruması:** Hangfire dashboard + `/Admin` sadece `Administrator`.
+- **TLS & HTTPS:** Cookie `SecurePolicy` ortam-koşullu (prod=Always, dev=SameAsRequest → lokal http bozulmaz), HSTS prod 1 yıl.
+- **Serilog:** `Serilog.AspNetCore` + `Enrichers.ClientInfo` ile IP/UserAgent dosya loglama.
 
 ### Dışı
-- **OAuth / 2FA Entegrasyonu:** (İlerideki fazlarda değerlendirilecek).
-- **IP Co-location / Geo-blocking:** Uygulama seviyesinde değil, Cloudflare (Edge) seviyesinde yönetilecektir.
+- OAuth/2FA, Geo-blocking (Cloudflare Edge), CompanyId-scoped rol (single-tenant → roller global).
 
 ---
 
 ## 3. Alternatifler & Kararlar
 
-### A. Rate Limiting Tercihi
-*   **Alternatif A.1 (AspNetCoreRateLimit NuGet):** Eskiden yaygındı ancak şu an maintenance modundadır ve .NET 7/8/9 uyumluluğu düşüktür.
-*   **Alternatif A.2 (Yerleşik Microsoft.AspNetCore.RateLimiting - Seçilen):** Microsoft'un .NET 7 ile getirdiği yerleşik çözümdür. Pipeline üzerinde çok daha hızlı çalışır, harici paket bağımlılığı yaratmaz ve modern C# algoritmalarını (Fixed/Sliding Window, Token Bucket, Concurrency) destekler.
+### A. Rate Limiting → **Yerleşik Microsoft.AspNetCore.RateLimiting** (seçilen)
+Harici paket yok, pipeline'da hızlı, modern algoritmalar (FixedWindow). AspNetCoreRateLimit maintenance modunda → red.
 
-### B. Security Headers Tercihi
-*   **Alternatif B.1 (NWebsec NuGet):** 2020'den beri güncellenmemiştir, modern .NET sürümleriyle uyumsuzdur.
-*   **Alternatif B.2 (NetEscapades.AspNetCore.SecurityHeaders - Seçilen):** Andrew Lock tarafından geliştirilen, .NET 9 uyumlu ve aktif olarak bakımı yapılan en popüler güvenlik headers middleware'idir. CSP konfigürasyonunu fluent API ile yapmayı son derece kolaylaştırır.
+### B. Security Headers → **NetEscapades.AspNetCore.SecurityHeaders** (seçilen)
+Andrew Lock, aktif bakım, fluent CSP. NWebsec güncellenmiyor → red. (Custom middleware de mümkündü; Serilog zaten paket eklediğinden olgun kütüphane tercih edildi.)
 
-### C. WAF & Bot Koruması Tercihi
-*   **Alternatif C.1 (Özel IP Blacklist Middleware):** Sunucu üzerinde IP kontrolü yapmak hem maliyetlidir hem de DDoS karşısında sunucu kaynaklarını tüketir.
-*   **Alternatif C.2 (Cloudflare Edge Integration - Seçilen):** Sunucunun önüne ücretsiz/pro Cloudflare WAF kurulması. L3/L4/L7 DDoS koruması sağlar, şüpheli istekleri ve bilinen botları sunucuya ulaşmadan bloklar. Sunucu kaynaklarını korur.
+### C. **RBAC Modeli → DB-Driven RoleModuleAccess tablosu** (seçilen — 2026-05-31 kullanıcı kararı)
+- **C.1 (red — Hardcoded `[Authorize(Roles="...")]` + static policy):** Plan'ın ilk hali. Admin yeni rol eklediğinde yetki haritası kodda kalır, dinamik değil. **Mevcut Admin/Roles dinamik UI ile çelişir → RED.**
+- **C.2 (red — AspNetRoleClaims):** `DapperRoleStore` `IRoleClaimStore` implement etmiyor → Identity store cerrahisi gerekir. Fazla plumbing → RED.
+- **C.3 (SEÇİLEN — RoleModuleAccess tablosu):** Yeni tablo + custom `AuthorizationHandler`. Roller (`AspNetRoles`) ve eşleştirme (`RoleModuleAccess`) %100 DB'de, admin-yönetimli. Identity store'a dokunmaz, SQL-first + Dapper'a uyar. Kodda sadece ekran→modül-anahtarı (klasör adı) yapısal eşlemesi kalır — bu rol değil, ekranın hangi işlevsel alana ait olduğu gerçeğidir.
 
----
-
-## 4. Done Criteria (DoD)
-- [ ] `NetEscapades.AspNetCore.SecurityHeaders` ve `Serilog.AspNetCore` paketleri kuruldu.
-- [ ] `/Auth/Login` post istekleri IP başına dakikada 10 istek ile sınırlandırıldı (429 Too Many Requests).
-- [ ] Global rate limiter ile IP başına dakikada maksimum 200 istek limiti uygulandı.
-- [ ] Clickjacking, MIME-sniffing ve XSS koruma header'ları response'lara başarıyla yansıtıldı.
-- [ ] Content Security Policy (CSP) tanımlandı (Google Fonts ve Tailwind CDN whitelist'lendi).
-- [ ] `Roles.cs` tanımlandı ve 7 rol (Administrator, WarehouseManager, Finance, Purchasing, Sales, Manufacturing, Viewer) veritabanına seed edildi.
-- [ ] 28 modülün tamamında rol bazlı yetkilendirme (`[Authorize(Roles = ...)]`) test edildi ve doğrulandı.
-- [ ] Hangfire panel ve `/Admin` klasörü sadece `Administrator` rolüne kapatıldı.
-- [ ] Serilog yapılandırılarak `logs/operax-*.log` dosyasına IP ve UserAgent bilgileriyle log basılması sağlandı.
-- [ ] `dotnet build` başarıyla sıfır hata ile tamamlandı.
+### D. Yetki Birimi → **Üst-seviye Feature klasörü (ModuleKey)** (seçilen)
+Module kataloğu (M00–M17) lisans/aktivasyon odaklı ve folder'larla 1:1 değil (örn. Finance modülü katalogda yok). Bu yüzden yetki birimi = ekranların üst klasörü (`Receiving`, `Finance`, `SalesOrders`...). `Module`/`CompanyModule` tabloları lisanslama için olduğu gibi kalır.
 
 ---
 
-## 5. Adımlar ve Yol Haritası
+## 4. Şema — RoleModuleAccess
 
-```mermaid
-graph TD
-    A[Adım 1: NuGet Paketleri & Loglama] --> B[Adım 2: Security Headers]
-    B --> C[Adım 3: Rate Limiting & HTTPS]
-    C --> D[Adım 4: Rol Mimarisi & Seed]
-    D --> E[Adım 5: 28 Modül Yetkilendirmesi]
-    E --> F[Adım 6: Doğrulama ve Testler]
+```sql
+-- Identity-bitişik tablo (AspNetRoles gibi CompanyId taşımaz — single-tenant, roller global)
+CREATE TABLE RoleModuleAccess (
+    Id          UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    RoleId      NVARCHAR(450)    NOT NULL,            -- AspNetRoles.Id
+    ModuleKey   NVARCHAR(64)     NOT NULL,            -- üst Feature klasörü: 'Receiving','Finance',...
+    AccessLevel TINYINT          NOT NULL DEFAULT 1,  -- 1=VIEW (GET), 2=EDIT (GET+POST)
+    CreatedAt   DATETIME2        DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_RMA_Role FOREIGN KEY (RoleId) REFERENCES AspNetRoles(Id) ON DELETE CASCADE,
+    CONSTRAINT UQ_RMA_RoleModule UNIQUE (RoleId, ModuleKey)
+);
 ```
 
-### Adım 1 — Paket Kurulumları & Loglama Mimarisi (Serilog)
-*   Aşağıdaki NuGet paketlerini ekle:
-    ```bash
-    dotnet add package NetEscapades.AspNetCore.SecurityHeaders
-    dotnet add package Serilog.AspNetCore
-    dotnet add package Serilog.Enrichers.ClientInfo
-    dotnet add package Serilog.Sinks.File
-    ```
-*   `Program.cs`'e `builder.Host.UseSerilog(...)` ekle. `WithClientIp()` ve `WithClientAgent()` enricher'larını aktif et. Logları günlük rotasyonlu JSON/Text olarak dosyaya yaz.
+### Yetki Birimi (ModuleKey) Listesi — sayfa içeren klasörler
+`Admin`* · `Budget` · `CycleCount` · `Dashboard` · `Expenses` · `Finance` · `Inventory` · `LPN` · `Lot` · `Manufacturing` · `MasterData` · `Picking` · `Production` · `PurchaseOrders` · `Receiving` · `SalesInvoices` · `SalesOrders` · `Serial` · `Shipping` · `Transfer` · `Warehouses`
+(`Auth` = anonim, dokunulmaz. `Admin` = sadece Administrator, RoleModuleAccess'e tabi değil.)
 
-### Adım 2 — HTTP Security Headers Middleware Yapılandırması
-*   `Program.cs`'de `HeaderPolicyCollection` nesnesini oluştur ve `app.UseSecurityHeaders()` olarak ekle.
-*   CSP politikasını tanımla:
-    ```csharp
-    csp.AddDefaultSrc().Self();
-    csp.AddScriptSrc().Self().UnsafeInline(); // Tailwind/CDN scriptleri için
-    csp.AddStyleSrc().Self().UnsafeInline().From("https://fonts.googleapis.com");
-    csp.AddFontSrc().Self().From("https://fonts.gstatic.com");
-    ```
-
-### Adım 3 — Rate Limiting & HTTPS Sıkılaştırma
-*   `Program.cs`'de `builder.Services.AddRateLimiter(...)` çağır.
-*   `/Auth/Login` POST ucu için IP bazlı 10 req/min FixedWindow politikasını tanımla.
-*   Global limitlemeyi dakikada IP başına 200 istek olacak şekilde ekle.
-*   `CookieSecurePolicy.Always` yaparak cookie'lerin yalnızca HTTPS üzerinden taşınmasını zorunlu kıl. HSTS süresini production ortamında 1 yıl (`max-age=31536000`) yap.
-
-### Adım 4 — Rol Sabitleri ve SeedData Oluşturulması
-*   `Lib/Roles.cs` içinde static string sabitleri oluştur:
-    ```csharp
-    public static class Roles
-    {
-        public const string Administrator = "Administrator";
-        public const string WarehouseManager = "WarehouseManager";
-        public const string Finance = "Finance";
-        public const string Purchasing = "Purchasing";
-        public const string Sales = "Sales";
-        public const string Manufacturing = "Manufacturing";
-        public const string Viewer = "Viewer";
-    }
-    ```
-*   `Lib/SeedData.cs` sınıfını güncelleyerek bu 7 rolü `RoleManager` aracılığıyla veritabanında oluştur.
-
-### Adım 5 — 28 ERP/WMS Modülünde Rol Bazlı Yetkilendirme (RB-3)
-Aşağıdaki eşleştirme matrisine göre modüllerin Razor Page/Controller sınıflarını `[Authorize(Roles = ...)]` ile güncelle:
-
-| Rol | Yetkili Modüller (Klasörler / Uçlar) |
-|---|---|
-| **Administrator** | Her şey, Hangfire `/admin/jobs`, `/Features/Admin/**` |
-| **WarehouseManager** | `/Features/Warehouse/Receiving`, `Shipping`, `Transfer`, `Inventory`, `CycleCount`, `LPN`, `Lot`, `Picking` |
-| **Finance** | `/Features/Finance/Payments`, `Loans`, `CreditCards`, `Cheques`, `Accounts`, `Aging`, `PaymentPlan`, `Snapshot` |
-| **Purchasing** | `/Features/Purchasing/PurchaseOrders`, `/Features/Expenses`, `/Features/Budget` |
-| **Sales** | `/Features/Sales/SalesOrders`, `/Features/SalesInvoices`, `/Features/Incentives` |
-| **Manufacturing** | `/Features/Manufacturing/Production`, `BOM`, `WorkOrders`, `WorkCenters` |
-| **Viewer** | Dashboard salt-okunur + MasterData okuma (`/Features/MasterData/Items` [Details/Index], `/Features/MasterData/Partners` [Details/Index]) |
-
-### Adım 6 — Doğrulama ve Sızma Testi Simülasyonu
-*   Farklı rollerde test kullanıcıları oluştur.
-*   Her kullanıcının kendi yetki alanının dışına çıktığında `403 Forbidden` veya `AccessDenied` alıp almadığını kontrol et.
-*   Login sayfasına 10'dan fazla istek göndererek `429 Too Many Requests` (Rate limit) durumunu doğrula.
-*   Response header'larında `X-Frame-Options: DENY` ve `Content-Security-Policy` değerlerinin varlığını tarayıcı geliştirici araçlarından doğrula.
+### Default Şablon Rol → ModuleKey Eşleştirmesi (seed — admin değiştirebilir)
+| Rol | EDIT | VIEW |
+|---|---|---|
+| **Administrator** | (tümü — handler bypass) | — |
+| **WarehouseManager** | Receiving, Shipping, Transfer, CycleCount, LPN, Lot, Serial, Picking, Inventory, Warehouses | Dashboard, MasterData |
+| **Finance** | Finance | Dashboard, MasterData |
+| **Purchasing** | PurchaseOrders, Expenses, Budget | Dashboard, MasterData |
+| **Sales** | SalesOrders, SalesInvoices | Dashboard, MasterData |
+| **Manufacturing** | Manufacturing, Production | Dashboard, MasterData |
+| **Viewer** | — | Dashboard, MasterData |
 
 ---
 
-## 6. Onay
-*   [ ] Gösterildi · [ ] Onay: <tarih>
+## 5. Authorization Mekanizması (dinamik)
+1. `Lib/Authz/ModuleAccessRequirement.cs` — `IAuthorizationRequirement` + `ModuleKey`.
+2. `Lib/Authz/ModuleAccessHandler.cs` — handler:
+   - Administrator rolü varsa → izin (bypass).
+   - Kullanıcının rollerini al → `RoleModuleAccess`'ten ModuleKey erişimlerini oku (per-request `IMemoryCache`).
+   - GET → VIEW yeterli; POST → EDIT (AccessLevel=2) şart. Yoksa `Forbid`.
+3. `Program.cs` — bilinen ModuleKey listesi üzerinde döngü: her biri için `AddPolicy($"mod:{key}", p => p.AddRequirements(new ModuleAccessRequirement(key)))`. Sonra `AddRazorPagesOptions` → `AuthorizeFolder("/"+key, $"mod:{key}")`. Policy ince sarmalayıcı; allow/deny DB'den gelir.
+4. `Admin` + Hangfire → ayrı `AdministratorOnly` policy.
 
 ---
-> ⚠️ **UYARI (BAĞIMLILIKLAR):** 
-> 1. Rol bazlı yetkilendirmenin doğru çalışabilmesi için `SeedData.cs` çalıştırılıp veritabanına bu rollerin eklenmesi şarttır.
-> 2. `Program.cs`'de `app.UseRateLimiter()` middleware çağrısı, routing ve authentication middleware'lerinden sonra, ancak endpoint yönlendirmelerinden önce olmalıdır.
+
+## 6. Adımlar
+1. **NuGet + Serilog** — 4 paket (NetEscapades, Serilog.AspNetCore, Enrichers.ClientInfo, Sinks.File) ✅ kuruldu. `Program.cs` UseSerilog + ClientIp/Agent enricher + günlük dosya.
+2. **Security Headers** — `HeaderPolicyCollection` (CSP/XFO/nosniff/Referrer/Permissions) + `app.UseSecurityHeaders()`.
+3. **Rate Limiting + TLS** — `AddRateLimiter` (login/switch-company/global), `UseRateLimiter` (UseRouting sonrası), cookie SecurePolicy ortam-koşullu, HSTS 1yr. Login PageModel `[EnableRateLimiting("login")]` ✅, switch-company `.RequireRateLimiting`.
+4. **Şema** — `RoleModuleAccess` tablosu (`docs/sql/schema_M00.sql` veya `schema_M00_security.sql`, idempotent) + migrate.
+5. **Roller + Seed** — `Lib/Roles.cs` 7 şablon ✅, `SeedData` 7 rol ✅ + default `RoleModuleAccess` satırları seed.
+6. **Authz handler + policy** — `Lib/Authz/*`, `Program.cs` policy döngüsü + AuthorizeFolder.
+7. **Admin/Roles UI** — rol başına modül izin grid'i (VIEW/EDIT toggle) → RoleModuleAccess yönetimi.
+8. **Doğrulama** — build 0 hata; rol bazlı 403 testi; login 429 testi; header doğrulama.
+
+---
+
+## 7. Done Criteria (DoD)
+- [ ] 4 paket kuruldu (✅), Serilog `logs/operax-*.log` IP/UserAgent ile yazıyor.
+- [ ] Login 10/dk-IP → 429; global 200/dk-IP.
+- [ ] CSP/XFO/nosniff/Referrer header'ları response'ta.
+- [ ] `RoleModuleAccess` tablosu + 7 şablon rol + default eşleştirme seed edildi.
+- [ ] Authz handler: yanlış rol → 403; Viewer POST → 403 (read-only); Administrator → tüm erişim.
+- [ ] Admin/Roles UI'den rol-modül izni eklenip kaldırılabiliyor (DB'ye yansıyor, kod değişmeden).
+- [ ] Hangfire + /Admin sadece Administrator.
+- [ ] Cookie prod=Always; HSTS prod 1yr; dev http çalışıyor.
+- [ ] `dotnet build` 0 hata.
+
+---
+
+## 8. 5 Lens
+- 🔴 **Contrarian:** Per-request DB sorgusu yük mü? → `IMemoryCache` ile rol-erişim haritası cache'lenir, rol değişince invalidate.
+- 🔵 **First Principles:** "Rol kodda mı DB'de mi?" → DB; kod sadece ekran→alan yapısal eşlemesini bilir.
+- 🟢 **Expansionist:** İleride alan bazlı VIEW/EDIT/DELETE granülerliği AccessLevel ile genişler.
+- ⚪ **Outsider:** Yabancı "neden Module tablosu kullanılmıyor?" → katalog lisans odaklı + folder'larla 1:1 değil; ModuleKey=folder daha dürüst.
+- 🟡 **Executor:** Pazartesi: şema → seed → handler → UI sırası.
+
+---
+
+## 9. Onay
+*   [x] Gösterildi · [x] Onay: 2026-05-31 (kullanıcı "uygula")
+
+## 10. Uygulama Durumu (2026-05-31)
+**KOD TAMAM — build yeşil (Web 0 hata/10 uyarı [mevcut CRIT-4], CLI 0/0).**
+- ✅ 4 paket + Serilog (IP/UserAgent enrich, günlük dosya) — `WithClientAgent` yok → `WithRequestHeader("User-Agent","ClientAgent")`.
+- ✅ Security Headers (NetEscapades): XFO/nosniff/XSS/Referrer/CSP/Permissions + RemoveServer.
+- ✅ Rate Limiter: login 10/dk-IP (`[EnableRateLimiting("login")]`), switch-company 10/dk-kullanıcı (`.RequireRateLimiting`), global 200/dk-IP.
+- ✅ Cookie SecurePolicy ortam-koşullu (prod Always/dev SameAsRequest), HSTS 1yr.
+- ✅ `RoleModuleAccess` şema (`schema_M00_Security.sql`) + CLI migrate listesi.
+- ✅ `Lib/Authz/` — ModuleKeys, ModuleAccessRequirement, ModuleAccessHandler (IMemoryCache cache + GET=VIEW/POST=EDIT + Administrator bypass).
+- ✅ `Program.cs` — AddAuthorizationBuilder policy döngüsü + AuthorizeFolder (Admin=AdministratorOnly), Hangfire AdministratorOnly.
+- ✅ `Roles.cs` 7 sabit + `SeedData` 7 rol + default RoleModuleAccess seed (idempotent).
+- ✅ Admin/Roles/Permissions UI (modül × Yok/Görüntüle/Düzenle) + cache invalidate.
+
+**DB UYGULANDI + DOĞRULANDI (2026-05-31):**
+- SEC-1 fallout fix: CLI'ya `AddUserSecrets("ab29872f-...")` (Web UserSecretsId) + Json 10.0.8 bump → `operax-cli migrate` gerçek DB'ye yeniden ulaşıyor (sır sızmadan).
+- `migrate` → `schema_M00_Security.sql` ok, RoleModuleAccess tablosu (5 kolon) oluştu.
+- Web app start → 6 rol + Administrator seed, default erişim seed doğrulandı (plan §4 ile birebir): WarehouseManager 12 (10 EDIT), Finance 3, Purchasing 5, Sales 4, Manufacturing 4, Viewer 2 (0 EDIT), Administrator 0 (bypass).
+- Serilog structured log aktif, app `http://localhost:5193` boot OK.
+
+**KALAN runtime smoke (manuel, opsiyonel):** test kullanıcısı farklı rolle login → yetkisiz modül 403; Viewer POST→403; login 10+ istek → 429; response header (XFO/CSP) tarayıcı doğrulama.
+
+---
+> ⚠️ **BAĞIMLILIK:** Authz handler çalışması için `RoleModuleAccess` seed'i ŞART. `UseRateLimiter` routing sonrası/endpoint öncesi olmalı. `UseSecurityHeaders` erken.

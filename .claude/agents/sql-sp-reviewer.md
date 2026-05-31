@@ -79,5 +79,5 @@ Bulgu yoksa: "Bu SP/şema değişiminde iş-doğruluğu bulgusu yok. sql-convent
 - `.claude/rules/sql-conventions.md` — SP standartları, THROW
 - `.claude/rules/document-immutability.md` — reversal, kilit matrisi
 - `.claude/rules/architecture.md` §4 — atomik onay
-- `docs/REFERENCE_STUDY.md` — R0/R1/R4 bağlamı
+- `docs/reference/REFERENCE_STUDY.md` — R0/R1/R4 bağlamı
 - `.claude/agents/security-reviewer.md` — injection (ayrı kapsam)

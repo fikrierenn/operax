@@ -103,7 +103,7 @@ Oyun: ERP implementer değil → **Enterprise Operation Brain Builder.**
 **AR-008 ile ilişki:** Bu karar §7.5'teki "tam enterprise muhasebe çok ağır → KOBİ operasyon/karar katmanı"
 eğilimini netleştirir: resmi muhasebe Operax'ta **olacak ama hafif + periyodik + ertelenmiş**; bugünkü iş
 operasyonel cari mutabakat (hafif AccountMovement besleme, K3/plan 16) + dönem bütünlüğü (K4/plan 14).
-Detay + backlog: `docs/REFERENCE_STUDY.md` §7.
+Detay + backlog: `docs/reference/REFERENCE_STUDY.md` §7.
 
 ## 8. İlişkili
 

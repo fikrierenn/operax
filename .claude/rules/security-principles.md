@@ -27,8 +27,8 @@ Kapsam: Her değişiklikte uygulanacak defansif ilkeler. `paths:` yok — compac
 
 7. **Exception handling:** User'a `ex.Message` GÖSTERME. SqlException → connection string sızabilir.
    ```csharp
-   catch (SqlException sex) {
-       _logger.LogError(sex, "DB error");
+   catch (SqlException sqlEx) {
+       _logger.LogError(sqlEx, "DB error");
        TempData["Error"] = "Veritabanı işleminde hata oluştu.";
    }
    ```

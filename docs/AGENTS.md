@@ -123,7 +123,7 @@ AŞAMA 1 — Paralel Kontrol (aynı anda)
 
 AŞAMA 2 — Manuel Kabul Testleri
   └── Kullanıcı tarafından uygulama test edilir
-      (kabul kriteri listesi docs/SPRINTS.md'de)
+      (kabul kriteri listesi docs/archive/SPRINTS.md'de)
 
 AŞAMA 3 — Belge Güncelleme
   ├── PLAN.md: ilgili sprint `DONE` olarak işaretle

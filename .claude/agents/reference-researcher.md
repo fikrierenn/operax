@@ -61,5 +61,5 @@ Sen kıdemli bir araştırma mühendisisin. Görev: dış açık-kaynak ERP/WMS/
 
 - `.claude/rules/architecture.md` — Dapper, SQL-first, single-tenant
 - `.claude/rules/document-immutability.md` — Evrak bütünlüğü
-- `docs/REFERENCE_STUDY.md` — bu agent'ın ürettiği çalışma türünün örneği
+- `docs/reference/REFERENCE_STUDY.md` — bu agent'ın ürettiği çalışma türünün örneği
 - `.claude/rules/agent-usage.md` — ne zaman hangi agent + model

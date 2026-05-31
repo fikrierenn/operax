@@ -29,6 +29,9 @@ class Program
                 .SetBasePath(webDir)
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings.Development.json", optional: true)
+                // SEC-1 sonrası gerçek DB bağlantısı Web User Secrets'ta tutuluyor.
+                // Web ile aynı UserSecretsId → CLI de gerçek bağlantıyı okur (appsettings placeholder'ı ezilir).
+                .AddUserSecrets("ab29872f-6bf8-4602-8dc1-c66e703da6cc")
                 .Build();
             var cs = cfg.GetConnectionString("Default");
             if (!string.IsNullOrWhiteSpace(cs)) return cs;
@@ -82,7 +85,8 @@ class Program
                         "schema_M11_AccountMovement.sql",     // Plan 09: cari hesap defteri (StockMovement muadili)
                         "schema_M00_NumberSeries.sql",        // Plan 10: belge seri yönetimi (otomatik numaralama)
                         "schema_M11_DocumentRegistry.sql",    // Plan 11: gelen belge kayıt no (RegistryNo)
-                        "schema_UserCompany.sql"              // Plan 13: UserCompany yetki tablosu
+                        "schema_UserCompany.sql",             // Plan 13: UserCompany yetki tablosu
+                        "schema_M00_Security.sql"             // Plan 17: RoleModuleAccess (DB-driven RBAC)
                     })
                     {
                         var addon = Path.Combine(sqlDir, addonSchema);

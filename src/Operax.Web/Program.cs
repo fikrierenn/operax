@@ -1,7 +1,14 @@
+using System.Threading.RateLimiting;
 using Dapper;
 using Hangfire;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using NetEscapades.AspNetCore.SecurityHeaders;
 using Operax.Web.Lib;
+using Operax.Web.Lib.Authz;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,7 +16,20 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' not found.");
 
+// F0.2: Yapılandırılmış loglama — IP + UserAgent enrich + günlük dosya rotasyonu
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithClientIp()
+    .Enrich.WithRequestHeader("User-Agent", "ClientAgent")
+    .WriteTo.Console()
+    .WriteTo.File("logs/operax-.log",
+        rollingInterval: RollingInterval.Day,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] IP:{ClientIp} UA:{ClientAgent} {Message:lj}{NewLine}{Exception}"));
+
 builder.Services.AddDistributedMemoryCache();
+builder.Services.AddMemoryCache(); // F0.2: rol-modül erişim haritası cache'i
 
 // Identity — EF Core yerine Dapper tabanlı store kullanır
 // AspNetUsers / AspNetRoles tabloları Dapper ile yönetilir
@@ -40,9 +60,54 @@ builder.Services.ConfigureApplicationCookie(opts =>
     opts.ExpireTimeSpan = TimeSpan.FromHours(8);
     // SEC-3: Güvenli cookie flag'leri
     opts.Cookie.HttpOnly = true;          // JS üzerinden cookie erişimi engellenir (XSS koruması)
-    opts.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest; // Prod'da HTTPS zorunlu
+    // F0.2/TLS: Prod'da yalnızca HTTPS; dev'de http geliştirme akışı bozulmasın
+    opts.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest
+        : Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
     opts.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict; // CSRF koruması
 });
+
+// F0.2/HSTS: production'da 1 yıl + alt domainler + preload
+builder.Services.AddHsts(o =>
+{
+    o.MaxAge = TimeSpan.FromDays(365);
+    o.IncludeSubDomains = true;
+    o.Preload = true;
+});
+
+// F0.2: Rate Limiting — brute-force/DDoS koruması
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Global fallback: IP başına dakikada 200 istek
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 200, Window = TimeSpan.FromMinutes(1) }));
+
+    // Login: IP başına dakikada 10 istek (Identity kilidini IP atlatamasın)
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
+    // Şirket değiştirme: kullanıcı başına dakikada 10 istek
+    options.AddPolicy("switch-company", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.Name
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+});
+
+// F0.2: DB-driven RBAC — rol-modül yetki handler'ı
+builder.Services.AddScoped<IAuthorizationHandler, ModuleAccessHandler>();
+
+// Yetki politikaları: Admin sabit; modül policy'leri ince sarmalayıcı (allow/deny DB'den handler ile)
+var authz = builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdministratorOnly", p => p.RequireRole(Roles.Administrator));
+foreach (var key in ModuleKeys.All)
+    authz.AddPolicy($"mod:{key}", p => p.AddRequirements(new ModuleAccessRequirement(key)));
 
 // Lib Services
 builder.Services.AddSingleton<Db>();
@@ -60,11 +125,45 @@ builder.Services.AddHangfire(config => config
     .UseSqlServerStorage(connectionString));
 builder.Services.AddHangfireServer();
 
-// Razor Pages — Feature-based yapı
-builder.Services.AddRazorPages().WithRazorPagesRoot("/Features");
+// Razor Pages — Feature-based yapı + klasör bazlı yetkilendirme (RBAC)
+builder.Services.AddRazorPages()
+    .WithRazorPagesRoot("/Features")
+    .AddRazorPagesOptions(o =>
+    {
+        // Admin klasörü sadece Administrator
+        o.Conventions.AuthorizeFolder("/Admin", "AdministratorOnly");
+        // Her modül klasörü kendi policy'sine bağlanır; karar RoleModuleAccess'ten gelir
+        foreach (var key in ModuleKeys.All)
+            o.Conventions.AuthorizeFolder("/" + key, $"mod:{key}");
+    });
 builder.Services.AddSignalR();
 
 var app = builder.Build();
+
+// F0.2: Güvenlik header'ları — pipeline'ın en başında (statik dosyalar dahil tüm yanıtlara uygulanır)
+var headerPolicies = new HeaderPolicyCollection()
+    .AddFrameOptionsDeny()                              // Clickjacking
+    .AddContentTypeOptionsNoSniff()                     // MIME sniffing
+    .AddXssProtectionBlock()                            // Eski tarayıcı XSS filtresi
+    .AddReferrerPolicyStrictOriginWhenCrossOrigin()     // URL sızıntısı önleme
+    .RemoveServerHeader()
+    .AddContentSecurityPolicy(csp =>
+    {
+        csp.AddDefaultSrc().Self();
+        csp.AddScriptSrc().Self().UnsafeInline();       // inline/Alpine scriptleri
+        csp.AddStyleSrc().Self().UnsafeInline().From("https://fonts.googleapis.com");
+        csp.AddFontSrc().Self().From("https://fonts.gstatic.com");
+        csp.AddImgSrc().Self().Data();
+        csp.AddConnectSrc().Self();
+        csp.AddFrameAncestors().None();                 // Clickjacking (CSP seviyesi)
+    })
+    .AddPermissionsPolicy(pp =>
+    {
+        pp.AddCamera().None();
+        pp.AddMicrophone().None();
+        pp.AddGeolocation().None();
+    });
+app.UseSecurityHeaders(headerPolicies);
 
 // Arayüz tamamen Türkçe (turkish-ui.md kuralı) — tek desteklenen kültür tr-TR
 var supportedCultures = new[] { "tr-TR" };
@@ -85,12 +184,16 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseRouting();
 
+// F0.2: Rate limiter routing'den sonra, endpoint'lerden önce
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
 app.MapRazorPages();
-app.MapHangfireDashboard("/admin/jobs").RequireAuthorization();
+// F0.2: Hangfire dashboard sadece Administrator
+app.MapHangfireDashboard("/admin/jobs").RequireAuthorization("AdministratorOnly");
 
 // Root URL: giriş yapılmışsa Dashboard'a, yapılmamışsa Login'e yönlendir
 app.MapGet("/", (HttpContext ctx) =>
@@ -136,7 +239,7 @@ app.MapPost("/api/switch-company", async (
     await signInManager.RefreshSignInAsync(user);
 
     return Results.Redirect("/Dashboard");
-}).RequireAuthorization();
+}).RequireAuthorization().RequireRateLimiting("switch-company");
 
 // Başlangıç seed: Admin kullanıcısı + şirket yoksa oluşturur (geliştirme ve ilk kurulum için)
 // Tablolar mevcut değilse hata loglanır, uygulama çalışmaya devam eder

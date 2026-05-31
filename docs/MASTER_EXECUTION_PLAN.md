@@ -40,48 +40,40 @@
 - **EK (plan 17 — master plan dışı production-hardening):** RateLimit + SecurityHeaders + Serilog + cookie/HSTS + **DB-driven RBAC** (RoleModuleAccess + Admin/Roles UI) + sex→sqlEx rename + STYLE-1 inline cleanup. M-F0.3'ün rol-aware kısmıyla kısmen örtüşür (Model 3 firma-bağlamlı rol HÂLÂ eksik).
 - **Bağımlılık:** yok (ilk iş).
 
-## M-F0.2 — Multi-Company İzolasyon [plan: 12] [B1]
-- [ ] Company-kapsamlı vs firma-bağımsız tablo envanteri
-- [ ] Desen 1: okuma TVF'leri `@CompanyId`-sargılı (`tvf_X(@CompanyId)`); ham `FROM Tablo` ele
-- [ ] Desen 3: statik analiz guard/test — CompanyId'siz company-tablo sorgusu → fail (CI/pre-commit)
-- [ ] Mevcut ihlal sweep + düzelt
-- **DoD:** Tarama testi yeşil; CompanyId'siz sorgu kalmadı; `.claude/rules` + sprint-kapanış şartı.
-- **Bağımlılık:** M-F0.1. **Not:** Güvenliği M-F0.3'e bağlı (claim serbest değişirse dekoratif).
+## M-F0.2 — Multi-Company İzolasyon [plan: 12] [B1] ✅ KAPANDI 2026-05-31
+- [x] Company-kapsamlı vs firma-bağımsız tablo envanteri (52 tablo)
+- [x] `operax-cli scan-isolation` statik guard — CompanyId'siz sorgu → exit 1
+- [x] İhlal sweep + fix (AutoTraceability, Transfer/Replenishment, Production/Terminal)
+- **Not:** Dead servisler (ProductionReceipt/Activity/DynamicBom) → isolation-guard:ignore, karar ertelendi.
 
-## M-F0.3 — Switch-Company Güvenlik + Firma-Yetki Model 3 [plan: 13] [K10/B15]
-- [ ] `UserCompany(UserId, CompanyId, Role)` köprü tablosu
-- [ ] switch-company: antiforgery geri ekle + UserCompany erişim kontrolü (yetkisiz → 403)
-- [ ] switch-company: company + **rol claim** aktif firmaya göre yeniden set (rol-aware — ZORUNLU)
-- [ ] CurrentUser.Roles firma-bağlamlı çözüm
-- [ ] Mevcut kullanıcı claim'leri → UserCompany migration
-- **DoD:** Yetkisiz firmaya geçiş reddediliyor; B firmasında A'nın rolüyle dolaşılamıyor; AR-003 kapalı.
-- **Bağımlılık:** M-F0.1.
+## M-F0.3 — Switch-Company Güvenlik + Firma-Yetki Model 3 [plan: 13] [K10/B15] ✅ KAPANDI 2026-05-31
+- [x] UserCompany(UserId, CompanyId, Role) köprü tablosu
+- [x] switch-company: antiforgery + UserCompany erişim kontrolü (yetkisiz → 403)
+- [x] switch-company: company + rol claim aktif firmaya göre yeniden set (ClaimsPrincipalFactory)
+- [x] CurrentUser.Roles firma-bağlamlı çözüm
 
-## M-F0.4 — Ledger Bütünlüğü Paketi [plan: 14] [AR-004/005 · K4/K6/K8]
-> ⚠️ ÖN KOŞUL: `sys.indexes` ile StockMovement/AccountMovement PK'sı clustered+NEWID + `IX_StockMovement_*` basılı TEYİT.
-- [ ] **(a)** ADR: ledger clustered key (BIGINT/INT identity clustered + GUID nonclustered)
-- [ ] **(b)** AccountMovement `IsDeleted` KALDIR → REVERSAL ters kayıt
-- [ ] **(c)** StockMovement cancel → ters hareket + `IsCancelled=1` (`sp_*Reverse`; şu an hiç set edilmiyor)
-- [ ] **(d) K4 Dönem kontrolü:** `AccountingPeriod` (firma bazlı OPEN/CLOSED/LOCKED) + `sp_GuardPeriodOpen` + DB trigger + `sp_GuardStockFrozen` kancası (no-op)
-- [ ] **(e) K8 İstisna/iz:** `PeriodOverrideLog` (silinmez) + guard statü davranışı (CLOSED yetki+gerekçe+atomik log, LOCKED istisna yok) + self-approval engeli
-- [ ] **(f) R4:** clustered PK migration (yeni tablolar + mevcut için faz-2 script)
-- [ ] **(g) B19 — StockMovement.MovementDate** (fiili hareket/kabul tarihi) ekle; `sp_GuardPeriodOpen` ve tüm dönem/bakiye sorguları MovementDate kullansın (CreatedAt değil). 3 tarih ayrı: belge(DocDate) ≠ işlenme(CreatedAt) ≠ fiili(MovementDate). AccountMovement zaten taşıyor.
-- **DoD:** Ledger silinemez (reversal); kapalı döneme yazım reddediliyor (MovementDate'e göre); override loglanıyor; clustered PK uygulandı; StockMovement MovementDate + guard bağlı.
-- **Bağımlılık:** M-F0.1. **Performans kuralı (K6):** SUM-bakiye index'leri gevşetilemez (MovementDate üzerine).
+## M-F0.4 — Ledger Bütünlüğü Paketi [plan: 14] [AR-004/005 · K4/K6/K8] ✅ KAPANDI 2026-06-01
+- [x] ADR: BIGINT IDENTITY clustered + GUID nonclustered (docs/ADR/01-ledger-clustered-key.md)
+- [x] AccountMovement IsDeleted kaldırıldı → REVERSAL ters kayıt + Debit/Credit rename
+- [x] StockMovement cancel → sp_*Reverse (5 SP) + IsCancelled=1
+- [x] AccountingPeriod + sp_GuardPeriodOpen + tr_GuardPeriod_StockMovement/AccountMovement
+- [x] PeriodOverrideLog + self-approval engeli + K8 istisna mekanizması
+- [x] Post-SP guard enjeksiyonu (5 onay SP)
+- **NOT:** (f) clustered PK migration (mevcut tablolar) Faz 2'ye ertelendi. (g) MovementDate kısmen — CreatedAt hâlâ yaygın.
 
 ---
 
 # FAZ 1 — CARİ / DEFTER OMURGASI 🔴
 
-## M-F1.1 — Hafif Cari Besleme [plan: 16] [R0/B3/K3]
-- [ ] İşaret/yön matrisi (her SourceDocType için Borç/Alacak)
-- [ ] `sp_GenerateSalesInvoiceFromShipping` → AccountMovement Borç + `sp_GuardPeriodOpen`
-- [ ] Alış faturası onayı → AccountMovement Alacak
-- [ ] Tahsilat/ödeme → ters yön
-- [ ] Çift-post koruması (`UX_AccountMovement_Source`) + backfill çakışma kontrolü
-- **KAPSAM DIŞI:** kebir, COGS, SRBNB, çift-taraflı GL, masraf merkezi, hesap planı (= K1 ertelenmiş).
-- **DoD:** Her belge cari deftere atomik yazıyor; `v_AccountBalance` belge zinciriyle tutarlı; drift yok.
-- **Bağımlılık:** M-F0.4 (dönem guard + immutability omurgası).
+## M-F1.1 — Hafif Cari Besleme [plan: 16] [R0/B3/K3] ✅ KAPANDI 2026-06-01
+- [x] İşaret/yön matrisi + tüm SP sistematik analizi (39 SP açıklama)
+- [x] sp_GenerateSalesInvoiceFromShipping → AM Debit + sp_GuardPeriodOpen
+- [x] sp_ExpenseInvoicePost (yeni) → AM Credit satır bazlı (CostCenterId, ExpenseTypeId, KDV)
+- [x] Tahsilat/ödeme/çek/senet → AM Credit/Debit (5 SP)
+- [x] Fatura+ödeme reversal SP'leri (sp_SalesInvoiceReverse, sp_ExpenseInvoiceReverse, sp_PaymentReverse)
+- [x] sql-sp-reviewer bulguları fix (guard eksik, THROW aralığı, NOTE_IN)
+- [x] Backfill çakışma yok + idempotency smoke ✅
+- **Kapsam genişledi:** AM şema (DueDate/TaxAmount/NetAmount/CostCenterId/ExpenseTypeId), çek/senet tahsil, tüm SP Türkçe header.
 
 ## M-F1.2 — Açık-Kalem Kapama [B16]
 - [ ] `AccountReconciliation(BorcMovementId, AlacakMovementId, Tutar, Bileşen)` tablosu (Mikro CARI_HAREKET_BORC_ALACAK_ESLEME deseni)

@@ -1,7 +1,7 @@
 # Operax — Master Execution Plan (Modül-Sıralı Yapılacaklar)
 
 **Tarih:** 2026-05-30 · **Mantık:** Bir modülü TAMAMEN bitir → kapanış kriterini doğrula → sonrakine geç.
-**Kaynak birikim:** `docs/REFERENCE_STUDY.md` (B1-B18) · `docs/MIKRO_V16_ANALYSIS.md` (§12 E1-E13, §13) ·
+**Kaynak birikim:** `docs/reference/REFERENCE_STUDY.md` (B1-B18) · `docs/reference/MIKRO_V16_ANALYSIS.md` (§12 E1-E13, §13) ·
 `docs/Operax_Mikro_GAP_Analizi.xlsx` · `plans/12-16` · `docs/TODO.md` (CRIT/HIGH/IMP) · K1-K10 kararlar.
 
 > **Okuma:** Her modülün `Bağımlılık` satırı önce bitmiş olmalı. `DoD` (Definition of Done) sağlanmadan modül
@@ -28,15 +28,16 @@
 
 > Bu faz bitmeden yeni feature YAZILMAZ. Üzerine bina dikilen temel.
 
-## M-F0.1 — Kod Review Borçları (CRIT/HIGH) [TODO: CRIT-1..4]
-- [ ] **CRIT-1** SP THROW catch handler — PO/Receiving/Shipping/PO-Cancel Details (`SqlException when 50000-59999`)
-- [ ] **CRIT-2** XSS — `_PageHeader.Sub` `@Html.Raw` + ham PartnerName (SubHtml ayrımı + encode)
-- [ ] **CRIT-3** Magic string `"APPROVED"` → `DocStatus` sabiti + SQL IN parametre
-- [ ] **CRIT-4** `ILogger<T>` DI eksik tüm yeni PageModel'ler
-- [ ] **HIGH-1** SP THROW kod aralığı 60001-72001 → 50000-59999 standardına çek (Lib/Errors.cs sözleşme)
-- [ ] **HIGH-2** PO/SO Cancel direct UPDATE → `sp_*Cancel` SP + `sp_ValidateStatusTransition`
-- [ ] **IMP-1/2/3** SQL string interpolation (Cheques) · sync ExecuteScalar → async · hardcoded 14-gün vade
-- **DoD:** code-reviewer + security-reviewer + silent-failure-hunter temiz (≥80 bulgu yok); build 0/0.
+## M-F0.1 — Kod Review Borçları (CRIT/HIGH) ✅ KAPANDI 2026-05-31
+- [x] **CRIT-1** SP THROW catch — PO/SO/Receiving/Shipping Details `when (sqlEx.Number >= 50000)` mevcut
+- [x] **CRIT-2** XSS — `_PageHeader.Sub` HtmlEncode + Raw yok (doğrulandı)
+- [x] **CRIT-3** Magic string → 38 SQL literal `DocStatus` parametresine çevrildi (14 dosya) + cshtml literalleri
+- [x] **CRIT-4** ILogger — 10 dosyada enjekte ama boştaydı → try/catch+LogError'a bağlandı (10→0 uyarı)
+- [x] **HIGH-1** SP THROW — catch `>= 50000` açık uçlu → 60001+ hataları ulaşıyor (stale doğrulandı)
+- [x] **HIGH-2** SO Approve/Cancel — `sp_ValidateStatusTransition` UPDATE öncesi çağrılıyor (bypass yok)
+- [x] **IMP-1/2/3** Cheques interpolation yok · ExecuteScalarAsync (async) · PaymentTermDays kullanılıyor
+- **DoD:** ✅ build 0/0; CRIT/HIGH/IMP hepsi canlı kod doğrulandı (`docs/TODO.md` F0.1 + 119-159 superseded).
+- **EK (plan 17 — master plan dışı production-hardening):** RateLimit + SecurityHeaders + Serilog + cookie/HSTS + **DB-driven RBAC** (RoleModuleAccess + Admin/Roles UI) + sex→sqlEx rename + STYLE-1 inline cleanup. M-F0.3'ün rol-aware kısmıyla kısmen örtüşür (Model 3 firma-bağlamlı rol HÂLÂ eksik).
 - **Bağımlılık:** yok (ilk iş).
 
 ## M-F0.2 — Multi-Company İzolasyon [plan: 12] [B1]
@@ -234,5 +235,5 @@
 
 ## İlişkili
 - `docs/Operax_Mikro_GAP_Analizi.xlsx` — sheet 08 backlog detay
-- `docs/REFERENCE_STUDY.md` · `docs/MIKRO_V16_ANALYSIS.md` · `docs/MASTER_ROADMAP.md` (modül kapsam)
+- `docs/reference/REFERENCE_STUDY.md` · `docs/reference/MIKRO_V16_ANALYSIS.md` · `docs/MASTER_ROADMAP.md` (modül kapsam)
 - `plans/12-16` · `docs/TODO.md` (CRIT/HIGH/IMP) · `docs/BUGS.md` (AR-001..009)

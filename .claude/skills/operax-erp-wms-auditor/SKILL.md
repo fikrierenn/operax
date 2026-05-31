@@ -10,7 +10,7 @@ model: inherit
 
 Türk pazarına yönelik tek-platform ERP + WMS + Üretim + Finans (resmi muhasebe hariç) sisteminin modül olgunluğunu denetler. Hem **eksik** (standart özelliğin yokluğu) hem **fazla** (gereksiz/ölü kod, kullanılmayan şema) tespit eder.
 
-Referans: `docs/COMPETITOR_ANALYSIS.md`, `docs/MODULE_GAP_ANALYSIS.md`, `docs/MASTER_ROADMAP.md`.
+Referans: `docs/COMPETITOR_ANALYSIS.md`, `docs/archive/MODULE_GAP_ANALYSIS.md`, `docs/MASTER_ROADMAP.md`.
 
 ---
 
@@ -231,7 +231,7 @@ grep -rn "if.*== 0).*=\|new.*{.*Name.*=.*\"" src/Operax.Web/Features/ | grep -iv
 ## İlişkili
 
 - `docs/COMPETITOR_ANALYSIS.md` — rakip özellik matrisi (domain referans)
-- `docs/MODULE_GAP_ANALYSIS.md` — son tarama sonucu
+- `docs/archive/MODULE_GAP_ANALYSIS.md` — son tarama sonucu
 - `docs/MASTER_ROADMAP.md` — faz/paket tanımı
 - `.claude/rules/plan-first.md` — gap'ten plana geçiş
 - `.claude/rules/todo-verification.md` — kanıt disiplini

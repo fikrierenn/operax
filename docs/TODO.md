@@ -7,17 +7,18 @@
 > code-reviewer (sonnet) + security-reviewer (opus) paralel. file:line kanıtlı. Stale maddeler kapalı.
 
 ### 🔴 YENİ KRİTİK — GÜVENLİK
-- [ ] **SEC-1 · appsettings.json'da CANLI DB ŞİFRESİ** — `src/Operax.Web/appsettings.json:10` git TRACKED, `sa`+plain password. FİX: User Secrets/env'e taşı + `.gitignore` + **şifre ROTATE** (geçmişte kaldı) + sınırlı login. (spawn_task açıldı) Confidence 98.
-- [ ] **SEC-2 · switch-company CSRF+yetki (AR-003)** — `Program.cs:97-116` DisableAntiforgery + yetki kontrolü yok → firma atlama. plan 13. Conf 90.
-- [ ] **SEC-3 · Cookie flag eksik** — `Program.cs:33-40` SecurePolicy/SameSite/HttpOnly yok. Conf 82.
+- [x] **SEC-1 · appsettings DB şifresi** ✅ KAPALI 2026-05-31 — appsettings.json artık `(localdb)` Trusted_Connection (plain şifre yok); gerçek bağlantı User Secrets'ta; git history scrub + force-push yapıldı. (sa rotate düşük-risk borç olarak duruyor — lokal+private)
+- [x] **SEC-2 · switch-company yetki** ✅ KAPALI 2026-05-31 — Program.cs UserCompany erişim kontrolü + `.RequireAuthorization()` + (F0.2) `.RequireRateLimiting`.
+- [x] **SEC-3 · Cookie flag** ✅ KAPALI 2026-05-31 — HttpOnly + SameSite=Strict + SecurePolicy ortam-koşullu (prod Always).
 
 ### 🔴 AÇIK — CRIT/HIGH
-- [ ] **HIGH-1 · SP THROW kod aralığı** — db_objects_starter.sql 60001-60010/70001-70004/71001-71002/72001. C# catch `50000-59999` → **60001+ çek/fatura/PO hataları kullanıcıya ULAŞMIYOR** (fonksiyonel bloker). FİX: catch genişlet veya SP→51xxx.
-- [ ] **HIGH-2 · SO Approve/Cancel direct UPDATE** — SalesOrders/Details.cshtml.cs:157-175 sp_ValidateStatusTransition bypass.
-- [ ] **CRIT-4 · ILogger<T> DI eksik (10 dosya)** — Finance/Accounts/Index+Details, Loans/Index, CreditCards/Index, PaymentPlan/Index, Aging/Index+Details, SalesInvoices/Index+Details, SalesOrders/Details.
-- [ ] **CRIT-3 · magic string (10+ dosya)** — C# karşılaştırma+DTO default+SQL ham 'DRAFT'/'POSTED'/'CANCELLED': Expenses/Details:67,75,139,154, Budget/Details:59,66,90, Expenses/Index:31-32, Shipping/Index:30-32, Receiving/Index:31-33, Dashboard/Index:53,57,61, ProductionReceiptService:48.
-- [ ] **IMP-2 · sync ExecuteScalar** — Receiving/Details:87, Shipping/Details:87 → async.
-- [ ] **Türkçe yorum eksiği** — SalesOrders/Details+Index, Finance/Accounts/Aging/PaymentPlan Index, SalesInvoices Index+Details.
+- [x] **HIGH-1 · SP THROW kod aralığı** ✅ KAPALI 2026-05-31 (canlı kod doğrulandı) — 12 SP-çağıran handler'ın hepsi `catch when (sex.Number >= 50000)` (üst sınır YOK) → 60001-72001 SP hataları kullanıcıya ULAŞIYOR. `< 60000` bounded catch app kodunda yok. Kalıntı: 3 Create handler (Accounts/Cheques/CreditCards Create) generic SqlException catch → SP Türkçe mesajını yutar ama basit INSERT, business-THROW yok, düşük etki.
+- [x] **HIGH-2 · SO Approve/Cancel direct UPDATE** ✅ KAPALI 2026-05-31 — Approve(171-175)+Cancel(206-210) UPDATE'ten ÖNCE `sp_ValidateStatusTransition` çağırıyor, `>= 50000` catch SP mesajını gösteriyor. Bypass yok.
+- [x] **CRIT-4 · ILogger kullanılmıyordu** ✅ KAPALI 2026-05-31 — 10 dosyada enjekte ama boşta olan logger, veri-yükleme metotları `try/catch(SqlException sqlEx)` ile sarılıp `logger.LogError` + TempData ile bağlandı (silent failure yok). SalesOrders/Index'te logger gerçekten yoktu, eklendi. Build 10→0 uyarı.
+- [x] **CRIT-3 · magic string** ✅ KAPALI 2026-05-31 — 38 SQL-gömülü status literali (14 dosya) DocStatus parametresine çevrildi (`@StDraft/@StPosted/@StCancelled/@StApproved`). Bonus: SalesOrders/Index + PurchaseOrders/Index `$"...{DocStatus.X}..."` string-concat'leri de parametrik yapıldı. Build yeşil, davranış korundu. KALAN (yeni borç): Picking/Terminal `'ASSIGNED'`/`'IN_PROGRESS'` — DocStatus'ta yok, ayrı `PickTaskStatus` sabit sınıfı gerek.
+- [x] **CRIT-3b · Picking status literalleri** ✅ KAPALI 2026-05-31 — DocStatus zaten `Assigned/InProgress/Completed/Draft` içeriyormuş (yeni sınıf gerekmedi). Picking/Terminal:27,94,103 `@StDraft/@StAssigned/@StInProgress/@StCompleted` parametreleştirildi.
+- [x] **IMP-2 · sync ExecuteScalar** ✅ KAPALI 2026-05-31 — Receiving/Details:87, Shipping/Details:87 zaten `ExecuteScalarAsync` (async).
+- [x] **Türkçe yorum eksiği** ✅ KAPALI 2026-05-31 — SalesOrders/Details(6 metot)+Index, Finance/Accounts/Aging/PaymentPlan Index, SalesInvoices Index+Details metot başlarına Türkçe açıklama eklendi.
 
 ### ✅ KAPALI (stale)
 CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit blok) · IMP-3 (vade→PaymentTermDays) · AR-001 (CompanyId filtre var) · DataTable.Compute(0) · IDOR(filtreli) · mass assignment(override güvenli).
@@ -31,6 +32,9 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 
 ## 🔐 F0.2 PRODUCTION GÜVENLİK SERTLEŞTİRMESİ (2026-05-30 — internet yayına hazırlık)
 
+> ✅ **TAMAMLANDI 2026-05-31** (plan 17) — RL-1, SH-1, RB-1/2/3 (DB-driven RoleModuleAccess + Admin/Roles UI), AP-1/2, TLS-1/3 uygulandı, build yeşil, migrate+seed DB'de doğrulandı.
+> ⚠️ **NOT — RBAC modeli değişti:** RB-3 hardcoded `[Authorize(Roles=)]` yerine **DB-driven** `RoleModuleAccess` tablosu + custom handler + AuthorizeFolder oldu (roller dinamik kalsın diye). TLS-2 (dev https) reddedildi — dev http korundu. Runtime smoke testi opsiyonel kaldı.
+>
 > Sistem internet ortamında herkese açık hale gelecek. Aşağıdaki katmanlar eksik/yetersiz.
 > Kaynak: bu oturum güvenlik analizi (2026-05-30 22:19).
 
@@ -86,7 +90,7 @@ RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
 
 ## 📌 KARARLAR & GELECEK-İŞ (2026-05-30 — defter/muhasebe stratejisi)
 
-> Kaynak: `docs/VISION.md` §7.7 + `docs/REFERENCE_STUDY.md` §7 (K1–K7) + `docs/BUGS.md` AR-005/006/008/009.
+> Kaynak: `docs/VISION.md` §7.7 + `docs/reference/REFERENCE_STUDY.md` §7 (K1–K7) + `docs/BUGS.md` AR-005/006/008/009.
 
 **Öncelik sırası (onaylı kararlar):**
 1. [ ] **B1 — plan 12** Multi-company izolasyon (TVF `@CompanyId`-sargı + analyzer guard). Existential, ucuz.
@@ -97,9 +101,9 @@ RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
 6. [ ] **Ertele:** B10 (ASN), B11 (Decision/routing katmanı), **B13 sayım freeze (K5 — M08/S7, satır bazlı; spec yazıldı `docs/MODULE_SPECS/M08_CycleCount_Freeze.md`)**, **Periyodik GL muhasebeleştirme modülü.**
 
 **GELECEK-İŞ (plan AÇILMADI — sadece kayıt):**
-- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
+- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/reference/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
 
-**EKSİK EVRAK TİPLERİ (B17 — Mikro karşılaştırma, `docs/MIKRO_V16_ANALYSIS.md` §12):**
+**EKSİK EVRAK TİPLERİ (B17 — Mikro karşılaştırma, `docs/reference/MIKRO_V16_ANALYSIS.md` §12):**
 - [ ] **En yüksek 4 (üretilmeli):** E1 irsaliye↔fatura ayrımı+dönüşüm (VUK) · E2 alış/satış iade (ayrı belge+ters-kayıt) · E4 fire/zayi/imha (maliyet+vergi) · E11 virman kasa↔kasa/cari↔cari (Plan 11 başlamadı).
 - [ ] **Orta:** E5 sayım fazla/eksik · E7 stok açılış/devir · E12 vade farkı/borç-alacak dekontu.
 - [ ] **Çek statü gap:** TEMİNAT (sck_sonpoz=3) + KISMİ ÖDEME (=9) → Cheque statü makinesine + document-immutability §2.4.
@@ -113,6 +117,8 @@ RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
 ---
 
 ## 🚨 KOD REVIEW BULGULARI (2026-05-28 — 3 paralel agent: code-reviewer + security-reviewer + silent-failure-hunter)
+
+> ⛔ **SUPERSEDED 2026-05-31** — Bu blok F0.1 (2026-05-30, satır 5-30) + bu oturum çalışmasıyla MÜKERRER. Canlı kod doğrulandı: CRIT-1 (PO/Details:218,247 SP catch+sp_ValidateStatusTransition ✅), CRIT-2 (_PageHeader Raw yok ✅), CRIT-3 (38 literal→param ✅), CRIT-4 (logger bağlandı ✅), HIGH-1 (catch >=50000 açık ✅), HIGH-2 (SP validate var ✅), IMP-1 (Cheques interpolation yok ✅), IMP-2 (async ✅), IMP-3 (PaymentTermDays ✅). Aşağıdaki maddeler TARİHSEL — yeni iş için F0.1/üst bölümlere bak.
 
 Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verification.md` kuralı gereği fix öncesi canlı koddan doğrulanmalı.
 
@@ -189,8 +195,8 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 
 ### Inline Style Refactor (ayrı kategori — Plan 03 adayı)
 
-- [ ] **STYLE-1 · Inline style flood** — PurchaseOrders/Details.cshtml (42 oluşum), SalesInvoices/Details.cshtml (20+), Finance/Cheques/Index.cshtml (Razor expression dinamik renk). `.claude/rules/inline-style-guard.md` sıfır tolerans.
-  - **Fix:** `parts/_doc-summary.css` aç, `.summary-cell`, `.summary-label-strong`, `.due-overdue/.due-soon/.due-future` semantic class'lara migrate.
+- [x] **STYLE-1 · Inline style flood** ✅ KAPALI 2026-05-31 — `parts/_docdetail.css` açıldı (.doc-val/.doc-sub/.doc-total/.doc-grand/.doc-foot-note/.activity-*/.btn-danger-outline + uuid/empty/sub-item). PO/Details 44→23, SalesInvoices/Details 30→~8, Cheques/Index L93. Kalan inline'lar layout/size/data-driven (guard-izinli). Tüm görsel (color/font/border) inline kaldırıldı. Tailwind rebuild + preview'da PO + SalesInvoices görsel doğrulandı (regresyon yok). Bonus: 2 cshtml magic string (`"POSTED"/"APPROVED"`→DocStatus).
+  - **Not (gelecek):** proje geneli kalan ~330 inline (diğer ekranlar) — aynı `.doc-*` pattern ile aşamalı temizlenebilir.
 
 ---
 

@@ -71,7 +71,7 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
 - `StockMovement` — `MovementDate` YOK (B19), sadece CreatedAt.
 
 ## 5. KAYIT PROTOKOLÜ
-- Mevzuat bulgusu → `docs/REFERENCE_STUDY.md` backlog + ilgili `docs/MODULE_SPECS/M0X_*.md`'ye [DOC]/[YORUM] etiketli.
+- Mevzuat bulgusu → `docs/reference/REFERENCE_STUDY.md` backlog + ilgili `docs/MODULE_SPECS/M0X_*.md`'ye [DOC]/[YORUM] etiketli.
 - Production-etkili karar → `plans/NN-*.md` + Fikri onayı.
 - DOĞRULANMADI kalemler implementasyon öncesi GİB-yetkili kaynaktan teyit (bu skill tekrar çağrılır).
 
@@ -90,8 +90,8 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
 - 7 gün karmaşası: alomaliye.com (M.B. Altaş YMM)
 
 ## İlişkili
-- `docs/MIKRO_V16_ANALYSIS.md` §14 (üç tarih) · §12 (E1 irsaliye/fatura, E2 iade)
-- `docs/REFERENCE_STUDY.md` B17/B19
+- `docs/reference/MIKRO_V16_ANALYSIS.md` §14 (üç tarih) · §12 (E1 irsaliye/fatura, E2 iade)
+- `docs/reference/REFERENCE_STUDY.md` B17/B19
 - `docs/MASTER_EXECUTION_PLAN.md` M-F2.1/M-F2.2 (irsaliye/iade) · M-F0.4 (dönem guard)
 - `plans/14-ledger-pk-immutability.md` (K4 dönem + MovementDate bağı)
 - `.claude/rules/document-immutability.md` (iade = ayrı belge + ters-kayıt)

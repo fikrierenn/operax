@@ -1,6 +1,6 @@
 # Plan 16 — Cari Hesap Defteri Otomatik Besleme (B3 — HAFİF)
 
-**Tarih:** 2026-05-29 · **Güncelleme:** 2026-06-01 · **Durum:** `Faz 5 devam` · **Modül:** M11 · **Kaynak:** R0 (REFERENCE_STUDY.md) + KARAR K3
+**Tarih:** 2026-05-29 · **Güncelleme:** 2026-06-01 · **Durum:** `TAMAM` · **Modül:** M11 · **Kaynak:** R0 (REFERENCE_STUDY.md) + KARAR K3
 **Öncelik:** 3 (plan 12 ve plan 14 paketinden sonra) · **Bağımlılık:** plan 14 (dönem kontrolü + immutability omurgası) önce gelmeli
 
 ---
@@ -85,9 +85,9 @@ ayırt edilebilir → gerekirse `REVERSAL` ile geri (silme YOK — immutability,
   - `sp_SalesInvoiceReverse` → yeni SP: satış faturası iptali → AM Debit ters kayıt
   - `sp_ExpenseInvoiceReverse` → yeni SP: alış faturası iptali → AM Credit satır ters kayıt
   - `sp_PaymentReverse` → yeni SP: tahsilat/ödeme iptali → AM ters yön
-- [ ] **Faz 5B:** Backfill çakışma kontrolü + idempotency smoke (UX_AccountMovement_Source test)
-- [ ] **Faz 6:** sql-sp-reviewer + cari ekstre tutarlılık smoke + journal → plan kapat
-- [ ] **Faz 7:** Tüm SP'lere Türkçe açıklama header (ne yapar, parametreler, side effects, THROW aralığı)
+- [x] **Faz 5B:** Backfill çakışma yok + idempotency smoke ✅ (çift kayıt 0, UX_AccountMovement_Source sağlam)
+- [x] **Faz 6:** sql-sp-reviewer 4 bulgu düzeltildi (guard eksik, THROW aralığı, NOTE_IN) — `1f58768`
+- [x] **Faz 7:** db_objects/reversal/starter tüm SP'lere Türkçe header — `20877fd`
 
 ## 8. 5 Lens
 

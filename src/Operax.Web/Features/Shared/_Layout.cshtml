@@ -8,7 +8,15 @@
     if (CurrentUser.IsAuthenticated)
     {
         using var conn = Db.Open();
-        userCompanies = conn.Query("SELECT Id, Name FROM Company WHERE IsActive = 1 AND IsDeleted = 0 ORDER BY Name");
+        // Plan 13: firma değiştirici yalnızca kullanıcının UserCompany'de aktif erişimi olan firmaları gösterir
+        // (eski "tüm firmalar" listesi yetkisiz firmayı da gösterip switch-company'ye yetkisiz POST'a davet ediyordu)
+        userCompanies = conn.Query(@"
+            SELECT c.Id, c.Name
+            FROM Company c
+            JOIN UserCompany uc ON uc.CompanyId = c.Id AND uc.UserId = @UserId AND uc.IsActive = 1
+            WHERE c.IsActive = 1 AND c.IsDeleted = 0
+            ORDER BY c.Name",
+            new { UserId = CurrentUser.Id.ToString() });
     }
 
     var displayCompanyName = string.IsNullOrEmpty(CurrentCompany.Name) || CurrentCompany.Name == "OPERAX"

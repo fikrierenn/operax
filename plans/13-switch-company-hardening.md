@@ -47,15 +47,16 @@ Omurga tam (firma-başına farklı rol yetenek), bugün herkes her firmada tek r
 **5 lens:** 🔴 Tek-firmalı kullanıcıda switcher zaten görünmüyor (userCompanies.Count>1) ama endpoint hâlâ açık → doğrudan POST riski. 🔵 Gerçek ihtiyaç: "yalnız yetkili firmaya geç". 🟢 UserCompany → firma-bazlı RBAC açar. ⚪ "switcher tüm firmaları listeliyor" (Layout: `SELECT ... FROM Company`) → o da yetkiye göre filtrelenmeli. 🟡 antiforgery=5dk; yetki=karara bağlı.
 
 ## 5. Done
-- [ ] DisableAntiforgery kaldırıldı, token doğrulanıyor
-- [ ] `UserCompany(UserId, CompanyId, Role)` tablosu (şema + migration: mevcut claim'leri taşı)
-- [ ] Yetkisiz companyId → 403/redirect (claim yazılmaz) — UserCompany kontrolü
-- [ ] switch-company company + **rol** claim aktif firmaya göre yeniden set (rol-aware)
-- [ ] CurrentUser.Roles firma-bağlamlı çözüm
-- [ ] Sidebar firma listesi UserCompany'ye göre filtreli (eski SELECT FROM Company değil)
-- [ ] Audit log: firma değiştirme (kim, hangi firma)
+- [x] Antiforgery token doğrulanıyor — endpoint `IAntiforgery.ValidateRequestAsync`, başarısız → 403 (2026-05-31)
+- [x] `UserCompany(UserId, CompanyId, Role, IsActive)` tablosu — şema + claim backfill + **canlı VT'de eksik `IsActive` kolonu eklendi** (switch sorgusu bu kolona bağlıydı, kırıktı) + Role 'Admin'→'Administrator' hizalama
+- [x] Yetkisiz companyId → 403 (claim yazılmaz) — UserCompany IsActive kontrolü
+- [x] switch-company rol-aware — `CompanyAwareClaimsPrincipalFactory`: RefreshSignInAsync'te rol claim'i aktif firmanın UserCompany.Role'una göre yeniden üretilir
+- [x] CurrentUser.Roles firma-bağlamlı — factory global AspNetUserRoles yerine firma rolünü yazar; `CurrentUser.Roles` (ClaimTypes.Role) otomatik firma-bağlamlı
+- [x] Sidebar firma listesi UserCompany'ye göre filtreli (`_Layout.cshtml` — JOIN UserCompany WHERE UserId + IsActive)
+- [x] Audit log: COMPANY_SWITCH — `IAuditService.LogAsync` (kim, hangi firma)
+- [ ] **Runtime smoke (opsiyonel):** login→rol claim doğru mu, switch→rol değişiyor mu, yetkisiz POST→403, CSRF token'sız→403
 
 ## 6. Onay
-- [x] §3 kararı alındı: **Model 3 (K10, 2026-05-29)** · [ ] Gösterildi · [ ] Onay: <tarih>
+- [x] §3 kararı alındı: **Model 3 (K10, 2026-05-29)** · [x] Onay: 2026-05-29 · Uygulandı: 2026-05-31
 
 > İlişkili: AR-003, AR-001, KARAR K10, Plan 12 (izolasyon — güvenliği BU plana bağlı), security-principles.md §8

@@ -50,6 +50,10 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 builder.Services.AddScoped<IUserStore<IdentityUser>, DapperUserStore>();
 builder.Services.AddScoped<IRoleStore<IdentityRole>, DapperRoleStore>();
 
+// Plan 13 (Model 3): firma-bağlamlı rol — oturum principal'inde rol claim'i aktif firmanın
+// UserCompany.Role'undan üretilir (global AspNetUserRoles yerine)
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<IdentityUser>, CompanyAwareClaimsPrincipalFactory>();
+
 // Cookie yapılandırması — özel login sayfamıza yönlendir
 builder.Services.ConfigureApplicationCookie(opts =>
 {
@@ -207,8 +211,21 @@ app.MapPost("/api/switch-company", async (
     HttpContext ctx,
     Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser> userManager,
     Microsoft.AspNetCore.Identity.SignInManager<Microsoft.AspNetCore.Identity.IdentityUser> signInManager,
+    Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery,
+    IAuditService audit,
     Db db) =>
 {
+    // CSRF koruması: sidebar formu @Html.AntiForgeryToken() üretir; token doğrulanmazsa
+    // kötü niyetli sayfa kullanıcının firmasını değiştirebilir (AR-003). Önce token doğrula.
+    try
+    {
+        await antiforgery.ValidateRequestAsync(ctx);
+    }
+    catch (Microsoft.AspNetCore.Antiforgery.AntiforgeryValidationException)
+    {
+        return Results.Forbid();
+    }
+
     var companyIdStr = ctx.Request.Form["companyId"].ToString();
     if (!System.Guid.TryParse(companyIdStr, out var companyId))
         return Results.Redirect("/Dashboard");
@@ -217,7 +234,7 @@ app.MapPost("/api/switch-company", async (
     if (user == null)
         return Results.Unauthorized();
 
-    // Kullanıcının bu şirkete gerçekten yetkisi var mı?
+    // İş kuralı: kullanıcı yalnızca UserCompany'de aktif erişimi olan firmaya geçebilir (IDOR koruması)
     using var conn = db.Open();
     var hasAccess = await conn.ExecuteScalarAsync<int>(
         "SELECT COUNT(1) FROM UserCompany WHERE UserId = @UserId AND CompanyId = @CompanyId AND IsActive = 1",
@@ -230,13 +247,19 @@ app.MapPost("/api/switch-company", async (
         return Results.Forbid();
     }
 
+    // Aktif firma claim'ini güncelle: eski "company" claim'leri silinip yenisi yazılır
     var claims = await userManager.GetClaimsAsync(user);
     var oldCompanyClaims = claims.Where(c => c.Type == "company").ToList();
     foreach (var oldClaim in oldCompanyClaims)
         await userManager.RemoveClaimAsync(user, oldClaim);
 
     await userManager.AddClaimAsync(user, new System.Security.Claims.Claim("company", companyId.ToString()));
+    // RefreshSignInAsync, CompanyAwareClaimsPrincipalFactory'i yeniden çalıştırır →
+    // rol claim'i otomatik olarak yeni firmanın UserCompany.Role'una göre güncellenir (rol-aware geçiş)
     await signInManager.RefreshSignInAsync(user);
+
+    // Denetim izi: kim, hangi firmaya geçti (güvenlik kuralı — firma değiştirme loglanır)
+    await audit.LogAsync("COMPANY_SWITCH", "Company", companyId, $"Kullanıcı {user.UserName} aktif firmayı değiştirdi.");
 
     return Results.Redirect("/Dashboard");
 }).RequireAuthorization().RequireRateLimiting("switch-company");

@@ -59,16 +59,16 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             TempData["Success"] = "Kredi açıldı, taksit takvimi oluşturuldu.";
             return RedirectToPage("Details", new { id = newId });
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
             // İş kuralı hatası — SP Türkçe mesaj döndü
-            ModelState.AddModelError(string.Empty, sex.Message);
+            ModelState.AddModelError(string.Empty, sqlEx.Message);
             await LoadBankAccountsAsync();
             return Page();
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Kredi açma hatası: {LoanNo}", Form.LoanNo);
+            logger.LogError(sqlEx, "Kredi açma hatası: {LoanNo}", Form.LoanNo);
             ModelState.AddModelError(string.Empty, "Kredi açılırken veritabanı hatası oluştu.");
             await LoadBankAccountsAsync();
             return Page();

@@ -70,9 +70,9 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
             TempData["Success"] = IsNote ? "Senet eklendi." : "Çek eklendi.";
             return RedirectToPage("Details", new { id, type = Type });
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Çek/senet ekleme hatası: {DocNo}", Form.DocNo);
+            logger.LogError(sqlEx, "Çek/senet ekleme hatası: {DocNo}", Form.DocNo);
             ModelState.AddModelError(string.Empty, "Kayıt sırasında veritabanı hatası oluştu.");
             await LoadPartnersAsync();
             return Page();

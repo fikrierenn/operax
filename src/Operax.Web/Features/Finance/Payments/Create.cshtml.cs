@@ -62,13 +62,13 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
 
             return RedirectToPage("/Finance/PaymentPlan/Index");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Ödeme/tahsilat kayıt hatası");
+            logger.LogError(sqlEx, "Ödeme/tahsilat kayıt hatası");
             TempData["Error"] = "Ödeme kaydedilirken veritabanı hatası oluştu.";
         }
 

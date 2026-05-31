@@ -67,9 +67,9 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             TempData["Success"] = "Kredi kartı tanımlandı.";
             return RedirectToPage("Details", new { id = cardId });
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Kart tanımlama hatası: {Card}", Form.CardNoMasked);
+            logger.LogError(sqlEx, "Kart tanımlama hatası: {Card}", Form.CardNoMasked);
             ModelState.AddModelError(string.Empty, "Kart tanımlanırken veritabanı hatası oluştu.");
             await LoadBankAccountsAsync();
             return Page();

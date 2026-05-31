@@ -90,7 +90,7 @@
 
                         <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Cheques/Details?id=@c.Id&type=@Model.Type'">
                             <td>@Html.Raw(dirBadge)</td>
-                            <td><span class="mono row-strong" style="color:var(--brand-500);">@c.DocNo</span></td>
+                            <td><span class="mono row-strong text-brand">@c.DocNo</span></td>
                             @if (Model.Type == "cheque")
                             {
                                 <td>

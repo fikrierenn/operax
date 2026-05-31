@@ -21,44 +21,53 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public CountsDto           Counts   { get; set; } = new(0, 0, 0, 0, 0);
     public decimal             TotalBalance { get; set; }
 
+    // Finansal hesap listesini ve tip bazlı sayım rozetlerini yükler.
     public async Task OnGetAsync()
     {
-        using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
-
-        // Tip bazlı sayım rozetleri için ayrı sorgu
-        Counts = await conn.QuerySingleAsync<CountsDto>(@"
-            SELECT
-                COUNT(*) AS Total,
-                SUM(CASE WHEN AccountType = 'CASH'        THEN 1 ELSE 0 END) AS Cash,
-                SUM(CASE WHEN AccountType = 'BANK'        THEN 1 ELSE 0 END) AS Bank,
-                SUM(CASE WHEN AccountType = 'CREDIT_CARD' THEN 1 ELSE 0 END) AS Card,
-                SUM(CASE WHEN AccountType = 'LOAN'        THEN 1 ELSE 0 END) AS Loan
-            FROM FinancialAccount
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
-
-        // Hesap listesi + bakiye
-        var sql = @"
-            SELECT
-                v.AccountId, v.Code, v.Name, v.AccountType, v.Currency,
-                v.Balance, v.LastMovementDate, v.TransactionCount,
-                a.BankName, a.IBAN, a.CreditLimit, a.InterestRate
-            FROM dbo.tvf_AccountBalance(@CompanyId) v
-            JOIN FinancialAccount a ON a.Id = v.AccountId
-            WHERE 1 = 1";
-
-        var parms = new DynamicParameters();
-        parms.Add("CompanyId", company.Id);
-
-        if (Type != "all")
+        try
         {
-            sql += " AND v.AccountType = @Type";
-            parms.Add("Type", Type);
-        }
-        sql += " ORDER BY v.AccountType, v.Name";
+            using var conn = db.Open();
+            var p = new { CompanyId = company.Id };
 
-        Accounts = (await conn.QueryAsync<AccountRowDto>(sql, parms)).ToList();
-        TotalBalance = Accounts.Sum(a => a.Balance);
+            // Tip bazlı sayım rozetleri için ayrı sorgu
+            Counts = await conn.QuerySingleAsync<CountsDto>(@"
+                SELECT
+                    COUNT(*) AS Total,
+                    SUM(CASE WHEN AccountType = 'CASH'        THEN 1 ELSE 0 END) AS Cash,
+                    SUM(CASE WHEN AccountType = 'BANK'        THEN 1 ELSE 0 END) AS Bank,
+                    SUM(CASE WHEN AccountType = 'CREDIT_CARD' THEN 1 ELSE 0 END) AS Card,
+                    SUM(CASE WHEN AccountType = 'LOAN'        THEN 1 ELSE 0 END) AS Loan
+                FROM FinancialAccount
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+
+            // Hesap listesi + bakiye
+            var sql = @"
+                SELECT
+                    v.AccountId, v.Code, v.Name, v.AccountType, v.Currency,
+                    v.Balance, v.LastMovementDate, v.TransactionCount,
+                    a.BankName, a.IBAN, a.CreditLimit, a.InterestRate
+                FROM dbo.tvf_AccountBalance(@CompanyId) v
+                JOIN FinancialAccount a ON a.Id = v.AccountId
+                WHERE 1 = 1";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+
+            if (Type != "all")
+            {
+                sql += " AND v.AccountType = @Type";
+                parms.Add("Type", Type);
+            }
+            sql += " ORDER BY v.AccountType, v.Name";
+
+            Accounts = (await conn.QueryAsync<AccountRowDto>(sql, parms)).ToList();
+            TotalBalance = Accounts.Sum(a => a.Balance);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Finansal hesap listesi veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
+        }
     }
 
     public record AccountRowDto(

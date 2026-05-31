@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Microsoft.Data.SqlClient;
 using Dapper;
 using Operax.Web.Lib;
 
@@ -21,58 +22,67 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal          TotalReceivable { get; set; }
     public decimal          TotalPayable    { get; set; }
 
+    // Vade planı listesini, yön sayaçlarını ve toplam tutarları yükler
     public async Task OnGetAsync()
     {
-        using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
-
-        DirCounts = await conn.QuerySingleAsync<DirCountsDto>(@"
-            SELECT
-                COUNT(*) AS Total,
-                SUM(CASE WHEN Direction = 'RECEIVABLE' THEN 1 ELSE 0 END) AS Receivable,
-                SUM(CASE WHEN Direction = 'PAYABLE'    THEN 1 ELSE 0 END) AS Payable
-            FROM PaymentPlan
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')", p);
-
-        TotalReceivable = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(SUM(Amount - PaidAmount), 0)
-            FROM PaymentPlan
-            WHERE CompanyId = @CompanyId AND Direction = 'RECEIVABLE'
-              AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
-        TotalPayable = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(SUM(Amount - PaidAmount), 0)
-            FROM PaymentPlan
-            WHERE CompanyId = @CompanyId AND Direction = 'PAYABLE'
-              AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
-
-        var sql = @"
-            SELECT
-                pp.Id, pp.SourceDocType, pp.SourceDocNo,
-                pp.PartnerId, p.Name AS PartnerName,
-                pp.Direction, pp.InstallmentNo, pp.TotalInstallments,
-                pp.DueDate, pp.Amount, pp.PaidAmount, pp.Status,
-                pp.PaidAt,
-                DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) AS DaysOverdue
-            FROM PaymentPlan pp
-            LEFT JOIN Partner p ON p.Id = pp.PartnerId
-            WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0";
-
-        var parms = new DynamicParameters();
-        parms.Add("CompanyId", company.Id);
-
-        if (Direction != "all")
+        try
         {
-            sql += " AND pp.Direction = @Direction";
-            parms.Add("Direction", Direction);
-        }
-        if (Status != "all")
-        {
-            sql += " AND pp.Status = @Status";
-            parms.Add("Status", Status);
-        }
-        sql += " ORDER BY pp.DueDate ASC";
+            using var conn = db.Open();
+            var p = new { CompanyId = company.Id };
 
-        Plans = (await conn.QueryAsync<PlanRowDto>(sql, parms)).ToList();
+            DirCounts = await conn.QuerySingleAsync<DirCountsDto>(@"
+                SELECT
+                    COUNT(*) AS Total,
+                    SUM(CASE WHEN Direction = 'RECEIVABLE' THEN 1 ELSE 0 END) AS Receivable,
+                    SUM(CASE WHEN Direction = 'PAYABLE'    THEN 1 ELSE 0 END) AS Payable
+                FROM PaymentPlan
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')", p);
+
+            TotalReceivable = await conn.ExecuteScalarAsync<decimal>(@"
+                SELECT ISNULL(SUM(Amount - PaidAmount), 0)
+                FROM PaymentPlan
+                WHERE CompanyId = @CompanyId AND Direction = 'RECEIVABLE'
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
+            TotalPayable = await conn.ExecuteScalarAsync<decimal>(@"
+                SELECT ISNULL(SUM(Amount - PaidAmount), 0)
+                FROM PaymentPlan
+                WHERE CompanyId = @CompanyId AND Direction = 'PAYABLE'
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
+
+            var sql = @"
+                SELECT
+                    pp.Id, pp.SourceDocType, pp.SourceDocNo,
+                    pp.PartnerId, p.Name AS PartnerName,
+                    pp.Direction, pp.InstallmentNo, pp.TotalInstallments,
+                    pp.DueDate, pp.Amount, pp.PaidAmount, pp.Status,
+                    pp.PaidAt,
+                    DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) AS DaysOverdue
+                FROM PaymentPlan pp
+                LEFT JOIN Partner p ON p.Id = pp.PartnerId
+                WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+
+            if (Direction != "all")
+            {
+                sql += " AND pp.Direction = @Direction";
+                parms.Add("Direction", Direction);
+            }
+            if (Status != "all")
+            {
+                sql += " AND pp.Status = @Status";
+                parms.Add("Status", Status);
+            }
+            sql += " ORDER BY pp.DueDate ASC";
+
+            Plans = (await conn.QueryAsync<PlanRowDto>(sql, parms)).ToList();
+        }
+        catch (SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Vade planı listesi veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
+        }
     }
 
     public record PlanRowDto(

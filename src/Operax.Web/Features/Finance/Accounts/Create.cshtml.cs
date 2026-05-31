@@ -57,9 +57,9 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             TempData["Success"] = "Hesap oluşturuldu.";
             return RedirectToPage("Details", new { id });
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Hesap oluşturma hatası: {Code}", Form.Code);
+            logger.LogError(sqlEx, "Hesap oluşturma hatası: {Code}", Form.Code);
             ModelState.AddModelError(string.Empty, "Hesap oluşturulurken veritabanı hatası oluştu.");
             return Page();
         }

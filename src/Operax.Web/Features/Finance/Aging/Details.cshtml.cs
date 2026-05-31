@@ -20,39 +20,49 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
     public List<PaymentLineDto> Lines    { get; set; } = [];
     public decimal              TotalOpen  { get; set; }
 
+    // Belirtilen cari için açık ödeme planı satırlarını ve yaşlandırma bilgisini yükler.
     public async Task<IActionResult> OnGetAsync()
     {
         if (PartnerId == Guid.Empty) return RedirectToPage("Index");
 
-        using var conn = db.Open();
-        var p = new { CompanyId = company.Id, PartnerId, Direction };
+        try
+        {
+            using var conn = db.Open();
+            var p = new { CompanyId = company.Id, PartnerId, Direction };
 
-        Partner = await conn.QueryFirstOrDefaultAsync<PartnerSummaryDto>(
-            "SELECT Id, Code, Name, RiskCategory FROM Partner WHERE Id = @PartnerId AND CompanyId = @CompanyId",
-            new { PartnerId, CompanyId = company.Id });
+            Partner = await conn.QueryFirstOrDefaultAsync<PartnerSummaryDto>(
+                "SELECT Id, Code, Name, RiskCategory FROM Partner WHERE Id = @PartnerId AND CompanyId = @CompanyId",
+                new { PartnerId, CompanyId = company.Id });
 
-        if (Partner == null) return NotFound();
+            if (Partner == null) return NotFound();
 
-        Lines = (await conn.QueryAsync<PaymentLineDto>(@"
-            SELECT
-                pp.Id,
-                pp.DueDate,
-                pp.Amount,
-                pp.PaidAmount,
-                pp.Amount - pp.PaidAmount AS OpenAmount,
-                pp.Status,
-                pp.SourceDocType,
-                pp.SourceDocNo,
-                DATEDIFF(DAY, pp.DueDate, CAST(GETUTCDATE() AS DATE)) AS DaysOverdue
-            FROM PaymentPlan pp
-            WHERE pp.CompanyId    = @CompanyId
-              AND pp.PartnerId    = @PartnerId
-              AND pp.Direction    = @Direction
-              AND pp.Status      <> 'PAID'
-              AND pp.IsDeleted    = 0
-            ORDER BY pp.DueDate ASC", p)).ToList();
+            Lines = (await conn.QueryAsync<PaymentLineDto>(@"
+                SELECT
+                    pp.Id,
+                    pp.DueDate,
+                    pp.Amount,
+                    pp.PaidAmount,
+                    pp.Amount - pp.PaidAmount AS OpenAmount,
+                    pp.Status,
+                    pp.SourceDocType,
+                    pp.SourceDocNo,
+                    DATEDIFF(DAY, pp.DueDate, CAST(GETUTCDATE() AS DATE)) AS DaysOverdue
+                FROM PaymentPlan pp
+                WHERE pp.CompanyId    = @CompanyId
+                  AND pp.PartnerId    = @PartnerId
+                  AND pp.Direction    = @Direction
+                  AND pp.Status      <> 'PAID'
+                  AND pp.IsDeleted    = 0
+                ORDER BY pp.DueDate ASC", p)).ToList();
 
-        TotalOpen = Lines.Sum(l => l.OpenAmount);
+            TotalOpen = Lines.Sum(l => l.OpenAmount);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Yaşlandırma detay veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
+        }
+
         return Page();
     }
 

@@ -73,13 +73,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 commandType: CommandType.StoredProcedure);
             TempData["Success"] = "Ekstre ödemesi yapıldı.";
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Ekstre ödeme hatası: {StatementId}", statementId);
+            logger.LogError(sqlEx, "Ekstre ödeme hatası: {StatementId}", statementId);
             TempData["Error"] = "Ekstre ödenirken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id = Id });

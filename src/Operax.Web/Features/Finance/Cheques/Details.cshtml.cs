@@ -98,13 +98,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             await conn.ExecuteAsync(sp, args, commandType: CommandType.StoredProcedure);
             TempData["Success"] = successMsg;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "Çek işlemi hatası: {Sp} {Id}", sp, Id);
+            logger.LogError(sqlEx, "Çek işlemi hatası: {Sp} {Id}", sp, Id);
             TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id = Id, type = Type });

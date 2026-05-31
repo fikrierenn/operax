@@ -215,13 +215,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await audit.LogAsync("POST", "PurchaseOrderHeader", id,
                 "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "PO onay hatası: {PoId}", id);
+            logger.LogError(sqlEx, "PO onay hatası: {PoId}", id);
             TempData["Error"] = "Sipariş onaylanırken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });
@@ -244,13 +244,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id });
             await audit.LogAsync("CANCEL", "PurchaseOrderHeader", id, "Satınalma siparişi iptal edildi");
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex) when (sex.Number >= 50000)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {
-            TempData["Error"] = sex.Message;
+            TempData["Error"] = sqlEx.Message;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sex)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            logger.LogError(sex, "PO iptal hatası: {PoId}", id);
+            logger.LogError(sqlEx, "PO iptal hatası: {PoId}", id);
             TempData["Error"] = "Sipariş iptal edilirken veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id });

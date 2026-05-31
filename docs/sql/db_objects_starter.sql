@@ -419,6 +419,17 @@ BEGIN
             UpdatedBy   = @UserId
         WHERE Id = @ChequeId;
 
+        -- Cari hesap defteri: çek tahsili → Credit (müşterinin borcu kapandı)
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, @Now,
+            0, @Amount, 'TRY',
+            'CHEQUE_IN', @ChequeId, @ChequeNo,
+            N'Çek Tahsili: ' + @ChequeNo, CAST(@UserId AS NVARCHAR(450))
+        );
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
@@ -632,6 +643,17 @@ BEGIN
         UPDATE PromissoryNote
         SET Status = 'COLLECTED', CollectedAt = @Now, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
         WHERE Id = @NoteId;
+
+        -- Cari hesap defteri: senet tahsili → Credit (müşterinin borcu kapandı)
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, @Now,
+            0, @Amount, 'TRY',
+            'CHEQUE_IN', @NoteId, @NoteNo,
+            N'Senet Tahsili: ' + @NoteNo, CAST(@UserId AS NVARCHAR(450))
+        );
 
         COMMIT TRANSACTION;
     END TRY

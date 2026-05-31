@@ -31,7 +31,7 @@ Dapper'da EF benzeri global query filter yok. Company-kapsamlı her sorgu elle `
 ## 4. Done
 - [x] Company-kapsamlı tablo listesi tanımlı — 52 doğrudan + 27 dolaylı + 11 global (IsolationScanner.cs, 2026-05-31)
 - [x] Tarama testi: CompanyId'siz company-tablo sorgusu → fail — `operax-cli scan-isolation` (exit 1)
-- [x] Mevcut ihlaller raporlandı + düzeltildi — 55 aday → 2 gerçek fix + 35 suppress (defense-in-depth) + 20 kalan (Features/Production kırık StockMovement INSERT'leri, ayrı işe alındı)
+- [x] Mevcut ihlaller raporlandı + düzeltildi — 55 aday → 3 gerçek fix (AutoTraceability, Transfer/Replenishment, Production/Terminal firma guard) + 33 suppress (defense-in-depth) + 19 dead/WIP suppress (Production servisleri kırık+wired değil, karar ertelendi). **scan-isolation = 0 ihlal.**
 - [x] `.claude/rules` kuralı — security-principles.md §8'e guard pointer eklendi
 - [ ] Sprint-kapanış şartı: production StockMovement düzeltilince guard 0'a inmeli + blocking hook'a bağlanmalı (pre-commit/session-start)
 

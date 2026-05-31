@@ -131,6 +131,22 @@ guard MUTLAKA o türetmeden sonra. sp_CollectCheque/Note'ta SELECT @Company't de
 - **EXPIRED_CONFIRMED kanal kısıtı:** Hangfire sessiz-onay sadece KEP/NOTER/iadeli; EMAIL/POST manuel CONFIRMED bekler.
 - **DOĞRULANMADI (YMM):** sessiz onay = açık onay eşit bağlayıcılık; Operax carisi md.94 sayılır mı.
 
+**deep-research (TTK/VUK + Yargıtay — 2026-06-01):**
+> ⚠️ Workflow oylama katmanı çöktü (StructuredOutput bug); içerik güvenilir kaynaklardan (avukat/muhasebe) elde.
+- **TTK md.94 zımni kabul = YAZILI cari hesap sözleşmesi ön şartı** (md.89/2; Yargıtay arıyor).
+  Sözleşmesiz cari → "açık hesap"; sessiz onay otomatik bağlamaz, BA/BS + diğer delille ispat.
+- **İtiraz süresi 1 AY** (md.94/2; md.21/2'nin 8 günü fatura içindir, cari bakiye değil).
+  Şekil: noter / taahhütlü mektup / telgraf / güvenli e-imza. Aksi geçersiz.
+- **İspat gücü:** imzalı mutabakat = HMK 68/b borç ikrarı (güçlü, icra). İmzasız/sessiz = zayıf karine.
+- **md.94 onayı bile mutlak değil** — hata/hile itirazı saklı (md.94/2), 5 yıl zamanaşımı (md.101).
+- **🔴 OPERAX TASARIM DÜZELTMESİ:** EXPIRED_CONFIRMED (sessiz onay) **sert kilit OLMAMALI** —
+  çoğu cari yazılı sözleşmesiz, sessiz onay hukuken zayıf. Karar:
+  - **CONFIRMED (imzalı/KEP)** → SERT kilit (sp_GuardPartnerReconciled THROW)
+  - **EXPIRED_CONFIRMED (sessiz)** → YUMUŞAK (uyarı/log, THROW yok) VEYA Partner.HasCariSozlesme=1 bayrağına bağlı
+  - sp_GuardPartnerReconciled filtresi: sert kilit için yalnızca `Status='CONFIRMED'`
+  - "İşlenmemiş işlem tespiti" adımı: bakiye gönderimden ÖNCE her iki tarafın açık kalemleri
+    karşılaştırılır (tvf_OpenItems) — mutabakat = imzalı uzlaşma, tek-taraflı gönderim değil
+
 **reference-researcher (Mikro/ERPNext/Odoo):**
 - Partner-bazlı mutabakat kilidi endüstride YOK (hepsi tarih-bazlı global) — Operax daha granüler, TTK gerekçeli.
 - Override deseni ERPNext frozen_accounts_modifier + Odoo exception ile uyumlu → PeriodOverrideLog doğru.

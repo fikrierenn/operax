@@ -139,13 +139,15 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- En son onaylanmış mutabakatın kesim tarihi
-    -- Yalnızca CONFIRMED + EXPIRED_CONFIRMED kilitler; DISPUTED/SENT bakiye kesinleşmemiş → serbest
+    -- En son AÇIK ONAYLI (imzalı/KEP CONFIRMED) mutabakatın kesim tarihi.
+    -- SERT kilit yalnızca CONFIRMED'e bağlı (deep-research/TTK md.94): sessiz onay
+    -- (EXPIRED_CONFIRMED) yazılı cari hesap sözleşmesi olmadan hukuken zayıf → sert kilit yapmaz.
+    -- DISPUTED/SENT → bakiye kesinleşmemiş, serbest.
     DECLARE @lockedThru DATETIME2;
     SELECT @lockedThru = MAX(StatementDate)
     FROM PartnerReconciliationLog
     WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
-      AND Status IN ('CONFIRMED','EXPIRED_CONFIRMED');
+      AND Status = 'CONFIRMED';
 
     IF @lockedThru IS NULL
         RETURN;  -- Onaylı mutabakat yok: serbest

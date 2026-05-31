@@ -158,7 +158,7 @@ GO
 -- -----------------------------------------------------------------------------
 CREATE OR ALTER TRIGGER dbo.tr_GuardPeriod_StockMovement
 ON dbo.StockMovement
-AFTER INSERT, UPDATE
+AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -193,7 +193,7 @@ GO
 -- -----------------------------------------------------------------------------
 CREATE OR ALTER TRIGGER dbo.tr_GuardPeriod_AccountMovement
 ON dbo.AccountMovement
-AFTER INSERT, UPDATE
+AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;

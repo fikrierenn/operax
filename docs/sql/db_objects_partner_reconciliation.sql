@@ -158,3 +158,35 @@ BEGIN
         THROW 51620, N'Cari mutabakatı yapılmış döneme kayıt girilemez; sonraki açık tarihe işleyin.', 1;
 END
 GO
+
+-- -----------------------------------------------------------------------------
+-- tvf_ReconciliationPrep — MUTABAKAT HAZIRLIK: bir tarihe kadar cari özet
+-- NE YAPAR: muhasebe @AsOf tarihi girince o cariyle mutabakat için hazırlık verisi:
+--   net bakiye (snapshot) + dönem içi hareket sayısı + açık kalem sayısı/tutarı.
+--   Mutabakat = imzalı uzlaşma; bu view iki tarafın karşılaştıracağı veriyi üretir.
+-- -----------------------------------------------------------------------------
+CREATE OR ALTER FUNCTION dbo.tvf_ReconciliationPrep
+(
+    @CompanyId UNIQUEIDENTIFIER,
+    @PartnerId UNIQUEIDENTIFIER,
+    @AsOf      DATETIME2
+)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        @PartnerId AS PartnerId,
+        -- AsOf günü DAHİL net bakiye (snapshot ile aynı sınır: < ertesi gün)
+        dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, DATEADD(DAY, 1, @AsOf)) AS NetBalance,
+        -- Dönem içi (AsOf'a kadar) toplam hareket sayısı
+        (SELECT COUNT(*) FROM AccountMovement am
+         WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
+           AND am.MovementDate < DATEADD(DAY, 1, @AsOf)) AS MovementCount,
+        -- Açık kalem (kapatılmamış) sayısı + tutarı — anlaşmazlık adayları
+        ISNULL((SELECT COUNT(*) FROM dbo.tvf_OpenItems(@CompanyId, @PartnerId)
+                WHERE MovementDate < DATEADD(DAY, 1, @AsOf)), 0) AS OpenItemCount,
+        ISNULL((SELECT SUM(OpenAmount) FROM dbo.tvf_OpenItems(@CompanyId, @PartnerId)
+                WHERE MovementDate < DATEADD(DAY, 1, @AsOf)), 0) AS OpenItemTotal
+);
+GO

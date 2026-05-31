@@ -290,7 +290,10 @@ BEGIN
         END
 
         IF @PartnerId IS NULL
-            THROW 70004, N'Sevkiyat müşterisi belirlenemedi (Partner referansı yok).', 1;
+            THROW 50204, N'Sevkiyat müşterisi belirlenemedi (Partner referansı yok).', 1;
+
+        -- Mutabakat kilidi (Plan 19): @PartnerId kesinleşti — onaylı mutabakatlı döneme fatura giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
 
         -- Fatura numarası üret (basit dizi — gelecekte sp_GenerateDocNo'dan alacak)
         DECLARE @InvoiceNo NVARCHAR(50);
@@ -471,6 +474,9 @@ BEGIN
         -- Dönem kilidi: tahsilat anının dönemi açık olmalı (Plan 14)
         DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @Now, @userStr;
+
+        -- Mutabakat kilidi (Plan 19): çek borçlusu cariyle onaylı mutabakat varsa kilit
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @Now;
 
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
@@ -757,6 +763,9 @@ BEGIN
         -- Dönem kilidi: tahsilat anının dönemi açık olmalı (Plan 14)
         DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @Now, @userStr;
+
+        -- Mutabakat kilidi (Plan 19): senet borçlusu cariyle onaylı mutabakat varsa kilit
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @Now;
 
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
@@ -1823,6 +1832,9 @@ BEGIN
         DECLARE @txUserStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @txNow, @txUserStr;
 
+        -- Mutabakat kilidi (Plan 19): onaylı mutabakatlı döneme kayıt giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @txNow;
+
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,
             Amount, Currency, AmountTRY, PartnerId, Description,
@@ -2226,6 +2238,9 @@ BEGIN
             THROW 50712, N'İptal edilmiş fatura onaylanamaz.', 1;
         IF @PartnerId IS NULL
             THROW 50713, N'Fatura tedarikçi bilgisi eksik.', 1;
+
+        -- Mutabakat kilidi (Plan 19): cari mutabakatı yapılmış döneme kayıt giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
 
         -- Fatura onayla
         UPDATE ExpenseInvoice

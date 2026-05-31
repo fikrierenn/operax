@@ -456,6 +456,9 @@ BEGIN
         )
             THROW 51405, N'Fatura eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
 
+        -- Mutabakat kilidi (Plan 19): onaylı mutabakatlı döneme iptal giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
+
         -- Fatura iptal
         UPDATE SalesInvoice
         SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
@@ -560,6 +563,9 @@ BEGIN
         )
             THROW 51415, N'Fatura eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
 
+        -- Mutabakat kilidi (Plan 19): onaylı mutabakatlı döneme iptal giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
+
         -- Fatura iptal
         UPDATE ExpenseInvoice
         SET Status = 'CANCELLED', UpdatedBy = @UserId
@@ -653,6 +659,9 @@ BEGIN
               AND r.CompanyId = @CompanyId AND r.IsReversal = 0
         )
             THROW 51423, N'İşlem eşleştirilmiş; önce eşleştirmeyi geri alın (mutabakat).', 1;
+
+        -- Mutabakat kilidi (Plan 19): onaylı mutabakatlı döneme iptal giremez
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @now;
 
         -- Çift-iptal koruması: zaten silinmişse THROW
         -- FinancialTransaction sistem-içi kayıt (e-Belge değil) → soft-delete meşru

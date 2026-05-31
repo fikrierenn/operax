@@ -35,6 +35,27 @@ END
 GO
 
 -- =============================================================================
+-- PLAN 16 MIGRATION: AccountMovement şema genişleme
+-- DueDate, TaxAmount, ExchangeRate, AmountForeign — nullable, backward compat.
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'DueDate')
+    ALTER TABLE dbo.AccountMovement ADD DueDate DATETIME2 NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'TaxAmount')
+    ALTER TABLE dbo.AccountMovement ADD TaxAmount DECIMAL(18,2) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'ExchangeRate')
+    ALTER TABLE dbo.AccountMovement ADD ExchangeRate DECIMAL(18,6) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id
+               WHERE t.name = 'AccountMovement' AND c.name = 'AmountForeign')
+    ALTER TABLE dbo.AccountMovement ADD AmountForeign DECIMAL(18,2) NULL;
+GO
+
+-- =============================================================================
 -- PLAN 14 MIGRATION: IsDeleted kaldır + Borc/Alacak → Debit/Credit rename
 -- Idempotent: IF EXISTS / IF NOT EXISTS korumalarıyla güvenle tekrar çalıştırılabilir.
 -- =============================================================================

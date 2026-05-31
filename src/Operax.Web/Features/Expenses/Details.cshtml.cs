@@ -145,11 +145,25 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
 
     public async Task<IActionResult> OnPostPostAsync(Guid id)
     {
-        // Faturayı POSTED durumuna alır
+        // Faturayı onaylar: sp_ExpenseInvoicePost atomik olarak POSTED yapar + cari deftere Credit yazar
         using var conn = db.Open();
-        await conn.ExecuteAsync(
-            "UPDATE ExpenseInvoice SET Status = @StPosted WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
-            new { Id = id, CompanyId = company.Id, StPosted = DocStatus.Posted, StDraft = DocStatus.Draft });
+        try
+        {
+            await conn.ExecuteAsync("dbo.sp_ExpenseInvoicePost",
+                new { InvoiceId = id, CompanyId = company.Id, UserId = User.Identity!.Name },
+                commandType: System.Data.CommandType.StoredProcedure);
+            TempData["Success"] = "Fatura onaylandı.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "ExpenseInvoicePost DB hatası: {Id}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 

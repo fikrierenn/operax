@@ -313,6 +313,19 @@ BEGIN
             @PartnerId, 'RECEIVABLE', 1, 1, @DueDate, GrandTotal, 'OPEN'
         FROM SalesInvoice WHERE Id = @NewInvoiceId;
 
+        -- Cari hesap defteri: satış faturası → Debit (müşteri bize borçlandı)
+        -- Çift-post koruması: UX_AccountMovement_Source (SourceDocType, SourceDocId) unique
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, TaxAmount,
+             DueDate, Currency, SourceDocType, SourceDocId, SourceDocNo,
+             Description, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId, @PartnerId, GETUTCDATE(),
+            GrandTotal, 0, TaxAmount,
+            @DueDate, 'TRY', 'SALES_INVOICE', @NewInvoiceId, @InvoiceNo,
+            N'Satış Faturası', CAST(@UserId AS NVARCHAR(450))
+        FROM SalesInvoice WHERE Id = @NewInvoiceId;
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
@@ -1502,6 +1515,25 @@ BEGIN
             @InstrumentType, @InstrumentId, @UserId
         );
 
+        -- Cari hesap defteri: INCOME (tahsilat) → Credit / EXPENSE (ödeme) → Debit
+        -- SourceDocNo yoksa FinancialTransaction Id string olarak yazılır
+        DECLARE @TxDocNo NVARCHAR(50);
+        SELECT @TxDocNo = SourceDocNo FROM FinancialTransaction WHERE Id = @NewTxId;
+
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, GETUTCDATE(),
+            CASE WHEN @TxType = 'EXPENSE' THEN @Amount ELSE 0 END,  -- ödeme → Debit
+            CASE WHEN @TxType = 'INCOME'  THEN @Amount ELSE 0 END,  -- tahsilat → Credit
+            @Currency,
+            CASE WHEN @TxType = 'INCOME' THEN 'COLLECTION' ELSE 'PAYMENT' END,
+            @NewTxId, @TxDocNo,
+            ISNULL(@Description, CASE WHEN @TxType = 'INCOME' THEN N'Tahsilat' ELSE N'Ödeme' END),
+            CAST(@UserId AS NVARCHAR(450))
+        );
+
         -- Auto-close: sadece partner bayrağı açıksa otomatik dağıt
         DECLARE @AutoFlag BIT = 0;
         SELECT @AutoFlag = ISNULL(AutoClosePayments, 0) FROM Partner WHERE Id = @PartnerId;
@@ -1817,4 +1849,79 @@ SELECT
 FROM Cheque c
 LEFT JOIN Partner p ON p.Id = c.PartnerId
 WHERE c.IsDeleted = 0;
+GO
+
+-- =============================================================================
+-- M18 MASRAF FATURASI: sp_ExpenseInvoicePost (Plan 16)
+-- DRAFT → POSTED + cari hesap defterine Credit kaydı (biz cariye borçlandık)
+-- Architecture §4: atomik onay SP zorunlu — C# ham UPDATE yasak.
+-- THROW aralığı: 70100-70199.
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_ExpenseInvoicePost
+    @InvoiceId  UNIQUEIDENTIFIER,
+    @CompanyId  UNIQUEIDENTIFIER,
+    @UserId     NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Dönem kilidi (Plan 14)
+        DECLARE @now DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
+
+        -- Belge kontrolü + kilit
+        DECLARE @Status    NVARCHAR(20),
+                @PartnerId UNIQUEIDENTIFIER,
+                @DocNo     NVARCHAR(50),
+                @DueDate   DATETIME2,
+                @Amount    DECIMAL(18,2),
+                @Currency  NVARCHAR(3);
+
+        SELECT @Status    = Status,
+               @PartnerId = PartnerId,
+               @DocNo     = DocNo,
+               @DueDate   = DueDate,
+               @Amount    = TotalAmount,
+               @Currency  = ISNULL(Currency, 'TRY')
+        FROM ExpenseInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 70100, N'Masraf faturası bulunamadı.', 1;
+        IF @Status = 'POSTED'
+            THROW 70101, N'Fatura zaten onaylanmış.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 70102, N'İptal edilmiş fatura onaylanamaz.', 1;
+        IF @PartnerId IS NULL
+            THROW 70103, N'Fatura tedarikçi bilgisi eksik.', 1;
+
+        -- Fatura onayla
+        UPDATE ExpenseInvoice
+        SET Status = 'POSTED', UpdatedBy = @UserId
+        WHERE Id = @InvoiceId;
+
+        -- Cari hesap defteri: alış faturası → Credit (biz cariye borçluyuz)
+        -- Çift-post koruması: UX_AccountMovement_Source unique
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             DueDate, Currency, SourceDocType, SourceDocId, SourceDocNo,
+             Description, CreatedBy)
+        VALUES (
+            NEWID(), @CompanyId, @PartnerId, @now,
+            0, @Amount,
+            @DueDate, @Currency, 'PURCHASE_INVOICE', @InvoiceId, @DocNo,
+            N'Alış Faturası', @UserId
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
 GO

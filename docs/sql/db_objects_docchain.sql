@@ -250,3 +250,166 @@ BEGIN
     END CATCH
 END
 GO
+
+-- =============================================================================
+-- sp_PurchaseInvoicePost — Mal alım faturası onaylama (DRAFT → POSTED)
+-- NE YAPAR: PurchaseInvoice'ı POSTED yapar; cari deftere tek Credit (biz tedarikçiye borçlu);
+--           PaymentPlan PAYABLE açar. Stok hareketi YAZMAZ (mal zaten Receiving'de girdi).
+--           Cari besleme YALNIZCA burada (irsaliye/mal kabul beslemez — R0/K3 drift kapanır).
+-- PARAMETRELERİ: @InvoiceId, @CompanyId, @UserId (NVARCHAR)
+-- THROW: 51530-51539
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PurchaseInvoicePost
+    @InvoiceId UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Dönem kilidi (Plan 14) — tedarikçi belge tarihi ile (KDV/dönem doğru)
+        DECLARE @Status      NVARCHAR(20),
+                @PartnerId   UNIQUEIDENTIFIER,
+                @DocNo       NVARCHAR(50),
+                @SupInvNo    NVARCHAR(50),
+                @SupInvDate  DATE,
+                @DueDate     DATE,
+                @Grand       DECIMAL(18,4),
+                @Subtotal    DECIMAL(18,4),
+                @TaxAmt      DECIMAL(18,4),
+                @Currency    NVARCHAR(10);
+
+        SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo,
+               @SupInvNo = SupplierInvoiceNo, @SupInvDate = SupplierInvoiceDate,
+               @DueDate = DueDate, @Grand = GrandTotal, @Subtotal = Subtotal,
+               @TaxAmt = TaxAmount, @Currency = ISNULL(Currency, 'TRY')
+        FROM PurchaseInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 51530, N'Alış faturası bulunamadı.', 1;
+        IF @Status = 'POSTED'
+            THROW 51531, N'Fatura zaten onaylanmış.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 51532, N'İptal edilmiş fatura onaylanamaz.', 1;
+        IF @PartnerId IS NULL
+            THROW 51533, N'Fatura tedarikçi bilgisi eksik.', 1;
+        -- Mevzuat: tedarikçi yasal belge no + tarihi zorunlu (BA/BS + KDV)
+        IF @SupInvNo IS NULL OR LTRIM(RTRIM(@SupInvNo)) = ''
+            THROW 51534, N'Tedarikçi fatura numarası zorunludur.', 1;
+        IF @SupInvDate IS NULL
+            THROW 51535, N'Tedarikçi fatura tarihi zorunludur.', 1;
+
+        -- Dönem guard: cari borç tedarikçi belge tarihine ait
+        DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowDt, @UserId;
+
+        -- Mutabakat kilidi (Plan 19)
+        EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @nowDt;
+
+        UPDATE PurchaseInvoice
+        SET Status = 'POSTED', UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER), UpdatedAt = GETUTCDATE()
+        WHERE Id = @InvoiceId;
+
+        -- Ödeme planı: alış → PAYABLE (tedarikçiye borçluyuz)
+        INSERT INTO PaymentPlan
+            (Id, CompanyId, SourceDocType, SourceDocId, SourceDocNo,
+             PartnerId, Direction, InstallmentNo, TotalInstallments,
+             DueDate, Amount, Status)
+        VALUES
+            (NEWID(), @CompanyId, 'PURCHASE_INVOICE', @InvoiceId, @DocNo,
+             @PartnerId, 'PAYABLE', 1, 1,
+             ISNULL(CAST(@DueDate AS DATETIME2), DATEADD(DAY, 30, @nowDt)), @Grand, 'OPEN');
+
+        -- Cari hesap defteri: tek Credit (biz tedarikçiye borçluyuz) — cari besleme TEK NOKTA
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, DueDate, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES
+            (NEWID(), @CompanyId, @PartnerId, @nowDt, 0, @Grand,
+             @Subtotal, @TaxAmt, CAST(@DueDate AS DATETIME2), @Currency,
+             'PURCHASE_INVOICE', @InvoiceId, @DocNo, N'Alış Faturası: ' + @SupInvNo, @UserId);
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- sp_PurchaseInvoiceReverse — Mal alım faturası iptali (POSTED → CANCELLED)
+-- NE YAPAR: AccountMovement ters-satır (REVERSAL), PaymentPlan iptal. Tahsilat/ödeme varsa reddet.
+-- THROW: 51540-51549
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PurchaseInvoiceReverse
+    @InvoiceId UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20), @PartnerId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
+                @Grand DECIMAL(18,4), @Subtotal DECIMAL(18,4), @TaxAmt DECIMAL(18,4),
+                @SupInvDate DATE;
+
+        SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo,
+               @Grand = GrandTotal, @Subtotal = Subtotal, @TaxAmt = TaxAmount,
+               @SupInvDate = SupplierInvoiceDate
+        FROM PurchaseInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 51540, N'Alış faturası bulunamadı.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 51541, N'Fatura zaten iptal edilmiş.', 1;
+        IF @Status <> 'POSTED'
+            THROW 51542, N'Yalnızca onaylanmış faturalar iptal edilebilir.', 1;
+
+        -- İmmutability: ödenmiş ödeme varsa reddet
+        IF EXISTS (
+            SELECT 1 FROM PaymentPlan
+            WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId
+              AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL
+        )
+            THROW 51543, N'Bağlı ödeme mevcut; önce ödemeyi iptal edin.', 1;
+
+        DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);
+
+        UPDATE PurchaseInvoice
+        SET Status = 'CANCELLED', UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER), UpdatedAt = GETUTCDATE()
+        WHERE Id = @InvoiceId;
+
+        -- Açık PaymentPlan iptal
+        UPDATE PaymentPlan
+        SET Status = 'CANCELLED'
+        WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId AND Status = 'OPEN';
+
+        -- AccountMovement ters kayıt: orijinal Credit'i nötrlemek için Debit
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES
+            (NEWID(), @CompanyId, @PartnerId, @nowDt, @Grand, 0,
+             -@Subtotal, -@TaxAmt, 'TRY',
+             'REVERSAL', @InvoiceId, @DocNo, N'Alış Faturası İptali: ' + @DocNo, @UserId);
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO

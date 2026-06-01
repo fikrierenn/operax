@@ -93,7 +93,8 @@ class Program
                         "schema_M05_DocChain.sql",            // Plan 05 Faz 1: ExpenseInvoice.ReceivingId + ShippingHeader.SalesOrderId
                         "schema_M03_PurchaseInvoice.sql",     // Plan 24: Mal Alım Faturası (PurchaseInvoice/Line) + ItemType CONSUMABLE
                         "schema_M18_ExpenseReporting.sql",    // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
-                        "schema_M02_MaterialIssue.sql"        // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
+                        "schema_M02_MaterialIssue.sql",       // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
+                        "schema_M04_ShipmentInvoiceMerge.sql" // Plan 21: İrsaliye↔Fatura N:1 (InvoicedQty + SourceShipmentLineId + IssueDate)
 
                     })
                     {

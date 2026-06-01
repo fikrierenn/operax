@@ -12,6 +12,10 @@ using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// F0.2/Güvenlik: Kestrel "Server: Kestrel" başlığını gizle (sunucu parmak izi sızıntısı önlenir)
+// NetEscapades RemoveServerHeader üst katmanda; Kestrel kendi başlığını burada kapatır.
+builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
+
 // Bağlantı dizesini al ve doğrula
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' not found.");
@@ -57,7 +61,8 @@ builder.Services.AddScoped<IUserClaimsPrincipalFactory<IdentityUser>, CompanyAwa
 // Cookie yapılandırması — özel login sayfamıza yönlendir
 builder.Services.ConfigureApplicationCookie(opts =>
 {
-    opts.LoginPath = "/Auth/Login";
+    // Login sayfası @page "/login" rotasında; LoginPath bununla eşleşmeli (aksi halde redirect 404)
+    opts.LoginPath = "/login";
     opts.LogoutPath = "/Auth/Logout";
     opts.AccessDeniedPath = "/Auth/AccessDenied";
     opts.SlidingExpiration = true;

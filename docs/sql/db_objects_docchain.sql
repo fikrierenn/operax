@@ -294,7 +294,7 @@ BEGIN
                 @Grand       DECIMAL(18,4),
                 @Subtotal    DECIMAL(18,4),
                 @TaxAmt      DECIMAL(18,4),
-                @Currency    NVARCHAR(10);
+                @Currency    NVARCHAR(3);   -- ISO 4217; AccountMovement.Currency NVARCHAR(3) ile hizalı
 
         SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo,
                @SupInvNo = SupplierInvoiceNo, @SupInvDate = SupplierInvoiceDate,
@@ -410,6 +410,7 @@ BEGIN
         WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId AND Status = 'OPEN';
 
         -- AccountMovement ters kayıt: orijinal Credit'i nötrlemek için Debit
+        -- DueDate ters satırda yazılmaz (vadesiz) — bakiye SUM(Debit-Credit) ile doğru nötrlenir
         INSERT INTO dbo.AccountMovement
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
              NetAmount, TaxAmount, Currency,

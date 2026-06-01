@@ -171,8 +171,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate)
     {
-        // UOM dönüşüm oranı ekler
+        // UOM dönüşüm oranı ekler — IDOR: ürün bu firmaya ait olmalı
         using var conn = db.Open();
+        var owned = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id });
+        if (owned == 0) return RedirectToPage(new { id, tab = "uom" });
         await conn.ExecuteAsync(
             "INSERT INTO ItemUOM (ItemId, UomId, ConversionRate) VALUES (@ItemId, @UomId, @Rate)",
             new { ItemId = id, UomId = uomId, Rate = rate });
@@ -181,16 +185,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostDeleteUomAsync(Guid id, Guid uomConversionId)
     {
-        // UOM dönüşüm satırını siler
+        // UOM dönüşüm satırını siler — IDOR: yalnızca bu firmanın ürününe ait satır
         using var conn = db.Open();
-        await conn.ExecuteAsync("DELETE FROM ItemUOM WHERE Id = @Id", new { Id = uomConversionId });
+        await conn.ExecuteAsync(
+            "DELETE FROM ItemUOM WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
+            new { Id = uomConversionId, CompanyId = company.Id });
         return RedirectToPage(new { id, tab = "uom" });
     }
 
     public async Task<IActionResult> OnPostAddBarcodeAsync(Guid id, Guid uomId, string barcode)
     {
-        // Barkod ekler
+        // Barkod ekler — IDOR: ürün bu firmaya ait olmalı
         using var conn = db.Open();
+        var owned = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id });
+        if (owned == 0) return RedirectToPage(new { id, tab = "barcodes" });
         await conn.ExecuteAsync(
             "INSERT INTO ItemBarcode (ItemId, UomId, Barcode) VALUES (@ItemId, @UomId, @Barcode)",
             new { ItemId = id, UomId = uomId, Barcode = barcode });
@@ -199,9 +209,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostDeleteBarcodeAsync(Guid id, Guid barcodeId)
     {
-        // Barkod siler
+        // Barkod siler — IDOR: yalnızca bu firmanın ürününe ait barkod
         using var conn = db.Open();
-        await conn.ExecuteAsync("DELETE FROM ItemBarcode WHERE Id = @Id", new { Id = barcodeId });
+        await conn.ExecuteAsync(
+            "DELETE FROM ItemBarcode WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
+            new { Id = barcodeId, CompanyId = company.Id });
         return RedirectToPage(new { id, tab = "barcodes" });
     }
 
@@ -216,7 +228,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public Guid?   CategoryId       { get; set; }
         public string? CategoryName     { get; set; }
         public decimal TaxRate          { get; set; } = 20;
-        public string  ItemType         { get; set; } = "STOCK";  // STOCK/CONSUMABLE/SERVICE/FIXED_ASSET
+        public string  ItemType         { get; set; } = "STOCK";  // Kalem türü: STOCK (stok), CONSUMABLE (sarf), SERVICE (hizmet), FIXED_ASSET (sabit kıymet)
         public bool    IsLotTracked     { get; set; }
         public bool    IsSerialTracked  { get; set; }
         public bool    IsActive         { get; set; }

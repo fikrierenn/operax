@@ -84,7 +84,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                             ? $"/Finance/Payments/Create?partnerId={Header.PartnerId}&txType=INCOME&amount={remaining}&sourceDocId={Id}&sourceDocType=SALES_INVOICE"
                             : null,
                         CreateLabel: remaining > 0 ? "Tahsilat Al" : "Tam Tahsil Edildi",
-                        CanCreate: remaining > 0 && user.HasRole("Administrator","Finance","Sales"))
+                        CanCreate: remaining > 0 && user.HasRole("Administrator","Finance","Sales"),
+                        IsGetCreate: true)
                 ]);
             }
 

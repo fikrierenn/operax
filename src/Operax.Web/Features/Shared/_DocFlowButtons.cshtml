@@ -26,10 +26,25 @@
                 }
                 @if (item.CanCreate && item.CreateUrl is not null)
                 {
-                    <a href="@item.CreateUrl" class="btn btn-secondary btn-sm">
-                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                        @(item.CreateLabel ?? item.Label)
-                    </a>
+                    @if (item.IsGetCreate)
+                    {
+                        @* GET sayfası — normal link (Payment Create, yeni belge formu) *@
+                        <a href="@item.CreateUrl" class="btn btn-secondary btn-sm">
+                            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                            @(item.CreateLabel ?? item.Label)
+                        </a>
+                    }
+                    else
+                    {
+                        @* POST handler — form + AntiForgery (handler URL ?handler=X) *@
+                        <form method="post" action="@item.CreateUrl" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                                @(item.CreateLabel ?? item.Label)
+                            </button>
+                        </form>
+                    }
                 }
             </div>
         }

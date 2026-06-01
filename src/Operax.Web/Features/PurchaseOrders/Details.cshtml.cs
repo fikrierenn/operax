@@ -239,7 +239,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         {
             await conn.ExecuteAsync(
                 "sp_PoPost",
-                new { PoHeaderId = id, CompanyId = company.Id, UserId = (Guid?)null },
+                new { PoHeaderId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure);
             await audit.LogAsync("POST", "PurchaseOrderHeader", id,
                 "Satınalma siparişi onaylandı, ödeme planı oluşturuldu");

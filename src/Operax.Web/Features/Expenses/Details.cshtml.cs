@@ -69,7 +69,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                     Count: 0,
                     CreateUrl: $"/Finance/Payments/Create?partnerId={Form.PartnerId}&txType=EXPENSE&amount={Form.TotalAmount}&sourceDocId={Form.Id}&sourceDocType=EXPENSE_INVOICE",
                     CreateLabel: "Ödeme Yap",
-                    CanCreate: user.HasRole("Administrator","Finance","Purchasing"))
+                    CanCreate: user.HasRole("Administrator","Finance","Purchasing"),
+                    IsGetCreate: true)
             ]);
         }
     }

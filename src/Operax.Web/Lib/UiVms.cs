@@ -80,10 +80,12 @@ public record DocFlowVm(IReadOnlyList<DocFlowItem> Items);
 /// <param name="CreateUrl">Yeni alt belge oluştur URL'i (null ise sadece sayaç)</param>
 /// <param name="CreateLabel">Oluştur butonu etiketi (örn. "Mal Kabul Oluştur")</param>
 /// <param name="CanCreate">Bu kullanıcının oluşturma yetkisi var mı</param>
+/// <param name="IsGetCreate">true = GET sayfası link (Payment Create gibi); false = POST handler form</param>
 public record DocFlowItem(
     string Label,
     int Count,
     string? ListUrl = null,
     string? CreateUrl = null,
     string? CreateLabel = null,
-    bool CanCreate = true);
+    bool CanCreate = true,
+    bool IsGetCreate = false);

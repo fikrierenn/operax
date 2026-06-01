@@ -228,14 +228,16 @@ BEGIN
              @ShipDocNo, 'DRAFT', @UserId);
 
         -- Kalan miktarlı SO satırlarını kopyala
+        -- QtyOriginal NOT NULL — kalan miktar hem QtyOriginal hem QtyBase'e yazılır
         INSERT INTO ShippingLine
-            (HeaderId, SalesOrderLineId, ItemId, UomId, QtyBase)
+            (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase)
         SELECT
             @NewHeaderId,
             sol.Id,
             sol.ItemId,
             sol.UomId,
-            sol.QtyOrdered - ISNULL(sol.QtyShipped, 0)
+            sol.QtyOrdered - ISNULL(sol.QtyShipped, 0),   -- QtyOriginal
+            sol.QtyOrdered - ISNULL(sol.QtyShipped, 0)    -- QtyBase = QtyOriginal
         FROM SalesOrderLine sol
         WHERE sol.HeaderId = @SoId
           AND (sol.QtyOrdered - ISNULL(sol.QtyShipped, 0)) > 0.0001;

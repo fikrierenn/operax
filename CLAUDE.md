@@ -15,6 +15,8 @@ Bu dosya her Claude/Antigravity oturumunun başında okunur. **Değişmez kurall
 
 **Plan-First Disiplini:** 3+ dosya / yeni pattern / schema değişikliği / UI değişikliği gibi Tier 3 işler için **önce `plans/NN-<slug>.md` yazılır, kullanıcı onayı alınır, sonra kod yazılır**. Detay: [`.claude/rules/plan-first.md`](file:///d:/Dev/Operax/.claude/rules/plan-first.md).
 
+**Faz Kapanış Kapısı (ZORUNLU):** Her Tier 3 fazı bitmeden: `build-validator` → `code-reviewer` → `sql-sp-reviewer` (SP varsa) → `security-reviewer` (yeni PageModel varsa) → manuel smoke (stok/ledger varsa). Detay: [`.claude/rules/phase-review-gate.md`](file:///d:/Dev/Operax/.claude/rules/phase-review-gate.md).
+
 ---
 
 ## 0. OTURUM BAŞI RİTÜELİ — ZORUNLU

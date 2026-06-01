@@ -13,9 +13,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     [BindProperty]
     public TransferHeaderDto Header { get; set; } = new();
     public IEnumerable<TransferLineDto> Lines      { get; set; } = [];
-    public IEnumerable<WhDdlDto>         Warehouses { get; set; } = [];
-    public IEnumerable<DdlDto>          Items      { get; set; } = [];
-    public IEnumerable<BinDto>          Bins       { get; set; } = [];
+    public IEnumerable<WhDdlDto>         Warehouses     { get; set; } = [];
+    public IEnumerable<DdlDto>          Items          { get; set; } = [];
+    public IEnumerable<BinDto>          Bins           { get; set; } = [];
+    // POSTED görünüm için şube adları
+    public string? FromBranchName { get; set; }
+    public string? ToBranchName   { get; set; }
 
     public bool IsNew => Header.Id == Guid.Empty;
 
@@ -38,6 +41,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             Header = await conn.QueryFirstOrDefaultAsync<TransferHeaderDto>(
                 "SELECT Id, DocNo, Status, TransferType, FromWarehouseId, ToWarehouseId, Notes FROM StockTransfer WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
+
+            // Şube adları — detay görünümünde depo yanında gösterilir
+            var branchNames = await conn.QueryFirstOrDefaultAsync<(string? From, string? To)>(@"
+                SELECT fb.Name AS From, tb.Name AS To
+                FROM StockTransfer t
+                JOIN Warehouse fw ON fw.Id = t.FromWarehouseId
+                JOIN Warehouse tw ON tw.Id = t.ToWarehouseId
+                LEFT JOIN Branch fb ON fb.Id = fw.BranchId
+                LEFT JOIN Branch tb ON tb.Id = tw.BranchId
+                WHERE t.Id = @Id", new { Id = id });
+            FromBranchName = branchNames.From;
+            ToBranchName   = branchNames.To;
 
             Lines = await conn.QueryAsync<TransferLineDto>(@"
                 SELECT l.*, i.Code as ItemCode, i.Name as ItemName,

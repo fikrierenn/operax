@@ -46,23 +46,30 @@
             <div class="card p-6 bg-white h-full">
                 <div class="card-ttl mb-4 pb-2 border-b border-slate-100">TRANSFER AYARLARI</div>
                 <div class="space-y-4">
+                    @* Transfer tipi: kaynak/hedef depo seçilince JS türetir — hidden field DB'ye gider *@
+                    <input type="hidden" asp-for="Header.TransferType" id="transfer-type-code" />
                     <div class="form-group mb-0">
                         <label class="form-label">Transfer Tipi</label>
-                        <select class="form-ctrl w-full" required>
-                            <option value="WH_TO_WH">Depolar Arası Transfer</option>
-                            <option value="BIN_TO_BIN">Raf/Hücre Arası Transfer</option>
-                        </select>
+                        <div id="transfer-type-badge" class="badge b-indigo text-sm px-3 py-1.5">—</div>
                     </div>
                     <div class="form-group mb-0">
                         <label class="form-label">Kaynak Depo</label>
-                        <select asp-for="Header.FromWarehouseId" class="form-ctrl w-full" required>
-                            @foreach (var wh in Model.Warehouses) { <option value="@wh.Id">@wh.Code - @wh.Name</option> }
+                        <select asp-for="Header.FromWarehouseId" id="from-wh" class="form-ctrl w-full" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var wh in Model.Warehouses)
+                            {
+                                <option value="@wh.Id" data-branch="@wh.BranchId">@wh.Code - @wh.Name</option>
+                            }
                         </select>
                     </div>
                     <div class="form-group mb-0">
                         <label class="form-label">Hedef Depo</label>
-                        <select asp-for="Header.ToWarehouseId" class="form-ctrl w-full" required>
-                            @foreach (var wh in Model.Warehouses) { <option value="@wh.Id">@wh.Code - @wh.Name</option> }
+                        <select asp-for="Header.ToWarehouseId" id="to-wh" class="form-ctrl w-full" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var wh in Model.Warehouses)
+                            {
+                                <option value="@wh.Id" data-branch="@wh.BranchId">@wh.Code - @wh.Name</option>
+                            }
                         </select>
                     </div>
                 </div>
@@ -175,3 +182,44 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    // Transfer tipi türetme: kaynak/hedef depo BranchId karşılaştırması
+    const fromSel  = document.getElementById('from-wh');
+    const toSel    = document.getElementById('to-wh');
+    const badge    = document.getElementById('transfer-type-badge');
+    const codeInp  = document.getElementById('transfer-type-code');
+
+    function deriveType() {
+        const fromOpt = fromSel.selectedOptions[0];
+        const toOpt   = toSel.selectedOptions[0];
+        if (!fromOpt?.value || !toOpt?.value) { badge.textContent = '—'; return; }
+
+        const fromId     = fromOpt.value;
+        const toId       = toOpt.value;
+        const fromBranch = fromOpt.dataset.branch || '';
+        const toBranch   = toOpt.dataset.branch   || '';
+
+        let label, code;
+        if (fromId === toId) {
+            label = 'Raf / Hücre Arası'; code = 'BIN_TO_BIN';
+        } else if (fromBranch && toBranch && fromBranch !== toBranch) {
+            label = 'Şubeler Arası';      code = 'WH_TO_WH';
+        } else if (fromBranch && fromBranch === toBranch) {
+            label = 'Depo Arası (Aynı Şube)'; code = 'WH_TO_WH';
+        } else {
+            label = 'Depolar Arası';      code = 'WH_TO_WH';
+        }
+        badge.textContent = label;
+        codeInp.value     = code;
+    }
+
+    fromSel.addEventListener('change', deriveType);
+    toSel.addEventListener('change',   deriveType);
+    deriveType(); // sayfa yüklendiğinde mevcut seçimden türet
+})();
+</script>
+}
+

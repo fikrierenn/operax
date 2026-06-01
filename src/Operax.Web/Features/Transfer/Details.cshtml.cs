@@ -13,7 +13,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     [BindProperty]
     public TransferHeaderDto Header { get; set; } = new();
     public IEnumerable<TransferLineDto> Lines      { get; set; } = [];
-    public IEnumerable<DdlDto>          Warehouses { get; set; } = [];
+    public IEnumerable<WhDdlDto>         Warehouses { get; set; } = [];
     public IEnumerable<DdlDto>          Items      { get; set; } = [];
     public IEnumerable<BinDto>          Bins       { get; set; } = [];
 
@@ -24,8 +24,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Dropdown listelerini ve transfer bilgilerini yükler
         using var conn = db.Open();
 
-        Warehouses = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0",
+        // BranchId dahil — JS transfer tipi türetme için
+        Warehouses = await conn.QueryAsync<WhDdlDto>(
+            "SELECT Id, Code, Name, BranchId FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
             new { CompanyId = company.Id });
 
         Items = await conn.QueryAsync<DdlDto>(
@@ -60,7 +61,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         else
         {
             Header.DocNo        = "NEW";
-            Header.TransferType = "BIN_TO_BIN";
+            Header.TransferType = TransferTypeHelper.BinToBin;
         }
     }
 
@@ -68,6 +69,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // Transfer başlığını kaydeder veya günceller (DRAFT)
         using var conn = db.Open();
+
+        // TransferType kodu kaynak/hedef depodan otomatik türetilir
+        Header.TransferType = TransferTypeHelper.GetCode(Header.FromWarehouseId, Header.ToWarehouseId);
 
         if (IsNew)
         {
@@ -187,4 +191,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     }
 
     public record BinDto(Guid Id, string Code, Guid WarehouseId);
+
+    // BranchId dahil depo dropdown DTO (JS türetme için)
+    public record WhDdlDto
+    {
+        public Guid  Id       { get; set; }
+        public string Code    { get; set; } = "";
+        public string Name    { get; set; } = "";
+        public Guid? BranchId { get; set; }
+    }
 }

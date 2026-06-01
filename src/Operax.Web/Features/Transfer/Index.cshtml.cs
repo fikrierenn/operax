@@ -20,8 +20,10 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         using var conn = db.Open();
         
         Transfers = await conn.QueryAsync<TransferDto>(@"
-            SELECT t.*, fw.Code as FromWhCode, tw.Code as ToWhCode,
-                   (SELECT COUNT(*) FROM StockTransferLine WHERE TransferId = t.Id) as LineCount
+            SELECT t.Id, t.DocNo, t.Status, t.TransferType, t.CreatedAt,
+                   fw.Code AS FromWhCode, fw.BranchId AS FromBranchId,
+                   tw.Code AS ToWhCode,   tw.BranchId AS ToBranchId,
+                   (SELECT COUNT(*) FROM StockTransferLine WHERE TransferId = t.Id) AS LineCount
             FROM StockTransfer t
             JOIN Warehouse fw ON fw.Id = t.FromWarehouseId
             JOIN Warehouse tw ON tw.Id = t.ToWarehouseId
@@ -44,5 +46,22 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             new { CompanyId = company.Id, StPosted = DocStatus.Posted });
     }
 
-    public record TransferDto { public Guid Id { get; set; } public string DocNo { get; set; } = ""; public string Status { get; set; } = ""; public string FromWhCode { get; set; } = ""; public string ToWhCode { get; set; } = ""; public int LineCount { get; set; } public DateTime CreatedAt { get; set; } }
+    public record TransferDto
+    {
+        public Guid    Id           { get; set; }
+        public string  DocNo        { get; set; } = "";
+        public string  Status       { get; set; } = "";
+        public string  TransferType { get; set; } = "";
+        public string  FromWhCode   { get; set; } = "";
+        public Guid?   FromBranchId { get; set; }
+        public string  ToWhCode     { get; set; } = "";
+        public Guid?   ToBranchId   { get; set; }
+        public int     LineCount    { get; set; }
+        public DateTime CreatedAt   { get; set; }
+
+        // Türetilmiş Türkçe etiket — BIN_TO_BIN kodu önce kontrol edilir, sonra şube karşılaştırması
+        public string TypeLabel => TransferType == TransferTypeHelper.BinToBin
+            ? "Raf / Hücre Arası"
+            : TransferTypeHelper.GetWhLabel(FromBranchId, ToBranchId);
+    }
 }

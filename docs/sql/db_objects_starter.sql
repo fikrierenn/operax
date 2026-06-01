@@ -1496,7 +1496,7 @@ BEGIN
             @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
             rl.QtyBase, rl.UomId, rl.QtyBase, 'RECEIVING', @HeaderId, @DocNo, rl.LotNo,
             ISNULL(pol.Price, 0), @UserId,
-            (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ReceivingLine rl
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
         WHERE rl.HeaderId = @HeaderId;
@@ -1599,7 +1599,7 @@ BEGIN
             @CompanyId, @WarehouseId, ISNULL(sl.BinId, @PickingBinId), sl.ItemId, 'ISSUE',
             -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo,
             ISNULL(ic.AvgCost, 0), @UserId,
-            (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ShippingLine sl
         LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId
         WHERE sl.HeaderId = @HeaderId;

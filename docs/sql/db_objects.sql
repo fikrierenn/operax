@@ -285,7 +285,7 @@ BEGIN
             @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
             rl.QtyBase, rl.UomId, rl.QtyBase, ISNULL(pol.Price, 0),
             'RECEIVING', @HeaderId, @DocNo, rl.LotNo, @UserId,
-            (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ReceivingLine rl
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
         WHERE rl.HeaderId = @HeaderId;
@@ -408,7 +408,7 @@ BEGIN
     SELECT
         @CompanyId, @WarehouseId, @PickingBinId, sl.ItemId, 'ISSUE',
         -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo, @UserId,
-        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
     FROM ShippingLine sl
     WHERE sl.HeaderId = @HeaderId;
 
@@ -585,7 +585,7 @@ BEGIN
     SELECT
         @CompanyId, @FromWarehouseId, l.FromBinId, l.ItemId, 'TRANSFER',
         -l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId,
-        (SELECT BranchId FROM Warehouse WHERE Id = @FromWarehouseId)
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @FromWarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
     FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
 
     -- Giriş hareketi (hedef depo, artı) — BranchId hedef depodan türetilir
@@ -595,7 +595,7 @@ BEGIN
     SELECT
         @CompanyId, @ToWarehouseId, l.ToBinId, l.ItemId, 'TRANSFER',
         l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId,
-        (SELECT BranchId FROM Warehouse WHERE Id = @ToWarehouseId)
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @ToWarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
     FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
 
     UPDATE StockTransfer
@@ -658,7 +658,7 @@ BEGIN
         i.BaseUomId,
         ABS(l.QtyCounted - l.QtySystem),
         'COUNT', @HeaderId, @DocNo, @UserId,
-        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
     FROM CycleCountLine l
     JOIN Item i ON i.Id = l.ItemId
     WHERE l.CycleCountId = @HeaderId
@@ -820,7 +820,7 @@ BEGIN
     SELECT
         @CompanyId, @WarehouseId, @BinId, @ItemId, 'PRODUCTION',
         @Qty, i.BaseUomId, @Qty, 'PRODUCTION', @OrderId, @DocNo, @UserId,
-        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
     FROM Item i WHERE i.Id = @ItemId;
 
     UPDATE ProductionOrder
@@ -895,7 +895,7 @@ BEGIN
     VALUES
         (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE',
          -@Qty, @UomId, @Qty, 'PICKING', @TaskId, @DocNo, @UserId,
-         (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId));
+         ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId)));
 
     -- Üretim hammadde sarfiyatı güncelle (sadece PRD-PCK- görevleri)
     IF @TaskDocNo LIKE 'PRD-PCK-%'

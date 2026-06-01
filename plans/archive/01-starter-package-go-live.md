@@ -2,11 +2,22 @@
 
 **Tarih:** 2026-05-28
 **Yazan:** Claude
-**Durum:** `Taslak`
+**Durum:** `TAMAM` (DOĞRULANDI 2026-06-01 — canlı kod + E2E smoke)
 **Modül:** M00 + M01 + M02 + M03 + M04 + M11
 **Paket:** STARTER
 
 ---
+
+> **TAMAM — 2026-06-01 STARTER E2E doğrulaması (transaction+rollback smoke + tarayıcı):**
+> - **Faz 1 Loan:** `sp_CreateLoan` ANUITE/EQUAL_PRINCIPAL/BALLOON → 12 taksit, balon max anapara=40000 ✅
+> - **Faz 2 Purchase→cost:** `sp_CreateReceivingFromPO`→`sp_ReceivingPost` → 2 RECEIPT hareket + ItemCost.AvgCost>0 ✅
+> - **Faz 3 PriceVariance:** SP + PO/Details + PriceVariances sayfası mevcut ✅
+> - **Faz 4 Shipping→Invoice:** `sp_GenerateSalesInvoiceFromShipping` + InvoiceMode INSTANT ✅ (tarayıcı E2E)
+> - **Faz 5 formlar:** Loan CalcMethod selector+balloon JS · CreditCard LinkedBankAccountId · Partner risk/vade/e-Fatura ✅
+> - **Faz 6 Aging detay + hesap ekstre:** Finance/Aging/Details + Accounts/Details (son 100 hareket) ✅
+> - **Faz 7 Payment loop:** `sp_RecordPaymentAndAutoClose` → FinancialTransaction + AccountMovement Credit + (AutoClosePayments=1 ise) FIFO PaymentPlan kapama + AccountReconciliation ✅
+> - **Sales zinciri (SO→Shipping→Invoice→ledger):** tarayıcı E2E (N:1 merge) ✅
+> Build 0/0. Plan 21 (N:1 fatura) STARTER üstü ek olarak tamamlandı.
 
 ## 1. Problem
 

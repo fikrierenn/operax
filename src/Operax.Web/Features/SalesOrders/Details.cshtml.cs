@@ -41,8 +41,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         Customers = await conn.QueryAsync<DdlDto>(
             "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('CUSTOMER', 'BOTH') AND IsDeleted = 0", p);
 
+        // İş kuralı: CONSUMABLE (sarf malzeme) satışta gizlenir; yalnızca sarf fişinde kullanılır
         AvailableItems = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0", p);
+            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> 'CONSUMABLE'", p);
 
         if (id.HasValue)
         {
@@ -171,8 +172,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, decimal qty, decimal? price)
     {
         using var conn = db.Open();
+        // İş kuralı: CONSUMABLE satılamaz; sorgu sarf maddesini eler, BaseUomId null dönerse satır eklenmez
         var baseUomId = await conn.ExecuteScalarAsync<Guid?>(
-            "SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId",
+            "SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND ItemType <> 'CONSUMABLE'",
             new { ItemId = itemId, CompanyId = company.Id });
 
         if (baseUomId is null) return RedirectToPage(new { id });

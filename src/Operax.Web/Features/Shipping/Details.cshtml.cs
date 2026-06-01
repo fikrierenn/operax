@@ -31,8 +31,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0",
             new { CompanyId = company.Id });
 
+        // İş kuralı: CONSUMABLE (sarf malzeme) satışta gizlenir; yalnızca sarf fişinde kullanılır
         AvailableItems = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
+            "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> 'CONSUMABLE'",
             new { CompanyId = company.Id });
 
         // tvf_OpenSalesOrders: CompanyId parametreli iTVF
@@ -158,8 +159,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             return RedirectToPage(new { id });
         }
 
+        // Guard: madde geçerli ve satışa uygun mu? CONSUMABLE sevkiyatta kabul edilmez
         var exists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1",
+            "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> 'CONSUMABLE'",
             new { ItemId = itemId, CompanyId = company.Id });
 
         if (exists == 0) return RedirectToPage(new { id });

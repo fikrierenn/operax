@@ -110,7 +110,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     }
 
     // Kalem birim fiyatlarını günceller (yalnızca DRAFT) + satır ve başlık toplamlarını yeniden hesaplar
-    public async Task<IActionResult> OnPostUpdatePricesAsync(Guid id, Guid[] lineId, decimal[] unitPrice)
+    public async Task<IActionResult> OnPostUpdatePricesAsync(Guid id, Guid[] lineId, string[] unitPrice)
     {
         using var conn = db.Open();
 
@@ -124,10 +124,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             return RedirectToPage(new { id });
         }
 
-        // Her satır için fiyat + bağlı tutarları (ara toplam, KDV, toplam) güncelle
+        // Her satır için fiyat + bağlı tutarları (ara toplam, KDV, toplam) güncelle.
+        // HTML number input değeri DAİMA nokta-ondalıklı (invariant) gönderir; tr-TR model
+        // binding'i '12.5'i 125 olarak okur (nokta=binlik) → parayı invariant parse et.
         for (int i = 0; i < lineId.Length; i++)
         {
-            var price = unitPrice[i] < 0 ? 0 : unitPrice[i];
+            decimal price = decimal.TryParse(unitPrice[i],
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+            if (price < 0) price = 0;
             await conn.ExecuteAsync(@"
                 UPDATE PurchaseInvoiceLine
                 SET UnitPrice    = @Price,

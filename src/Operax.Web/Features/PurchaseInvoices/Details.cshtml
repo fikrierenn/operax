@@ -1,0 +1,128 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.PurchaseInvoices.DetailsModel
+@{
+    var h = Model.Header!;
+    ViewData["Title"] = h.DocNo;
+    var isDraft = h.Status == DocStatus.Draft;
+}
+
+@* Reversal form — buton ActionsHtml'de form attribute ile bağlı *@
+<form id="reverse-form" method="post" asp-page-handler="Reverse" asp-route-id="@h.Id">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="page" data-screen-label="Alış Faturası Detayı" style="max-width:1400px;">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <a asp-page="./Index" class="breadcrumb-item">Alış Faturaları</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">@h.DocNo</span>
+            </div>
+            <h1>@h.DocNo</h1>
+            <p class="page-hdr-sub">@h.PartnerName</p>
+        </div>
+        <div class="page-hdr-r flex gap-2">
+            <a asp-page="./Index" class="btn btn-secondary btn-sm">Geri</a>
+            @if (isDraft)
+            {
+                <form method="post" asp-page-handler="Post" asp-route-id="@h.Id">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-success" onclick="return confirm('Faturayı onaylamak istiyor musunuz? Cari borç oluşacak.')">Onayla</button>
+                </form>
+            }
+            @if (h.Status == DocStatus.Posted)
+            {
+                <button form="reverse-form" type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Faturayı iptal etmek istediğinize emin misiniz?')">İptal Et</button>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+        @Html.Raw(UiHelpers.StatusBadge(h.Status))
+    </div>
+
+    @if (Model.DocFlow is not null)
+    {
+        <partial name="_DocFlowButtons" model="Model.DocFlow" />
+    }
+
+    <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px">
+        @* SOL: Tedarikçi belge bilgisi *@
+        <div class="card p-6">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Tedarikçi Belge Bilgisi</div>
+            <form method="post" asp-page-handler="Save" asp-route-id="@h.Id">
+                @Html.AntiForgeryToken()
+                <div class="space-y-4">
+                    <div class="form-group">
+                        <label class="form-label">Tedarikçi Fatura No <span class="req">*</span></label>
+                        <input asp-for="Edit.SupplierInvoiceNo" class="form-ctrl" readonly="@(!isDraft)" placeholder="Tedarikçinin fatura numarası" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tedarikçi Fatura Tarihi <span class="req">*</span></label>
+                        <input asp-for="Edit.SupplierInvoiceDate" type="date" class="form-ctrl" readonly="@(!isDraft)" />
+                        <span class="form-hint">VUK: faturanın üzerindeki gerçek tarih (bugün değil)</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">e-Fatura ETTN/UUID</label>
+                        <input asp-for="Edit.SupplierInvoiceUuid" class="form-ctrl" readonly="@(!isDraft)" placeholder="Opsiyonel" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vade Tarihi</label>
+                        <input asp-for="Edit.DueDate" type="date" class="form-ctrl" readonly="@(!isDraft)" />
+                    </div>
+                    @if (isDraft)
+                    {
+                        <button type="submit" class="btn btn-primary">Bilgileri Kaydet</button>
+                    }
+                </div>
+            </form>
+        </div>
+
+        @* SAĞ: Kalemler + toplamlar *@
+        <div class="card overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b">
+                <h3 class="text-sm font-bold text-slate-800">Fatura Kalemleri</h3>
+                <p class="text-[11px] text-slate-500">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th class="text-right">Miktar</th>
+                        <th class="text-right">Birim Fiyat</th>
+                        <th class="text-right">Tutar</th>
+                        <th class="text-right">KDV</th>
+                        <th class="text-right">Toplam</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model.Lines)
+                    {
+                        <tr>
+                            <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                            <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
+                            <td class="text-right mono">@l.UnitPrice.ToString("N4")</td>
+                            <td class="text-right mono">@l.LineSubtotal.ToString("N2")</td>
+                            <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
+                            <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
+                        </tr>
+                    }
+                    @if (!Model.Lines.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
+                    }
+                </tbody>
+            </table>
+            <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
+                <div><span class="text-slate-500">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
+                <div><span class="text-slate-500">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>
+                <div><span class="text-slate-700 font-bold">Genel Toplam:</span> <span class="mono font-black text-indigo-600">@h.GrandTotal.ToString("N2") ₺</span></div>
+            </div>
+        </div>
+    </div>
+</div>

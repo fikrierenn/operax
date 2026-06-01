@@ -48,7 +48,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             // CompanyId filtresi — başka şirket ürünü görüntülenemez
             Item = await conn.QueryFirstOrDefaultAsync<ItemDto>(@"
                 SELECT i.Id, i.Code, i.Name, i.Description, i.BaseUomId, i.CategoryId,
-                       i.TaxRate, i.IsLotTracked, i.IsSerialTracked, i.IsActive,
+                       i.TaxRate, i.ItemType, i.IsLotTracked, i.IsSerialTracked, i.IsActive,
                        dv.Code as BaseUomCode, c.Name as CategoryName
                 FROM Item i
                 JOIN DictionaryValue dv ON dv.Id = i.BaseUomId
@@ -137,13 +137,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await conn.ExecuteAsync(@"
                 INSERT INTO Item
                     (Id, CompanyId, Code, Name, Description, BaseUomId, CategoryId,
-                     TaxRate, IsLotTracked, IsSerialTracked, IsActive, CreatedBy)
+                     TaxRate, ItemType, IsLotTracked, IsSerialTracked, IsActive, CreatedBy)
                 VALUES
                     (@Id, @CompanyId, @Code, @Name, @Description, @BaseUomId, @CategoryId,
-                     @TaxRate, @IsLotTracked, @IsSerialTracked, @IsActive, @UserId)",
+                     @TaxRate, @ItemType, @IsLotTracked, @IsSerialTracked, @IsActive, @UserId)",
                 new {
                     Item.Id, CompanyId = company.Id, Item.Code, Item.Name, Item.Description,
-                    Item.BaseUomId, Item.CategoryId, Item.TaxRate,
+                    Item.BaseUomId, Item.CategoryId, Item.TaxRate, Item.ItemType,
                     Item.IsLotTracked, Item.IsSerialTracked, Item.IsActive, UserId = user.Id
                 });
             await audit.LogAsync("CREATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
@@ -154,12 +154,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 UPDATE Item
                 SET Code=@Code, Name=@Name, Description=@Description,
                     BaseUomId=@BaseUomId, CategoryId=@CategoryId, TaxRate=@TaxRate,
-                    IsLotTracked=@IsLotTracked, IsSerialTracked=@IsSerialTracked,
+                    ItemType=@ItemType, IsLotTracked=@IsLotTracked, IsSerialTracked=@IsSerialTracked,
                     IsActive=@IsActive, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId
                 WHERE Id=@Id AND CompanyId=@CompanyId",
                 new {
                     Item.Code, Item.Name, Item.Description, Item.BaseUomId,
-                    Item.CategoryId, Item.TaxRate, Item.IsLotTracked,
+                    Item.CategoryId, Item.TaxRate, Item.ItemType, Item.IsLotTracked,
                     Item.IsSerialTracked, Item.IsActive, UserId = user.Id,
                     Item.Id, CompanyId = company.Id
                 });
@@ -216,6 +216,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public Guid?   CategoryId       { get; set; }
         public string? CategoryName     { get; set; }
         public decimal TaxRate          { get; set; } = 20;
+        public string  ItemType         { get; set; } = "STOCK";  // STOCK/CONSUMABLE/SERVICE/FIXED_ASSET
         public bool    IsLotTracked     { get; set; }
         public bool    IsSerialTracked  { get; set; }
         public bool    IsActive         { get; set; }

@@ -1,6 +1,12 @@
 # Plan 21 — İrsaliye ↔ Fatura Ayrımı + N:1 Birleştirme (M-F2.1 / E1)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M04 · **Kaynak:** MASTER_EXECUTION_PLAN M-F2.1 [E1/E1.B]
+**Tarih:** 2026-06-01 · **Durum:** `TAMAM` · **Modül:** M04 · **Kaynak:** MASTER_EXECUTION_PLAN M-F2.1 [E1/E1.B]
+
+> **TAMAM (2026-06-01):** Faz 1-3 (şema+çoğul SP+TVF) önceki oturumda SQL'de bitmişti;
+> Faz 4 (SalesInvoices/Create birleştirme UI) bu oturumda yazıldı. schema_M04_ShipmentInvoiceMerge.sql
+> CLI migrate listesine eklendi (temiz kurulum kırıktı). Smoke: happy-path (2→1 fatura + ledger Debit +
+> SourceShipmentLineId iz + InvoicedQty) + 7-gün VUK guard (THROW 50212) geçti. code+security reviewer temiz.
+> Kapsam dışı bırakılanlar (Faz sonrası): direkt mallı fatura StockMovement, alış N:1, e-Belge UBL.
 
 > **3 skill doğrulandı:** code-explorer (mevcut yapı), mali-evrak (VUK md.230/231 7-gün),
 > reference-researcher (ERPNext billed_amt/per_billed + Odoo qty_invoiced/grouping keys). Stack sabit (Dapper/SP).

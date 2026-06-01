@@ -89,8 +89,9 @@
                 <h3 class="text-sm font-bold text-slate-800">Fatura Kalemleri</h3>
                 <p class="text-[11px] text-slate-500">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
             </div>
-            <form method="post" asp-page-handler="UpdatePrices" asp-route-id="@h.Id">
-                @Html.AntiForgeryToken()
+            @* DRAFT'ta toplu fiyat düzenleme formu; POSTED'da düzeltme satır içi ayrı formla (iç içe form olmaz) *@
+            @if (isDraft) { @Html.Raw("<form method=\"post\" action=\"?handler=UpdatePrices&id=" + h.Id + "\">") }
+                @if (isDraft) { @Html.AntiForgeryToken() }
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -124,6 +125,34 @@
                                 <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
                                 <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
                             </tr>
+                            @* POSTED kalemde gerekçeli düzeltme (veri-giriş hatası) — yetkili roller *@
+                            @if (!isDraft && Model.CanCorrect)
+                            {
+                                <tr class="bg-slate-50/40">
+                                    <td colspan="6" class="py-2">
+                                        <details>
+                                            <summary class="text-xs text-indigo-600 cursor-pointer">Bu kalemi düzelt (gerekçeli)</summary>
+                                            <form method="post" asp-page-handler="CorrectLine" asp-route-id="@h.Id" class="flex flex-wrap items-end gap-2 mt-2">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="lineId" value="@l.Id" />
+                                                <div class="form-group mb-0">
+                                                    <label class="form-label text-xs">Doğru Birim Fiyat</label>
+                                                    <input type="number" name="unitPrice" step="any" min="0" required
+                                                           value="@l.UnitPrice.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)"
+                                                           class="form-ctrl text-right" style="max-width:120px" />
+                                                </div>
+                                                <div class="form-group mb-0 flex-1" style="min-width:220px">
+                                                    <label class="form-label text-xs">Gerekçe</label>
+                                                    <input type="text" name="reason" required class="form-ctrl"
+                                                           placeholder="örn. fatura fiyatı yanlış girilmiş, doğrusu tedarikçi belgesindeki tutar" />
+                                                </div>
+                                                <button type="submit" class="btn btn-primary btn-sm"
+                                                        onclick="return confirm('Kalem düzeltilecek; cari defter ters+yeni kayıtla güncellenecek. Onaylıyor musunuz?');">Düzelt</button>
+                                            </form>
+                                        </details>
+                                    </td>
+                                </tr>
+                            }
                         }
                         @if (!Model.Lines.Any())
                         {
@@ -137,7 +166,7 @@
                         <button type="submit" class="btn btn-primary btn-sm">Kalem Fiyatlarını Kaydet</button>
                     </div>
                 }
-            </form>
+            @if (isDraft) { @Html.Raw("</form>") }
             <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
                 <div><span class="text-slate-500">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
                 <div><span class="text-slate-500">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>

@@ -20,6 +20,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public List<LineDto> Lines { get; set; } = [];
     public List<VarianceDto> Variances { get; set; } = [];
     public DocFlowVm? DocFlow { get; set; }
+    // POSTED faturada gerekçeli satır düzeltme yetkisi (ödeme yoksa + yetkili rol)
+    public bool CanCorrect { get; set; }
 
     // Fatura başlığı, kalemleri ve ödeme smart button'unu yükler
     public async Task<IActionResult> OnGetAsync()
@@ -59,6 +61,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             WHERE v.SourceDocType = 'PURCHASE_INVOICE' AND v.SourceDocId = @Id
               AND v.CompanyId = @CompanyId AND v.IsDeleted = 0
             ORDER BY v.CreatedAt", new { Id, CompanyId = company.Id })).ToList();
+
+        // Düzeltme yetkisi: POSTED + ödenmiş plan yok + yetkili rol
+        if (Header.Status == DocStatus.Posted && user.HasRole("Administrator", "Finance", "Purchasing"))
+        {
+            var paid = await conn.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(*) FROM PaymentPlan
+                WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@Id
+                  AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL",
+                new { Id });
+            CanCorrect = paid == 0;
+        }
 
         // Düzenleme formu için mevcut değerleri doldur
         Edit = new EditDto
@@ -253,6 +266,45 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         Guid Id, string ItemCode, string ItemName,
         decimal ExpectedPrice, decimal ActualPrice, decimal Variance, decimal VariancePercent,
         string Status, string? OverrideReason, string? AiVerdict, string? AiComment);
+
+    // Plan 27: POSTED fatura satır fiyat DÜZELTME (veri-giriş hatası). Fatura POSTED kalır;
+    // ledger TTK md.65 append-only ters+yeni kayıt. Gerekçe zorunlu. sp_CorrectPurchaseInvoiceLine.
+    public async Task<IActionResult> OnPostCorrectLineAsync(Guid id, Guid lineId, string unitPrice, string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "Düzeltme için gerekçe girmek zorunludur.";
+            return RedirectToPage(new { id });
+        }
+        // HTML number input invariant ('12.5') gönderir — tr-TR 125 okumasın
+        decimal price = decimal.TryParse(unitPrice, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var p) ? p : -1;
+        if (price < 0)
+        {
+            TempData["Error"] = "Geçerli bir birim fiyat giriniz.";
+            return RedirectToPage(new { id });
+        }
+
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_CorrectPurchaseInvoiceLine",
+                new { InvoiceId = id, LineId = lineId, NewUnitPrice = price,
+                      CompanyId = company.Id, UserId = user.Id, Reason = reason },
+                commandType: System.Data.CommandType.StoredProcedure);
+            TempData["Success"] = "Fatura kalemi düzeltildi (cari defter ters+yeni kayıtla güncellendi).";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fatura düzeltme hatası: {InvoiceId}", id);
+            TempData["Error"] = "Fatura düzeltilirken veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
+    }
 
     // sp_PurchaseInvoiceReverse: POSTED → CANCELLED, AccountMovement ters-satır
     public async Task<IActionResult> OnPostReverseAsync(Guid id)

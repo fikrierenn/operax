@@ -452,3 +452,111 @@ BEGIN
     END CATCH
 END
 GO
+
+-- =============================================================================
+-- sp_CorrectPurchaseInvoiceLine — Alış faturası satır fiyat DÜZELTME (POSTED kalır)
+-- Plan 27. Veri-giriş hatası düzeltme: tedarikçinin gerçek faturasını yanlış girdik.
+-- TTK md.65: ledger silinmez → AccountMovement TERS-kayıt (eski) + YENİ kayıt (doğru) = append-only.
+-- Fatura POSTED + aynı DocNo + tedarikçi fatura no/tarih DEĞİŞMEZ. Ödeme varsa REDDEDİLİR.
+-- THROW: 51560-51569
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_CorrectPurchaseInvoiceLine
+    @InvoiceId    UNIQUEIDENTIFIER,
+    @LineId       UNIQUEIDENTIFIER,
+    @NewUnitPrice DECIMAL(18,4),
+    @CompanyId    UNIQUEIDENTIFIER,
+    @UserId       NVARCHAR(450),
+    @Reason       NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20), @PartnerId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
+                @SupInvNo NVARCHAR(50), @SupInvDate DATE, @DueDate DATE, @Currency NVARCHAR(3),
+                @OldGrand DECIMAL(18,4), @OldSub DECIMAL(18,4), @OldTax DECIMAL(18,4);
+
+        SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo,
+               @SupInvNo = SupplierInvoiceNo, @SupInvDate = SupplierInvoiceDate, @DueDate = DueDate,
+               @Currency = ISNULL(Currency,'TRY'),
+               @OldGrand = GrandTotal, @OldSub = Subtotal, @OldTax = TaxAmount
+        FROM PurchaseInvoice WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL          THROW 51560, N'Alış faturası bulunamadı.', 1;
+        IF @Status <> 'POSTED'      THROW 51561, N'Yalnızca onaylanmış fatura düzeltilebilir.', 1;
+        IF @NewUnitPrice < 0        THROW 51562, N'Birim fiyat negatif olamaz.', 1;
+        IF @Reason IS NULL OR LTRIM(RTRIM(@Reason)) = ''
+            THROW 51563, N'Düzeltme gerekçesi zorunludur.', 1;
+        -- İş kuralı: ödenmiş/kısmi ödenmiş plan varsa düzeltme reddedilir (önce ödeme iptali)
+        IF EXISTS (SELECT 1 FROM PaymentPlan
+                   WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@InvoiceId
+                     AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL)
+            THROW 51564, N'Bağlı ödeme mevcut; önce ödemeyi iptal edin.', 1;
+        IF NOT EXISTS (SELECT 1 FROM PurchaseInvoiceLine WHERE Id=@LineId AND InvoiceId=@InvoiceId)
+            THROW 51565, N'Düzeltilecek fatura kalemi bulunamadı.', 1;
+
+        -- Dönem kilidi: tedarikçi belge tarihiyle (KDV/dönem doğru)
+        DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowDt, @UserId;
+
+        -- 1) Satır fiyatını + bağlı tutarları güncelle
+        UPDATE PurchaseInvoiceLine
+        SET UnitPrice    = @NewUnitPrice,
+            LineSubtotal = Qty * @NewUnitPrice,
+            TaxAmount    = ROUND(Qty * @NewUnitPrice * TaxRatePercent / 100.0, 2),
+            LineTotal    = ROUND(Qty * @NewUnitPrice * (1 + TaxRatePercent / 100.0), 2)
+        WHERE Id = @LineId AND InvoiceId = @InvoiceId;
+
+        -- 2) Başlık toplamlarını kalemlerden yeniden hesapla
+        DECLARE @NewSub DECIMAL(18,4), @NewTax DECIMAL(18,4), @NewGrand DECIMAL(18,4);
+        SELECT @NewSub = ISNULL(SUM(LineSubtotal),0), @NewTax = ISNULL(SUM(TaxAmount),0)
+        FROM PurchaseInvoiceLine WHERE InvoiceId = @InvoiceId;
+        SET @NewGrand = @NewSub + @NewTax;
+
+        UPDATE PurchaseInvoice
+        SET Subtotal=@NewSub, TaxAmount=@NewTax, GrandTotal=@NewGrand, UpdatedAt=GETUTCDATE(),
+            UpdatedBy=TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+        WHERE Id = @InvoiceId;
+
+        -- 3) Cari defter: TTK md.65 append-only — TEK delta düzeltme satırı. Orijinal
+        --    PURCHASE_INVOICE satırı UX_AccountMovement_Source(type,docid) unique ile korunur, dokunulmaz.
+        --    delta = yeni - eski; pozitif → borç artışı (Credit), negatif → azalış (Debit).
+        --    Bakiye = SUM(Credit-Debit) = orijinal + delta = yeni grand.
+        DECLARE @DGrand DECIMAL(18,4) = @NewGrand - @OldGrand,
+                @DSub   DECIMAL(18,4) = @NewSub   - @OldSub,
+                @DTax   DECIMAL(18,4) = @NewTax   - @OldTax;
+        -- İş kuralı: ikinci kez düzeltme aynı (CORRECTION, docid) unique'ine çarpar → tek düzeltme desteklenir
+        IF EXISTS (SELECT 1 FROM AccountMovement WHERE SourceDocType='CORRECTION' AND SourceDocId=@InvoiceId)
+            THROW 51566, N'Bu fatura zaten bir kez düzeltilmiş. Yeni fark için iptal+yeniden gerekir.', 1;
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES
+            (NEWID(), @CompanyId, @PartnerId, @nowDt,
+             CASE WHEN @DGrand < 0 THEN -@DGrand ELSE 0 END,
+             CASE WHEN @DGrand > 0 THEN  @DGrand ELSE 0 END,
+             @DSub, @DTax, @Currency, 'CORRECTION', @InvoiceId, @DocNo,
+             N'Fatura düzeltme farkı: ' + @DocNo, @UserId);
+
+        -- 4) Açık ödeme planını yeni tutara çek (ödenmemiş)
+        UPDATE PaymentPlan SET Amount = @NewGrand
+        WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@InvoiceId AND Status='OPEN';
+
+        -- 5) Denetim izi (gerekçe)
+        INSERT INTO AuditLog (Id, CompanyId, UserId, Action, EntityType, EntityId, Details, CreatedAt)
+        VALUES (NEWID(), @CompanyId, TRY_CAST(@UserId AS UNIQUEIDENTIFIER), 'CORRECT_INVOICE_LINE',
+                'PurchaseInvoice', @InvoiceId,
+                N'Eski tutar ' + CONVERT(NVARCHAR,@OldGrand) + N' → yeni ' + CONVERT(NVARCHAR,@NewGrand)
+                + N'. Gerekçe: ' + @Reason, GETUTCDATE());
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO

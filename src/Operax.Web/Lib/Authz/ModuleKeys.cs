@@ -10,9 +10,9 @@ public static class ModuleKeys
     public static readonly string[] All =
     [
         "Budget", "CycleCount", "Dashboard", "Expenses", "Finance", "Inventory",
-        "LPN", "Lot", "Manufacturing", "MasterData", "Picking", "Production",
-        "PurchaseOrders", "Receiving", "SalesInvoices", "SalesOrders", "Serial",
-        "Shipping", "Transfer", "Warehouses"
+        "LPN", "Lot", "Manufacturing", "MasterData", "MaterialIssue", "Picking",
+        "Production", "PurchaseInvoices", "PurchaseOrders", "Receiving",
+        "SalesInvoices", "SalesOrders", "Serial", "Shipping", "Transfer", "Warehouses"
     ];
 
     // Erişim seviyeleri

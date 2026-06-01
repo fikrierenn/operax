@@ -142,10 +142,10 @@ public static class SeedData
         var defaults = new (string Role, string[] Edit, string[] View)[]
         {
             (Roles.WarehouseManager,
-                ["Receiving", "Shipping", "Transfer", "CycleCount", "LPN", "Lot", "Serial", "Picking", "Inventory", "Warehouses"],
+                ["Receiving", "Shipping", "Transfer", "CycleCount", "LPN", "Lot", "Serial", "Picking", "Inventory", "Warehouses", "MaterialIssue"],
                 ["Dashboard", "MasterData"]),
-            (Roles.Finance,       ["Finance"],                              ["Dashboard", "MasterData"]),
-            (Roles.Purchasing,    ["PurchaseOrders", "Expenses", "Budget"], ["Dashboard", "MasterData"]),
+            (Roles.Finance,       ["Finance", "PurchaseInvoices"],                          ["Dashboard", "MasterData"]),
+            (Roles.Purchasing,    ["PurchaseOrders", "PurchaseInvoices", "Expenses", "Budget", "MaterialIssue"], ["Dashboard", "MasterData"]),
             (Roles.Sales,         ["SalesOrders", "SalesInvoices"],         ["Dashboard", "MasterData"]),
             (Roles.Manufacturing, ["Manufacturing", "Production"],          ["Dashboard", "MasterData"]),
             (Roles.Viewer,        [],                                       ["Dashboard", "MasterData"]),

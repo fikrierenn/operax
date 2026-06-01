@@ -1547,3 +1547,6 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 - [ ] E2E: Playwright (kritik akışlar: login, receiving-post, shipment-post)
 - [ ] Performans: k6 (EventQueue, StockMovement yükleme testi)
 
+
+## 🎨 UI BORÇ — Tailwind Utility Salatası → Semantic Class (sistemik)
+- [ ] **Fatura/rapor view'larında Tailwind utility salatası** (ui-standard.md §2 ihlali) — SalesInvoices, PurchaseInvoices, Expenses, Expenses/Report Index/Details: `text-slate-600`, `bg-slate-50`, `text-indigo-600` (token değil!) gibi utility'ler markup'ta. Semantic class'a (`_tables.css` türevi) toplu taşınmalı. `text-indigo-600` → `var(--brand-500)` bağlı class. Sistemik — tek view değil, toplu refactor planı gerek.

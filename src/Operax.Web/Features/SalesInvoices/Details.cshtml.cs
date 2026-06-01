@@ -108,7 +108,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         try
         {
             await conn.ExecuteAsync("sp_SalesInvoiceReverse",
-                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure);
             TempData["Success"] = "Satış faturası iptal edildi.";
         }

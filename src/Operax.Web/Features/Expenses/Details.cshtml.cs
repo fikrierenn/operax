@@ -249,7 +249,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         try
         {
             await conn.ExecuteAsync("sp_ExpenseInvoiceReverse",
-                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure);
             TempData["Success"] = "Alış faturası iptal edildi.";
         }

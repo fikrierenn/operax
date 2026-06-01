@@ -88,7 +88,8 @@ class Program
                         "schema_UserCompany.sql",             // Plan 13: UserCompany yetki tablosu
                         "schema_M00_Security.sql",            // Plan 17: RoleModuleAccess (DB-driven RBAC)
                         "schema_M11_LedgerIntegrity.sql",     // Plan 14: AccountingPeriod + PeriodOverrideLog + dönem guard
-                        "schema_M01_Branch.sql"               // Plan 23: Branch (Şube) tablosu + Warehouse.BranchId/City/Address
+                        "schema_M01_Branch.sql",              // Plan 23 Faz A: Branch (Şube) tablosu + Warehouse.BranchId/City/Address
+                        "schema_M01_Branch_F.sql"             // Plan 23 Faz F: Belge+ledger tablolarına BranchId (evrak+SM+AM)
 
                     })
                     {
@@ -104,6 +105,9 @@ class Program
                     // 5. Reversal SP'leri (Plan 14/16/22) — POSTED evrak iptali + ters StockMovement/AccountMovement
                     var reversal = Path.Combine(sqlDir, "db_objects_reversal.sql");
                     if (File.Exists(reversal)) await ExecuteScriptAsync(reversal, tolerant: false);
+                    // 6. Branch boyutu nesneleri (Plan 23 Faz F) — StockMovement trigger + fn_DefaultBranchId
+                    var branch = Path.Combine(sqlDir, "db_objects_branch.sql");
+                    if (File.Exists(branch)) await ExecuteScriptAsync(branch, tolerant: false);
                     break;
 
                 case "seed":

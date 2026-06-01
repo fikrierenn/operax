@@ -45,11 +45,14 @@ Mevcut şema **Şube (Branch) kavramını tanımıyor.** Hiyerarşi yalnız `Com
   - Smoke: 4 transfer tipi POSTED→stok hareketi + reversal; build 0/0.
 
 - **Faz F — Belge-seviye şube boyutu (bu plan, Faz A-E sonrası):**
-  - Tüm evrak tablolarına `BranchId UNIQUEIDENTIFIER NULL` (nullable, geriye uyumlu): PurchaseOrderHeader, ReceivingHeader, ExpenseInvoice, SalesOrderHeader, ShippingHeader, SalesInvoice, StockTransferHeader, CycleCountHeader.
-  - **Ledger satırlarına da eklenir (competitor-analyst Mikro subeno deseni):** `StockMovement.BranchId NULL` + `AccountMovement.BranchId NULL` — başlıktan SP içinde türetilir, UI yükü yok.
-  - Post SP'leri `@BranchId` parametresi alır; zorunlu (SP THROW null'da).
+  - Evrak tablolarına `BranchId UNIQUEIDENTIFIER NULL` (nullable, geriye uyumlu, backfill YOK):
+    **EKLENECEK:** PurchaseOrderHeader, ReceivingHeader, ExpenseInvoice, SalesOrderHeader, ShippingHeader, SalesInvoice
+    **EKLENMEYECEK:** StockTransferHeader (kaynak≠hedef şube olabilir, yanıltıcı), CycleCountHeader (Warehouse.BranchId'den türetilir, redundant)
+  - **Ledger satırlarına da eklenir (Mikro subeno/K10 deseni):** `StockMovement.BranchId NULL` + `AccountMovement.BranchId NULL` — Post SP'sinde Warehouse.BranchId'den türetilir, kullanıcı girmez.
+  - **Hiçbirinde NOT NULL kısıtı yok** — mevzuat zorunluluğu DEĞİL, iş/raporlama boyutu; tek-şubeli müşteride anlamsız zorunluluk tıkar.
+  - Post SP'leri `@BranchId` parametresi alır (NULL geçilebilir); SP içinde `ISNULL(@BranchId, <merkez şube Id>)` default.
   - PageModel: tek şubeli firmada `BranchId` otomatik inject (hidden field), çok şubelide dropdown.
-  - ExpenseInvoice'da BranchId **özellikle zorunlu** (gider kırılımı şart).
+  - ExpenseInvoice'da BranchId **opsiyonel** (mevzuat zorunluluğu yok; masraf merkezi farklı kavram).
   - `tvf_OpenPurchaseOrders`, `tvf_OpenSalesOrders` — BranchId filtresi opsiyonel parametre.
   - **Şube = org birimi (aynı tüzel kişi):** şubeler arası transfer düz StockMovement, AccountMovement çifti YOK.
 

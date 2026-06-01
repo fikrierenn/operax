@@ -91,7 +91,8 @@ class Program
                         "schema_M01_Branch.sql",              // Plan 23 Faz A: Branch (Şube) tablosu + Warehouse.BranchId/City/Address
                         "schema_M01_Branch_F.sql",            // Plan 23 Faz F: Belge+ledger tablolarına BranchId (evrak+SM+AM)
                         "schema_M05_DocChain.sql",            // Plan 05 Faz 1: ExpenseInvoice.ReceivingId + ShippingHeader.SalesOrderId
-                        "schema_M03_PurchaseInvoice.sql"      // Plan 24: Mal Alım Faturası (PurchaseInvoice/Line) + ItemType CONSUMABLE
+                        "schema_M03_PurchaseInvoice.sql",     // Plan 24: Mal Alım Faturası (PurchaseInvoice/Line) + ItemType CONSUMABLE
+                        "schema_M18_ExpenseReporting.sql"     // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
 
                     })
                     {
@@ -110,9 +111,12 @@ class Program
                     // 6. Branch boyutu nesneleri (Plan 23 Faz F) — StockMovement trigger + fn_DefaultBranchId
                     var branch = Path.Combine(sqlDir, "db_objects_branch.sql");
                     if (File.Exists(branch)) await ExecuteScriptAsync(branch, tolerant: false);
-                    // 7. Belge zinciri SP'leri (Plan 05) — sp_CreateReceivingFromPO, sp_CreateExpenseInvoiceFromReceiving, sp_CreateShippingFromSO
+                    // 7. Belge zinciri SP'leri (Plan 05/24) — Receiving/Shipping/PurchaseInvoice create + post
                     var docchain = Path.Combine(sqlDir, "db_objects_docchain.sql");
                     if (File.Exists(docchain)) await ExecuteScriptAsync(docchain, tolerant: false);
+                    // 8. Gider raporlama (Plan 26) — v_ExpenseDistribution genişletme + tvf_ExpenseBreakdown (EN SON: view son kazanır)
+                    var expenseReport = Path.Combine(sqlDir, "db_objects_expensereport.sql");
+                    if (File.Exists(expenseReport)) await ExecuteScriptAsync(expenseReport, tolerant: false);
                     break;
 
                 case "seed":

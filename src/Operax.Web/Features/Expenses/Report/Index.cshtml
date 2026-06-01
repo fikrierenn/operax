@@ -1,0 +1,97 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Expenses.Report.IndexModel
+@{
+    ViewData["Title"] = "Gider Raporu";
+    // Gider merkezi bazında grupla (drill-down: merkez → tipler)
+    var groups = Model.Rows.GroupBy(r => new { r.CostCenterId, r.CostCenterName });
+}
+
+<div class="page" data-screen-label="Gider Raporu">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">Gider</span>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">Kırılımlı Rapor</span>
+            </div>
+            <h1>Gider Raporu</h1>
+            <p class="page-hdr-sub">Gider merkezi × gider tipi kırılımı (onaylı faturalar)</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    <div class="card overflow-hidden mb-4">
+        <div class="filter-bar">
+            <form method="get" class="row" style="gap:12px;align-items:flex-end">
+                <div class="form-group mb-0">
+                    <label class="form-label">Başlangıç</label>
+                    <input type="date" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" class="form-ctrl text-xs" />
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Bitiş</label>
+                    <input type="date" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" class="form-ctrl text-xs" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Raporla</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi">
+            <span class="kpi-label">Net Toplam</span>
+            <div class="kpi-val">@Model.GrandNet.ToString("N2") ₺</div>
+        </div>
+        <div class="kpi">
+            <span class="kpi-label">KDV</span>
+            <div class="kpi-val">@Model.GrandTax.ToString("N2") ₺</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow brand"></div>
+            <span class="kpi-label">Genel Toplam</span>
+            <div class="kpi-val">@Model.GrandTotal.ToString("N2") ₺</div>
+        </div>
+    </div>
+
+    <div class="card overflow-hidden mt-6">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Gider Merkezi</th>
+                    <th>Gider Tipi</th>
+                    <th class="text-center">Kalem</th>
+                    <th class="text-right">Net</th>
+                    <th class="text-right">KDV</th>
+                    <th class="text-right">Toplam</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in groups)
+                {
+                    <tr class="bg-slate-50">
+                        <td class="font-bold text-slate-700" colspan="3">@(g.Key.CostCenterName ?? "— Merkez Atanmamış —")</td>
+                        <td class="text-right mono font-bold">@g.Sum(r => r.NetAmount).ToString("N2")</td>
+                        <td class="text-right mono font-bold">@g.Sum(r => r.TaxAmount).ToString("N2")</td>
+                        <td class="text-right mono font-bold text-indigo-600">@g.Sum(r => r.TotalAmount).ToString("N2")</td>
+                    </tr>
+                    @foreach (var r in g)
+                    {
+                        <tr>
+                            <td></td>
+                            <td class="text-slate-600 text-sm">@(r.ExpenseTypeName ?? "—")</td>
+                            <td class="text-center text-xs text-slate-400">@r.LineCount</td>
+                            <td class="text-right mono">@r.NetAmount.ToString("N2")</td>
+                            <td class="text-right mono text-slate-400">@r.TaxAmount.ToString("N2")</td>
+                            <td class="text-right mono">@r.TotalAmount.ToString("N2")</td>
+                        </tr>
+                    }
+                }
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="6"><div class="empty-state"><p>Seçilen aralıkta onaylı gider faturası bulunamadı.</p></div></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

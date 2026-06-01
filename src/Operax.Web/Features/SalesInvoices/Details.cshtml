@@ -13,9 +13,14 @@
         SubHtml: $"{System.Web.HttpUtility.HtmlEncode(h.PartnerName)} · {UiHelpers.FmtDateShort(h.InvoiceDate)} · {L.T("Vade", "Due")} <span class=\"mono\">{(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")}</span>",
         ActionsHtml: $"<a href=\"/SalesInvoices\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">PDF</button>" +
                      (h.EBelgeStatus == null ? $"<button class=\"btn btn-primary btn-sm\">{L.T("e-Fatura'ya Çevir", "Convert to e-Invoice")}</button>" : "") +
-                     (h.Status == DocStatus.Posted ? $"<button class=\"btn btn-danger btn-sm\">{L.T("İptal", "Cancel")}</button>" : "")
+                     (h.Status == DocStatus.Posted ? $"<button form=\"reverse-form\" type=\"submit\" class=\"btn btn-danger btn-sm\" onclick=\"return confirm('Faturayı iptal etmek istediğinize emin misiniz?')\">{L.T("İptal Et", "Cancel")}</button>" : "")
     );
 }
+
+@* Reversal form — buton dışarıda (ActionsHtml) form attribute ile bağlı *@
+<form id="reverse-form" method="post" asp-page-handler="Reverse" asp-route-id="@h.Id">
+    @Html.AntiForgeryToken()
+</form>
 
 <div class="page" data-screen-label="Sales Invoice Detail" style="max-width:1400px;">
     <partial name="_PageHeader" model="header" />

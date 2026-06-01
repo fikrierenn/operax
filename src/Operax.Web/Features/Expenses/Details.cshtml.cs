@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Expenses;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService numberSeries, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public InvoiceFormDto Form { get; set; } = new();
@@ -239,5 +239,30 @@ public class DetailsModel(Db db, ICurrentCompany company, INumberSeriesService n
         public decimal TaxRate         { get; set; }
         public decimal TaxAmount       { get; set; }
         public decimal TotalAmount     { get; set; }
+    }
+
+    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    {
+        // sp_ExpenseInvoiceReverse: POSTED alış faturasını CANCELLED yapar, AccountMovement ters-satır yazar
+        // Guard: e-Fatura (INBOUND) gönderilmişse SP THROW 51414 fırlatır
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync("sp_ExpenseInvoiceReverse",
+                new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: System.Data.CommandType.StoredProcedure);
+            TempData["Success"] = "Alış faturası iptal edildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı (e-Fatura gönderilmiş, dönem kilidi vb.)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Alış faturası iptal hatası: {InvoiceId}", id);
+            TempData["Error"] = "Fatura iptal edilirken veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
     }
 }

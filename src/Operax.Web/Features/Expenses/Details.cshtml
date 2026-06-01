@@ -15,10 +15,18 @@
     </div>
     <div class="flex gap-2">
         <a asp-page="./Index" class="btn btn-secondary">← Geri</a>
-        @if (!Model.IsNew && Model.Form.Status == "DRAFT")
+        @if (!Model.IsNew && Model.Form.Status == DocStatus.Draft)
         {
             <form method="post" asp-page-handler="Post" asp-route-id="@Model.Form.Id">
+                @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-primary" onclick="return confirm('Faturayı onaylamak istiyor musunuz?')">Onayla</button>
+            </form>
+        }
+        @if (!Model.IsNew && Model.Form.Status == DocStatus.Posted)
+        {
+            <form method="post" asp-page-handler="Reverse" asp-route-id="@Model.Form.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Alış faturasını iptal etmek istediğinize emin misiniz?')">İptal Et</button>
             </form>
         }
     </div>

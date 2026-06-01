@@ -4,11 +4,11 @@
 
 ## 📘 YARDIM BUTONU + KULLANICI KİTAPÇIĞI (2026-06-02 — büyük iş, ajan fan-out)
 
-- [ ] **95 ekrana ekran-içi yardım butonu** + detaylı kullanım anlatımı.
-  - **Envanter HAZIR** (95 sayfa, 14 modül): journal `docs/journal/2026-06-02.md` "Kitapçık/Yardım Butonu Bulguları".
-  - **Enjeksiyon noktası**: `Features/Shared/_PageHeader.cshtml` (satır ~48-51 `ActionsHtml`, sağ üst). `PageHeaderVm`'e opsiyonel `ScreenId` ekle → merkezi `/Help/{screenId}` endpoint her ekrana özel Markdown sunar.
-  - **Tek kaynak**: `docs/manual/` altında modül-modül Markdown kitapçık + ekran-içi yardım AYNI Markdown'dan beslensin.
-  - Yöntem: ajanlarla toplu (modül başına 1 ajan → ekran amacı + adım-adım kullanım yazar).
+- [x] ✅ **Ekran-içi yardım butonu + 92 ekran kullanıcı kitapçığı** — TAMAM (2026-06-02, commit b858cb0 infra + 2637ff3 içerik).
+  - `/Help` Razor sayfası (Markdig render) + yardım butonu: `_PageHeader` sayfalarında header'da, diğerlerinde `_Layout` global float (ViewData flag ile çift-engel) → %100 kapsama.
+  - İçerik: `src/Operax.Web/App_Data/manual/screens/<slug>.md` (92 ekran, ajan fan-out). /Help E2E doğrulandı.
+  - [ ] **KALAN (kozmetik)**: 65 sayfayı `_PageHeader`'a standardize et (şu an global float buton kapsıyor; auth/terminal hariç). Action button'ların ActionsHtml'e taşınması dikkat ister.
+  - [ ] **Opsiyonel**: yardım render'ı için `.help-content` CSS (h2/ul/table stili) — şu an tarayıcı default.
 
 ## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
 

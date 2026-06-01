@@ -49,6 +49,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await LoadHeaderAsync(conn, id.Value);
             await LoadLinesAsync(conn, id.Value);
             await LoadActivitiesAsync(conn, id.Value);
+
+            // Bağlı sevkiyat sayacı
+            ShippingCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM ShippingHeader WHERE SalesOrderId = @Id AND CompanyId = @CompanyId AND Status <> @Cancelled",
+                new { Id = id.Value, CompanyId = company.Id, Cancelled = DocStatus.Cancelled });
+
+            DocFlow = new DocFlowVm([
+                new DocFlowItem(
+                    Label: "Sevkiyat",
+                    Count: ShippingCount,
+                    ListUrl: ShippingCount > 0 ? $"/Shipping?soId={id.Value}" : null,
+                    CreateUrl: Header.Status == DocStatus.Posted
+                        ? $"/SalesOrders/Details/{id.Value}?handler=CreateShipping"
+                        : null,
+                    CreateLabel: "Sevkiyat Oluştur",
+                    CanCreate: Header.Status == DocStatus.Posted
+                        && user.HasRole("Administrator","Sales","WarehouseManager"))
+            ]);
         }
         else
         {
@@ -279,4 +297,41 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     // Denetim izi satırı — UserName NULL ise view 'Sistem' fallback uygular, etiket UiHelpers.AuditActionLabel'dan gelir.
     public record ActivityDto(DateTime CreatedAt, string? UserName, string Action, string? Notes);
+
+    // Belge zinciri sayaçları
+    public int ShippingCount { get; set; }
+    public DocFlowVm? DocFlow { get; set; }
+
+    public async Task<IActionResult> OnPostCreateShippingAsync(Guid id)
+    {
+        // sp_CreateShippingFromSO: POSTED SO'dan DRAFT Shipping oluşturur, satırları kopyalar
+        using var conn = db.Open();
+        try
+        {
+            var prm = new DynamicParameters();
+            prm.Add("SoId",        id);
+            prm.Add("CompanyId",   company.Id);
+            prm.Add("UserId",      user.Id);
+            prm.Add("NewHeaderId", dbType: System.Data.DbType.Guid,
+                    direction: System.Data.ParameterDirection.Output);
+
+            await conn.ExecuteAsync("sp_CreateShippingFromSO", prm,
+                commandType: System.Data.CommandType.StoredProcedure);
+
+            var newId = prm.Get<Guid>("NewHeaderId");
+            TempData["Success"] = "Sevkiyat belgesi oluşturuldu.";
+            return RedirectToPage("/Shipping/Details", new { id = newId });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Sevkiyat oluşturma hatası: {SoId}", id);
+            TempData["Error"] = "Sevkiyat oluşturulurken veritabanı hatası oluştu.";
+            return RedirectToPage(new { id });
+        }
+    }
 }

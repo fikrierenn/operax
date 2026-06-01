@@ -87,7 +87,8 @@ class Program
                         "schema_M11_DocumentRegistry.sql",    // Plan 11: gelen belge kayıt no (RegistryNo)
                         "schema_UserCompany.sql",             // Plan 13: UserCompany yetki tablosu
                         "schema_M00_Security.sql",            // Plan 17: RoleModuleAccess (DB-driven RBAC)
-                        "schema_M11_LedgerIntegrity.sql"      // Plan 14: AccountingPeriod + PeriodOverrideLog + dönem guard
+                        "schema_M11_LedgerIntegrity.sql",     // Plan 14: AccountingPeriod + PeriodOverrideLog + dönem guard
+                        "schema_M01_Branch.sql"               // Plan 23: Branch (Şube) tablosu + Warehouse.BranchId/City/Address
 
                     })
                     {

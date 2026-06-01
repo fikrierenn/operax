@@ -12,14 +12,21 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty]
     public WarehouseDto Warehouse { get; set; } = new();
     public IEnumerable<BinDto> Bins { get; set; } = [];
+    public IEnumerable<DdlDto> BranchDdl { get; set; } = [];
 
     public bool IsNew => Warehouse.Id == Guid.Empty;
 
     public async Task OnGetAsync(Guid? id)
     {
+        using var conn = db.Open();
+
+        // Şube dropdown her zaman yüklenir
+        BranchDdl = await conn.QueryAsync<DdlDto>(
+            "SELECT Id, Name AS Text FROM Branch WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
+            new { CompanyId = company.Id });
+
         if (id.HasValue)
         {
-            using var conn = db.Open();
             // CompanyId zorunlu — başka şirket deposu görüntülenemez
             Warehouse = await conn.QueryFirstOrDefaultAsync<WarehouseDto>(
                 "SELECT * FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
@@ -41,6 +48,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         }
     }
 
+
     public async Task<IActionResult> OnPostAsync()
     {
         using var conn = db.Open();
@@ -49,15 +57,15 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         {
             Warehouse.Id = Guid.NewGuid();
             const string sql = @"
-                INSERT INTO Warehouse (Id, CompanyId, Code, Name, IsActive)
-                VALUES (@Id, @CompanyId, @Code, @Name, @IsActive)";
-            await conn.ExecuteAsync(sql, new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive });
+                INSERT INTO Warehouse (Id, CompanyId, Code, Name, IsActive, BranchId)
+                VALUES (@Id, @CompanyId, @Code, @Name, @IsActive, @BranchId)";
+            await conn.ExecuteAsync(sql, new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId });
         }
         else
         {
             // CompanyId zorunlu — başka şirket deposunu güncelleyemez
-            const string sql = "UPDATE Warehouse SET Code = @Code, Name = @Name, IsActive = @IsActive WHERE Id = @Id AND CompanyId = @CompanyId";
-            await conn.ExecuteAsync(sql, new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.Id, CompanyId = company.Id });
+            const string sql = "UPDATE Warehouse SET Code = @Code, Name = @Name, IsActive = @IsActive, BranchId = @BranchId WHERE Id = @Id AND CompanyId = @CompanyId";
+            await conn.ExecuteAsync(sql, new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id });
         }
 
         return RedirectToPage(new { id = Warehouse.Id });
@@ -98,6 +106,6 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         return RedirectToPage(new { id });
     }
 
-    public record WarehouseDto { public Guid Id { get; set; } public string Code { get; set; } = ""; public string Name { get; set; } = ""; public bool IsActive { get; set; } }
+    public record WarehouseDto { public Guid Id { get; set; } public string Code { get; set; } = ""; public string Name { get; set; } = ""; public bool IsActive { get; set; } public Guid? BranchId { get; set; } }
     public record BinDto { public Guid Id { get; set; } public string Code { get; set; } = ""; public string? Zone { get; set; } public bool IsPickingArea { get; set; } public bool IsReceivingArea { get; set; } }
 }

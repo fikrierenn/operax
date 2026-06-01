@@ -40,6 +40,16 @@
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Depo Adı *</label>
                         <input asp-for="Warehouse.Name" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold" placeholder="örn. Merkez Lojistik" required />
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Bağlı Şube</label>
+                        <select asp-for="Warehouse.BranchId" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm">
+                            <option value="">— Şubesiz / Merkez —</option>
+                            @foreach (var b in Model.BranchDdl)
+                            {
+                                <option value="@b.Id">@b.Text</option>
+                            }
+                        </select>
+                    </div>
                 </div>
 
                 <div class="mt-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">

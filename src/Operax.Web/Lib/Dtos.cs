@@ -10,6 +10,7 @@ public class DdlDto
     public Guid    Id        { get; set; }
     public string  Code      { get; set; } = "";
     public string  Name      { get; set; } = "";
+    public string  Text      { get; set; } = "";  // Dropdown gösteriş metni (Name'e fallback)
     public Guid?   BaseUomId { get; set; }
 }
 
@@ -50,35 +51,82 @@ public static class SourceDoc
     public const string Receiving  = "RECEIVING";
     public const string Shipping   = "SHIPPING";
     public const string Transfer   = "TRANSFER";
-    public const string Count      = "COUNT";
+    public const string CycleCount = "CYCLE_COUNT";
     public const string Production = "PRODUCTION";
-    public const string Picking    = "PICKING";
 }
 
-/// <summary>Cari hesap defteri hareket kaynak tipleri (AccountMovement.SourceDocType)</summary>
-public static class AccountMovementType
-{
-    public const string SalesInvoice    = "SALES_INVOICE";    // Satış faturası → Borç
-    public const string PurchaseInvoice = "PURCHASE_INVOICE"; // Alış faturası → Alacak
-    public const string Payment         = "PAYMENT";          // Tedarikçiye ödeme → Borç
-    public const string Collection      = "COLLECTION";       // Müşteriden tahsilat → Alacak
-    public const string ChequeIn        = "CHEQUE_IN";        // Müşteri çeki giriş
-    public const string ChequeOut       = "CHEQUE_OUT";       // Tedarikçiye çek/ciro
-    public const string Opening         = "OPENING";          // Açılış/devir bakiyesi
-    public const string Variance        = "VARIANCE";         // Fiyat/tutar farkı düzeltmesi
-    public const string Reversal        = "REVERSAL";         // İptal ters kaydı
-}
-
-/// <summary>Evrak numarası önekleri</summary>
+/// <summary>Belge ön ek sabitleri</summary>
 public static class DocPrefix
 {
-    public const string Receiving     = "RCV";
-    public const string Shipping      = "SHP";
-    public const string Transfer      = "TRF";
-    public const string CycleCount    = "CNT";
-    public const string Replenishment = "REP";
-    public const string PurchaseOrder = "PO";
-    public const string SalesOrder    = "SO";
-    public const string Production    = "PRD";
-    public const string Picking       = "PCK";
+    public const string PurchaseOrder  = "PO";
+    public const string Receiving      = "RCV";
+    public const string SalesOrder     = "SO";
+    public const string Shipping       = "SHP";
+    public const string Transfer       = "TRN";
+    public const string Replenishment  = "RPL";
+    public const string CycleCount     = "CYC";
+}
+
+/// <summary>Mal Kabulü (Receiving) detay DTO</summary>
+public class ReceivingLineDto
+{
+    public Guid Id { get; set; }
+    public Guid ReceivingHeaderId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid UomId { get; set; }
+    public decimal QtyReceived { get; set; }
+    public decimal QtyBase { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>Sevkiyat (Shipping) detay DTO</summary>
+public class ShippingLineDto
+{
+    public Guid Id { get; set; }
+    public Guid ShippingHeaderId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid UomId { get; set; }
+    public decimal QtyShipped { get; set; }
+    public decimal QtyBase { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>Transfer detay DTO</summary>
+public class TransferLineDto
+{
+    public Guid Id { get; set; }
+    public Guid TransferHeaderId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid UomId { get; set; }
+    public decimal Qty { get; set; }
+    public decimal QtyBase { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>Sayım (CycleCount) detay DTO</summary>
+public class CycleCountLineDto
+{
+    public Guid Id { get; set; }
+    public Guid CycleCountHeaderId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? BinId { get; set; }
+    public Guid UomId { get; set; }
+    public decimal SystemQty { get; set; }
+    public decimal? CountedQty { get; set; }
+    public decimal CountedQtyBase { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>Siparişin açık miktarını gösteren view model</summary>
+public class OpenOrderViewModel
+{
+    public Guid Id { get; set; }
+    public string OrderNo { get; set; } = "";
+    public DateTime OrderDate { get; set; }
+    public string PartnerId { get; set; } = "";
+    public string PartnerName { get; set; } = "";
+    public int TotalLines { get; set; }
+    public int FulfilledLines { get; set; }
+    public int OpenLines => TotalLines - FulfilledLines;
 }

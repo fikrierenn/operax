@@ -1,6 +1,6 @@
 # Plan 23 — Şube (Branch) + Çok-Lokasyon Transfer (STARTER)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M01 (Master) + M02/M07 (Stok/Transfer) · **Paket:** STARTER · **Kaynak:** kullanıcı gereksinimi + competitor-analyst (2026-06-01)
+**Tarih:** 2026-06-01 · **Durum:** `Onaylandı` · **Modül:** M01 (Master) + M02/M07 (Stok/Transfer) + M03/M04/M11 (belge-seviye) · **Paket:** STARTER · **Kaynak:** kullanıcı gereksinimi + competitor-analyst (2026-06-01)
 
 > **Gereksinim (kullanıcı):** "Depo ayrı, satış şubeleri ayrı; ikisi de farklı lokasyonlarda olabilir, ikisi de stok tutabilir. Transfer 4 tip olmalı: depolar arası, şubeler arası, depodan şubeye, şubeden depoya. İleri WMS olmasa bile (temel stok) STARTER'da olmalı — WMS'te şart."
 
@@ -24,7 +24,7 @@ Mevcut şema **Şube (Branch) kavramını tanımıyor.** Hiyerarşi yalnız `Com
 
 ### Kapsam dahili (STARTER — bu plan)
 - **Faz A — Şema (Branch + Warehouse lokasyon):**
-  - Yeni `Branch` tablosu: `Id, CompanyId, Code, Name, City, Address, Phone, IsActive, IsDeleted` + standart audit (`CreatedAt/By, UpdatedAt/By`).
+  - Yeni `Branch` tablosu: `Id, CompanyId, Code, Name, City, Address, Phone, IsActive, IsDeleted, ReturnWarehouseId UNIQUEIDENTIFIER NULL FK→Warehouse` + standart audit (`CreatedAt/By, UpdatedAt/By`). `ReturnWarehouseId` = iade deposu; NULL ise şubenin ilk deposu fallback.
   - `Warehouse` tablosuna: `BranchId UNIQUEIDENTIFIER NULL` (FK Branch), `City NVARCHAR(100) NULL`, `Address NVARCHAR(500) NULL`. Mevcut depolar `BranchId=NULL` (geriye uyumlu — "şubesiz / merkez").
   - Idempotent: `IF COL_LENGTH(...) IS NULL ALTER`, `IF NOT EXISTS sys.tables`.
 - **Faz B — Branch CRUD (Master Data):**
@@ -44,8 +44,15 @@ Mevcut şema **Şube (Branch) kavramını tanımıyor.** Hiyerarşi yalnız `Com
   - `seed_demo.sql`: 1-2 örnek Şube + depolarını şubeye bağla.
   - Smoke: 4 transfer tipi POSTED→stok hareketi + reversal; build 0/0.
 
+- **Faz F — Belge-seviye şube boyutu (bu plan, Faz A-E sonrası):**
+  - Tüm evrak tablolarına `BranchId UNIQUEIDENTIFIER NULL` (nullable, geriye uyumlu): PurchaseOrderHeader, ReceivingHeader, ExpenseInvoice, SalesOrderHeader, ShippingHeader, SalesInvoice, StockTransferHeader, CycleCountHeader.
+  - Post SP'leri `@BranchId` parametresi alır; zorunlu (SP THROW null'da).
+  - PageModel: tek şubeli firmada `BranchId` otomatik inject (hidden field), çok şubelide dropdown.
+  - ExpenseInvoice'da BranchId **özellikle zorunlu** (gider kırılımı şart).
+  - `tvf_OpenPurchaseOrders`, `tvf_OpenSalesOrders` — BranchId filtresi opsiyonel parametre.
+
 ### Kapsam dışı (ayrı plan — ERTELE)
-- **Belge-seviye şube boyutu:** Fatura/Sevkiyat/Cari hareketlere `BranchId` (Mikro `subeno` her belgede). M03/M04/M11 tüm evraka dokunur → büyük, ayrı plan. Transferden bağımsız.
+- **Belge-seviye şube boyutu:** ~~ayrı plan~~ → **Faz F olarak bu plana eklendi** (kullanıcı kararı 2026-06-01).
 - **Şubeler arası SATIŞ (intercompany fatura, Mikro evrak tip 15):** cari/fatura üretir → ileri muhasebe. Transfer (stok hareketi) STARTER'ı karşılar.
 - **Şube bazlı P&L / şube cari mizanı:** muhasebe modülü (K1/K2) ile.
 - **İleri WMS** (wave/zone/LPN, M05-M09).
@@ -91,6 +98,7 @@ Mevcut şema **Şube (Branch) kavramını tanımıyor.** Hiyerarşi yalnız `Com
 - [ ] **Faz C:** Transfer tip türetme (`TransferTypeResolver` + UI etiket)
 - [ ] **Faz D:** Transfer Index/Details şube kolonu/filtresi
 - [ ] **Faz E:** Seed + 4 senaryo smoke + reviewer
+- [ ] **Faz F:** Belge-seviye BranchId — evrak tabloları ALTER + Post SP parametresi + PageModel inject (tek/çok şube)
 
 ## 8. 5 Lens
 - 🔴 **Contrarian:** Fatal = stok'u şubeye bağlamaya kalkmak (ledger kırılır). Önlem: stok Depo'da kalır, şube sadece depoyu gruplar.

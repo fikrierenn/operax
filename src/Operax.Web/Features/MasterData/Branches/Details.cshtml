@@ -1,0 +1,142 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.MasterData.Branches.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Yeni Şube" : $"Şube — {Model.Branch.Code}";
+}
+
+<div class="flex items-start justify-between mb-8">
+    <div>
+        <div class="flex items-center gap-2 mb-2">
+            <a asp-page="./Index" class="btn btn-secondary py-1 px-3 text-xs">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Geri
+            </a>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Şube Yönetimi / @(Model.IsNew ? "Yeni" : Model.Branch.Code)</span>
+        </div>
+        <h1 class="text-2xl font-black text-slate-800 tracking-tight">@(Model.IsNew ? "Yeni Şube Kartı" : Model.Branch.Name)</h1>
+        <p class="text-sm text-slate-500 mt-1">Şube bilgileri ve bağlı depolar</p>
+    </div>
+    <button type="submit" form="branch-form" class="btn btn-primary px-8">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Kaydet
+    </button>
+</div>
+
+@if (TempData["Success"] is string ok)   { <div class="alert-banner alert-info mb-4">@ok</div> }
+@if (TempData["Error"]   is string err)  { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:24px">
+    <!-- SOL: Şube Bilgileri -->
+    <div class="card p-6">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Genel Bilgiler</div>
+        <form id="branch-form" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Branch.Id" />
+            <div class="space-y-4">
+                <div class="form-group">
+                    <label class="form-label">Şube Kodu <span class="req">*</span></label>
+                    <input asp-for="Branch.Code" class="form-ctrl" placeholder="örn. IST-01" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Şube Adı <span class="req">*</span></label>
+                    <input asp-for="Branch.Name" class="form-ctrl" placeholder="örn. İstanbul Satış Şubesi" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Şube Tipi</label>
+                    <select asp-for="Branch.BranchType" class="form-ctrl">
+                        <option value="SUBE">Şube</option>
+                        <option value="MERKEZ">Merkez</option>
+                        <option value="FABRIKA">Fabrika</option>
+                        <option value="MAGAZA">Mağaza</option>
+                        <option value="OFIS">Ofis</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Şehir</label>
+                    <input asp-for="Branch.City" class="form-ctrl" placeholder="örn. İstanbul" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adres</label>
+                    <textarea asp-for="Branch.Address" class="form-ctrl" rows="2" placeholder="Açık adres"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Telefon</label>
+                    <input asp-for="Branch.Phone" class="form-ctrl" placeholder="örn. 0212 000 00 00" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">İade Deposu</label>
+                    <select asp-for="Branch.ReturnWarehouseId" class="form-ctrl">
+                        <option value="">— Seçiniz (varsayılan: ilk depo) —</option>
+                        @foreach (var wh in Model.WarehouseDdl)
+                        {
+                            <option value="@wh.Id">@wh.Text</option>
+                        }
+                    </select>
+                    <span class="form-hint">Şube iadelerinin gireceği varsayılan depo</span>
+                </div>
+                <div class="mt-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-indigo-900">Aktif Durum</div>
+                        <div class="text-[10px] text-indigo-600 font-medium">Bu şube kullanıma açık mı?</div>
+                    </div>
+                    <input type="checkbox" asp-for="Branch.IsActive" class="w-5 h-5 accent-indigo-600 rounded">
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- SAĞ: Bağlı Depolar -->
+    <div class="card overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b">
+            <h3 class="text-sm font-bold text-slate-800">Bağlı Depolar</h3>
+            <p class="text-[11px] text-slate-500">
+                @if (Model.IsNew) { <span>Şubeyi kaydettikten sonra depo atayabilirsiniz.</span> }
+                else              { <span>@Model.Warehouses.Count() depo bu şubeye bağlı</span>  }
+            </p>
+        </div>
+        @if (!Model.IsNew)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Kod</th>
+                        <th>Depo Adı</th>
+                        <th class="text-center">Durum</th>
+                        <th class="text-right">Git</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var wh in Model.Warehouses)
+                    {
+                        <tr>
+                            <td><span class="badge b-indigo font-mono">@wh.Code</span></td>
+                            <td class="text-sm text-slate-700">@wh.Name</td>
+                            <td class="text-center">
+                                @if (wh.IsActive) { <span class="badge b-green">AKTİF</span> }
+                                else              { <span class="badge b-gray">PASİF</span>  }
+                            </td>
+                            <td class="text-right">
+                                <a asp-page="/Warehouses/Details" asp-route-id="@wh.Id" class="btn btn-secondary btn-sm">Aç</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Warehouses.Any())
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center text-slate-400 italic py-8 text-sm">
+                                Bu şubeye atanmış depo yok. Depo sayfasından şube seçebilirsiniz.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="flex flex-col items-center justify-center p-12 text-center">
+                <svg class="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+                <p class="text-sm text-slate-400">Önce şubeyi kaydedin.</p>
+            </div>
+        }
+    </div>
+</div>

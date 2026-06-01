@@ -714,6 +714,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CloseStatement
     @CardId          UNIQUEIDENTIFIER,
+    @CompanyId       UNIQUEIDENTIFIER,
     @PeriodStart     DATE,
     @PeriodEnd       DATE,
     @UserId          UNIQUEIDENTIFIER = NULL,
@@ -725,8 +726,9 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- CompanyId zorunlu — başka firmanın kartını kapatamaz (IDOR koruması)
         DECLARE @DueDay INT;
-        SELECT @DueDay = DueDay FROM CreditCard WHERE Id = @CardId;
+        SELECT @DueDay = DueDay FROM CreditCard WHERE Id = @CardId AND CompanyId = @CompanyId;
         IF @DueDay IS NULL THROW 51320, N'Kredi kartı bulunamadı.', 1;
 
         -- Periyot içi ekstreye girmemiş slip toplamı
@@ -784,6 +786,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PayCreditCardStatement
     @StatementId    UNIQUEIDENTIFIER,
+    @CompanyId      UNIQUEIDENTIFIER,
     @FromAccountId  UNIQUEIDENTIFIER,
     @Amount         DECIMAL(18,2),
     @PayDate        DATETIME2 = NULL,
@@ -795,16 +798,21 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- CompanyId zorunlu — başka firmanın ekstresini ödeyemez (IDOR koruması)
         DECLARE @CardId UNIQUEIDENTIFIER, @Closing DECIMAL(18,2), @Paid DECIMAL(18,2),
-                @CompanyId UNIQUEIDENTIFIER, @CardName NVARCHAR(200);
-        SELECT @CardId = CardId, @Closing = ClosingBalance, @Paid = PaidAmount
-        FROM CreditCardStatement WHERE Id = @StatementId;
+                @CardName NVARCHAR(200);
+        SELECT @CardId = s.CardId, @Closing = s.ClosingBalance, @Paid = s.PaidAmount,
+               @CardName = c.CardNoMasked
+        FROM CreditCardStatement s
+        JOIN CreditCard c ON c.Id = s.CardId AND c.CompanyId = @CompanyId
+        WHERE s.Id = @StatementId;
         IF @CardId IS NULL THROW 51321, N'Ekstre bulunamadı.', 1;
         IF @Amount <= 0 THROW 51322, N'Ödeme tutarı pozitif olmalıdır.', 1;
         IF @Paid + @Amount > @Closing + 0.01 THROW 51323, N'Ödeme tutarı ekstre borcunu aşamaz.', 1;
 
-        SELECT @CompanyId = CompanyId, @CardName = CardNoMasked
-        FROM CreditCard WHERE Id = @CardId;
+        -- FromAccountId bu firmaya ait olmalı (IDOR: başka firmanın bankasından ödeme yapılamaz)
+        IF NOT EXISTS (SELECT 1 FROM FinancialAccount WHERE Id = @FromAccountId AND CompanyId = @CompanyId)
+            THROW 51324, N'Ödeme hesabı bu firmaya ait değil.', 1;
 
         INSERT INTO FinancialTransaction (
             Id, CompanyId, AccountId, TransactionDate, TransactionType,

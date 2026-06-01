@@ -80,7 +80,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         try
         {
             await conn.ExecuteAsync("sp_PayCreditCardStatement",
-                new { StatementId = statementId, FromAccountId = fromAccountId, Amount = amount,
+                new { StatementId = statementId, CompanyId = company.Id,
+                      FromAccountId = fromAccountId, Amount = amount,
                       PayDate = (DateTime?)null, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
             TempData["Success"] = "Ekstre ödemesi yapıldı.";

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Operax.Web.Lib.Ai;
 
 namespace Operax.Web.Features.PurchaseInvoices;
 
@@ -10,13 +11,14 @@ namespace Operax.Web.Features.PurchaseInvoices;
 /// Mal alım faturası detayı: başlık + kalemler + tedarikçi belge bilgisi düzenleme + Onayla/İptal/Ödeme.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger, IOperaxAiClient ai) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
     [BindProperty] public EditDto Edit { get; set; } = new();
 
     public HeaderDto? Header { get; set; }
     public List<LineDto> Lines { get; set; } = [];
+    public List<VarianceDto> Variances { get; set; } = [];
     public DocFlowVm? DocFlow { get; set; }
 
     // Fatura başlığı, kalemleri ve ödeme smart button'unu yükler
@@ -45,6 +47,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             LEFT JOIN DictionaryValue dv ON dv.Id = pil.UomId
             WHERE pil.InvoiceId = @Id
             ORDER BY pil.CreatedAt", new { Id })).ToList();
+
+        // Plan 27: bu faturaya ait fiyat farkları (PO fiyatından sapma — tolerans yok)
+        Variances = (await conn.QueryAsync<VarianceDto>(@"
+            /* isolation-guard:ignore: üst belge PurchaseInvoice yukarıda CompanyId ile doğrulandı */
+            SELECT v.Id, i.Code AS ItemCode, i.Name AS ItemName,
+                   v.ExpectedPrice, v.ActualPrice, v.Variance, v.VariancePercent,
+                   v.Status, v.OverrideReason, v.AiVerdict, v.AiComment
+            FROM PriceVariance v
+            JOIN Item i ON i.Id = v.ItemId
+            WHERE v.SourceDocType = 'PURCHASE_INVOICE' AND v.SourceDocId = @Id
+              AND v.CompanyId = @CompanyId AND v.IsDeleted = 0
+            ORDER BY v.CreatedAt", new { Id, CompanyId = company.Id })).ToList();
 
         // Düzenleme formu için mevcut değerleri doldur
         Edit = new EditDto
@@ -165,6 +179,72 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         }
         return RedirectToPage(new { id });
     }
+
+    // Plan 27: Fiyat farkını gerekçeyle override onayı. Gerekçe zorunlu; yerel AI gerekçeyi
+    // denetler (advisory — IMPLAUSIBLE olsa da kullanıcı onaylayabilir, AI yorumu kayda geçer).
+    public async Task<IActionResult> OnPostApproveVarianceAsync(Guid id, Guid varianceId, string? reason)
+    {
+        // İş kuralı: override için gerekçe zorunlu
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "Fiyat farkı override'ı için gerekçe girmek zorunludur.";
+            return RedirectToPage(new { id });
+        }
+
+        using var conn = db.Open();
+
+        // Sapma bağlamını AI'a ver (Expected/Actual) — gerekçe makul mu?
+        var ctx = await conn.QueryFirstOrDefaultAsync<(decimal Expected, decimal Actual, string Item)>(@"
+            SELECT v.ExpectedPrice, v.ActualPrice, i.Name
+            FROM PriceVariance v JOIN Item i ON i.Id = v.ItemId
+            WHERE v.Id = @VarianceId AND v.CompanyId = @CompanyId AND v.Status = @Draft",
+            new { VarianceId = varianceId, CompanyId = company.Id, Draft = DocStatus.Draft });
+
+        if (ctx == default)
+        {
+            TempData["Error"] = "Onaylanacak fiyat farkı bulunamadı (zaten işlenmiş olabilir).";
+            return RedirectToPage(new { id });
+        }
+
+        // Yerel AI gerekçe denetimi (soft-fail → UNCHECKED, iş bloke olmaz)
+        var context = $"Ürün: {ctx.Item}. Sipariş fiyatı {ctx.Expected:N2}, fatura fiyatı {ctx.Actual:N2}.";
+        var verdict = await ai.CheckJustificationAsync(context, reason, HttpContext.RequestAborted);
+
+        await conn.ExecuteAsync(@"
+            UPDATE PriceVariance
+            SET Status = @Approved, OverrideReason = @Reason,
+                AiVerdict = @Verdict, AiComment = @Comment, AiCheckedAt = GETUTCDATE(),
+                ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
+            WHERE Id = @VarianceId AND CompanyId = @CompanyId AND Status = @Draft",
+            new
+            {
+                Approved = DocStatus.Approved, Reason = reason,
+                Verdict = verdict.Verdict, Comment = verdict.Comment,
+                UserId = user.Id, VarianceId = varianceId, CompanyId = company.Id, Draft = DocStatus.Draft
+            });
+
+        TempData["Success"] = verdict.Verdict == AiReasonVerdict.Implausible
+            ? $"Fiyat farkı override edildi. ⚠ AI gerekçeyi zayıf buldu: {verdict.Comment}"
+            : "Fiyat farkı override edildi.";
+        return RedirectToPage(new { id });
+    }
+
+    // Fiyat farkını reddet — fark kaydı REJECTED (fatura fiyatı yine de geçerli, sadece izlenir)
+    public async Task<IActionResult> OnPostRejectVarianceAsync(Guid id, Guid varianceId)
+    {
+        using var conn = db.Open();
+        await conn.ExecuteAsync(@"
+            UPDATE PriceVariance SET Status = 'REJECTED', ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
+            WHERE Id = @VarianceId AND CompanyId = @CompanyId AND Status = @Draft",
+            new { VarianceId = varianceId, CompanyId = company.Id, UserId = user.Id, Draft = DocStatus.Draft });
+        TempData["Success"] = "Fiyat farkı reddedildi.";
+        return RedirectToPage(new { id });
+    }
+
+    public record VarianceDto(
+        Guid Id, string ItemCode, string ItemName,
+        decimal ExpectedPrice, decimal ActualPrice, decimal Variance, decimal VariancePercent,
+        string Status, string? OverrideReason, string? AiVerdict, string? AiComment);
 
     // sp_PurchaseInvoiceReverse: POSTED → CANCELLED, AccountMovement ters-satır
     public async Task<IActionResult> OnPostReverseAsync(Guid id)

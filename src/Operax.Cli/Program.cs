@@ -77,6 +77,7 @@ class Program
                     // 2. Ek modül şemaları (alt parçalar — idempotent IF NOT EXISTS koruması var)
                     foreach (var addonSchema in new[] {
                         "schema_M02_Costing.sql",            // ItemCost + PriceVariance + StockMovement.UnitCost
+                        "schema_M02_PriceVarianceAi.sql",    // Plan 27: PriceVariance override gerekçe + AI verdict kolonları
                         "schema_M04_SalesInvoice.sql",       // Satış faturası
                         "schema_M11_Finance.sql",            // Kasa, banka, çek, senet, kredi, kart, ödeme planı
                         "schema_M01_M04_StarterFields.sql",  // Item/Partner/Header tablolarına STARTER eksik kolonlar

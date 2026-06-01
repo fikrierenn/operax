@@ -145,4 +145,70 @@
             </div>
         </div>
     </div>
+
+    @* Plan 27: Fatura↔Sipariş fiyat farkları (tolerans yok — PO fiyatından her sapma) *@
+    @if (Model.Variances.Any())
+    {
+        <div class="card overflow-hidden mt-6">
+            <div class="px-6 py-4 bg-amber-50 border-b border-amber-200">
+                <h3 class="text-sm font-bold text-amber-800">Sipariş Fiyat Farkları</h3>
+                <p class="text-[11px] text-amber-700">Fatura fiyatı satınalma siparişindeki fiyattan farklı. Override için gerekçe zorunlu (yerel AI denetler).</p>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th class="text-right">Sipariş Fiyatı</th>
+                        <th class="text-right">Fatura Fiyatı</th>
+                        <th class="text-right">Fark</th>
+                        <th>Durum / Gerekçe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model.Variances)
+                    {
+                        <tr>
+                            <td class="font-medium text-slate-700">@v.ItemName <span class="text-slate-400 text-xs">@v.ItemCode</span></td>
+                            <td class="text-right mono">@v.ExpectedPrice.ToString("N2")</td>
+                            <td class="text-right mono font-bold">@v.ActualPrice.ToString("N2")</td>
+                            <td class="text-right mono @(v.Variance > 0 ? "text-red-600" : "text-emerald-600")">
+                                @(v.Variance > 0 ? "+" : "")@v.Variance.ToString("N2") (%@v.VariancePercent.ToString("N1"))
+                            </td>
+                            <td>
+                                @if (v.Status == DocStatus.Draft)
+                                {
+                                    <form method="post" asp-page-handler="ApproveVariance" asp-route-id="@h.Id" class="flex flex-col gap-2">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="varianceId" value="@v.Id" />
+                                        <textarea name="reason" class="form-ctrl" rows="2" required
+                                                  placeholder="Fark gerekçesi (örn. tedarikçi zammı, navlun dahil, kur farkı)..."></textarea>
+                                        <div class="flex gap-2">
+                                            <button type="submit" class="btn btn-primary btn-sm">Override (Gerekçeyle Onayla)</button>
+                                            <button type="submit" asp-page-handler="RejectVariance" asp-route-id="@h.Id"
+                                                    formnovalidate class="btn btn-secondary btn-sm">Reddet</button>
+                                        </div>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <div class="text-xs">
+                                        @Html.Raw(UiHelpers.StatusBadge(v.Status))
+                                        @if (!string.IsNullOrEmpty(v.OverrideReason))
+                                        {
+                                            <div class="mt-1 text-slate-600">@v.OverrideReason</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(v.AiVerdict))
+                                        {
+                                            var aiCls = v.AiVerdict == "IMPLAUSIBLE" ? "text-red-600" : (v.AiVerdict == "PLAUSIBLE" ? "text-emerald-600" : "text-slate-400");
+                                            <div class="mt-1 @aiCls">AI: @v.AiVerdict @(string.IsNullOrEmpty(v.AiComment) ? "" : "— " + v.AiComment)</div>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>

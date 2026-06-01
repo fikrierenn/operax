@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
     <!-- NCalc .NET Framework hedefler ama .NET 10'da runtime uyumlu; NU1701 suppress -->
     <PackageReference Include="ncalc" Version="1.3.8" NoWarn="NU1701" />
     <PackageReference Include="NetEscapades.AspNetCore.SecurityHeaders" Version="1.3.1" />

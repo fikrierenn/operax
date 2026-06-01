@@ -351,6 +351,27 @@ BEGIN
              @Subtotal, @TaxAmt, CAST(@DueDate AS DATETIME2), @Currency,
              'PURCHASE_INVOICE', @InvoiceId, @DocNo, N'Alış Faturası: ' + @SupInvNo, @UserId);
 
+        -- Plan 27: Fatura↔Sipariş fiyat farkı (TOLERANS YOK — anlaşılan PO fiyatı bağlayıcı).
+        -- Zincir: PurchaseInvoiceLine → ReceivingLine → PurchaseOrderLine.Price.
+        -- Fatura fiyatı PO fiyatından her sapmada PriceVariance DRAFT açılır (onay yine başarılı).
+        -- PO bağı olmayan (manuel) satır fark üretmez (pol.Price NULL → atlanır).
+        INSERT INTO PriceVariance
+            (Id, CompanyId, SourceDocType, SourceDocId, SourceLineId,
+             ItemId, PartnerId, ExpectedPrice, ActualPrice,
+             Variance, VariancePercent, Status, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId, 'PURCHASE_INVOICE', @InvoiceId, pil.Id,
+            pil.ItemId, @PartnerId, pol.Price, pil.UnitPrice,
+            pil.UnitPrice - pol.Price,
+            CASE WHEN pol.Price > 0 THEN (pil.UnitPrice - pol.Price) / pol.Price * 100 ELSE 0 END,
+            'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+        FROM PurchaseInvoiceLine pil
+        JOIN ReceivingLine    rl  ON rl.Id  = pil.SourceReceivingLineId
+        JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        WHERE pil.InvoiceId = @InvoiceId
+          AND pol.Price IS NOT NULL
+          AND pil.UnitPrice <> pol.Price;
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH

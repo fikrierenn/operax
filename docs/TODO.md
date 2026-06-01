@@ -2,6 +2,23 @@
 
 ---
 
+## 📘 YARDIM BUTONU + KULLANICI KİTAPÇIĞI (2026-06-02 — büyük iş, ajan fan-out)
+
+- [ ] **95 ekrana ekran-içi yardım butonu** + detaylı kullanım anlatımı.
+  - **Envanter HAZIR** (95 sayfa, 14 modül): journal `docs/journal/2026-06-02.md` "Kitapçık/Yardım Butonu Bulguları".
+  - **Enjeksiyon noktası**: `Features/Shared/_PageHeader.cshtml` (satır ~48-51 `ActionsHtml`, sağ üst). `PageHeaderVm`'e opsiyonel `ScreenId` ekle → merkezi `/Help/{screenId}` endpoint her ekrana özel Markdown sunar.
+  - **Tek kaynak**: `docs/manual/` altında modül-modül Markdown kitapçık + ekran-içi yardım AYNI Markdown'dan beslensin.
+  - Yöntem: ajanlarla toplu (modül başına 1 ajan → ekran amacı + adım-adım kullanım yazar).
+
+## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
+
+- [ ] **Düzeltme revizyonu BUILD + smoke** — `sp_CorrectPurchaseInvoiceLine` ters kayıt kaldırıldı, AM yerinde UPDATE. C# build edilmedi (oturum kapandı).
+- [ ] **PO bağı YOKSA PriceList sapması → variance** — `sp_CheckPriceVariance` PriceList kıyaslıyor ama `sp_PurchaseInvoicePost`'ta çağrılmıyor; wire et.
+- [ ] **Vade tarihi tedarikçi kartından** — fatura DueDate `Partner.PaymentTermDays` üzerinden otomatik.
+- [ ] **Düzeltme sonrası variance yeniden hesapla** — `sp_CorrectPurchaseInvoiceLine` fiyat değişince PriceVariance revize etmiyor.
+
+---
+
 ## 🧾 REVIEW BORÇLARI (2026-06-01 — /review-pr, plan 21/25 sonrası — pre-existing, kapsam-dışı)
 
 > 3 paralel agent. Plan 21 (N:1 fatura) + CONSUMABLE filtre kodu TEMİZ; aşağıdakiler dokunmadığım

@@ -31,6 +31,7 @@ Bu kural, ana ajanın (ben) işleri alt-ajanlara (subagent) NASIL dağıtacağı
 | Build derle + hata/uyarı say | `build-validator` | haiku |
 | Test çalıştır + raporla | `test-runner` | haiku |
 | Şema dosyaları ↔ canlı DB farkı | `db-schema-checker` | haiku |
+| T-SQL → PostgreSQL port (SP/TVF/View/sorgu) | `pgsql-porter` | opus |
 | Hiçbiri uymuyor (genel çok-adımlı) | `general-purpose` | işe göre elle ata |
 
 ## 4. Paralellik ve Fan-out
@@ -41,7 +42,7 @@ Bu kural, ana ajanın (ben) işleri alt-ajanlara (subagent) NASIL dağıtacağı
 
 ## 5. Salt-Okuma Disiplini
 
-- Araştırma/denetim ajanlarına **yazma tool'u verme** (Edit/Write yok). reference-researcher, sql-sp-reviewer, security-reviewer, silent-failure-hunter, code-explorer, code-reviewer, db-schema-checker, build-validator, test-runner = read-only (+ Bash gerekiyorsa).
+- Araştırma/denetim ajanlarına **yazma tool'u verme** (Edit/Write yok). reference-researcher, sql-sp-reviewer, security-reviewer, silent-failure-hunter, code-explorer, code-reviewer, db-schema-checker, build-validator, test-runner, pgsql-porter = read-only (+ Bash gerekiyorsa).
 - Yalnızca commit-splitter yazma yapar (Edit + git), o da onayla.
 
 ## 6. Çıktı Beklentisi

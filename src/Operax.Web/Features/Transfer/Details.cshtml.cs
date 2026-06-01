@@ -36,7 +36,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (id.HasValue)
         {
             Header = await conn.QueryFirstOrDefaultAsync<TransferHeaderDto>(
-                "SELECT * FROM StockTransfer WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, DocNo, Status, TransferType, FromWarehouseId, ToWarehouseId, Notes FROM StockTransfer WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             Lines = await conn.QueryAsync<TransferLineDto>(@"
@@ -60,7 +60,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         else
         {
-            Header.DocNo        = "NEW";
+            Header.DocNo = "NEW";
             Header.TransferType = TransferTypeHelper.BinToBin;
         }
     }
@@ -169,7 +169,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public Guid    Id               { get; set; }
         public string  DocNo            { get; set; } = "";
         public string  Status           { get; set; } = DocStatus.Draft;
-        public string  TransferType     { get; set; } = "BIN_TO_BIN";
+        public string  TransferType     { get; set; } = TransferTypeHelper.BinToBin;
         public Guid    FromWarehouseId  { get; set; }
         public Guid    ToWarehouseId    { get; set; }
         public string? Notes            { get; set; }

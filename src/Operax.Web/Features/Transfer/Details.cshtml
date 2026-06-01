@@ -187,6 +187,8 @@
 <script>
 (function () {
     // Transfer tipi türetme: kaynak/hedef depo BranchId karşılaştırması
+    const BIN_TO_BIN = '@TransferTypeHelper.BinToBin';
+    const WH_TO_WH   = '@TransferTypeHelper.WhToWh';
     const fromSel  = document.getElementById('from-wh');
     const toSel    = document.getElementById('to-wh');
     const badge    = document.getElementById('transfer-type-badge');
@@ -204,13 +206,13 @@
 
         let label, code;
         if (fromId === toId) {
-            label = 'Raf / Hücre Arası'; code = 'BIN_TO_BIN';
+            label = 'Raf / Hücre Arası';      code = BIN_TO_BIN;
         } else if (fromBranch && toBranch && fromBranch !== toBranch) {
-            label = 'Şubeler Arası';      code = 'WH_TO_WH';
+            label = 'Şubeler Arası';           code = WH_TO_WH;
         } else if (fromBranch && fromBranch === toBranch) {
-            label = 'Depo Arası (Aynı Şube)'; code = 'WH_TO_WH';
+            label = 'Depo Arası (Aynı Şube)'; code = WH_TO_WH;
         } else {
-            label = 'Depolar Arası';      code = 'WH_TO_WH';
+            label = 'Depolar Arası';           code = WH_TO_WH;
         }
         badge.textContent = label;
         codeInp.value     = code;

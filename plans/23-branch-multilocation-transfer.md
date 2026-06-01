@@ -46,10 +46,12 @@ Mevcut şema **Şube (Branch) kavramını tanımıyor.** Hiyerarşi yalnız `Com
 
 - **Faz F — Belge-seviye şube boyutu (bu plan, Faz A-E sonrası):**
   - Tüm evrak tablolarına `BranchId UNIQUEIDENTIFIER NULL` (nullable, geriye uyumlu): PurchaseOrderHeader, ReceivingHeader, ExpenseInvoice, SalesOrderHeader, ShippingHeader, SalesInvoice, StockTransferHeader, CycleCountHeader.
+  - **Ledger satırlarına da eklenir (competitor-analyst Mikro subeno deseni):** `StockMovement.BranchId NULL` + `AccountMovement.BranchId NULL` — başlıktan SP içinde türetilir, UI yükü yok.
   - Post SP'leri `@BranchId` parametresi alır; zorunlu (SP THROW null'da).
   - PageModel: tek şubeli firmada `BranchId` otomatik inject (hidden field), çok şubelide dropdown.
   - ExpenseInvoice'da BranchId **özellikle zorunlu** (gider kırılımı şart).
   - `tvf_OpenPurchaseOrders`, `tvf_OpenSalesOrders` — BranchId filtresi opsiyonel parametre.
+  - **Şube = org birimi (aynı tüzel kişi):** şubeler arası transfer düz StockMovement, AccountMovement çifti YOK.
 
 ### Kapsam dışı (ayrı plan — ERTELE)
 - **Belge-seviye şube boyutu:** ~~ayrı plan~~ → **Faz F olarak bu plana eklendi** (kullanıcı kararı 2026-06-01).

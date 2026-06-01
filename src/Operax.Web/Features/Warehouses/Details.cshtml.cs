@@ -53,6 +53,15 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         using var conn = db.Open();
 
+        // İş kuralı: BranchId bu firmaya ait olmalı (IDOR koruması)
+        if (Warehouse.BranchId.HasValue)
+        {
+            var branchOwned = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
+                new { Id = Warehouse.BranchId, CompanyId = company.Id });
+            if (branchOwned == 0) Warehouse.BranchId = null;
+        }
+
         if (IsNew)
         {
             Warehouse.Id = Guid.NewGuid();

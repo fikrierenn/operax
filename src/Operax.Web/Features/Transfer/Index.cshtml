@@ -52,8 +52,8 @@
         <input type="text" placeholder="Transfer no ara..." class="form-ctrl w-1/3 text-xs">
         <select class="form-ctrl w-44 text-xs font-semibold">
             <option>Tüm Durumlar</option>
-            <option>DRAFT</option>
-            <option>POSTED</option>
+            <option>@DocStatus.Draft</option>
+            <option>@DocStatus.Posted</option>
         </select>
     </div>
 
@@ -89,8 +89,8 @@
                     <td><span class="badge b-gray text-xs">@t.TypeLabel</span></td>
                     <td class="font-semibold text-slate-700">@t.LineCount Kalem</td>
                     <td>
-                        <span class="badge @(t.Status == "POSTED" ? "b-green" : "b-amber")">
-                            @(t.Status == "POSTED" ? "Tamamlandı" : "Taslak")
+                        <span class="badge @(t.Status == DocStatus.Posted ? "b-green" : "b-amber")">
+                            @(t.Status == DocStatus.Posted ? "Tamamlandı" : "Taslak")
                         </span>
                     </td>
                     <td class="num">

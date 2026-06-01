@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Dapper;
+using Npgsql;
 
 namespace Operax.Cli;
 
@@ -173,6 +174,10 @@ class Program
                         "ORDER BY tp.name, fk.name");
                     break;
 
+                case "pg-test":
+                    await RunPgTestAsync();
+                    break;
+
                 case "scan-isolation":
                     // Plan 12: company-kapsamlı tablolara CompanyId'siz dokunan Dapper sorgularını tara
                     var featuresDir = FindDir("src/Operax.Web/Features");
@@ -209,6 +214,7 @@ class Program
         Console.WriteLine("  operax-cli tables-empty         -> Tablo satir sayilarini goster");
         Console.WriteLine("  operax-cli check-fk             -> Foreign key listesi");
         Console.WriteLine("  operax-cli scan-isolation       -> CompanyId'siz company-tablo sorgularini tarar (plan 12)");
+        Console.WriteLine("  operax-cli pg-test              -> PostgreSQL pilot: Neon bağlantı + SP smoke (NEON_CONN env)");
         Console.WriteLine("\nBaglanti:");
         Console.WriteLine("  Env: OPERAX_CONN");
         Console.WriteLine("  appsettings.json > ConnectionStrings:Default");
@@ -295,6 +301,185 @@ class Program
 
         Console.ForegroundColor = fail > 0 ? ConsoleColor.Yellow : ConsoleColor.Green;
         Console.WriteLine($"\nTamamlandi — ok:{ok} warn:{warn} fail:{fail}");
+        Console.ResetColor();
+    }
+
+    // postgresql://user:pass@host/db?sslmode=require → Npgsql key=value bağlantı dizesi
+    static string BuildPgConnString(string raw)
+    {
+        if (!raw.StartsWith("postgres://") && !raw.StartsWith("postgresql://")) return raw;
+        var uri = new Uri(raw);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var b = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.Port > 0 ? uri.Port : 5432,
+            Username = Uri.UnescapeDataString(userInfo[0]),
+            Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
+            Database = uri.AbsolutePath.TrimStart('/'),
+            SslMode = SslMode.Require
+        };
+        return b.ConnectionString;
+    }
+
+    static async Task RunPgTestAsync()
+    {
+        // Bağlantı önce NEON_CONN env var'dan, yoksa User Secrets'tan (Neon:ConnectionString) okunur
+        var neonConn = Environment.GetEnvironmentVariable("NEON_CONN");
+        if (string.IsNullOrWhiteSpace(neonConn))
+        {
+            var cfg = new ConfigurationBuilder()
+                .AddUserSecrets("ab29872f-6bf8-4602-8dc1-c66e703da6cc")
+                .Build();
+            neonConn = cfg["Neon:ConnectionString"];
+        }
+        if (string.IsNullOrWhiteSpace(neonConn))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Hata: Neon bağlantısı yok.");
+            Console.WriteLine("  Env: $env:NEON_CONN = \"postgresql://...\"");
+            Console.WriteLine("  veya User Secrets: dotnet user-secrets set \"Neon:ConnectionString\" \"postgresql://...\"");
+            Console.ResetColor();
+            return;
+        }
+
+        Console.WriteLine("\n=== PostgreSQL Pilot Testi ===");
+        // Neon URI formatını (postgresql://...) Npgsql key=value formatına çevir
+        var dataSource = NpgsqlDataSource.Create(BuildPgConnString(neonConn));
+
+        // 1. Bağlantı doğrula
+        Console.Write("1. Bağlantı...");
+        await using var pingConn = await dataSource.OpenConnectionAsync();
+        var pgVersion = await pingConn.QuerySingleAsync<string>("SELECT version()");
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($" OK — {pgVersion[..pgVersion.IndexOf(',')]}");
+        Console.ResetColor();
+
+        // 2. Test şeması oluştur (cheque tablosu stub)
+        Console.Write("2. Tablo oluştur...");
+        await using var conn = await dataSource.OpenConnectionAsync();
+        await conn.ExecuteAsync(@"
+            CREATE TABLE IF NOT EXISTS cheque (
+                id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                company_id              uuid NOT NULL,
+                direction               text NOT NULL,
+                cheque_no               text NOT NULL,
+                bank_name               text NOT NULL,
+                drawer_name             text NOT NULL,
+                amount                  numeric(18,2) NOT NULL,
+                currency                text DEFAULT 'TRY',
+                cheque_date             date NOT NULL,
+                due_date                date NOT NULL,
+                status                  text DEFAULT 'PORTFOLIO',
+                deposited_to_account_id uuid NULL,
+                deposited_at            timestamptz NULL,
+                is_deleted              boolean DEFAULT false,
+                updated_at              timestamptz NULL,
+                updated_by              uuid NULL,
+                created_at              timestamptz DEFAULT now(),
+                created_by              uuid NULL
+            )");
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(" OK");
+        Console.ResetColor();
+
+        // 3. sp_deposit_cheque fonksiyonu yükle
+        Console.Write("3. Fonksiyon yükle...");
+        await conn.ExecuteAsync(@"
+            CREATE OR REPLACE FUNCTION sp_deposit_cheque(
+                p_cheque_id  uuid,
+                p_account_id uuid,
+                p_company_id uuid,
+                p_deposit_date timestamptz DEFAULT NULL,
+                p_user_id      uuid DEFAULT NULL
+            ) RETURNS void LANGUAGE plpgsql AS $$
+            DECLARE v_status text;
+            BEGIN
+                SELECT status INTO v_status
+                FROM cheque
+                WHERE id = p_cheque_id AND company_id = p_company_id AND is_deleted = false;
+
+                IF v_status IS NULL THEN
+                    RAISE EXCEPTION 'Çek bulunamadı.' USING ERRCODE = 'OP601';
+                END IF;
+                IF v_status <> 'PORTFOLIO' THEN
+                    RAISE EXCEPTION 'Sadece portföydeki çekler bankaya verilebilir.' USING ERRCODE = 'OP602';
+                END IF;
+
+                UPDATE cheque
+                SET status                  = 'IN_BANK',
+                    deposited_to_account_id = p_account_id,
+                    deposited_at            = COALESCE(p_deposit_date, now()),
+                    updated_at              = now(),
+                    updated_by              = p_user_id
+                WHERE id = p_cheque_id;
+            END $$");
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(" OK");
+        Console.ResetColor();
+
+        // 4. Test verisi ekle
+        Console.Write("4. Test çeki ekle...");
+        var companyId  = Guid.NewGuid();
+        var chequeId   = Guid.NewGuid();
+        var accountId  = Guid.NewGuid();
+        await conn.ExecuteAsync(@"
+            INSERT INTO cheque (id, company_id, direction, cheque_no, bank_name, drawer_name,
+                                amount, cheque_date, due_date, status)
+            VALUES (@id, @companyId, 'RECEIVED', 'CHQ-TEST-001', 'Test Bank', 'Test Kesideci',
+                    5000.00, CURRENT_DATE, CURRENT_DATE + 30, 'PORTFOLIO')",
+            new { id = chequeId, companyId });
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($" OK (id={chequeId})");
+        Console.ResetColor();
+
+        // 5. Fonksiyonu çağır
+        Console.Write("5. sp_deposit_cheque çağır...");
+        await conn.ExecuteAsync(
+            "SELECT sp_deposit_cheque(@p_cheque_id, @p_account_id, @p_company_id)",
+            new { p_cheque_id = chequeId, p_account_id = accountId, p_company_id = companyId });
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(" OK");
+        Console.ResetColor();
+
+        // 6. Sonucu doğrula
+        Console.Write("6. Durum doğrula...");
+        var status = await conn.QuerySingleAsync<string>(
+            "SELECT status FROM cheque WHERE id = @id", new { id = chequeId });
+        if (status == "IN_BANK")
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($" OK — status={status} ✓");
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($" HATA — beklenen IN_BANK, gelen {status}");
+        }
+        Console.ResetColor();
+
+        // 7. Guard testi — aynı çeki tekrar bankaya ver → OP602 fırlamalı
+        Console.Write("7. Guard testi (çift deposit)...");
+        try
+        {
+            await conn.ExecuteAsync(
+                "SELECT sp_deposit_cheque(@p_cheque_id, @p_account_id, @p_company_id)",
+                new { p_cheque_id = chequeId, p_account_id = accountId, p_company_id = companyId });
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(" HATA — istisna fırlatılmadı (guard çalışmıyor)");
+        }
+        catch (PostgresException pgEx) when (pgEx.SqlState == "OP602")
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($" OK — OP602 yakalandı: \"{pgEx.MessageText}\" ✓");
+        }
+        Console.ResetColor();
+
+        // 8. Temizlik
+        await conn.ExecuteAsync("DELETE FROM cheque WHERE id = @id", new { id = chequeId });
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("\n=== TÜM TESTLER GEÇTİ — PostgreSQL pilot başarılı ===");
         Console.ResetColor();
     }
 

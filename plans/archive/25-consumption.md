@@ -1,6 +1,6 @@
 # Plan 25 — Sarf Tüketim (Consumption / Material Issue)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (bekliyor — Plan 24 sonrası)` · **Modül:** M02 (Stok) · **Paket:** STARTER/MANUFACTURING sınırı (denetim: tartışmalı) · **Kaynak:** Plan 24'ten bölündü + competitor-analyst sarf-tüketim analizi (2026-06-01)
+**Tarih:** 2026-06-01 · **Durum:** `TAMAM (2026-06-01)` · **Modül:** M02 (Stok) · **Paket:** STARTER/MANUFACTURING sınırı (denetim: tartışmalı) · **Kaynak:** Plan 24'ten bölündü + competitor-analyst sarf-tüketim analizi (2026-06-01)
 
 > **Bağımlılık:** Plan 24 (ItemType genişletme — CONSUMABLE değeri) önce bitmeli.
 

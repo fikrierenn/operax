@@ -43,6 +43,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             // Şube adları — detay görünümünde depo yanında gösterilir
+            // Şube adları — CompanyId filtresi zorunlu (başka firma transfer ID'si bilinirse sızıntı önlenir)
             var branchNames = await conn.QueryFirstOrDefaultAsync<(string? From, string? To)>(@"
                 SELECT fb.Name AS From, tb.Name AS To
                 FROM StockTransfer t
@@ -50,7 +51,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN Warehouse tw ON tw.Id = t.ToWarehouseId
                 LEFT JOIN Branch fb ON fb.Id = fw.BranchId
                 LEFT JOIN Branch tb ON tb.Id = tw.BranchId
-                WHERE t.Id = @Id", new { Id = id });
+                WHERE t.Id = @Id AND t.CompanyId = @CompanyId",
+                new { Id = id, CompanyId = company.Id });
             FromBranchName = branchNames.From;
             ToBranchName   = branchNames.To;
 

@@ -280,11 +280,12 @@ BEGIN
         INSERT INTO StockMovement
             (CompanyId, WarehouseId, BinId, ItemId, MovementType,
              QtyBase, UomId, QtyOriginal, UnitCost,
-             SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
+             SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy, BranchId)
         SELECT
             @CompanyId, @WarehouseId, @ReceivingBinId, rl.ItemId, 'RECEIPT',
             rl.QtyBase, rl.UomId, rl.QtyBase, ISNULL(pol.Price, 0),
-            'RECEIVING', @HeaderId, @DocNo, rl.LotNo, @UserId
+            'RECEIVING', @HeaderId, @DocNo, rl.LotNo, @UserId,
+            (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
         FROM ReceivingLine rl
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
         WHERE rl.HeaderId = @HeaderId;
@@ -403,10 +404,11 @@ BEGIN
     -- Stok hareketi: ISSUE (eksi miktar)
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo, CreatedBy, BranchId)
     SELECT
         @CompanyId, @WarehouseId, @PickingBinId, sl.ItemId, 'ISSUE',
-        -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo, @UserId
+        -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo, @UserId,
+        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
     FROM ShippingLine sl
     WHERE sl.HeaderId = @HeaderId;
 
@@ -576,22 +578,24 @@ BEGIN
     EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'TRANSFER', @Status, 'POSTED', @UserId;
 
 
-    -- Çıkış hareketi (kaynak depo, eksi)
+    -- Çıkış hareketi (kaynak depo, eksi) — BranchId kaynak depodan türetilir
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
     SELECT
         @CompanyId, @FromWarehouseId, l.FromBinId, l.ItemId, 'TRANSFER',
-        -l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId
+        -l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId,
+        (SELECT BranchId FROM Warehouse WHERE Id = @FromWarehouseId)
     FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
 
-    -- Giriş hareketi (hedef depo, artı)
+    -- Giriş hareketi (hedef depo, artı) — BranchId hedef depodan türetilir
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
     SELECT
         @CompanyId, @ToWarehouseId, l.ToBinId, l.ItemId, 'TRANSFER',
-        l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId
+        l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId,
+        (SELECT BranchId FROM Warehouse WHERE Id = @ToWarehouseId)
     FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
 
     UPDATE StockTransfer
@@ -647,13 +651,14 @@ BEGIN
     -- Fark olan satırlar için düzeltme hareketi
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
     SELECT
         @CompanyId, @WarehouseId, l.BinId, l.ItemId, 'COUNT_ADJ',
         l.QtyCounted - l.QtySystem,
         i.BaseUomId,
         ABS(l.QtyCounted - l.QtySystem),
-        'COUNT', @HeaderId, @DocNo, @UserId
+        'COUNT', @HeaderId, @DocNo, @UserId,
+        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
     FROM CycleCountLine l
     JOIN Item i ON i.Id = l.ItemId
     WHERE l.CycleCountId = @HeaderId
@@ -811,10 +816,11 @@ BEGIN
     -- Mamul stok girişi
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
     SELECT
         @CompanyId, @WarehouseId, @BinId, @ItemId, 'PRODUCTION',
-        @Qty, i.BaseUomId, @Qty, 'PRODUCTION', @OrderId, @DocNo, @UserId
+        @Qty, i.BaseUomId, @Qty, 'PRODUCTION', @OrderId, @DocNo, @UserId,
+        (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId)
     FROM Item i WHERE i.Id = @ItemId;
 
     UPDATE ProductionOrder
@@ -885,10 +891,11 @@ BEGIN
     -- Stok hareketi: ISSUE
     INSERT INTO StockMovement
         (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy)
+         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
     VALUES
         (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE',
-         -@Qty, @UomId, @Qty, 'PICKING', @TaskId, @DocNo, @UserId);
+         -@Qty, @UomId, @Qty, 'PICKING', @TaskId, @DocNo, @UserId,
+         (SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId));
 
     -- Üretim hammadde sarfiyatı güncelle (sadece PRD-PCK- görevleri)
     IF @TaskDocNo LIKE 'PRD-PCK-%'

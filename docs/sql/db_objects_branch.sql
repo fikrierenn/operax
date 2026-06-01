@@ -1,29 +1,14 @@
--- Plan 23 Faz F: Branch boyutu SP/trigger nesneleri
--- Idempotent: CREATE OR ALTER / IF NOT EXISTS korumalı
+-- Plan 23 Faz F: Branch boyutu yardımcı nesneleri
+-- Idempotent: CREATE OR ALTER korumalı
+-- NOT: StockMovement BranchId artık her Post SP'sinde Warehouse.BranchId subquery ile set edilir.
+--      Trigger YOK — SP içinde açık ve izlenebilir.
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 GO
 
--- ============================================================
--- tr_StockMovement_BranchId
--- StockMovement INSERT anında BranchId boşsa Warehouse.BranchId'den türetir.
--- Tüm mevcut Post SP'lerine dokunmadan BranchId'yi otomatik doldurur.
--- ============================================================
-CREATE OR ALTER TRIGGER dbo.tr_StockMovement_BranchId
-ON dbo.StockMovement
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    -- BranchId NULL olan yeni satırları Warehouse.BranchId ile güncelle
-    UPDATE sm
-    SET sm.BranchId = w.BranchId
-    FROM dbo.StockMovement sm
-    JOIN inserted i ON i.Id = sm.Id
-    JOIN dbo.Warehouse w ON w.Id = sm.WarehouseId
-    WHERE sm.BranchId IS NULL
-      AND w.BranchId IS NOT NULL;
-END
+-- Mevcut trigger varsa kaldır (önceki sürümden kalmış olabilir)
+IF OBJECT_ID('dbo.tr_StockMovement_BranchId', 'TR') IS NOT NULL
+    DROP TRIGGER dbo.tr_StockMovement_BranchId;
 GO
 
 -- ============================================================
@@ -46,12 +31,4 @@ BEGIN
         ORDER BY CreatedAt, Id
     );
 END
-GO
-
--- tr_StockMovement_BranchId'yi son sıraya al (guard trigger önce çalışsın)
-EXEC sp_settriggerorder
-    @triggername = 'tr_StockMovement_BranchId',
-    @order       = 'last',
-    @stmttype    = 'INSERT',
-    @namespace   = 'DATABASE';
 GO

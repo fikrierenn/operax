@@ -2,6 +2,20 @@
 
 ---
 
+## 🧾 REVIEW BORÇLARI (2026-06-01 — /review-pr, plan 21/25 sonrası — pre-existing, kapsam-dışı)
+
+> 3 paralel agent. Plan 21 (N:1 fatura) + CONSUMABLE filtre kodu TEMİZ; aşağıdakiler dokunmadığım
+> pre-existing kod (drive-by yasağı → ayrı borç). 2 CRITICAL silent-failure bu oturumda kapatıldı (`8...`).
+
+- [ ] **MED · SP catch üst-sınır:** `SalesOrders/Details.cshtml.cs:220,255,327` + `Shipping/Details.cshtml.cs:199,222,246` — `sqlEx.Number >= 50000` üst-sınırsız; 60000+ teknik THROW kullanıcıya `ex.Message` sızar. `< 60000` ekle (referans: `SalesInvoices/Create.cshtml.cs:91`).
+- [ ] **HIGH · hata yönetimi yok:** `SalesOrders/Details.cshtml.cs` `OnPostAsync` (kaydet, NumberSeries+INSERT korumasız) + `OnPostAddLineAsync` (INSERT+audit try/catch yok). Approve/Cancel pattern'ini uygula.
+- [ ] **HIGH · audit izolasyonu DOĞRULANMADI:** `IAuditService.LogAsync` caller'ı patlatıyor mu? İzole değilse audit hatası satır eklemeyi geçersiz kılar. Kaynak okunmalı.
+- [ ] **HIGH · inline style:** `SalesInvoices/Index.cshtml:96` `style="color:@dueColor;"` Razor expression — class'a çevir (`text-danger`/`text-2`). "Touch ettikçe azalt".
+- [ ] **MED · magic string:** `SalesOrders/Details.cshtml.cs:42` `'CUSTOMER'`/`'BOTH'` — `Dtos.cs`'e `PartnerType` sabiti ekle.
+- [ ] **MED · CancellationToken:** handler'lar `ct` almıyor, `OperationCanceledException` rethrow yok (`error-handling.md §4-5`). Disiplin borcu.
+
+---
+
 ## 🚨 F0.1 CODE REVIEW SONUÇLARI (2026-05-30 — sprint öncesi, canlı koddan doğrulandı)
 
 > code-reviewer (sonnet) + security-reviewer (opus) paralel. file:line kanıtlı. Stale maddeler kapalı.

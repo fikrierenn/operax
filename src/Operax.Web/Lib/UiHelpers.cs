@@ -112,6 +112,7 @@ public static class UiHelpers
     public static string ItemTypeLabel(string? code) => code switch
     {
         "STOCK"       => "Stok",
+        "CONSUMABLE"  => "Sarf Malzeme",
         "SERVICE"     => "Hizmet",
         "EXPENSE"     => "Gider",
         "FIXED_ASSET" => "Sabit Kıymet",

@@ -16,7 +16,7 @@ IF NOT EXISTS (
 )
     CREATE UNIQUE INDEX UIX_ExpenseInvoice_Receiving_Active
     ON ExpenseInvoice(ReceivingId)
-    WHERE ReceivingId IS NOT NULL AND Status <> 'CANCELLED' AND IsDeleted = 0;
+    WHERE ReceivingId IS NOT NULL AND Status <> 'CANCELLED';
 
 -- ShippingHeader: kaynak SO bağlantısı (zaten var mı kontrol)
 IF COL_LENGTH('ShippingHeader', 'SalesOrderId') IS NULL

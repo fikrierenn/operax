@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Dapper;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using NetEscapades.AspNetCore.SecurityHeaders;
@@ -182,6 +183,18 @@ var localizationOptions = new RequestLocalizationOptions()
     .AddSupportedCultures(supportedCultures)
     .AddSupportedUICultures(supportedCultures);
 app.UseRequestLocalization(localizationOptions);
+
+// Reverse proxy (Nginx / Hostinger VPS) arkasında gerçek şema (https) ve istemci IP'sini al.
+// X-Forwarded-Proto olmadan Kestrel isteği http görür → UseHttpsRedirection sonsuz döngü +
+// CookieSecurePolicy.Always nedeniyle giriş cookie'si set edilemez (login kırılır).
+// KnownProxies/Networks temizlenir: önümüzdeki tek ters-proxy (aynı host Nginx) güvenilir kabul edilir.
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 // HTTP pipeline yapılandırması
 if (!app.Environment.IsDevelopment())

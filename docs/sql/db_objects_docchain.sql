@@ -521,25 +521,12 @@ BEGIN
             UpdatedBy=TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE Id = @InvoiceId;
 
-        -- 3) Cari defter: TTK md.65 append-only — TEK delta düzeltme satırı. Orijinal
-        --    PURCHASE_INVOICE satırı UX_AccountMovement_Source(type,docid) unique ile korunur, dokunulmaz.
-        --    delta = yeni - eski; pozitif → borç artışı (Credit), negatif → azalış (Debit).
-        --    Bakiye = SUM(Credit-Debit) = orijinal + delta = yeni grand.
-        DECLARE @DGrand DECIMAL(18,4) = @NewGrand - @OldGrand,
-                @DSub   DECIMAL(18,4) = @NewSub   - @OldSub,
-                @DTax   DECIMAL(18,4) = @NewTax   - @OldTax;
-        -- İş kuralı: ikinci kez düzeltme aynı (CORRECTION, docid) unique'ine çarpar → tek düzeltme desteklenir
-        IF EXISTS (SELECT 1 FROM AccountMovement WHERE SourceDocType='CORRECTION' AND SourceDocId=@InvoiceId)
-            THROW 51566, N'Bu fatura zaten bir kez düzeltilmiş. Yeni fark için iptal+yeniden gerekir.', 1;
-        INSERT INTO dbo.AccountMovement
-            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
-             NetAmount, TaxAmount, Currency, SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
-        VALUES
-            (NEWID(), @CompanyId, @PartnerId, @nowDt,
-             CASE WHEN @DGrand < 0 THEN -@DGrand ELSE 0 END,
-             CASE WHEN @DGrand > 0 THEN  @DGrand ELSE 0 END,
-             @DSub, @DTax, @Currency, 'CORRECTION', @InvoiceId, @DocNo,
-             N'Fatura düzeltme farkı: ' + @DocNo, @UserId);
+        -- 3) Cari defter: veri-giriş hatası düzeltmesi (ödeme yok, GİB'e gitmemiş alış faturası).
+        --    Ters/delta kayıt GEREKSİZ — yanlış girilen movement satırı doğru tutara YERİNDE güncellenir.
+        --    İz audit log'da tutulur (eski→yeni + gerekçe). Cari ekstre temiz kalır.
+        UPDATE dbo.AccountMovement
+        SET Credit = @NewGrand, NetAmount = @NewSub, TaxAmount = @NewTax, MovementDate = @nowDt
+        WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId;
 
         -- 4) Açık ödeme planını yeni tutara çek (ödenmemiş)
         UPDATE PaymentPlan SET Amount = @NewGrand

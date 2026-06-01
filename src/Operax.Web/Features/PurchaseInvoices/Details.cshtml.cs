@@ -292,7 +292,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 new { InvoiceId = id, LineId = lineId, NewUnitPrice = price,
                       CompanyId = company.Id, UserId = user.Id, Reason = reason },
                 commandType: System.Data.CommandType.StoredProcedure);
-            TempData["Success"] = "Fatura kalemi düzeltildi (cari defter ters+yeni kayıtla güncellendi).";
+            TempData["Success"] = "Fatura kalemi düzeltildi (cari defter satırı yeni tutara güncellendi, iz denetim kaydında).";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {

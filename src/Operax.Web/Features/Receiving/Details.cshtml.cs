@@ -68,16 +68,20 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 WHERE l.HeaderId = @Id AND rh.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id });
 
-            // Bağlı alış faturası sayacı
-            InvoiceCount = await conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(1) FROM ExpenseInvoice WHERE ReceivingId = @Id AND CompanyId = @CompanyId AND Status <> @Cancelled",
+            // Bağlı alış faturası sayacı (PurchaseInvoice — satır-bazlı Receiving bağı)
+            InvoiceCount = await conn.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(DISTINCT pi.Id)
+                FROM PurchaseInvoice pi
+                JOIN PurchaseInvoiceLine pil ON pil.InvoiceId = pi.Id
+                JOIN ReceivingLine rl ON rl.Id = pil.SourceReceivingLineId
+                WHERE rl.HeaderId = @Id AND pi.CompanyId = @CompanyId AND pi.Status <> @Cancelled",
                 new { Id = id, CompanyId = company.Id, Cancelled = DocStatus.Cancelled });
 
             DocFlow = new DocFlowVm([
                 new DocFlowItem(
                     Label: "Alış Faturası",
                     Count: InvoiceCount,
-                    ListUrl: InvoiceCount > 0 ? $"/Expenses?receivingId={id.Value}" : null,
+                    ListUrl: InvoiceCount > 0 ? $"/PurchaseInvoices?receivingId={id.Value}" : null,
                     CreateUrl: Header.Status == DocStatus.Posted
                         ? $"/Receiving/Details/{id.Value}?handler=CreateInvoice"
                         : null,
@@ -218,7 +222,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public async Task<IActionResult> OnPostCreateInvoiceAsync(Guid id)
     {
-        // sp_CreateExpenseInvoiceFromReceiving: POSTED Receiving'den DRAFT ExpenseInvoice oluşturur
+        // sp_CreatePurchaseInvoiceFromReceiving: POSTED Receiving'den DRAFT PurchaseInvoice + satırlar (Plan 24)
         using var conn = db.Open();
         try
         {
@@ -229,12 +233,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             prm.Add("NewInvoiceId", dbType: System.Data.DbType.Guid,
                     direction: System.Data.ParameterDirection.Output);
 
-            await conn.ExecuteAsync("sp_CreateExpenseInvoiceFromReceiving", prm,
+            await conn.ExecuteAsync("sp_CreatePurchaseInvoiceFromReceiving", prm,
                 commandType: System.Data.CommandType.StoredProcedure);
 
             var newId = prm.Get<Guid>("NewInvoiceId");
             TempData["Success"] = "Alış faturası oluşturuldu.";
-            return RedirectToPage("/Expenses/Details", new { id = newId });
+            return RedirectToPage("/PurchaseInvoices/Details", new { id = newId });
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {

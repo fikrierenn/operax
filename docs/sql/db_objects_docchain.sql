@@ -91,16 +91,14 @@ END
 GO
 
 -- =============================================================================
--- sp_CreateExpenseInvoiceFromReceiving
--- NE YAPAR: POSTED Receiving'den DRAFT ExpenseInvoice + satırlar oluşturur.
---           Receiving.PartnerId → Invoice.PartnerId; birim fiyat PO'dan gelir.
--- PARAMETRELERİ:
---   @ReceivingId   UNIQUEIDENTIFIER — kaynak Receiving
---   @CompanyId     UNIQUEIDENTIFIER
---   @UserId        UNIQUEIDENTIFIER
---   @NewInvoiceId  UNIQUEIDENTIFIER OUTPUT
+-- sp_CreatePurchaseInvoiceFromReceiving (Plan 24 Faz C — eski sp_CreateExpenseInvoiceFromReceiving yerine)
+-- NE YAPAR: POSTED Receiving'den DRAFT PurchaseInvoice + SATIRLAR oluşturur (boş fatura bug'ı çözüldü).
+--           Mal satırı ItemId/UomId/Qty/UnitPrice (PO fiyatından) ile kopyalanır.
+--           SourceReceivingLineId ile satır-bazlı bağ (N:1 hazır). InvoiceDate ön-dolu (POSTED'de override).
+-- PARAMETRELERİ: @ReceivingId, @CompanyId, @UserId, @NewInvoiceId OUTPUT
+-- THROW: 51510-51512
 -- =============================================================================
-CREATE OR ALTER PROCEDURE dbo.sp_CreateExpenseInvoiceFromReceiving
+CREATE OR ALTER PROCEDURE dbo.sp_CreatePurchaseInvoiceFromReceiving
     @ReceivingId  UNIQUEIDENTIFIER,
     @CompanyId    UNIQUEIDENTIFIER,
     @UserId       UNIQUEIDENTIFIER,
@@ -112,10 +110,7 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Receiving bilgilerini al
-        DECLARE @PartnerId UNIQUEIDENTIFIER,
-                @Status    NVARCHAR(50),
-                @DocNo     NVARCHAR(100);
+        DECLARE @PartnerId UNIQUEIDENTIFIER, @Status NVARCHAR(50), @DocNo NVARCHAR(100);
 
         SELECT @PartnerId = PartnerId, @Status = Status, @DocNo = DocNo
         FROM ReceivingHeader WITH (UPDLOCK, ROWLOCK)
@@ -123,40 +118,54 @@ BEGIN
 
         IF @PartnerId IS NULL
             THROW 51510, N'Mal kabul belgesi bulunamadı.', 1;
-
         IF @Status <> 'POSTED'
             THROW 51511, N'Yalnızca onaylanmış mal kabulden fatura oluşturulabilir.', 1;
 
-        -- İş kuralı: zaten fatura bağlıysa yeni açma
+        -- İş kuralı: bu mal kabulden zaten fatura varsa yeni açma (satır-bazlı bağ üzerinden)
         IF EXISTS (
-            SELECT 1 FROM ExpenseInvoice
-            WHERE ReceivingId = @ReceivingId
-              AND Status NOT IN ('CANCELLED')
-              AND CompanyId = @CompanyId
+            SELECT 1
+            FROM PurchaseInvoiceLine pil
+            JOIN PurchaseInvoice pi ON pi.Id = pil.InvoiceId
+            JOIN ReceivingLine rl ON rl.Id = pil.SourceReceivingLineId
+            WHERE rl.HeaderId = @ReceivingId
+              AND pi.Status <> 'CANCELLED' AND pi.CompanyId = @CompanyId
         )
             THROW 51512, N'Bu mal kabulden zaten fatura oluşturulmuş.', 1;
 
-        -- Fatura no üret
-        DECLARE @InvDocNo NVARCHAR(100) =
-            'ALN-' + FORMAT(GETUTCDATE(), 'yyyyMMdd-HHmmss');
-
-        -- Toplam tutarı hesapla (PO fiyatından, yoksa 0)
-        DECLARE @Total DECIMAL(18,4) = ISNULL((
-            SELECT SUM(rl.QtyBase * ISNULL(pol.Price, 0))
-            FROM ReceivingLine rl
-            LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
-            WHERE rl.HeaderId = @ReceivingId
-        ), 0);
-
+        DECLARE @InvDocNo NVARCHAR(50) = 'ALN-' + FORMAT(GETUTCDATE(), 'yyyyMMdd-HHmmss');
         SET @NewInvoiceId = NEWID();
 
-        -- DRAFT ExpenseInvoice oluştur
-        INSERT INTO ExpenseInvoice
-            (Id, CompanyId, PartnerId, ReceivingId, DocNo,
-             InvoiceDate, TotalAmount, Status)
+        -- DRAFT başlık (tutarlar satır eklendikten sonra güncellenir)
+        -- SupplierInvoiceNo/Date ön-dolu DocNo/bugün — kullanıcı POSTED öncesi gerçek değerle değiştirir
+        INSERT INTO PurchaseInvoice
+            (Id, CompanyId, PartnerId, DocNo, SupplierInvoiceNo, SupplierInvoiceDate,
+             InvoiceDate, Subtotal, TaxAmount, GrandTotal, Status, CreatedBy)
         VALUES
-            (@NewInvoiceId, @CompanyId, @PartnerId, @ReceivingId, @InvDocNo,
-             CAST(GETUTCDATE() AS DATE), @Total, 'DRAFT');
+            (@NewInvoiceId, @CompanyId, @PartnerId, @InvDocNo, @InvDocNo, CAST(GETUTCDATE() AS DATE),
+             CAST(GETUTCDATE() AS DATE), 0, 0, 0, 'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER));
+
+        -- Satırları kopyala (mal satırı — boş fatura bug'ı çözüldü)
+        INSERT INTO PurchaseInvoiceLine
+            (InvoiceId, ItemId, UomId, Qty, UnitPrice,
+             LineSubtotal, TaxRatePercent, TaxAmount, LineTotal,
+             SourceReceivingLineId, SourceLinkType)
+        SELECT
+            @NewInvoiceId, rl.ItemId, rl.UomId, rl.QtyBase, ISNULL(pol.Price, 0),
+            rl.QtyBase * ISNULL(pol.Price, 0),
+            20,
+            rl.QtyBase * ISNULL(pol.Price, 0) * 0.20,
+            rl.QtyBase * ISNULL(pol.Price, 0) * 1.20,
+            rl.Id, 'LINKED'
+        FROM ReceivingLine rl
+        LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        WHERE rl.HeaderId = @ReceivingId;
+
+        -- Başlık tutarlarını satırlardan topla
+        UPDATE PurchaseInvoice
+        SET Subtotal   = (SELECT ISNULL(SUM(LineSubtotal), 0) FROM PurchaseInvoiceLine WHERE InvoiceId = @NewInvoiceId),
+            TaxAmount  = (SELECT ISNULL(SUM(TaxAmount), 0)    FROM PurchaseInvoiceLine WHERE InvoiceId = @NewInvoiceId),
+            GrandTotal = (SELECT ISNULL(SUM(LineTotal), 0)    FROM PurchaseInvoiceLine WHERE InvoiceId = @NewInvoiceId)
+        WHERE Id = @NewInvoiceId;
 
         COMMIT TRANSACTION;
     END TRY
@@ -165,6 +174,11 @@ BEGIN
         THROW;
     END CATCH
 END
+GO
+
+-- Eski yanlış SP'yi kaldır (ExpenseInvoice gider modeli mal satırı taşıyamıyordu — Plan 24)
+IF OBJECT_ID('dbo.sp_CreateExpenseInvoiceFromReceiving', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CreateExpenseInvoiceFromReceiving;
 GO
 
 -- =============================================================================

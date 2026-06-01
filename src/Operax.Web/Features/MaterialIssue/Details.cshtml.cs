@@ -64,6 +64,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         using var conn = db.Open();
         if (IsNew)
         {
+            // Yeni fiş: DocNo SARF-{UTC zaman damgası} ile benzersiz üretilir
             Header.Id = Guid.NewGuid();
             await conn.ExecuteAsync(@"
                 INSERT INTO MaterialIssueHeader (Id, CompanyId, WarehouseId, DocNo, IssueDate, CostCenterId, Notes, Status, CreatedBy)
@@ -74,6 +75,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         }
         else
         {
+            // İş kuralı: yalnızca DRAFT belge güncellenebilir (WHERE Status = @St)
             await conn.ExecuteAsync(@"
                 UPDATE MaterialIssueHeader
                 SET WarehouseId = @WarehouseId, IssueDate = @IssueDate, CostCenterId = @CostCenterId,
@@ -93,7 +95,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         var baseUom = await conn.ExecuteScalarAsync<Guid?>(
             "SELECT BaseUomId FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
             new { Id = itemId, CompanyId = company.Id });
-        if (baseUom is null || !await IsDraftAsync(conn, id)) return RedirectToPage(new { id });
+        if (baseUom is null)
+        {
+            TempData["Error"] = "Ürün bulunamadı veya bu firmaya ait değil.";
+            return RedirectToPage(new { id });
+        }
+        if (!await IsDraftAsync(conn, id))
+        {
+            TempData["Error"] = "Yalnızca taslak fişe kalem eklenebilir.";
+            return RedirectToPage(new { id });
+        }
 
         await conn.ExecuteAsync(@"
             /* isolation-guard:ignore: HeaderId OnGet'te CompanyId ile doğrulandı; ürün yukarıda firma-ait */

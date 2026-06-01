@@ -42,6 +42,21 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM MaterialIssueLine WHERE HeaderId = @HeaderId)
             THROW 51553, N'Sarf fişinde kalem yok.', 1;
 
+        -- İş kuralı: negatif stok engeli — depo toplam bakiyesi sarf miktarını karşılamalı
+        -- (Serbest/manuel mod ileride parametre ile gevşetilebilir; varsayılan: engelle)
+        DECLARE @ShortItem NVARCHAR(200);
+        SELECT TOP 1 @ShortItem = i.Name
+        FROM MaterialIssueLine l
+        JOIN Item i ON i.Id = l.ItemId
+        OUTER APPLY (
+            SELECT ISNULL(SUM(inv.QtyBalance), 0) AS OnHand
+            FROM tvf_InventoryBalance(@CompanyId) inv
+            WHERE inv.WarehouseId = @WarehouseId AND inv.ItemId = l.ItemId
+        ) bal
+        WHERE l.HeaderId = @HeaderId AND bal.OnHand < l.QtyBase;
+        IF @ShortItem IS NOT NULL
+            THROW 51554, N'Yetersiz stok — bu üründe depo bakiyesi sarf miktarını karşılamıyor.', 1;
+
         -- Depo picking bin fallback (son çare — stoklu bin bulunamazsa)
         DECLARE @PickingBinId UNIQUEIDENTIFIER;
         SELECT TOP 1 @PickingBinId = Id
@@ -53,6 +68,8 @@ BEGIN
         -- Stok çıkışı: her satır ISSUE (eksi QtyBase), UnitCost = anlık Moving Avg maliyet.
         -- BinId NULL ise stok OLAN bin seçilir (en çok stoklu); picking bin yalnız son çare.
         -- (Sarf storage bin'den çıkmalı; picking bin'e fallback negatif stok yaratırdı.)
+        -- NOT: Tek-bin varsayımı — talep tek bin bakiyesini aşarsa bin negatife düşebilir
+        -- (depo toplamı yukarıda guard'lı). Multi-bin split tahsis kapsam dışı (basit sarf).
         INSERT INTO StockMovement
             (CompanyId, WarehouseId, BinId, ItemId, MovementType,
              QtyBase, UomId, QtyOriginal, UnitCost,

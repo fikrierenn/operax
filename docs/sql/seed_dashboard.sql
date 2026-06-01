@@ -36,23 +36,23 @@ PRINT '=== DASHBOARD SEED BASLADI ===';
 -- =============================================================================
 IF OBJECT_ID('dbo.City') IS NOT NULL
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = 'Istanbul')
-        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), 'Istanbul', '34');
-    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = 'Ankara')
-        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), 'Ankara', '06');
-    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = 'Izmir')
-        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), 'Izmir', '35');
-    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = 'Bursa')
-        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), 'Bursa', '16');
-    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = 'Kocaeli')
-        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), 'Kocaeli', '41');
+    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = N'İstanbul')
+        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), N'İstanbul', '34');
+    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = N'Ankara')
+        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), N'Ankara', '06');
+    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = N'İzmir')
+        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), N'İzmir', '35');
+    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = N'Bursa')
+        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), N'Bursa', '16');
+    IF NOT EXISTS (SELECT 1 FROM City WHERE Name = N'Kocaeli')
+        INSERT INTO City (Id, Name, Code) VALUES (NEWID(), N'Kocaeli', '41');
     PRINT '  [OK] Cities seed';
 
     -- Mevcut partnerlere CityId atayalim (CityId NULL olanlara)
-    DECLARE @IstanbulId UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = 'Istanbul');
-    DECLARE @BursaId    UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = 'Bursa');
-    DECLARE @KocaeliId  UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = 'Kocaeli');
-    DECLARE @IzmirId    UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = 'Izmir');
+    DECLARE @IstanbulId UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = N'İstanbul');
+    DECLARE @BursaId    UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = N'Bursa');
+    DECLARE @KocaeliId  UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = N'Kocaeli');
+    DECLARE @IzmirId    UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM City WHERE Name = N'İzmir');
 
     UPDATE Partner SET CityId = @IstanbulId WHERE CityId IS NULL AND Code LIKE 'SUP-001%';
     UPDATE Partner SET CityId = @BursaId    WHERE CityId IS NULL AND Code LIKE 'SUP-002%';

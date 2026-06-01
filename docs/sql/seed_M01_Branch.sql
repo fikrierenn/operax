@@ -9,7 +9,7 @@ IF NOT EXISTS (SELECT 1 FROM Branch WHERE CompanyId = @CompanyId AND Code = 'MRK
 BEGIN
     DECLARE @MerkezId UNIQUEIDENTIFIER = NEWID();
     INSERT INTO Branch (Id, CompanyId, Code, Name, City, BranchType, IsActive)
-    VALUES (@MerkezId, @CompanyId, 'MRK', 'Merkez', 'İstanbul', 'MERKEZ', 1);
+    VALUES (@MerkezId, @CompanyId, 'MRK', N'Merkez', N'İstanbul', 'MERKEZ', 1);
 
     -- Ana depoyu merkeze bağla
     UPDATE Warehouse SET BranchId = @MerkezId WHERE Id = @W01Id;
@@ -22,11 +22,11 @@ BEGIN
     DECLARE @IstWhId UNIQUEIDENTIFIER = NEWID();
 
     INSERT INTO Branch (Id, CompanyId, Code, Name, City, BranchType, IsActive)
-    VALUES (@IstId, @CompanyId, 'IST-01', 'İstanbul Satış Şubesi', 'İstanbul', 'SUBE', 1);
+    VALUES (@IstId, @CompanyId, 'IST-01', N'İstanbul Satış Şubesi', N'İstanbul', 'SUBE', 1);
 
     -- Şubeye ait depo
     INSERT INTO Warehouse (Id, CompanyId, Code, Name, BranchId, IsActive)
-    VALUES (@IstWhId, @CompanyId, 'W-IST', 'İstanbul Depo', @IstId, 1);
+    VALUES (@IstWhId, @CompanyId, 'W-IST', N'İstanbul Depo', @IstId, 1);
 
     -- İade deposu olarak kendini ata
     UPDATE Branch SET ReturnWarehouseId = @IstWhId WHERE Id = @IstId;

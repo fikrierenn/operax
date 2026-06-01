@@ -88,11 +88,11 @@ END
 -- Partner (Tedarikçi ve Müşteri) ekle
 IF NOT EXISTS (SELECT 1 FROM Partner WHERE CompanyId = @CompId AND Code = 'SUP-001')
     INSERT INTO Partner (Id, CompanyId, Code, Name, Type, IsActive, IsDeleted)
-    VALUES (NEWID(), @CompId, 'SUP-001', 'Teknoloji Dağıtım A.Ş.', 'SUPPLIER', 1, 0);
+    VALUES (NEWID(), @CompId, 'SUP-001', 'Teknoloji Dağıtım A.Ş.', 'VENDOR', 1, 0);
 
 IF NOT EXISTS (SELECT 1 FROM Partner WHERE CompanyId = @CompId AND Code = 'SUP-002')
     INSERT INTO Partner (Id, CompanyId, Code, Name, Type, IsActive, IsDeleted)
-    VALUES (NEWID(), @CompId, 'SUP-002', 'Global Hammadde Ltd.', 'SUPPLIER', 1, 0);
+    VALUES (NEWID(), @CompId, 'SUP-002', 'Global Hammadde Ltd.', 'VENDOR', 1, 0);
 
 IF NOT EXISTS (SELECT 1 FROM Partner WHERE CompanyId = @CompId AND Code = 'CUS-001')
     INSERT INTO Partner (Id, CompanyId, Code, Name, Type, IsActive, IsDeleted)

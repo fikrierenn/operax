@@ -139,6 +139,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             Header.Id = Guid.NewGuid();
             // İş kuralı: evrak numarası belge seri yönetiminden (NumberSeries, ayardan) atanır
             Header.OrderNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.PurchaseOrder);
+            // İş kuralı: sipariş tarihi form'da yok; bind edilmediyse bugünün tarihi atanır (SqlDateTime taşması önlenir)
+            if (Header.OrderDate == default) Header.OrderDate = DateTime.Today;
 
             await conn.ExecuteAsync(@"
                 INSERT INTO PurchaseOrderHeader

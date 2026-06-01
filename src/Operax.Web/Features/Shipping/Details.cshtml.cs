@@ -164,7 +164,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> 'CONSUMABLE'",
             new { ItemId = itemId, CompanyId = company.Id });
 
-        if (exists == 0) return RedirectToPage(new { id });
+        // Guard: madde sevkiyata uygun değilse (sarf malzeme/pasif) sessiz dönme; kullanıcıyı bilgilendir
+        if (exists == 0)
+        {
+            logger.LogWarning("Sevkiyat satır ekleme reddedildi: Item {ItemId} sevkiyata uygun değil (CONSUMABLE/pasif), Shipping {HeaderId}", itemId, id);
+            TempData["Error"] = "Seçilen madde sevkiyata uygun değil (sarf malzeme veya pasif). Satır eklenmedi.";
+            return RedirectToPage(new { id });
+        }
 
         var rateVal = await conn.ExecuteScalarAsync<decimal>(
             "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",

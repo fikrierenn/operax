@@ -177,7 +177,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND ItemType <> 'CONSUMABLE'",
             new { ItemId = itemId, CompanyId = company.Id });
 
-        if (baseUomId is null) return RedirectToPage(new { id });
+        // Guard: madde satışa uygun değilse (sarf malzeme/pasif/UOM tanımsız) sessiz dönme; kullanıcıyı bilgilendir
+        if (baseUomId is null)
+        {
+            logger.LogWarning("SO satır ekleme reddedildi: Item {ItemId} satışa uygun değil (CONSUMABLE/pasif/UOM yok), SO {OrderId}", itemId, id);
+            TempData["Error"] = "Seçilen madde satışa uygun değil (sarf malzeme veya tanımsız ölçü birimi). Satır eklenmedi.";
+            return RedirectToPage(new { id });
+        }
 
         await conn.ExecuteAsync(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.

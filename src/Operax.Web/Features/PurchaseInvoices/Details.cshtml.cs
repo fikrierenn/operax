@@ -211,9 +211,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             return RedirectToPage(new { id });
         }
 
-        // Yerel AI gerekçe denetimi (soft-fail → UNCHECKED, iş bloke olmaz)
+        // Yerel AI gerekçe denetimi (soft-fail → UNCHECKED, iş bloke olmaz).
+        // İnference'i HTTP istek-abort'tan AYIR: yavaş CPU inference'inde tarayıcı/proxy
+        // isteği iptal ederse 0 token'da kesilmesin diye kendi timeout'lu CTS (120s).
         var context = $"Ürün: {ctx.Item}. Sipariş fiyatı {ctx.Expected:N2}, fatura fiyatı {ctx.Actual:N2}.";
-        var verdict = await ai.CheckJustificationAsync(context, reason, HttpContext.RequestAborted);
+        using var aiCts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var verdict = await ai.CheckJustificationAsync(context, reason, aiCts.Token);
 
         await conn.ExecuteAsync(@"
             UPDATE PriceVariance

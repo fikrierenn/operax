@@ -30,7 +30,7 @@ public sealed record AiReasonVerdict(string Verdict, string? Comment)
 public sealed class AiOptions
 {
     public bool   Enabled        { get; set; } = false;
-    public string ModelFileName  { get; set; } = "qwen25-3b-instruct-q4_k_m.gguf";
+    public string ModelFileName  { get; set; } = "Qwen3-4B-Q4_K_M.gguf"; // Dense Qwen3 (hibrit DEĞİL)
     public int    ContextSize    { get; set; } = 4096;
     public int    MaxTokens      { get; set; } = 300;
 }
@@ -86,31 +86,40 @@ public sealed class OperaxAiClient : IOperaxAiClient, IDisposable
             if (_weights is null || _modelParams is null)
                 return AiReasonVerdict.NotChecked("Model yüklenemedi");
 
+            // Sistem mesajı + /no_think (Qwen3 thinking blokunu kapatır → temiz JSON)
             const string system =
                 "Sen bir satınalma denetçisisin. Kullanıcı bir fiyat farkı için gerekçe yazdı. " +
                 "Gerekçenin İŞ AÇISINDAN ANLAMLI ve fiyat farkını AÇIKLAYAN bir metin olup olmadığını değerlendir. " +
                 "Anlamsız, boş, alakasız, rastgele karakter veya gerekçe niteliği taşımayan metinler IMPLAUSIBLE'dır. " +
-                "Yalnızca şu JSON formatında yanıt ver: " +
-                "{\"verdict\":\"PLAUSIBLE\",\"comment\":\"tek cümle Türkçe değerlendirme\"} " +
-                "veya {\"verdict\":\"IMPLAUSIBLE\",\"comment\":\"...\"}";
+                "Yalnızca tek satır JSON döndür: {\"verdict\":\"PLAUSIBLE|IMPLAUSIBLE\",\"comment\":\"tek cümle Türkçe\"} /no_think";
 
-            var prompt = BuildQwenPrompt(system, $"Bağlam: {context}\nGerekçe: {reason}");
+            var userMessage = $"Bağlam: {context}\nGerekçe: {reason}";
 
-            var executor = new StatelessExecutor(_weights, _modelParams);
+            // ApplyTemplate=true → LLamaSharp chat template'i kendi uygular (elle <|im_start|> yazma → çift-BOS/0-token riski)
+            var executor = new StatelessExecutor(_weights, _modelParams)
+            {
+                ApplyTemplate = true,
+                SystemMessage = system
+            };
             var inferenceParams = new InferenceParams
             {
-                MaxTokens   = _opt.MaxTokens,
-                AntiPrompts = ["<|im_end|>", "<|im_start|>"]
+                MaxTokens         = _opt.MaxTokens,
+                AntiPrompts       = ["<|im_end|>"],   // MİNİMAL — kısa string erken eşleşip 0-token yapar
+                SamplingPipeline  = new LLama.Sampling.DefaultSamplingPipeline
+                                        { Temperature = 0.2f, TopP = 0.95f, TopK = 20 }
             };
 
             var buffer = new StringBuilder();
-            await foreach (var token in executor.InferAsync(prompt, inferenceParams, ct))
+            await foreach (var token in executor.InferAsync(userMessage, inferenceParams, ct))
             {
                 buffer.Append(token);
                 if (ct.IsCancellationRequested) break;
             }
 
-            return ParseVerdict(StripAntiPrompts(buffer.ToString()).Trim());
+            // Qwen3 <think>...</think> bloğunu temizle (kalırsa JSON parse bozulur)
+            var raw = System.Text.RegularExpressions.Regex.Replace(
+                buffer.ToString(), @"<think>[\s\S]*?</think>", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+            return ParseVerdict(raw.Trim());
         }
         finally
         {
@@ -131,7 +140,14 @@ public sealed class OperaxAiClient : IOperaxAiClient, IDisposable
         }
         try
         {
-            _modelParams = new ModelParams(_modelPath) { ContextSize = (uint)_opt.ContextSize, GpuLayerCount = 0 };
+            // FlashAttention=false: CPU+Qwen2.5 kombinasyonunda flash_attn auto→enabled
+            // boş çıktı ürettiğine dair llama.cpp bilinen bug (lmstudio #1353, ollama #11230).
+            _modelParams = new ModelParams(_modelPath)
+            {
+                ContextSize    = (uint)_opt.ContextSize,
+                GpuLayerCount  = 0,
+                FlashAttention = false
+            };
             _weights = LLamaWeights.LoadFromFile(_modelParams);
             _logger.LogInformation("Yerel AI hazır: {Model} (ctx={Ctx})", _opt.ModelFileName, _opt.ContextSize);
         }
@@ -140,21 +156,6 @@ public sealed class OperaxAiClient : IOperaxAiClient, IDisposable
             _logger.LogError(ex, "Yerel AI model yükleme hatası — AI devre dışı.");
             _weights = null;
         }
-    }
-
-    // qwen2.5 sohbet şablonu
-    private static string BuildQwenPrompt(string system, string user) =>
-        $"<|im_start|>system\n{system}<|im_end|>\n" +
-        $"<|im_start|>user\n{user}<|im_end|>\n" +
-        "<|im_start|>assistant\n";
-
-    private static string StripAntiPrompts(string output)
-    {
-        int idx = output.IndexOf("<|im_end|>", StringComparison.Ordinal);
-        if (idx >= 0) output = output[..idx];
-        idx = output.IndexOf("<|im_start|>", StringComparison.Ordinal);
-        if (idx >= 0) output = output[..idx];
-        return output;
     }
 
     // Model çıktısındaki JSON'u ayrıştır; beklenmeyen değer → UNCHECKED (güvenli taraf)

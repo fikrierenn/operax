@@ -140,6 +140,11 @@ builder.Services.AddHangfireServer();
 builder.Services.AddScoped<Operax.Web.Lib.Jobs.ReconciliationExpiryJob>();
 
 // Razor Pages — Feature-based yapı + klasör bazlı yetkilendirme (RBAC)
+// Para/ondalık doğruluğu: number input '12.5' gönderir, tr-TR binder 125 okurdu.
+// Invariant-öncelikli decimal/double binder en başa eklenir (global fix).
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(mvc =>
+    mvc.ModelBinderProviders.Insert(0, new Operax.Web.Lib.InvariantDecimalModelBinderProvider()));
+
 builder.Services.AddRazorPages()
     .WithRazorPagesRoot("/Features")
     .AddRazorPagesOptions(o =>

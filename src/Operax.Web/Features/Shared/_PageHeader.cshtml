@@ -4,6 +4,10 @@
     Standart: .claude/rules/ui-standard.md bölüm 4
 *@
 @model Operax.Web.Lib.PageHeaderVm
+@{
+    // _Layout'taki global yardım butonu bu flag'e bakar — _PageHeader olan sayfada çift buton olmasın
+    ViewData["HasPageHeader"] = "1";
+}
 
 <div class="page-hdr">
     <div class="page-hdr-l">
@@ -45,8 +49,18 @@
             <p>@Model.Sub</p>
         }
     </div>
-    @if (!string.IsNullOrEmpty(Model.ActionsHtml))
-    {
-        <div class="page-hdr-r">@Html.Raw(Model.ActionsHtml)</div>
-    }
+    <div class="page-hdr-r">
+        @if (!string.IsNullOrEmpty(Model.ActionsHtml))
+        {
+            @Html.Raw(Model.ActionsHtml)
+        }
+        @* Ekran-içi yardım — mevcut route'a göre /Help kitapçık sayfasını yeni sekmede açar *@
+        <a class="btn btn-secondary btn-sm" target="_blank" title="Bu ekran için yardım"
+           href="/Help?ret=@(Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString))">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            Yardım
+        </a>
+    </div>
 </div>

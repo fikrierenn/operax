@@ -67,6 +67,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN DictionaryValue dv ON dv.Id = l.UomId
                 WHERE l.HeaderId = @Id AND rh.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id });
+
+            // Bağlı alış faturası sayacı
+            InvoiceCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM ExpenseInvoice WHERE ReceivingId = @Id AND CompanyId = @CompanyId AND Status <> @Cancelled",
+                new { Id = id, CompanyId = company.Id, Cancelled = DocStatus.Cancelled });
+
+            DocFlow = new DocFlowVm([
+                new DocFlowItem(
+                    Label: "Alış Faturası",
+                    Count: InvoiceCount,
+                    ListUrl: InvoiceCount > 0 ? $"/Expenses?receivingId={id.Value}" : null,
+                    CreateUrl: Header.Status == DocStatus.Posted
+                        ? $"/Receiving/Details/{id.Value}?handler=CreateInvoice"
+                        : null,
+                    CreateLabel: "Alış Faturası Oluştur",
+                    CanCreate: Header.Status == DocStatus.Posted
+                        && user.HasRole("Administrator","Purchasing","Finance"))
+            ]);
         }
         else
         {
@@ -192,5 +210,42 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public decimal QtyBase             { get; set; }
         public string? LotNo               { get; set; }
         public Guid?   PurchaseOrderLineId { get; set; }
+    }
+
+    // Belge zinciri sayaçları — smart button partial için
+    public int InvoiceCount { get; set; }
+    public DocFlowVm? DocFlow { get; set; }
+
+    public async Task<IActionResult> OnPostCreateInvoiceAsync(Guid id)
+    {
+        // sp_CreateExpenseInvoiceFromReceiving: POSTED Receiving'den DRAFT ExpenseInvoice oluşturur
+        using var conn = db.Open();
+        try
+        {
+            var prm = new DynamicParameters();
+            prm.Add("ReceivingId",  id);
+            prm.Add("CompanyId",    company.Id);
+            prm.Add("UserId",       user.Id);
+            prm.Add("NewInvoiceId", dbType: System.Data.DbType.Guid,
+                    direction: System.Data.ParameterDirection.Output);
+
+            await conn.ExecuteAsync("sp_CreateExpenseInvoiceFromReceiving", prm,
+                commandType: System.Data.CommandType.StoredProcedure);
+
+            var newId = prm.Get<Guid>("NewInvoiceId");
+            TempData["Success"] = "Alış faturası oluşturuldu.";
+            return RedirectToPage("/Expenses/Details", new { id = newId });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fatura oluşturma hatası: {ReceivingId}", id);
+            TempData["Error"] = "Fatura oluşturulurken veritabanı hatası oluştu.";
+            return RedirectToPage(new { id });
+        }
     }
 }

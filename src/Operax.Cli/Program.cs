@@ -109,6 +109,9 @@ class Program
                     // 6. Branch boyutu nesneleri (Plan 23 Faz F) — StockMovement trigger + fn_DefaultBranchId
                     var branch = Path.Combine(sqlDir, "db_objects_branch.sql");
                     if (File.Exists(branch)) await ExecuteScriptAsync(branch, tolerant: false);
+                    // 7. Belge zinciri SP'leri (Plan 05) — sp_CreateReceivingFromPO, sp_CreateExpenseInvoiceFromReceiving, sp_CreateShippingFromSO
+                    var docchain = Path.Combine(sqlDir, "db_objects_docchain.sql");
+                    if (File.Exists(docchain)) await ExecuteScriptAsync(docchain, tolerant: false);
                     break;
 
                 case "seed":

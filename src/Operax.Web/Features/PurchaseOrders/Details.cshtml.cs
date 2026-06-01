@@ -47,6 +47,21 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await LoadHeaderAsync(conn, id.Value);
             await LoadLinesAsync(conn, id.Value);
             await LoadActivitiesAsync(conn, id.Value);
+
+            // Bağlı alt belge sayaçları (smart button)
+            ReceivingCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM ReceivingHeader WHERE PurchaseOrderId = @Id AND IsDeleted = 0 AND Status <> @Cancelled",
+                new { Id = id.Value, Cancelled = DocStatus.Cancelled });
+
+            DocFlow = new DocFlowVm([
+                new DocFlowItem(
+                    Label: "Mal Kabul",
+                    Count: ReceivingCount,
+                    ListUrl: ReceivingCount > 0 ? $"/Receiving?poId={id.Value}" : null,
+                    CreateUrl: Header.Status == DocStatus.Posted ? $"/PurchaseOrders/Details/{id.Value}?handler=CreateReceiving" : null,
+                    CreateLabel: "Mal Kabul Oluştur",
+                    CanCreate: Header.Status == DocStatus.Posted && user.HasRole("Administrator","Purchasing","WarehouseManager"))
+            ]);
         }
         else
         {
@@ -305,4 +320,42 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     // Denetim izi satırı — UserName NULL ise view 'Sistem' fallback uygular, etiket UiHelpers.AuditActionLabel'dan gelir.
     public record ActivityDto(DateTime CreatedAt, string? UserName, string Action, string? Notes);
+
+    // Belge zinciri sayaçları — smart button partial için
+    public int ReceivingCount { get; set; }
+    public DocFlowVm? DocFlow { get; set; }
+
+    public async Task<IActionResult> OnPostCreateReceivingAsync(Guid id)
+    {
+        // sp_CreateReceivingFromPO: POSTED PO'dan DRAFT Receiving oluşturur, satırları kopyalar
+        using var conn = db.Open();
+        try
+        {
+            var prm = new DynamicParameters();
+            prm.Add("PoId",        id);
+            prm.Add("CompanyId",   company.Id);
+            prm.Add("UserId",      user.Id);
+            prm.Add("NewHeaderId", dbType: System.Data.DbType.Guid,
+                    direction: System.Data.ParameterDirection.Output);
+
+            await conn.ExecuteAsync("sp_CreateReceivingFromPO", prm,
+                commandType: System.Data.CommandType.StoredProcedure);
+
+            var newId = prm.Get<Guid>("NewHeaderId");
+            TempData["Success"] = "Mal kabul belgesi oluşturuldu.";
+            return RedirectToPage("/Receiving/Details", new { id = newId });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Mal kabul oluşturma hatası: {PoId}", id);
+            TempData["Error"] = "Mal kabul oluşturulurken veritabanı hatası oluştu.";
+            return RedirectToPage(new { id });
+        }
+    }
 }

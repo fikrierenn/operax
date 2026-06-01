@@ -39,6 +39,12 @@
         </div>
     </div>
 
+    @* Belge zinciri smart butonları *@
+    @if (Model.DocFlow is not null)
+    {
+        <partial name="_DocFlowButtons" model="Model.DocFlow" />
+    }
+
     <!-- Belge Başlığı -->
     <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
         <div class="form-group mb-0">

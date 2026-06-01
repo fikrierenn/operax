@@ -92,7 +92,8 @@ class Program
                         "schema_M01_Branch_F.sql",            // Plan 23 Faz F: Belge+ledger tablolarına BranchId (evrak+SM+AM)
                         "schema_M05_DocChain.sql",            // Plan 05 Faz 1: ExpenseInvoice.ReceivingId + ShippingHeader.SalesOrderId
                         "schema_M03_PurchaseInvoice.sql",     // Plan 24: Mal Alım Faturası (PurchaseInvoice/Line) + ItemType CONSUMABLE
-                        "schema_M18_ExpenseReporting.sql"     // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
+                        "schema_M18_ExpenseReporting.sql",    // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
+                        "schema_M02_MaterialIssue.sql"        // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
 
                     })
                     {
@@ -117,6 +118,9 @@ class Program
                     // 8. Gider raporlama (Plan 26) — v_ExpenseDistribution genişletme + tvf_ExpenseBreakdown (EN SON: view son kazanır)
                     var expenseReport = Path.Combine(sqlDir, "db_objects_expensereport.sql");
                     if (File.Exists(expenseReport)) await ExecuteScriptAsync(expenseReport, tolerant: false);
+                    // 9. Sarf fişi SP'leri (Plan 25) — sp_MaterialIssuePost + Reverse
+                    var matIssue = Path.Combine(sqlDir, "db_objects_materialissue.sql");
+                    if (File.Exists(matIssue)) await ExecuteScriptAsync(matIssue, tolerant: false);
                     break;
 
                 case "seed":

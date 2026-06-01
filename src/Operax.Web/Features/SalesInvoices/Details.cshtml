@@ -25,6 +25,11 @@
 <div class="page" data-screen-label="Sales Invoice Detail" style="max-width:1400px;">
     <partial name="_PageHeader" model="header" />
 
+    @if (Model.DocFlow is not null)
+    {
+        <partial name="_DocFlowButtons" model="Model.DocFlow" />
+    }
+
     <div class="row" style="gap:8px;margin-bottom:14px;">
         @Html.Raw(statusBadgeHtml)
         @if (!string.IsNullOrEmpty(h.EBelgeType))

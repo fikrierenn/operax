@@ -19,13 +19,22 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
     public List<DdlDto> Accounts  { get; set; } = [];
     public List<DdlDto> Partners  { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? partnerId, string? txType)
+    public async Task OnGetAsync(
+        Guid? partnerId, string? txType,
+        decimal? amount, Guid? sourceDocId, string? sourceDocType)
     {
+        // Ödeme formunu yükler; belge zinciri ön-doldurma parametrelerini destekler
         await LoadDropdownsAsync();
         Form.TxType         = txType ?? "INCOME";
         Form.InstrumentType = "EFT";
         Form.Currency       = "TRY";
-        if (partnerId.HasValue) Form.PartnerId = partnerId.Value;
+        if (partnerId.HasValue)  Form.PartnerId = partnerId.Value;
+        if (amount.HasValue)     Form.Amount    = amount.Value;
+        if (sourceDocId.HasValue)
+        {
+            Form.SourceDocId   = sourceDocId.Value;
+            Form.SourceDocType = sourceDocType ?? string.Empty;
+        }
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -103,5 +112,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         public string  Currency       { get; set; } = "TRY";
         public string  InstrumentType { get; set; } = "EFT";
         public string? Description    { get; set; }
+        // Belge zinciri ön-doldurma (opsiyonel)
+        public Guid?   SourceDocId    { get; set; }
+        public string? SourceDocType  { get; set; }
     }
 }

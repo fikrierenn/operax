@@ -13,6 +13,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     public InvoiceFormDto Form { get; set; } = new();
     public IEnumerable<InvoiceLineDto> Lines { get; set; } = [];
     public IEnumerable<DdlDto> Partners     { get; set; } = [];
+    public DocFlowVm?           DocFlow     { get; set; }
     public IEnumerable<DdlDto> ExpenseTypes { get; set; } = [];
     public IEnumerable<DdlDto> CostCenters  { get; set; } = [];
 
@@ -58,6 +59,19 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             JOIN CostCenter cc ON cc.Id = l.CostCenterId
             WHERE l.ExpenseInvoiceId = @InvoiceId",
             new { InvoiceId = Form.Id });
+
+        // Ödeme smart button — POSTED faturalarda tedarikçi + tutar ön-dolu
+        if (Form.Status == DocStatus.Posted)
+        {
+            DocFlow = new DocFlowVm([
+                new DocFlowItem(
+                    Label: "Ödeme",
+                    Count: 0,
+                    CreateUrl: $"/Finance/Payments/Create?partnerId={Form.PartnerId}&txType=EXPENSE&amount={Form.TotalAmount}&sourceDocId={Form.Id}&sourceDocType=EXPENSE_INVOICE",
+                    CreateLabel: "Ödeme Yap",
+                    CanCreate: user.HasRole("Administrator","Finance","Purchasing"))
+            ]);
+        }
     }
 
     public async Task<IActionResult> OnPostAsync()

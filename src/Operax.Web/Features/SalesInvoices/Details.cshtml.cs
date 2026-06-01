@@ -18,6 +18,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public InvoiceHeaderDto? Header { get; set; }
     public List<LineDto>     Lines  { get; set; } = [];
     public List<EnvelopeDto> Envelopes { get; set; } = [];
+    public DocFlowVm?        DocFlow   { get; set; }
 
     // Fatura başlık, kalem ve e-Belge zarf bilgilerini veritabanından yükler
     public async Task<IActionResult> OnGetAsync()
@@ -70,6 +71,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 FROM InvoiceEnvelope
                 WHERE InvoiceId = @Id AND IsDeleted = 0
                 ORDER BY CreatedAt DESC", p)).ToList();
+
+            // Tahsilat smart button — POSTED faturalarda gösterilir
+            if (Header?.Status == DocStatus.Posted)
+            {
+                var remaining = Header.GrandTotal - Header.PaidAmount;
+                DocFlow = new DocFlowVm([
+                    new DocFlowItem(
+                        Label: "Tahsilat",
+                        Count: 0,
+                        CreateUrl: remaining > 0
+                            ? $"/Finance/Payments/Create?partnerId={Header.PartnerId}&txType=INCOME&amount={remaining}&sourceDocId={Id}&sourceDocType=SALES_INVOICE"
+                            : null,
+                        CreateLabel: remaining > 0 ? "Tahsilat Al" : "Tam Tahsil Edildi",
+                        CanCreate: remaining > 0 && user.HasRole("Administrator","Finance","Sales"))
+                ]);
+            }
 
             return Page();
         }

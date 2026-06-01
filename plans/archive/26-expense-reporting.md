@@ -1,6 +1,6 @@
 # Plan 26 — Kırılımlı Gider Raporlama (CostCenter + ExpenseType)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M18 (Gider) + M11 (Finans) · **Paket:** STARTER-üstü olgunluk (competitor-analyst: olmazsa-olmaz değil, değerli) · **Kaynak:** kullanıcı gereksinimi + competitor-analyst (2026-06-01)
+**Tarih:** 2026-06-01 · **Durum:** `TAMAM (2026-06-01)` · **Modül:** M18 (Gider) + M11 (Finans) · **Paket:** STARTER-üstü olgunluk (competitor-analyst: olmazsa-olmaz değil, değerli) · **Kaynak:** kullanıcı gereksinimi + competitor-analyst (2026-06-01)
 
 > **GL bağımsız:** Operax GL ertelendi (K1/K3). Bu rapor **belge/subledger katmanından** çıkar — GL şart değil. Mikro GL fişine bağlamış; Operax belge satırından raporlar (subledger-gerçek-zamanlı felsefesi).
 

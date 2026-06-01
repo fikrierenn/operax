@@ -27,6 +27,14 @@ BEGIN
     CREATE INDEX IX_Branch_Company ON Branch(CompanyId, IsDeleted);
 END
 
+-- Bir şirkette en fazla bir aktif MERKEZ şubesi olabilir (fn_DefaultBranchId determinizmi)
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes WHERE name = 'UIX_Branch_Merkez_PerCompany'
+)
+    CREATE UNIQUE INDEX UIX_Branch_Merkez_PerCompany
+    ON Branch(CompanyId)
+    WHERE BranchType = 'MERKEZ' AND IsDeleted = 0;
+
 -- Warehouse: BranchId, City, Address kolonları ekle
 IF COL_LENGTH('Warehouse', 'BranchId') IS NULL
     ALTER TABLE Warehouse ADD BranchId UNIQUEIDENTIFIER NULL;

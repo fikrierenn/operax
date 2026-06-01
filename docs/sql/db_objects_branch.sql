@@ -42,7 +42,16 @@ BEGIN
           AND BranchType = 'MERKEZ'
           AND IsDeleted = 0
           AND IsActive = 1
-        ORDER BY CreatedAt
+        -- CreatedAt + Id ile deterministik sıralama (aynı ms'de oluşturulan MERKEZ'lere karşı)
+        ORDER BY CreatedAt, Id
     );
 END
+GO
+
+-- tr_StockMovement_BranchId'yi son sıraya al (guard trigger önce çalışsın)
+EXEC sp_settriggerorder
+    @triggername = 'tr_StockMovement_BranchId',
+    @order       = 'last',
+    @stmttype    = 'INSERT',
+    @namespace   = 'DATABASE';
 GO

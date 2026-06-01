@@ -179,8 +179,8 @@ BEGIN
                 IF NOT EXISTS (SELECT 1 FROM ShippingHeader WHERE DocNo = @docNo)
                 BEGIN
                     SET @shpId = NEWID();
-                    INSERT INTO ShippingHeader (Id, CompanyId, WarehouseId, DocNo, DocDate, Status, CarrierName, VehiclePlate, Notes, CreatedAt, IsDeleted)
-                    VALUES (@shpId, @CompanyId, @WH001, @docNo,
+                    INSERT INTO ShippingHeader (Id, CompanyId, WarehouseId, PartnerId, SalesOrderId, DocNo, DocDate, Status, CarrierName, VehiclePlate, Notes, CreatedAt, IsDeleted)
+                    VALUES (@shpId, @CompanyId, @WH001, @partnerId, @soId, @docNo,
                             DATEADD(HOUR, 16, CAST(@CurDate AS DATETIME2)),
                             'POSTED', N'Aras Kargo',
                             '34 ABC ' + CAST(@DayIdx % 999 AS VARCHAR), N'Sevkiyat',

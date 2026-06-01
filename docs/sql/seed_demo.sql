@@ -235,8 +235,8 @@ DECLARE @SHP001 UNIQUEIDENTIFIER = 'AC000001-0000-0000-0000-000000000001';
 
 IF NOT EXISTS (SELECT 1 FROM ShippingHeader WHERE Id = @SHP001)
 BEGIN
-    INSERT INTO ShippingHeader (Id, CompanyId, WarehouseId, DocNo, DocDate, Status, CarrierName, VehiclePlate, Notes, CreatedAt, IsDeleted)
-    VALUES (@SHP001, @CompanyId, @WH001, 'SHP-2026-001', '2026-03-07', 'DRAFT',
+    INSERT INTO ShippingHeader (Id, CompanyId, WarehouseId, PartnerId, SalesOrderId, DocNo, DocDate, Status, CarrierName, VehiclePlate, Notes, CreatedAt, IsDeleted)
+    VALUES (@SHP001, @CompanyId, @WH001, @CUS001, @SO001, 'SHP-2026-001', '2026-03-07', 'DRAFT',
             'Aras Kargo', '34 ABC 123', 'SO-2026-001 sevkiyati', GETUTCDATE(), 0);
     PRINT 'SHP-2026-001 olusturuldu.';
 END

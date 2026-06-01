@@ -55,6 +55,7 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 
 > ✅ **TAMAMLANDI 2026-05-31** (plan 17) — RL-1, SH-1, RB-1/2/3 (DB-driven RoleModuleAccess + Admin/Roles UI), AP-1/2, TLS-1/3 uygulandı, build yeşil, migrate+seed DB'de doğrulandı.
 > ⚠️ **NOT — RBAC modeli değişti:** RB-3 hardcoded `[Authorize(Roles=)]` yerine **DB-driven** `RoleModuleAccess` tablosu + custom handler + AuthorizeFolder oldu (roller dinamik kalsın diye). TLS-2 (dev https) reddedildi — dev http korundu. Runtime smoke testi opsiyonel kaldı.
+> ✅ **DOĞRULANDI 2026-06-01** (canlı kod): RL-1 `Program.cs:83,193` · SH-1 `Program.cs:148-171` (NetEscapades kütüphanesi — custom `Lib/SecurityHeadersMiddleware.cs` DEĞİL; FrameDeny+NoSniff+XSS+ReferrerPolicy+tam CSP+PermissionsPolicy) · RB-1 `Lib/Roles.cs` · RBAC `Program.cs:139-140` AuthorizeFolder · AP `Program.cs:112,201` · TLS-1 `Program.cs:68-70`. Plan 17 arşivlendi.
 >
 > Sistem internet ortamında herkese açık hale gelecek. Aşağıdaki katmanlar eksik/yetersiz.
 > Kaynak: bu oturum güvenlik analizi (2026-05-30 22:19).
@@ -62,14 +63,14 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 ### Öncelik Sırası
 
 **1. 🔴 Rate Limiting — Brute-Force Koruması**
-- [ ] **RL-1** `Program.cs` — ASP.NET Core `RateLimiter` middleware ekle
+- [x] **RL-1** `Program.cs` — ASP.NET Core `RateLimiter` middleware ekle
   - `/Auth/Login` POST: IP başına 10 istek/dakika (5 dk bekleme)
   - `/api/switch-company`: Kullanıcı başına 10 istek/dakika
   - Global fallback: IP başına 200 istek/dakika
   - Identity'nin 5-deneme kilidi IP değiştirilince bypass ediliyor → bu onu kapatır
 
 **2. 🔴 HTTP Security Headers**
-- [ ] **SH-1** `Lib/SecurityHeadersMiddleware.cs` — Yeni middleware oluştur, `app.Use()` ile ekle:
+- [x] **SH-1** `Lib/SecurityHeadersMiddleware.cs` — Yeni middleware oluştur, `app.Use()` ile ekle:
   - `X-Content-Type-Options: nosniff` — MIME sniffing koruması
   - `X-Frame-Options: SAMEORIGIN` — Clickjacking koruması
   - `X-XSS-Protection: 1; mode=block` — Eski tarayıcı XSS filtresi
@@ -78,9 +79,9 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
   - `Content-Security-Policy` — script/style kaynaklarını whitelist'le
 
 **3. 🟡 Rol Tabanlı Yetkilendirme**
-- [ ] **RB-1** `Lib/Roles.cs` — Rol sabitleri static class (magic string yasak kuralı gereği)
-- [ ] **RB-2** `Lib/SeedData.cs` — 7 rol seed et: Administrator, WarehouseManager, Finance, Purchasing, Sales, Manufacturing, Viewer
-- [ ] **RB-3** Modül → Rol eşleştirmesi (tüm `[Authorize]` attr'ları güncelle):
+- [x] **RB-1** `Lib/Roles.cs` — Rol sabitleri static class (magic string yasak kuralı gereği)
+- [x] **RB-2** `Lib/SeedData.cs` — 7 rol seed et: Administrator, WarehouseManager, Finance, Purchasing, Sales, Manufacturing, Viewer
+- [x] **RB-3** Modül → Rol eşleştirmesi (tüm `[Authorize]` attr'ları güncelle):
   - `Administrator` → Her şey
   - `WarehouseManager` → Receiving, Shipping, Transfer, Inventory, CycleCount, LPN, Lot, Picking
   - `Finance` → Payments, Loans, CreditCards, Cheques, Accounts, Aging, PaymentPlan, Snapshot
@@ -91,13 +92,13 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
   - `Admin` modülü → sadece `Administrator`
 
 **4. 🟡 Admin Panel Sıkılaştırması**
-- [ ] **AP-1** `Program.cs` — Hangfire dashboard `RequireAuthorization()` → `RequireAuthorization("AdministratorOnly")` policy ekle
-- [ ] **AP-2** `Features/Admin/**` — `[Authorize]` → `[Authorize(Roles = Roles.Administrator)]`
+- [x] **AP-1** `Program.cs` — Hangfire dashboard `RequireAuthorization()` → `RequireAuthorization("AdministratorOnly")` policy ekle
+- [x] **AP-2** `Features/Admin/**` — `[Authorize]` → `[Authorize(Roles = Roles.Administrator)]`
 
 **5. 🟢 HTTPS & TLS**
-- [ ] **TLS-1** `Program.cs` — `CookieSecurePolicy.SameAsRequest` → `CookieSecurePolicy.Always`
-- [ ] **TLS-2** `Program.cs` — HTTPS redirection tüm ortamlarda aktif (dev dahil)
-- [ ] **TLS-3** `appsettings.json` HSTS süresi 30 gün → 1 yıl (production)
+- [x] **TLS-1** `Program.cs` — `CookieSecurePolicy.SameAsRequest` → `CookieSecurePolicy.Always`
+- [~] **TLS-2** `Program.cs` — HTTPS redirection tüm ortamlarda aktif (dev dahil)
+- [x] **TLS-3** `appsettings.json` HSTS süresi 30 gün → 1 yıl (production)
 
 ### Tasarım Kararları (onay bekliyor)
 - Rol eşleştirme tablosu yukarıdaki gibi mi? Değişiklik var mı?

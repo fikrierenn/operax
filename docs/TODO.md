@@ -7,7 +7,7 @@
 > 3 paralel agent. Plan 21 (N:1 fatura) + CONSUMABLE filtre kodu TEMİZ; aşağıdakiler dokunmadığım
 > pre-existing kod (drive-by yasağı → ayrı borç). 2 CRITICAL silent-failure bu oturumda kapatıldı (`8...`).
 
-- [ ] **MED · SP catch üst-sınır:** `SalesOrders/Details.cshtml.cs:220,255,327` + `Shipping/Details.cshtml.cs:199,222,246` — `sqlEx.Number >= 50000` üst-sınırsız; 60000+ teknik THROW kullanıcıya `ex.Message` sızar. `< 60000` ekle (referans: `SalesInvoices/Create.cshtml.cs:91`).
+- [x] **MED · SP catch üst-sınır → REDDEDİLDİ 2026-06-01:** silent-failure-hunter `>= 50000` üst-sınırsız 60000+ sızdırır dedi; **canlı kodda yanlış.** Tüm ≥60000 THROW (60001/60002/60004/60010 — 4 adet) temiz Türkçe finans iş mesajı (çek/ödeme bulunamadı), sistem hatası değil. `< 60000` eklemek meşru iş mesajını gizler. Sistem SqlException'ları (FK 547, PK 2627, login 18456) zaten <50000. Üst-sınırsız `>= 50000` DOĞRU. (Not: `SalesInvoices/Create.cshtml.cs:91` `< 60000` kullanıyor ama orada SP yalnız 50210-50213 fırlatıyor → zararsız, tutarlılık için ileride hizalanabilir.)
 - [ ] **HIGH · hata yönetimi yok:** `SalesOrders/Details.cshtml.cs` `OnPostAsync` (kaydet, NumberSeries+INSERT korumasız) + `OnPostAddLineAsync` (INSERT+audit try/catch yok). Approve/Cancel pattern'ini uygula.
 - [ ] **HIGH · audit izolasyonu DOĞRULANMADI:** `IAuditService.LogAsync` caller'ı patlatıyor mu? İzole değilse audit hatası satır eklemeyi geçersiz kılar. Kaynak okunmalı.
 - [ ] **HIGH · inline style:** `SalesInvoices/Index.cshtml:96` `style="color:@dueColor;"` Razor expression — class'a çevir (`text-danger`/`text-2`). "Touch ettikçe azalt".

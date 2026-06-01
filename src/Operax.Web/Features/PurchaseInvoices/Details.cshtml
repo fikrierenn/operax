@@ -89,35 +89,55 @@
                 <h3 class="text-sm font-bold text-slate-800">Fatura Kalemleri</h3>
                 <p class="text-[11px] text-slate-500">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
             </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Ürün</th>
-                        <th class="text-right">Miktar</th>
-                        <th class="text-right">Birim Fiyat</th>
-                        <th class="text-right">Tutar</th>
-                        <th class="text-right">KDV</th>
-                        <th class="text-right">Toplam</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var l in Model.Lines)
-                    {
+            <form method="post" asp-page-handler="UpdatePrices" asp-route-id="@h.Id">
+                @Html.AntiForgeryToken()
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
-                            <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
-                            <td class="text-right mono">@l.UnitPrice.ToString("N4")</td>
-                            <td class="text-right mono">@l.LineSubtotal.ToString("N2")</td>
-                            <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
-                            <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
+                            <th>Ürün</th>
+                            <th class="text-right">Miktar</th>
+                            <th class="text-right">Birim Fiyat</th>
+                            <th class="text-right">Tutar</th>
+                            <th class="text-right">KDV</th>
+                            <th class="text-right">Toplam</th>
                         </tr>
-                    }
-                    @if (!Model.Lines.Any())
-                    {
-                        <tr><td colspan="6" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model.Lines)
+                        {
+                            <tr class="@(l.UnitPrice <= 0 ? "bg-amber-50" : "")">
+                                <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                                <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
+                                <td class="text-right mono">
+                                    @if (isDraft)
+                                    {
+                                        <input type="hidden" name="lineId" value="@l.Id" />
+                                        <input type="number" name="unitPrice" value="@l.UnitPrice.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)"
+                                               step="any" min="0" class="form-ctrl text-right" style="max-width:120px;display:inline-block" required />
+                                    }
+                                    else
+                                    {
+                                        @l.UnitPrice.ToString("N4")
+                                    }
+                                </td>
+                                <td class="text-right mono">@l.LineSubtotal.ToString("N2")</td>
+                                <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
+                                <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
+                            </tr>
+                        }
+                        @if (!Model.Lines.Any())
+                        {
+                            <tr><td colspan="6" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
+                        }
+                    </tbody>
+                </table>
+                @if (isDraft && Model.Lines.Any())
+                {
+                    <div class="px-6 py-3 border-t flex justify-end">
+                        <button type="submit" class="btn btn-primary btn-sm">Kalem Fiyatlarını Kaydet</button>
+                    </div>
+                }
+            </form>
             <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
                 <div><span class="text-slate-500">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
                 <div><span class="text-slate-500">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>

@@ -95,6 +95,54 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         return RedirectToPage(new { id });
     }
 
+    // Kalem birim fiyatlarını günceller (yalnızca DRAFT) + satır ve başlık toplamlarını yeniden hesaplar
+    public async Task<IActionResult> OnPostUpdatePricesAsync(Guid id, Guid[] lineId, decimal[] unitPrice)
+    {
+        using var conn = db.Open();
+
+        // İş kuralı: yalnızca taslak fatura kalemleri düzenlenebilir
+        var status = await conn.ExecuteScalarAsync<string?>(
+            "SELECT Status FROM PurchaseInvoice WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id });
+        if (status != DocStatus.Draft)
+        {
+            TempData["Error"] = "Yalnızca taslak fatura düzenlenebilir.";
+            return RedirectToPage(new { id });
+        }
+
+        // Her satır için fiyat + bağlı tutarları (ara toplam, KDV, toplam) güncelle
+        for (int i = 0; i < lineId.Length; i++)
+        {
+            var price = unitPrice[i] < 0 ? 0 : unitPrice[i];
+            await conn.ExecuteAsync(@"
+                UPDATE PurchaseInvoiceLine
+                SET UnitPrice    = @Price,
+                    LineSubtotal = Qty * @Price,
+                    TaxAmount    = ROUND(Qty * @Price * TaxRatePercent / 100.0, 2),
+                    LineTotal    = ROUND(Qty * @Price * (1 + TaxRatePercent / 100.0), 2)
+                WHERE Id = @LineId AND InvoiceId = @Id",
+                new { Price = price, LineId = lineId[i], Id = id });
+        }
+
+        // Başlık toplamlarını kalemlerden yeniden hesapla (tek kaynak: satırlar)
+        await conn.ExecuteAsync(@"
+            UPDATE PurchaseInvoice
+            SET Subtotal   = t.Sub,
+                TaxAmount  = t.Tax,
+                GrandTotal = t.Sub + t.Tax,
+                UpdatedAt  = GETUTCDATE()
+            FROM PurchaseInvoice pi
+            CROSS APPLY (
+                SELECT ISNULL(SUM(LineSubtotal), 0) AS Sub, ISNULL(SUM(TaxAmount), 0) AS Tax
+                FROM PurchaseInvoiceLine WHERE InvoiceId = @Id
+            ) t
+            WHERE pi.Id = @Id AND pi.CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id });
+
+        TempData["Success"] = "Kalem fiyatları güncellendi.";
+        return RedirectToPage(new { id });
+    }
+
     // sp_PurchaseInvoicePost: DRAFT → POSTED, cari borç + ödeme planı
     public async Task<IActionResult> OnPostPostAsync(Guid id)
     {

@@ -316,6 +316,9 @@ BEGIN
             THROW 51534, N'Tedarikçi fatura numarası zorunludur.', 1;
         IF @SupInvDate IS NULL
             THROW 51535, N'Tedarikçi fatura tarihi zorunludur.', 1;
+        -- İş kuralı: birim fiyatı 0 (veya negatif) kalem ile fatura onaylanamaz
+        IF EXISTS (SELECT 1 FROM PurchaseInvoiceLine WHERE InvoiceId = @InvoiceId AND UnitPrice <= 0)
+            THROW 51536, N'Birim fiyatı girilmemiş kalem var. Tüm kalemlere fiyat giriniz.', 1;
 
         -- Dönem guard: cari borç tedarikçi belge tarihine ait
         DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);

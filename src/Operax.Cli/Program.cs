@@ -89,7 +89,8 @@ class Program
                         "schema_M00_Security.sql",            // Plan 17: RoleModuleAccess (DB-driven RBAC)
                         "schema_M11_LedgerIntegrity.sql",     // Plan 14: AccountingPeriod + PeriodOverrideLog + dönem guard
                         "schema_M01_Branch.sql",              // Plan 23 Faz A: Branch (Şube) tablosu + Warehouse.BranchId/City/Address
-                        "schema_M01_Branch_F.sql"             // Plan 23 Faz F: Belge+ledger tablolarına BranchId (evrak+SM+AM)
+                        "schema_M01_Branch_F.sql",            // Plan 23 Faz F: Belge+ledger tablolarına BranchId (evrak+SM+AM)
+                        "schema_M05_DocChain.sql"             // Plan 05 Faz 1: ExpenseInvoice.ReceivingId + ShippingHeader.SalesOrderId
 
                     })
                     {

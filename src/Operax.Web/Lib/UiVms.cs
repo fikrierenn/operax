@@ -66,3 +66,24 @@ public record TabsVm(
     IReadOnlyList<TabVm> Tabs,
     string ActiveValue,
     string QueryParamName = "tab");
+
+/// <summary>
+/// Belge zinciri akış butonu: sonraki belgeler, sayaçlar, gezinme linkleri.
+/// _DocFlowButtons.cshtml partial'ına geçilir.
+/// </summary>
+/// <param name="Items">Her öğe: etiket, sayaç, link, oluştur-url (null ise sadece say)</param>
+public record DocFlowVm(IReadOnlyList<DocFlowItem> Items);
+
+/// <param name="Label">Buton etiketi (örn. "Mal Kabul")</param>
+/// <param name="Count">Mevcut bağlı alt belge sayısı</param>
+/// <param name="ListUrl">Mevcut alt belgelere git (null ise link yok)</param>
+/// <param name="CreateUrl">Yeni alt belge oluştur URL'i (null ise sadece sayaç)</param>
+/// <param name="CreateLabel">Oluştur butonu etiketi (örn. "Mal Kabul Oluştur")</param>
+/// <param name="CanCreate">Bu kullanıcının oluşturma yetkisi var mı</param>
+public record DocFlowItem(
+    string Label,
+    int Count,
+    string? ListUrl = null,
+    string? CreateUrl = null,
+    string? CreateLabel = null,
+    bool CanCreate = true);

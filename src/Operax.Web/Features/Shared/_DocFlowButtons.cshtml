@@ -1,0 +1,37 @@
+@* Belge zinciri akış butonları — alt belge sayaçları + oluştur aksiyonu.
+   Kullanım: <partial name="_DocFlowButtons" model="new DocFlowVm([...])" />
+*@
+@using Operax.Web.Lib
+@model DocFlowVm
+
+@if (Model?.Items is { Count: > 0 })
+{
+    <div class="doc-flow-bar">
+        @foreach (var item in Model.Items)
+        {
+            <div class="doc-flow-item">
+                @if (item.ListUrl is not null && item.Count > 0)
+                {
+                    <a href="@item.ListUrl" class="doc-flow-count">
+                        <span class="doc-flow-num">@item.Count</span>
+                        <span class="doc-flow-lbl">@item.Label</span>
+                    </a>
+                }
+                else
+                {
+                    <span class="doc-flow-count doc-flow-count--zero">
+                        <span class="doc-flow-num">@item.Count</span>
+                        <span class="doc-flow-lbl">@item.Label</span>
+                    </span>
+                }
+                @if (item.CanCreate && item.CreateUrl is not null)
+                {
+                    <a href="@item.CreateUrl" class="btn btn-secondary btn-sm">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        @(item.CreateLabel ?? item.Label)
+                    </a>
+                }
+            </div>
+        }
+    </div>
+}

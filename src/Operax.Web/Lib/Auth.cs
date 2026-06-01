@@ -85,3 +85,15 @@ public class CurrentCompany(IHttpContextAccessor ctx, Db db) : ICurrentCompany
         }
     }
 }
+
+/// <summary>
+/// ICurrentUser yetki kontrol extension'ları.
+/// </summary>
+public static class CurrentUserExtensions
+{
+    /// <summary>
+    /// Kullanıcının belirtilen rollerden en az birine sahip olup olmadığını kontrol eder.
+    /// </summary>
+    public static bool HasRole(this ICurrentUser user, params string[] roles)
+        => roles.Any(r => user.Roles.Contains(r, StringComparer.OrdinalIgnoreCase));
+}

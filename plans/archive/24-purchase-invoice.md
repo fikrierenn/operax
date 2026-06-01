@@ -1,6 +1,6 @@
 # Plan 24 — Mal Alım Faturası (PurchaseInvoice)
 
-**Tarih:** 2026-06-01 · **Durum:** `Taslak (onay bekliyor)` · **Modül:** M03 (Satınalma) + M11 (Cari) · **Paket:** STARTER (olmazsa-olmaz — COMPETITOR_ANALYSIS:310) · **Kaynak:** Plan 05 mimari bulgusu + mali-evrak-mevzuat + competitor-analyst + denetim (2026-06-01)
+**Tarih:** 2026-06-01 · **Durum:** `TAMAM (2026-06-01)` · **Modül:** M03 (Satınalma) + M11 (Cari) · **Paket:** STARTER (olmazsa-olmaz — COMPETITOR_ANALYSIS:310) · **Kaynak:** Plan 05 mimari bulgusu + mali-evrak-mevzuat + competitor-analyst + denetim (2026-06-01)
 
 > **Kapsam bölündü (denetim 2026-06-01):** Sarf tüketim (Consumption) → **Plan 25**. Bu plan SADECE mal alım faturası + ItemType genişletme. PurchaseInvoice asıl STARTER blocker'ını (Plan 05 boş-fatura) çözer. 4 faz.
 

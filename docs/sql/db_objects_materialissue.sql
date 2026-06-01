@@ -42,21 +42,31 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM MaterialIssueLine WHERE HeaderId = @HeaderId)
             THROW 51553, N'Sarf fişinde kalem yok.', 1;
 
-        -- Depo picking bin fallback (BinId NULL satırlar için; StockMovement.BinId NOT NULL)
+        -- Depo picking bin fallback (son çare — stoklu bin bulunamazsa)
         DECLARE @PickingBinId UNIQUEIDENTIFIER;
         SELECT TOP 1 @PickingBinId = Id
         FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
 
-        -- Stok çıkışı: her satır ISSUE (eksi QtyBase), UnitCost = anlık Moving Avg maliyet
+        DECLARE @BranchId UNIQUEIDENTIFIER =
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
+
+        -- Stok çıkışı: her satır ISSUE (eksi QtyBase), UnitCost = anlık Moving Avg maliyet.
+        -- BinId NULL ise stok OLAN bin seçilir (en çok stoklu); picking bin yalnız son çare.
+        -- (Sarf storage bin'den çıkmalı; picking bin'e fallback negatif stok yaratırdı.)
         INSERT INTO StockMovement
             (CompanyId, WarehouseId, BinId, ItemId, MovementType,
              QtyBase, UomId, QtyOriginal, UnitCost,
              SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
         SELECT
-            @CompanyId, @WarehouseId, ISNULL(l.BinId, @PickingBinId), l.ItemId, 'ISSUE',
+            @CompanyId, @WarehouseId,
+            ISNULL(l.BinId, ISNULL(
+                (SELECT TOP 1 inv.BinId FROM tvf_InventoryBalance(@CompanyId) inv
+                 WHERE inv.WarehouseId = @WarehouseId AND inv.ItemId = l.ItemId AND inv.QtyBalance > 0
+                 ORDER BY inv.QtyBalance DESC),
+                @PickingBinId)),
+            l.ItemId, 'ISSUE',
             -l.QtyBase, l.UomId, l.Qty, ISNULL(ic.AvgCost, 0),
-            'CONSUMPTION', @HeaderId, @DocNo, @UserId,
-            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
+            'CONSUMPTION', @HeaderId, @DocNo, @UserId, @BranchId
         FROM MaterialIssueLine l
         LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = l.ItemId
         WHERE l.HeaderId = @HeaderId;

@@ -823,6 +823,7 @@ BEGIN
             @Amount, 'TRY', @Amount, N'Kredi kartı ekstre ödemesi: ' + @CardName,
             'CARD', @StatementId, 'CARD_STATEMENT_PAYMENT', @UserId);
 
+        -- isolation-guard:ignore: @StatementId ve @CardId yukarıdaki JOIN'de CompanyId = @CompanyId ile doğrulandı
         UPDATE CreditCardStatement SET PaidAmount = PaidAmount + @Amount WHERE Id = @StatementId;
         UPDATE CreditCard SET AvailableLimit = AvailableLimit + @Amount WHERE Id = @CardId;
 

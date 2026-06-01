@@ -2,7 +2,7 @@
 @model Operax.Web.Features.Expenses.DetailsModel
 @{
     ViewData["Title"] = Model.IsNew ? "Yeni Gider Faturasi" : $"Fatura: {Model.Form.DocNo}";
-    var locked = !Model.IsNew && Model.Form.Status != "DRAFT";
+    var locked = !Model.IsNew && Model.Form.Status != DocStatus.Draft;
 }
 
 <div class="page-hdr">
@@ -120,7 +120,7 @@
                     <th class="text-right">Tutar</th>
                     <th class="text-right">KDV %</th>
                     <th class="text-right">KDV Dahil</th>
-                    @if (Model.Form.Status == "DRAFT") { <th></th> }
+                    @if (Model.Form.Status == DocStatus.Draft) { <th></th> }
                 </tr>
             </thead>
             <tbody>
@@ -134,7 +134,7 @@
                         <td class="text-right font-mono">@line.Amount.ToString("N2")</td>
                         <td class="text-right font-mono text-slate-400">%@line.TaxRate.ToString("N0")</td>
                         <td class="text-right font-mono font-bold text-slate-900">@line.TotalAmount.ToString("N2")</td>
-                        @if (Model.Form.Status == "DRAFT")
+                        @if (Model.Form.Status == DocStatus.Draft)
                         {
                             <td>
                                 <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Form.Id" asp-route-lineId="@line.Id"
@@ -152,7 +152,7 @@
             </tbody>
         </table>
 
-        @if (Model.Form.Status == "DRAFT")
+        @if (Model.Form.Status == DocStatus.Draft)
         {
             <!-- Satır Ekle -->
             <div class="p-4 bg-slate-50 border-t">

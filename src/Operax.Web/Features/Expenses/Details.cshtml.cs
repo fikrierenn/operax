@@ -198,7 +198,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         try
         {
             await conn.ExecuteAsync("dbo.sp_ExpenseInvoicePost",
-                new { InvoiceId = id, CompanyId = company.Id, UserId = User.Identity!.Name },
+                new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure);
             TempData["Success"] = "Fatura onaylandı.";
         }

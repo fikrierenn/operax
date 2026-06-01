@@ -43,12 +43,6 @@
         </div>
     </div>
 
-    @* Belge zinciri smart butonları *@
-    @if (Model.DocFlow is not null)
-    {
-        <partial name="_DocFlowButtons" model="Model.DocFlow" />
-    }
-
     <!-- Belge Başlığı -->
     <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
         <div class="form-group mb-0">
@@ -96,6 +90,12 @@
     </div>
 </form>
 
+@* Belge zinciri smart butonları — form DIŞINDA (iç içe form geçersiz; aksi halde buton header formunu submit eder) *@
+@if (Model.DocFlow is not null)
+{
+    <partial name="_DocFlowButtons" model="Model.DocFlow" />
+}
+
 @* Açık sipariş seçici: tedarikçi seçimine + arama metnine göre option'ları filtreler *@
 <script>
 (function () {
@@ -132,8 +132,16 @@
         var wh = opt.getAttribute('data-warehouse');
         var pt = opt.getAttribute('data-partner');
         var whSel = document.getElementById('Header_WarehouseId');
-        if (whSel && wh) { whSel.value = wh; }
-        if (partnerSel && pt) { partnerSel.value = pt; }
+        // Yalnızca dropdown'da eşleşen option varsa set et (yoksa select boşalır → FK ihlali)
+        if (whSel && wh && hasOption(whSel, wh)) { whSel.value = wh; }
+        if (partnerSel && pt && hasOption(partnerSel, pt)) { partnerSel.value = pt; }
+    }
+
+    function hasOption(sel, val) {
+        for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === val) return true;
+        }
+        return false;
     }
 
     if (partnerSel) { partnerSel.addEventListener('change', applyFilter); }

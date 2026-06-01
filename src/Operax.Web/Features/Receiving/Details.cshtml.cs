@@ -105,6 +105,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Belge başlığını kaydeder veya günceller (DRAFT)
         using var conn = db.Open();
 
+        // İş kuralı: depo ve tedarikçi zorunlu — boş/geçersiz Guid FK ihlaline yol açar
+        if (Header.WarehouseId == Guid.Empty || Header.PartnerId == Guid.Empty)
+        {
+            TempData["Error"] = "Depo ve tedarikçi seçimi zorunludur.";
+            return RedirectToPage(new { id = IsNew ? (Guid?)null : Header.Id });
+        }
+
         if (IsNew)
         {
             Header.Id = Guid.NewGuid();

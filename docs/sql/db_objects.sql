@@ -122,11 +122,19 @@ RETURNS TABLE
 AS
 RETURN
 (
-    SELECT Id, OrderNo AS Code, '' AS Name
-    FROM PurchaseOrderHeader
-    WHERE CompanyId = @CompanyId
-      AND Status    IN ('POSTED', 'APPROVED')
-      AND IsDeleted = 0
+    -- Mal kabul ekranı: açık siparişi tedarikçiye göre filtrelemek + ekranda göstermek için
+    -- PartnerId/Name (tedarikçi adı) ve OrderDate de döndürülür.
+    SELECT po.Id,
+           po.OrderNo     AS Code,
+           p.Name         AS Name,
+           po.PartnerId   AS PartnerId,
+           po.WarehouseId AS WarehouseId,
+           po.OrderDate   AS OrderDate
+    FROM PurchaseOrderHeader po
+    JOIN Partner p ON p.Id = po.PartnerId
+    WHERE po.CompanyId = @CompanyId
+      AND po.Status    IN ('POSTED', 'APPROVED')
+      AND po.IsDeleted = 0
 );
 GO
 

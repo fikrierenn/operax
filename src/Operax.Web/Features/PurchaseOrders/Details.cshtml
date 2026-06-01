@@ -229,7 +229,7 @@
                                             <form method="post" asp-page-handler="AddLine" class="row" style="gap:8px;padding:6px;">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@Model.Header.Id" />
-                                                <select name="itemId" class="form-ctrl" style="flex:2;" required>
+                                                <select name="itemId" id="po-line-item" class="form-ctrl" style="flex:2;" required>
                                                     <option value="">@L.T("Ürün seçiniz…", "Select item…")</option>
                                                     @foreach (var i in Model.AvailableItems)
                                                     {
@@ -237,7 +237,7 @@
                                                     }
                                                 </select>
                                                 <input name="qty" type="number" step="any" min="0.01" class="form-ctrl" placeholder="@L.T("Miktar", "Qty")" style="flex:1;" required />
-                                                <input name="price" type="number" step="any" min="0" class="form-ctrl" placeholder="@L.T("Birim Fiyat", "Price")" style="flex:1;" />
+                                                <input name="price" id="po-line-price" type="number" step="any" min="0" class="form-ctrl" placeholder="@L.T("Birim Fiyat", "Price")" style="flex:1;" />
                                                 <button type="submit" class="btn btn-primary btn-sm">@L.T("Ekle", "Add")</button>
                                             </form>
                                         </td>
@@ -245,6 +245,20 @@
                                 }
                             </tbody>
                         </table>
+                        @* Ürün seçilince önerilen alış fiyatı (son maliyet) otomatik gelir — kullanıcı değiştirebilir *@
+                        <script>
+                        (function () {
+                            var prices = @Html.Raw(Model.ItemPriceJson);
+                            var itemSel = document.getElementById('po-line-item');
+                            var priceIn = document.getElementById('po-line-price');
+                            if (!itemSel || !priceIn) return;
+                            itemSel.addEventListener('change', function () {
+                                var v = prices[this.value];
+                                // Kullanıcı elle fiyat girmediyse öneriyi doldur
+                                if (v != null && v > 0 && !priceIn.value) { priceIn.value = v; }
+                            });
+                        })();
+                        </script>
                     }
                 </div>
                 @if (Model.Lines.Any())

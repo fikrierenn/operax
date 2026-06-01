@@ -17,7 +17,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public IEnumerable<DdlDto> Warehouses { get; set; } = [];
     public IEnumerable<DdlDto> Partners { get; set; } = [];
     public IEnumerable<DdlDto> AvailableItems { get; set; } = [];
-    public IEnumerable<DdlDto> OpenPurchaseOrders { get; set; } = [];
+    public IEnumerable<OpenPoDto> OpenPurchaseOrders { get; set; } = [];
     public IEnumerable<DdlDto> AllUoms { get; set; } = [];
 
     public bool IsNew => Header.Id == Guid.Empty;
@@ -39,9 +39,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
             new { CompanyId = company.Id });
 
-        // tvf_OpenPurchaseOrders: CompanyId parametreli iTVF
-        OpenPurchaseOrders = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM tvf_OpenPurchaseOrders(@CompanyId)",
+        // tvf_OpenPurchaseOrders: CompanyId parametreli iTVF — tedarikçiye göre client-side
+        // filtrelemek için PartnerId, ekranda göstermek için tedarikçi adı + tarih döner.
+        OpenPurchaseOrders = await conn.QueryAsync<OpenPoDto>(
+            "SELECT Id, Code, Name AS PartnerName, PartnerId, WarehouseId, OrderDate FROM tvf_OpenPurchaseOrders(@CompanyId)",
             new { CompanyId = company.Id });
 
         AllUoms = await conn.QueryAsync<DdlDto>(
@@ -60,11 +61,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
             Lines = await conn.QueryAsync<ReceivingLineDto>(@"
                 SELECT l.Id, i.Code as ItemCode, i.Name as ItemName, dv.Code as UomCode,
+                       bdv.Code as BaseUomCode,
                        l.QtyOriginal, l.QtyBase, l.LotNo, l.PurchaseOrderLineId, l.ItemId, l.UomId
                 FROM ReceivingLine l
                 JOIN ReceivingHeader rh ON rh.Id = l.HeaderId
                 JOIN Item i ON i.Id = l.ItemId
                 JOIN DictionaryValue dv ON dv.Id = l.UomId
+                LEFT JOIN DictionaryValue bdv ON bdv.Id = i.BaseUomId
                 WHERE l.HeaderId = @Id AND rh.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id });
 
@@ -167,6 +170,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    {
+        // Yalnızca DRAFT mal kabul belgesi silinebilir (soft-delete). POSTED için iptal/ters hareket gerekir.
+        using var conn = db.Open();
+
+        var status = await conn.ExecuteScalarAsync<string?>(
+            "SELECT Status FROM ReceivingHeader WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0",
+            new { Id = id, CompanyId = company.Id });
+
+        // İş kuralı: belge yoksa veya taslak değilse silme reddedilir
+        if (status is null) { TempData["Error"] = "Belge bulunamadı."; return RedirectToPage("./Index"); }
+        if (status != DocStatus.Draft)
+        {
+            TempData["Error"] = "Yalnızca taslak belgeler silinebilir. Onaylı belge için iptal işlemi gerekir.";
+            return RedirectToPage(new { id });
+        }
+
+        await conn.ExecuteAsync(
+            "UPDATE ReceivingHeader SET IsDeleted = 1, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id, UserId = user.Id });
+        await audit.LogAsync("DELETE", "ReceivingHeader", id, "Taslak mal kabul silindi");
+
+        TempData["Success"] = "Taslak mal kabul belgesi silindi.";
+        return RedirectToPage("./Index");
+    }
+
     public async Task<IActionResult> OnPostPostAsync(Guid id)
     {
         // sp_ReceivingPost: stok hareketi, PO güncelleme, ItemCost MA, durum değişimi
@@ -210,10 +239,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public string? ItemCode            { get; set; }
         public string? ItemName            { get; set; }
         public string? UomCode             { get; set; }
+        public string? BaseUomCode         { get; set; }
         public decimal QtyOriginal         { get; set; }
         public decimal QtyBase             { get; set; }
         public string? LotNo               { get; set; }
         public Guid?   PurchaseOrderLineId { get; set; }
+    }
+
+    // Mal kabul ekranı açık sipariş seçici — tedarikçi filtresi + sipariş no arama için
+    public record OpenPoDto
+    {
+        public Guid     Id          { get; set; }
+        public string   Code        { get; set; } = "";  // OrderNo
+        public string?  PartnerName { get; set; }
+        public Guid     PartnerId   { get; set; }
+        public Guid     WarehouseId { get; set; }
+        public DateTime OrderDate   { get; set; }
     }
 
     // Belge zinciri sayaçları — smart button partial için

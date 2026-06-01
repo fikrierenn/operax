@@ -23,6 +23,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public IEnumerable<DdlDto> Vendors        { get; set; } = [];
     public IEnumerable<DdlDto> AvailableItems { get; set; } = [];
 
+    // Ürün seçilince satır fiyatını otomatik doldurmak için ürün→önerilen alış fiyatı (son maliyet) sözlüğü.
+    // Anahtar: ItemId (string), değer: ItemCost.AvgCost (öneri, kullanıcı override edebilir).
+    public string ItemPriceJson { get; set; } = "{}";
+
     public bool IsNew => Header.Id == Guid.Empty;
     public decimal Subtotal => Lines.Sum(l => l.QtyOrdered * (l.Price ?? 0));
     public decimal Vat      => System.Math.Round(Subtotal * 0.20m, 2);
@@ -41,6 +45,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         AvailableItems = await conn.QueryAsync<DdlDto>(
             "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0", p);
+
+        // Ürün → önerilen alış fiyatı (son hareketli ortalama maliyet). Satır eklerken fiyat otomatik gelir.
+        var itemPrices = await conn.QueryAsync<(Guid Id, decimal AvgCost)>(
+            @"SELECT i.Id, ISNULL(ic.AvgCost, 0) AS AvgCost
+              FROM Item i
+              LEFT JOIN ItemCost ic ON ic.ItemId = i.Id AND ic.CompanyId = @CompanyId
+              WHERE i.CompanyId = @CompanyId AND i.IsActive = 1 AND i.IsDeleted = 0", p);
+        ItemPriceJson = System.Text.Json.JsonSerializer.Serialize(
+            itemPrices.ToDictionary(x => x.Id.ToString(), x => x.AvgCost));
 
         if (id.HasValue)
         {

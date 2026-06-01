@@ -1492,9 +1492,19 @@ BEGIN
 
         EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'RECEIVING', @Status, 'POSTED', @UserId;
 
+        -- Mal kabul bin'i: önce kabul alanı (IsReceivingArea), yoksa depodaki herhangi bir bin
         DECLARE @ReceivingBinId UNIQUEIDENTIFIER;
         SELECT TOP 1 @ReceivingBinId = Id
         FROM Bin WHERE WarehouseId = @WarehouseId AND IsReceivingArea = 1;
+
+        IF @ReceivingBinId IS NULL
+            SELECT TOP 1 @ReceivingBinId = Id
+            FROM Bin WHERE WarehouseId = @WarehouseId AND IsActive = 1 AND IsDeleted = 0
+            ORDER BY SortNo, Code;
+
+        -- İş kuralı: depoda hiç hücre (bin) tanımlı değilse stok hareketi yazılamaz
+        IF @ReceivingBinId IS NULL
+            THROW 50012, N'Seçilen depoda hücre (bin) tanımlı değil. Önce depo hücresi oluşturun.', 1;
 
         -- StockMovement: her satira PO'dan UnitCost ata
         INSERT INTO StockMovement

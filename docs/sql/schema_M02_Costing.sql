@@ -67,6 +67,13 @@ BEGIN
 END
 GO
 
+-- Defense-in-depth (sql-sp-reviewer IMP-2): kaynak satır başına TEK aktif fiyat farkı.
+-- POST/Correct yolunda mükerrer DRAFT variance birikmesini DB seviyesinde imkânsız kılar.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_PriceVariance_Source' AND object_id = OBJECT_ID('PriceVariance'))
+    CREATE UNIQUE INDEX UX_PriceVariance_Source
+        ON PriceVariance(SourceDocType, SourceDocId, SourceLineId) WHERE IsDeleted = 0;
+GO
+
 -- ─── PriceList genisleme: PartnerId + ValidFrom/To ─────────────────
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'PartnerId' AND Object_ID = OBJECT_ID('PriceList'))
 BEGIN

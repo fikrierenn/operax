@@ -397,6 +397,17 @@ BEGIN
         DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowDt, @UserId;
 
+        -- Vade tarihi yoksa tedarikçi kartından türet (Partner.PaymentTermDays); o da yoksa parametrik varsayılan.
+        -- Vade = fatura tarihi + ödeme vadesi (gün). Hardcoded +30 yerine cari-özel + Plan 29 fallback.
+        IF @DueDate IS NULL
+        BEGIN
+            DECLARE @TermDays INT = (SELECT PaymentTermDays FROM Partner WHERE Id = @PartnerId AND CompanyId = @CompanyId);
+            IF @TermDays IS NULL
+                SET @TermDays = ISNULL((SELECT TRY_CAST(Value AS INT) FROM Parameter
+                    WHERE CompanyId = @CompanyId AND Code = 'DEFAULT_PAYMENT_TERM_DAYS' AND IsDeleted = 0), 30);
+            SET @DueDate = CAST(DATEADD(DAY, @TermDays, @nowDt) AS DATE);
+        END
+
         -- Mutabakat kilidi (Plan 19)
         EXEC dbo.sp_GuardPartnerReconciled @CompanyId, @PartnerId, @nowDt;
 
@@ -440,10 +451,45 @@ BEGIN
             'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         FROM PurchaseInvoiceLine pil
         JOIN ReceivingLine    rl  ON rl.Id  = pil.SourceReceivingLineId
-        JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        -- PO satırı: SINGLE_PO'da ReceivingLine'dan, BULK→LINKED'de fatura satırının tahsis edildiği PO'dan (IMP-1)
+        JOIN PurchaseOrderLine pol ON pol.Id = COALESCE(rl.PurchaseOrderLineId, pil.PurchaseOrderLineId)
         WHERE pil.InvoiceId = @InvoiceId
           AND pol.Price IS NOT NULL
           AND pil.UnitPrice <> pol.Price;
+
+        -- Plan 27 #2: PO bağı OLMAYAN satırlar (manuel/UNLINKED) → fiyat listesi (PriceList) sapması.
+        -- Sözleşme PO fiyatı yok; referans = katalog. Tolerans var (PriceTolerancePercent, varsayılan %5):
+        -- katalog fiyatı yaklaşık referans olduğu için küçük sapmalar variance üretmez (PO'da tolerans=0 idi).
+        -- Öncelik: tedarikçi-özel liste > genel liste; geçerlilik tarihi + miktar kademesi gözetilir.
+        DECLARE @PlTol DECIMAL(8,4) = ISNULL((SELECT TRY_CAST(Value AS DECIMAL(8,4)) FROM Parameter
+            WHERE CompanyId = @CompanyId AND Code = 'PriceTolerancePercent' AND IsDeleted = 0), 5);
+        INSERT INTO PriceVariance
+            (Id, CompanyId, SourceDocType, SourceDocId, SourceLineId,
+             ItemId, PartnerId, ExpectedPrice, ActualPrice,
+             Variance, VariancePercent, Status, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId, 'PURCHASE_INVOICE', @InvoiceId, pil.Id,
+            pil.ItemId, @PartnerId, ex.ExpectedPrice, pil.UnitPrice,
+            pil.UnitPrice - ex.ExpectedPrice,
+            CASE WHEN ex.ExpectedPrice > 0 THEN (pil.UnitPrice - ex.ExpectedPrice) / ex.ExpectedPrice * 100 ELSE 0 END,
+            'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+        FROM PurchaseInvoiceLine pil
+        CROSS APPLY (
+            SELECT TOP 1 pll.UnitPrice AS ExpectedPrice
+            FROM PriceList pl
+            JOIN PriceListLine pll ON pll.PriceListId = pl.Id
+            WHERE pl.CompanyId = @CompanyId AND pl.Direction = 'PURCHASE' AND pl.IsActive = 1
+              AND pll.ItemId = pil.ItemId
+              AND (pl.PartnerId = @PartnerId OR pl.PartnerId IS NULL)
+              AND (pl.ValidFrom IS NULL OR pl.ValidFrom <= CAST(GETUTCDATE() AS DATE))
+              AND (pl.ValidTo   IS NULL OR pl.ValidTo   >= CAST(GETUTCDATE() AS DATE))
+            ORDER BY CASE WHEN pl.PartnerId = @PartnerId THEN 0 ELSE 1 END, pll.MinQty DESC
+        ) ex
+        WHERE pil.InvoiceId = @InvoiceId
+          AND pil.PurchaseOrderLineId IS NULL   -- yalnız PO bağı olmayan satır
+          AND pil.UnitPrice > 0
+          AND ex.ExpectedPrice IS NOT NULL
+          AND ABS(CASE WHEN ex.ExpectedPrice > 0 THEN (pil.UnitPrice - ex.ExpectedPrice) / ex.ExpectedPrice * 100 ELSE 0 END) > @PlTol;
 
         COMMIT TRANSACTION;
     END TRY
@@ -608,6 +654,41 @@ BEGIN
             TaxAmount    = ROUND(Qty * @NewUnitPrice * TaxRatePercent / 100.0, 2),
             LineTotal    = ROUND(Qty * @NewUnitPrice * (1 + TaxRatePercent / 100.0), 2)
         WHERE Id = @LineId AND InvoiceId = @InvoiceId;
+
+        -- 1b) Düzeltme sonrası fiyat farkını yeniden hesapla (Plan 27 — fatura fiyatı değişti).
+        --     Kaynak PO satır fiyatıyla kıyas; fark = yeni fiyat − PO fiyatı (tolerans yok).
+        DECLARE @PoPrice DECIMAL(18,4) = (
+            SELECT pol.Price
+            FROM PurchaseInvoiceLine pil
+            JOIN ReceivingLine rl   ON rl.Id  = pil.SourceReceivingLineId
+            -- SINGLE_PO ReceivingLine'dan, BULK→LINKED fatura satırından (IMP-1 — düzeltmede de denetim)
+            JOIN PurchaseOrderLine pol ON pol.Id = COALESCE(rl.PurchaseOrderLineId, pil.PurchaseOrderLineId)
+            WHERE pil.Id = @LineId);
+        IF @PoPrice IS NOT NULL
+        BEGIN
+            DECLARE @newVar    DECIMAL(18,4) = @NewUnitPrice - @PoPrice;
+            DECLARE @newVarPct DECIMAL(8,4)  = CASE WHEN @PoPrice > 0 THEN (@NewUnitPrice - @PoPrice) / @PoPrice * 100 ELSE 0 END;
+            IF EXISTS (SELECT 1 FROM PriceVariance
+                       WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@InvoiceId AND SourceLineId=@LineId AND IsDeleted=0)
+            BEGIN
+                IF @NewUnitPrice = @PoPrice
+                    -- Fark kalmadı → mevcut farkı kapat (soft-delete; ekstre/izleme temiz)
+                    UPDATE PriceVariance SET IsDeleted = 1
+                    WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@InvoiceId AND SourceLineId=@LineId AND IsDeleted=0;
+                ELSE
+                    -- Fark sürüyor → tutarları güncelle (APPROVED gerekçe korunur, sayılar tazelenir)
+                    UPDATE PriceVariance SET ActualPrice=@NewUnitPrice, Variance=@newVar, VariancePercent=@newVarPct
+                    WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@InvoiceId AND SourceLineId=@LineId AND IsDeleted=0;
+            END
+            ELSE IF @NewUnitPrice <> @PoPrice
+                -- Önceden fark yoktu, düzeltme fark yarattı → yeni DRAFT variance
+                INSERT INTO PriceVariance
+                    (Id, CompanyId, SourceDocType, SourceDocId, SourceLineId, ItemId, PartnerId,
+                     ExpectedPrice, ActualPrice, Variance, VariancePercent, Status, CreatedBy)
+                SELECT NEWID(), @CompanyId, 'PURCHASE_INVOICE', @InvoiceId, @LineId, pil.ItemId, @PartnerId,
+                       @PoPrice, @NewUnitPrice, @newVar, @newVarPct, 'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+                FROM PurchaseInvoiceLine pil WHERE pil.Id = @LineId;
+        END
 
         -- 2) Başlık toplamlarını kalemlerden yeniden hesapla
         DECLARE @NewSub DECIMAL(18,4), @NewTax DECIMAL(18,4), @NewGrand DECIMAL(18,4);

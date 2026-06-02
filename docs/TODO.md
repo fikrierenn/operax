@@ -12,10 +12,10 @@
 
 ## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
 
-- [ ] **Düzeltme revizyonu BUILD + smoke** — `sp_CorrectPurchaseInvoiceLine` ters kayıt kaldırıldı, AM yerinde UPDATE. C# build edilmedi (oturum kapandı).
-- [ ] **PO bağı YOKSA PriceList sapması → variance** — `sp_CheckPriceVariance` PriceList kıyaslıyor ama `sp_PurchaseInvoicePost`'ta çağrılmıyor; wire et.
-- [ ] **Vade tarihi tedarikçi kartından** — fatura DueDate `Partner.PaymentTermDays` üzerinden otomatik.
-- [ ] **Düzeltme sonrası variance yeniden hesapla** — `sp_CorrectPurchaseInvoiceLine` fiyat değişince PriceVariance revize etmiyor.
+- [x] **Düzeltme revizyonu BUILD → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` AM yerinde UPDATE canlıda; build defalarca yeşil. (stale)
+- [x] **PO bağı YOKSA PriceList sapması → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost`'a PO-bağsız satırlar için PriceList variance (CROSS APPLY, tedarikçi-özel>genel, tolerans `PriceTolerancePercent` %5). PO-bağlı satırlar zaten tolerans-yok PO variance alıyor.
+- [x] **Vade tarihi tedarikçi kartından → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost` @DueDate NULL ise `Partner.PaymentTermDays` → yoksa `DEFAULT_PAYMENT_TERM_DAYS` (Plan 29) → fatura tarihi + gün. Hardcoded +30 kalktı.
+- [x] **Düzeltme sonrası variance yeniden hesapla → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` fiyat değişince PriceVariance recompute (fark 0→soft-delete, sürüyor→güncelle, yeni fark→DRAFT). sql-sp-reviewer: IMP-1 (BULK→LINKED denetim boşluğu → COALESCE join) + IMP-2 (UX_PriceVariance_Source filtered unique) düzeltildi.
 
 ---
 

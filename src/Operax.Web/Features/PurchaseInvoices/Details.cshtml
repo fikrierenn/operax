@@ -96,6 +96,7 @@
                     <thead>
                         <tr>
                             <th>Ürün</th>
+                            <th>Sipariş</th>
                             <th class="text-right">Miktar</th>
                             <th class="text-right">Birim Fiyat</th>
                             <th class="text-right">Tutar</th>
@@ -108,6 +109,20 @@
                         {
                             <tr class="@(l.UnitPrice <= 0 ? "bg-amber-50" : "")">
                                 <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                                <td>
+                                    @if (l.SourceLinkType == "UNLINKED")
+                                    {
+                                        <span class="badge badge-warn" title="Açık siparişe eşleşmedi — fiyat girip eşleştirin">Eşleşmedi</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(l.PoOrderNo))
+                                    {
+                                        <span class="mono text-xs text-slate-600">@l.PoOrderNo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300">—</span>
+                                    }
+                                </td>
                                 <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
                                 <td class="text-right mono">
                                     @if (isDraft)
@@ -129,7 +144,7 @@
                             @if (!isDraft && Model.CanCorrect)
                             {
                                 <tr class="bg-slate-50/40">
-                                    <td colspan="6" class="py-2">
+                                    <td colspan="7" class="py-2">
                                         <details>
                                             <summary class="text-xs text-indigo-600 cursor-pointer">Bu kalemi düzelt (gerekçeli)</summary>
                                             <form method="post" asp-page-handler="CorrectLine" asp-route-id="@h.Id" class="flex flex-wrap items-end gap-2 mt-2">
@@ -156,7 +171,7 @@
                         }
                         @if (!Model.Lines.Any())
                         {
-                            <tr><td colspan="6" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
+                            <tr><td colspan="7" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
                         }
                     </tbody>
                 </table>

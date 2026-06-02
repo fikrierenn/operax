@@ -6,7 +6,7 @@
 - ✅ **Faz A** (şema): ReceivingMode + tedarikçi irsaliye no/tarih + ReturnQty + Bin.IsReturnArea + IADE bin seed.
 - ✅ **Faz B** (SP+handler+post): sp_ReceivingTerminalScan 3 mod (smoke: 500+400→800 kabul/100 iade); terminal handler SP+FREE yetki+fazla uyarı; sp_ReceivingPost ReturnQty→iade bin. sql-sp-reviewer: CRITICAL yok, 2 advisory eşzamanlılık notu dokümante edildi.
 - ✅ **Faz B-UI:** Receiving/Details mod seçici (Tek Sipariş/Toplu/Serbest) + mode→PO görünürlük JS + tedarikçi irsaliye no/tarih alanı + mod whitelist guard (garbage mod→FREE bypass kapatıldı) + FREE oluşturma yetki gate. Terminal ilerleme beklenen=PO QtyOrdered (COALESCE) + iade-bekleyen rozeti. ReceivingMode sabiti Dtos.cs.
-- ⬜ **Faz C:** toplu kabul → fatura aşaması PO eşleştirme (plan 21 satır-bağ).
+- ✅ **Faz C:** toplu kabul → fatura PO eşleştirme. Şema (PurchaseInvoiceLine.PurchaseOrderLineId + ReceivingLine.InvoicedQty). sp_CreatePurchaseInvoiceFromReceiving FIFO tahsis (en eski PO) + kısmi faturalama + UNLINKED kalan. sp_PurchaseInvoiceReverse → InvoicedQty + BULK QtyReceived geri-alma. UI: fatura satırında Sipariş kolonu + Eşleşmedi rozeti. sql-sp-reviewer (CRIT-1 UPDLOCK + IMP-1 reversal + IMP-2 additive düzeltildi) + smoke PASS (50@10+20@12 FIFO, QtyReceived 50/20, InvoicedQty 70).
 - ⬜ **Faz D:** iade faturası (İade modülü bağımlı).
 
 ## Problem

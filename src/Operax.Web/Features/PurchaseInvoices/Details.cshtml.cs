@@ -43,10 +43,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         Lines = (await conn.QueryAsync<LineDto>(@"
             /* isolation-guard:ignore: üst belge PurchaseInvoice yukarıda CompanyId ile doğrulandı */
             SELECT pil.Id, i.Code AS ItemCode, i.Name AS ItemName, dv.Code AS UomCode,
-                   pil.Qty, pil.UnitPrice, pil.LineSubtotal, pil.TaxRatePercent, pil.TaxAmount, pil.LineTotal
+                   pil.Qty, pil.UnitPrice, pil.LineSubtotal, pil.TaxRatePercent, pil.TaxAmount, pil.LineTotal,
+                   pil.SourceLinkType, poh.OrderNo AS PoOrderNo
             FROM PurchaseInvoiceLine pil
             JOIN Item i ON i.Id = pil.ItemId
             LEFT JOIN DictionaryValue dv ON dv.Id = pil.UomId
+            LEFT JOIN PurchaseOrderLine pol ON pol.Id = pil.PurchaseOrderLineId
+            LEFT JOIN PurchaseOrderHeader poh ON poh.Id = pol.HeaderId
             WHERE pil.InvoiceId = @Id
             ORDER BY pil.CreatedAt", new { Id })).ToList();
 
@@ -339,7 +342,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public record LineDto(
         Guid Id, string ItemCode, string ItemName, string? UomCode,
         decimal Qty, decimal UnitPrice, decimal LineSubtotal,
-        decimal TaxRatePercent, decimal TaxAmount, decimal LineTotal);
+        decimal TaxRatePercent, decimal TaxAmount, decimal LineTotal,
+        string? SourceLinkType = null, string? PoOrderNo = null);
 
     public class EditDto
     {

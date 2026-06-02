@@ -121,16 +121,13 @@ BEGIN
         IF @Status <> 'POSTED'
             THROW 51511, N'Yalnızca onaylanmış mal kabulden fatura oluşturulabilir.', 1;
 
-        -- İş kuralı: bu mal kabulden zaten fatura varsa yeni açma (satır-bazlı bağ üzerinden)
-        IF EXISTS (
-            SELECT 1
-            FROM PurchaseInvoiceLine pil
-            JOIN PurchaseInvoice pi ON pi.Id = pil.InvoiceId
-            JOIN ReceivingLine rl ON rl.Id = pil.SourceReceivingLineId
-            WHERE rl.HeaderId = @ReceivingId
-              AND pi.Status <> 'CANCELLED' AND pi.CompanyId = @CompanyId
+        -- İş kuralı (Plan 28 Faz C — kısmi faturalama): faturalanmamış kalan miktar var mı?
+        -- Tüm satırlar faturalandıysa (InvoicedQty=QtyBase) yeni fatura açma. Kabul fazlası (ReturnQty) faturalanmaz.
+        IF NOT EXISTS (
+            SELECT 1 FROM ReceivingLine
+            WHERE HeaderId = @ReceivingId AND (QtyBase - InvoicedQty) > 0.000001
         )
-            THROW 51512, N'Bu mal kabulden zaten fatura oluşturulmuş.', 1;
+            THROW 51512, N'Bu mal kabuldeki tüm satırlar zaten faturalanmış.', 1;
 
         DECLARE @InvDocNo NVARCHAR(50) = 'ALN-' + FORMAT(GETUTCDATE(), 'yyyyMMdd-HHmmss');
         SET @NewInvoiceId = NEWID();
@@ -144,21 +141,86 @@ BEGIN
             (@NewInvoiceId, @CompanyId, @PartnerId, @InvDocNo, @InvDocNo, CAST(GETUTCDATE() AS DATE),
              CAST(GETUTCDATE() AS DATE), 0, 0, 0, 'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER));
 
-        -- Satırları kopyala (mal satırı — boş fatura bug'ı çözüldü)
-        INSERT INTO PurchaseInvoiceLine
-            (InvoiceId, ItemId, UomId, Qty, UnitPrice,
-             LineSubtotal, TaxRatePercent, TaxAmount, LineTotal,
-             SourceReceivingLineId, SourceLinkType)
-        SELECT
-            @NewInvoiceId, rl.ItemId, rl.UomId, rl.QtyBase, ISNULL(pol.Price, 0),
-            rl.QtyBase * ISNULL(pol.Price, 0),
-            20,
-            rl.QtyBase * ISNULL(pol.Price, 0) * 0.20,
-            rl.QtyBase * ISNULL(pol.Price, 0) * 1.20,
-            rl.Id, 'LINKED'
-        FROM ReceivingLine rl
-        LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
-        WHERE rl.HeaderId = @ReceivingId;
+        -- ============================================================================
+        -- SATIR ÜRETİMİ (Plan 28 Faz C) — iki yol:
+        --   (1) SINGLE_PO satırı (rl.PurchaseOrderLineId DOLU): doğrudan o PO satırına bağla, fiyat PO'dan.
+        --       QtyReceived terminal/sp_ReceivingPost'ta zaten güncellendi → BURADA DOKUNULMAZ (çift sayım).
+        --   (2) BULK satırı (rl.PurchaseOrderLineId NULL): tedarikçinin açık PO satırlarına FIFO (en eski PO
+        --       önce) tahsis; her tüketilen PO satırı için ayrı fatura satırı + PO QtyReceived += tahsis
+        --       (BULK'ta atıf fatura anında olur). Açık PO bitince kalan → UNLINKED (fiyat 0, kullanıcı doldurur).
+        -- Yalnız faturalanmamış kalan (QtyBase - InvoicedQty) işlenir (kısmi faturalama).
+        -- ============================================================================
+        DECLARE @rlId UNIQUEIDENTIFIER, @rlItem UNIQUEIDENTIFIER, @rlUom UNIQUEIDENTIFIER,
+                @rlPoLine UNIQUEIDENTIFIER, @rlRemain DECIMAL(18,6);
+
+        DECLARE rcv_cur CURSOR LOCAL FAST_FORWARD FOR
+            SELECT Id, ItemId, UomId, PurchaseOrderLineId, (QtyBase - InvoicedQty)
+            FROM ReceivingLine
+            WHERE HeaderId = @ReceivingId AND (QtyBase - InvoicedQty) > 0.000001;
+        OPEN rcv_cur;
+        FETCH NEXT FROM rcv_cur INTO @rlId, @rlItem, @rlUom, @rlPoLine, @rlRemain;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            -- Bu çağrıda işlenen kalan (BULK iç loop @rlRemain'i tükettiği için ayrı tut — additive InvoicedQty)
+            DECLARE @rlProcessed DECIMAL(18,6) = @rlRemain;
+            IF @rlPoLine IS NOT NULL
+            BEGIN
+                -- (1) SINGLE_PO — doğrudan bağ, fiyat PO satırından
+                DECLARE @spPrice DECIMAL(18,4) = (SELECT ISNULL(Price,0) FROM PurchaseOrderLine WHERE Id = @rlPoLine);
+                INSERT INTO PurchaseInvoiceLine
+                    (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
+                     TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
+                VALUES
+                    (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, @spPrice, @rlRemain * @spPrice, 20,
+                     @rlRemain * @spPrice * 0.20, @rlRemain * @spPrice * 1.20, @rlId, @rlPoLine, 'LINKED');
+            END
+            ELSE
+            BEGIN
+                -- (2) BULK — FIFO tahsis (en eski açık PO satırı önce)
+                DECLARE @poId UNIQUEIDENTIFIER, @poRemain DECIMAL(18,6), @poPrice DECIMAL(18,4), @take DECIMAL(18,6);
+                -- UPDLOCK: eşzamanlı iki fatura aynı açık PO havuzunu tüketip QtyReceived'i aşmasın (CRIT-1)
+                DECLARE po_cur CURSOR LOCAL FAST_FORWARD FOR
+                    SELECT pol.Id, (pol.QtyOrdered - pol.QtyReceived), ISNULL(pol.Price,0)
+                    FROM PurchaseOrderLine pol WITH (UPDLOCK, ROWLOCK)
+                    JOIN PurchaseOrderHeader poh ON poh.Id = pol.HeaderId
+                    WHERE poh.CompanyId = @CompanyId AND poh.PartnerId = @PartnerId
+                      AND poh.IsDeleted = 0 AND poh.Status IN ('POSTED','APPROVED')
+                      AND pol.ItemId = @rlItem AND (pol.QtyOrdered - pol.QtyReceived) > 0.000001
+                    ORDER BY poh.OrderDate ASC, poh.CreatedAt ASC;  -- FIFO: en eski sipariş önce
+                OPEN po_cur;
+                FETCH NEXT FROM po_cur INTO @poId, @poRemain, @poPrice;
+                WHILE @@FETCH_STATUS = 0 AND @rlRemain > 0.000001
+                BEGIN
+                    SET @take = CASE WHEN @rlRemain <= @poRemain THEN @rlRemain ELSE @poRemain END;
+                    INSERT INTO PurchaseInvoiceLine
+                        (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
+                         TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
+                    VALUES
+                        (@NewInvoiceId, @rlItem, @rlUom, @take, @poPrice, @take * @poPrice, 20,
+                         @take * @poPrice * 0.20, @take * @poPrice * 1.20, @rlId, @poId, 'LINKED');
+                    -- BULK atfı: PO QtyReceived fatura anında güncellenir (kabulde PO bağı yoktu)
+                    UPDATE PurchaseOrderLine SET QtyReceived = QtyReceived + @take WHERE Id = @poId;
+                    SET @rlRemain = @rlRemain - @take;
+                    FETCH NEXT FROM po_cur INTO @poId, @poRemain, @poPrice;
+                END
+                CLOSE po_cur; DEALLOCATE po_cur;
+
+                -- Açık PO satırı yetmedi → kalan UNLINKED (fiyat 0, kullanıcı POSTED öncesi doldurur)
+                IF @rlRemain > 0.000001
+                    INSERT INTO PurchaseInvoiceLine
+                        (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
+                         TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
+                    VALUES
+                        (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, 0, 0, 20, 0, 0, @rlId, NULL, 'UNLINKED');
+            END
+
+            -- Kısmi faturalama izi: işlenen kalan eklenir (additive — gelecekte kısmi-kısmi için güvenli)
+            UPDATE ReceivingLine SET InvoicedQty = InvoicedQty + @rlProcessed WHERE Id = @rlId;
+
+            FETCH NEXT FROM rcv_cur INTO @rlId, @rlItem, @rlUom, @rlPoLine, @rlRemain;
+        END
+        CLOSE rcv_cur; DEALLOCATE rcv_cur;
 
         -- Başlık tutarlarını satırlardan topla
         UPDATE PurchaseInvoice
@@ -170,6 +232,9 @@ BEGIN
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
+        -- Hata anında açık kalmış cursor'ları kapat (LOCAL ama mid-loop THROW'da temizle)
+        IF CURSOR_STATUS('local','po_cur') >= 0  BEGIN CLOSE po_cur;  DEALLOCATE po_cur;  END
+        IF CURSOR_STATUS('local','rcv_cur') >= 0 BEGIN CLOSE rcv_cur; DEALLOCATE rcv_cur; END
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH
@@ -432,6 +497,32 @@ BEGIN
         UPDATE PaymentPlan
         SET Status = 'CANCELLED'
         WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId AND Status = 'OPEN';
+
+        -- Plan 28 Faz C tahsis geri alma (IMP-1): iptal sonrası mal kabul yeniden faturalanabilmeli.
+        -- (1) BULK atfı geri al — fatura anında artırılan QtyReceived (yalnız kaynak kabul satırı PO-bağsız=BULK olanlar;
+        --     SINGLE_PO'da QtyReceived kabulde sayıldı, fatura iptalinde DOKUNULMAZ). Çoklu satır → toplulaştır.
+        UPDATE pol
+        SET pol.QtyReceived = pol.QtyReceived - x.TotalQty
+        FROM PurchaseOrderLine pol
+        JOIN (
+            SELECT pil.PurchaseOrderLineId, SUM(pil.Qty) AS TotalQty
+            FROM PurchaseInvoiceLine pil
+            JOIN ReceivingLine rl ON rl.Id = pil.SourceReceivingLineId
+            WHERE pil.InvoiceId = @InvoiceId AND pil.PurchaseOrderLineId IS NOT NULL
+              AND rl.PurchaseOrderLineId IS NULL          -- yalnız BULK kaynaklı
+            GROUP BY pil.PurchaseOrderLineId
+        ) x ON x.PurchaseOrderLineId = pol.Id;
+
+        -- (2) Kısmi faturalama izi geri al — kaynak kabul satırlarının InvoicedQty'sini düş (toplulaştır)
+        UPDATE rl
+        SET rl.InvoicedQty = rl.InvoicedQty - x.TotalQty
+        FROM ReceivingLine rl
+        JOIN (
+            SELECT pil.SourceReceivingLineId, SUM(pil.Qty) AS TotalQty
+            FROM PurchaseInvoiceLine pil
+            WHERE pil.InvoiceId = @InvoiceId AND pil.SourceReceivingLineId IS NOT NULL
+            GROUP BY pil.SourceReceivingLineId
+        ) x ON x.SourceReceivingLineId = rl.Id;
 
         -- AccountMovement ters kayıt: orijinal Credit'i nötrlemek için Debit
         -- DueDate ters satırda yazılmaz (vadesiz) — bakiye SUM(Debit-Credit) ile doğru nötrlenir

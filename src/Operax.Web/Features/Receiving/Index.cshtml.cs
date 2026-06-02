@@ -15,11 +15,16 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)]
     public string? Status { get; set; }
 
+    // Faturalama durumu filtresi: AWAITING (faturasız+kısmi) — "fatura bekleyen mal kabuller"
+    [BindProperty(SupportsGet = true)]
+    public string? Billing { get; set; }
+
     public IEnumerable<ReceivingDto> Documents { get; set; } = [];
 
     public int DraftCount { get; set; } = 0;
     public int PostedCount { get; set; } = 0;
     public int CancelledCount { get; set; } = 0;
+    public int AwaitingInvoiceCount { get; set; } = 0;
 
     public async Task OnGetAsync()
     {
@@ -40,25 +45,47 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             if (status == DocStatus.Cancelled) CancelledCount = cnt;
         }
 
-        // Arama + durum filtresini parametreli WHERE koşuluyla uygula
+        // Fatura bekleyen (POSTED + faturasız/kısmi) sayacı — açıkta kalan mal kabuller (GRNI)
+        AwaitingInvoiceCount = await conn.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(*) FROM ReceivingHeader r
+            WHERE r.CompanyId = @CompanyId AND r.IsDeleted = 0 AND r.Status = @Posted
+              AND EXISTS (SELECT 1 FROM ReceivingLine l
+                          WHERE l.HeaderId = r.Id AND (l.QtyBase - l.InvoicedQty) > 0.000001)",
+            new { CompanyId = company.Id, Posted = DocStatus.Posted });
+
+        // Faturalama durumu satır toplamlarından türetilir (BillingStatus):
+        //   NONE (faturasız) · PARTIAL (kısmi) · FULL (faturalı). Yalnız POSTED belge için anlamlı.
+        // Billing=AWAITING filtresi faturasız+kısmi POSTED belgeleri getirir (açıkta kalanlar).
         const string sql = @"
-            SELECT r.Id, r.DocNo, r.DocDate, r.Status, p.Name as PartnerName, wh.Code as WarehouseCode
+            SELECT r.Id, r.DocNo, r.DocDate, r.Status, p.Name as PartnerName, wh.Code as WarehouseCode,
+                   CASE WHEN r.Status <> @Posted THEN NULL
+                        WHEN ISNULL(agg.Inv,0) <= 0.000001 THEN 'NONE'
+                        WHEN agg.Inv < agg.Rcv - 0.000001 THEN 'PARTIAL'
+                        ELSE 'FULL' END AS BillingStatus
             FROM ReceivingHeader r
             JOIN Partner p  ON p.Id  = r.PartnerId
             JOIN Warehouse wh ON wh.Id = r.WarehouseId
+            OUTER APPLY (SELECT SUM(l.QtyBase) AS Rcv, SUM(l.InvoicedQty) AS Inv
+                         FROM ReceivingLine l WHERE l.HeaderId = r.Id) agg
             WHERE r.CompanyId = @CompanyId
               AND r.IsDeleted = 0
               AND (@Q      IS NULL OR @Q      = '' OR r.DocNo LIKE '%' + @Q + '%' OR p.Name LIKE '%' + @Q + '%')
               AND (@Status IS NULL OR @Status = '' OR r.Status = @Status)
+              AND (@Billing <> 'AWAITING' OR (r.Status = @Posted
+                   AND EXISTS (SELECT 1 FROM ReceivingLine l2
+                               WHERE l2.HeaderId = r.Id AND (l2.QtyBase - l2.InvoicedQty) > 0.000001)))
             ORDER BY r.DocDate DESC, r.DocNo DESC";
 
         Documents = await conn.QueryAsync<ReceivingDto>(sql, new
         {
             CompanyId = company.Id,
             Q         = Q,
-            Status    = Status
+            Status    = Status,
+            Billing   = Billing ?? "",
+            Posted    = DocStatus.Posted
         });
     }
 
-    public record ReceivingDto(Guid Id, string DocNo, DateTime DocDate, string Status, string PartnerName, string WarehouseCode);
+    public record ReceivingDto(Guid Id, string DocNo, DateTime DocDate, string Status,
+        string PartnerName, string WarehouseCode, string? BillingStatus);
 }

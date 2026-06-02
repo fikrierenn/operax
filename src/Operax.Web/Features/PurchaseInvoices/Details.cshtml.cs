@@ -259,9 +259,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     {
         using var conn = db.Open();
         await conn.ExecuteAsync(@"
-            UPDATE PriceVariance SET Status = 'REJECTED', ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
+            UPDATE PriceVariance SET Status = @Rejected, ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
             WHERE Id = @VarianceId AND CompanyId = @CompanyId AND Status = @Draft",
-            new { VarianceId = varianceId, CompanyId = company.Id, UserId = user.Id, Draft = DocStatus.Draft });
+            new { VarianceId = varianceId, CompanyId = company.Id, UserId = user.Id, Draft = DocStatus.Draft, Rejected = DocStatus.Rejected });
         TempData["Success"] = "Fiyat farkı reddedildi.";
         return RedirectToPage(new { id });
     }

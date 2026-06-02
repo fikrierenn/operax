@@ -31,6 +31,12 @@
 - [ ] **MED · magic string:** `SalesOrders/Details.cshtml.cs:42` `'CUSTOMER'`/`'BOTH'` — `Dtos.cs`'e `PartnerType` sabiti ekle.
 - [ ] **MED · CancellationToken:** handler'lar `ct` almıyor, `OperationCanceledException` rethrow yok (`error-handling.md §4-5`). Disiplin borcu.
 
+### Plan 28/29 faz-kapanış review (2026-06-02 — pre-existing, kapsam-dışı)
+> security-reviewer TEMİZ (≥80 yok). code-reviewer: oturumun YENİ kodu (ParameterStore, Receiving mod/GRNI, ReceivingMode sabiti) temiz. Aşağısı dokunmadığım Plan 27 kodu (drive-by yasağı). `'REJECTED'` magic string bu oturumda düzeltildi (1 satır, sıfır risk).
+- [ ] **MED · magic string:** `PurchaseInvoices/Details.cshtml.cs:69,100` rol adları string literal (`"Administrator","Finance","Purchasing"`) — `Roles.*` sabiti kullan (`Roles.Finance` yoksa ekle). Terminal/Receiving sabit kullanıyor, burada tutarsız.
+- [ ] **MED · magic string:** `PurchaseInvoices/Details.cshtml.cs:74` SQL `Status IN ('PAID','PARTIAL')` — `DocStatus.Paid` var, `PARTIAL` için sabit yok; parametrize et.
+- [ ] **MED · sessiz catch:** `MasterData/Items/Details.cshtml.cs:79` UDF JSON parse `catch { ... }` log yok — `ILogger` inject + `LogWarning` ekle.
+
 ---
 
 ## 🚨 F0.1 CODE REVIEW SONUÇLARI (2026-05-30 — sprint öncesi, canlı koddan doğrulandı)

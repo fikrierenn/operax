@@ -63,11 +63,19 @@
 - **Inline SVG** (CDN bağımlılığı yok)
 - Standart pattern: `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">...`
 
+## JavaScript Yaklaşımı (vanilla + Alpine.js)
+
+- **Framework kararı (2026-06-03):** Server-rendered Razor Pages. SPA (React/Vue/Angular) YASAK. Etkileşim için **Alpine.js** (self-host `wwwroot/lib/alpine/`, `_Layout` head'de defer) + gerektiğinde vanilla JS.
+- **Alpine ne zaman:** Declarative UI durumu (toggle, dropdown, dinamik satır, koşullu gösterim) → `x-data`/`x-on`/`x-show`/`x-model`. Elle DOM manipülasyonu yerine Alpine tercih.
+- **Vanilla ne zaman:** Üçüncü-parti lib entegrasyonu (Tabulator grid), fetch akışları, tek-seferlik karmaşık logic → `wwwroot/js/*.js` harici dosya, IIFE wrap.
+- **jQuery genişletme YASAK** — sadece Identity/validation scaffold'undan mevcut; yeni iş Alpine/vanilla.
+- **Tabulator** = grid-özel lib (`wwwroot/lib/tabulator/`); Alpine'ı değiştirmez, birlikte çalışır.
+
 ## Inline JS
 
-- **Minimum.** Kısa handler OK, büyük logic `wwwroot/js/`'e
+- **Minimum.** Kısa handler OK, büyük logic `wwwroot/js/`'e (Alpine `x-` attribute'ları view'da kalabilir)
 - IIFE wrap, global namespace koru
-- **CSP uyumluluk:** gelecekte inline script kırılır
+- **CSP uyumluluk:** gelecekte inline script kırılır (Alpine CSP-uyumlu build ile desteklenir)
 
 ## Partial View
 

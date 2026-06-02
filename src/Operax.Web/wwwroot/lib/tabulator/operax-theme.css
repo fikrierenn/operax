@@ -1,0 +1,102 @@
+/* OPERAX — Tabulator teması. tabulator_simple.min.css ÜSTÜNE yüklenir (override).
+   Tüm değerler site.css :root design token'larından gelir → premium template ile uyumlu.
+   Mevcut .data-table görünümünü (header/satır/hover) aynalar. */
+
+.tabulator {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  box-shadow: var(--shadow);
+}
+
+/* ── Başlık ── */
+.tabulator .tabulator-header {
+  background: hsl(220 14% 97%);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-4);
+}
+.tabulator .tabulator-header .tabulator-col {
+  background: transparent;
+  border-right: none;
+}
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 10px 14px;
+}
+.tabulator .tabulator-header .tabulator-col .tabulator-col-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-4);
+}
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable:hover {
+  background: var(--bg-2);
+}
+
+/* ── Gövde satırları ── */
+.tabulator .tabulator-tableholder .tabulator-table { background: var(--surface); }
+.tabulator .tabulator-row {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.tabulator .tabulator-row.tabulator-row-even { background: var(--surface); }
+.tabulator .tabulator-row:hover { background: var(--surface-2); }
+.tabulator .tabulator-row .tabulator-cell {
+  padding: 10px 14px;
+  border-right: none;
+  color: var(--text);
+  vertical-align: middle;
+}
+
+/* ── Sayısal hücreler (sağ hizalı kolonlar mono) ── */
+.tabulator .tabulator-row .tabulator-cell[tabulator-field="unitPrice"],
+.tabulator .tabulator-row .tabulator-cell[tabulator-field="minQty"],
+.tabulator .tabulator-row .tabulator-cell[tabulator-field="net"] {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.tabulator .tabulator-row .tabulator-cell[tabulator-field="net"] {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Seçim / düzenleme (marka) ── */
+.tabulator .tabulator-row.tabulator-selected { background: var(--brand-tint-08); }
+.tabulator .tabulator-cell.tabulator-editing {
+  border: 1.5px solid var(--brand-500) !important;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 0 0 3px var(--brand-tint-15);
+}
+.tabulator .tabulator-cell.tabulator-editing input,
+.tabulator .tabulator-cell.tabulator-editing select {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+/* Hücre-aralığı seçim katmanı (range modülü) */
+.tabulator-range-overlay .tabulator-range {
+  border: 1.5px solid var(--brand-500);
+  background: var(--brand-tint-08);
+}
+.tabulator-range-overlay .tabulator-range.tabulator-range-active {
+  border-color: var(--brand-600);
+}
+
+/* ── Boş durum ── */
+.tabulator .tabulator-tableholder .tabulator-placeholder span {
+  color: var(--text-4);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Dikey scrollbar (shell ile aynı) ── */
+.tabulator .tabulator-tableholder::-webkit-scrollbar { width: 10px; height: 10px; }
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+  background: var(--border-strong); border-radius: 6px;
+}

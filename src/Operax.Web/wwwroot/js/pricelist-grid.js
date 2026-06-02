@@ -50,34 +50,34 @@
         editTriggerEvent: "click",
         columns: [
             {
-                title: "Ürün", field: "itemId", widthGrow: 3, editor: "list",
+                title: "Ürün", field: "itemId", widthGrow: 3, minWidth: 200, editor: "list",
                 editorParams: { values: itemValues, autocomplete: true, listOnEmpty: true },
                 formatter: function (cell) { return itemLabel[cell.getValue()] || "<span class='text-red-600'>Seçiniz…</span>"; }
             },
             {
-                title: "Brüt Fiyat", field: "unitPrice", width: 130, hozAlign: "right",
+                title: "Brüt Fiyat", field: "unitPrice", width: 110, hozAlign: "right",
                 editor: "number", editorParams: { min: 0, step: 0.0001 },
                 formatter: "money", formatterParams: { decimal: ",", thousand: ".", precision: 2 }
             },
             {
-                title: "Min Miktar", field: "minQty", width: 110, hozAlign: "right",
+                title: "Min Miktar", field: "minQty", width: 95, hozAlign: "right",
                 editor: "number", editorParams: { min: 0, step: 0.000001 }
             },
             {
-                title: "Tip", field: "lineType", width: 110,
+                title: "Tip", field: "lineType", width: 95,
                 editor: "list", editorParams: { values: { "FIXED": "Sabit", "DISCOUNT": "İskonto" } },
                 formatter: function (cell) { return cell.getValue() === "DISCOUNT" ? "İskonto" : "Sabit"; }
             },
             {
-                title: "İskonto Zinciri", field: "discountChain", width: 150,
+                title: "İskonto Zinciri", field: "discountChain", width: 125,
                 editor: "input", editorParams: { placeholder: "10+5+3" }
             },
             {
-                title: "Net Efektif", field: "net", width: 130, hozAlign: "right",
+                title: "Net Efektif", field: "net", width: 115, hozAlign: "right",
                 headerSort: false, formatter: netFormatter
             },
             {
-                title: "", field: "_del", width: 50, hozAlign: "center", headerSort: false,
+                title: "", field: "_del", width: 44, hozAlign: "center", headerSort: false,
                 formatter: function () { return "<span title='Sil' style='cursor:pointer'>🗑</span>"; },
                 cellClick: function (e, cell) { cell.getRow().delete(); }
             }

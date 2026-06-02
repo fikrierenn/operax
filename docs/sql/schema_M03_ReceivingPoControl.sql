@@ -31,3 +31,19 @@ BEGIN
     PRINT 'ReceivingLine.ReturnQty eklendi (iade alanına ayrılan fazla).';
 END
 GO
+
+-- İade/karantina alanı bin flag'i (sipariş fazlası mal buraya iner)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name='IsReturnArea' AND Object_ID=OBJECT_ID('Bin'))
+BEGIN
+    ALTER TABLE Bin ADD IsReturnArea BIT NOT NULL DEFAULT 0;
+    PRINT 'Bin.IsReturnArea eklendi.';
+END
+GO
+
+-- İade alanı bin'i olmayan her depoya 'IADE' bin'i (idempotent)
+INSERT INTO Bin (Id, WarehouseId, Code, Zone, SortNo, IsPickingArea, IsReceivingArea, IsReturnArea, IsActive, IsDeleted)
+SELECT NEWID(), w.Id, N'IADE', N'IADE', 99, 0, 0, 1, 1, 0
+FROM Warehouse w
+WHERE w.IsDeleted = 0
+  AND NOT EXISTS (SELECT 1 FROM Bin b WHERE b.WarehouseId = w.Id AND b.IsReturnArea = 1 AND b.IsDeleted = 0);
+GO

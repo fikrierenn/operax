@@ -1506,6 +1506,12 @@ BEGIN
         IF @ReceivingBinId IS NULL
             THROW 50012, N'Seçilen depoda hücre (bin) tanımlı değil. Önce depo hücresi oluşturun.', 1;
 
+        -- İade/karantina bin'i (Plan 28): sipariş fazlası buraya; yoksa kabul bin'ine düş
+        DECLARE @ReturnBinId UNIQUEIDENTIFIER;
+        SELECT TOP 1 @ReturnBinId = Id FROM Bin
+        WHERE WarehouseId = @WarehouseId AND IsReturnArea = 1 AND IsActive = 1 AND IsDeleted = 0;
+        IF @ReturnBinId IS NULL SET @ReturnBinId = @ReceivingBinId;
+
         -- StockMovement: her satira PO'dan UnitCost ata
         INSERT INTO StockMovement
             (CompanyId, WarehouseId, BinId, ItemId, MovementType,
@@ -1518,7 +1524,22 @@ BEGIN
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ReceivingLine rl
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
-        WHERE rl.HeaderId = @HeaderId;
+        WHERE rl.HeaderId = @HeaderId AND rl.QtyBase > 0;
+
+        -- Plan 28: sipariş fazlası (ReturnQty) → iade/karantina bin'ine ayrı RECEIPT (RECEIVING_RETURN).
+        -- PO QtyReceived'a SAYILMAZ (sadece kabul edilen sayılır). Tedarikçiye iade/red için ayrı durur.
+        INSERT INTO StockMovement
+            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
+             QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo,
+             UnitCost, CreatedBy, BranchId)
+        SELECT
+            @CompanyId, @WarehouseId, @ReturnBinId, rl.ItemId, 'RECEIPT',
+            rl.ReturnQty, rl.UomId, rl.ReturnQty, 'RECEIVING_RETURN', @HeaderId, @DocNo, rl.LotNo,
+            ISNULL(pol.Price, 0), @UserId,
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
+        FROM ReceivingLine rl
+        LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
+        WHERE rl.HeaderId = @HeaderId AND rl.ReturnQty > 0;
 
         UPDATE pol
         SET pol.QtyReceived = pol.QtyReceived + rl.QtyBase

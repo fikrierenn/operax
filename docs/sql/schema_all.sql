@@ -362,7 +362,7 @@ BEGIN
         CONSTRAINT FK_Item_Company  FOREIGN KEY (CompanyId)  REFERENCES Company(Id),
         CONSTRAINT FK_Item_Category FOREIGN KEY (CategoryId) REFERENCES Category(Id)
     );
-    CREATE INDEX IX_Item_Code ON Item(CompanyId, Code) WHERE IsDeleted = 0;
+    CREATE UNIQUE INDEX IX_Item_Code ON Item(CompanyId, Code) WHERE IsDeleted = 0;
     PRINT 'Item tablosu olusturuldu.';
 END
 ELSE
@@ -370,6 +370,18 @@ BEGIN
     -- TaxRate kolonu yoksa ekle (migration uyumluluğu)
     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Item') AND name = 'TaxRate')
         ALTER TABLE Item ADD TaxRate DECIMAL(18,2) DEFAULT 20.0;
+END
+GO
+
+-- Item.Code mükerrer engeli (Plan 31): mevcut DB'de IX_Item_Code non-unique ise
+-- UNIQUE'e yükselt. Filtre IsDeleted=0 → soft-delete edilmiş kayıtlar kapsam dışı.
+-- ÖN KOŞUL: yükseltmeden önce within-(CompanyId,Code) mükerrerler temizlenmiş olmalı.
+IF EXISTS (SELECT 1 FROM sys.indexes
+           WHERE name = 'IX_Item_Code' AND object_id = OBJECT_ID('Item') AND is_unique = 0)
+BEGIN
+    DROP INDEX IX_Item_Code ON Item;
+    CREATE UNIQUE INDEX IX_Item_Code ON Item(CompanyId, Code) WHERE IsDeleted = 0;
+    PRINT 'IX_Item_Code UNIQUE yapildi (mukerrer urun kodu engellendi).';
 END
 GO
 

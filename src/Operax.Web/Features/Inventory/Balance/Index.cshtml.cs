@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
@@ -8,7 +9,12 @@ namespace Operax.Web.Features.Inventory.Balance;
 [Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
+    // Filtre parametreleri — GET sorgu dizesinden bağlanır
+    [BindProperty(SupportsGet = true)] public string? Q { get; set; }
+    [BindProperty(SupportsGet = true)] public Guid? WarehouseId { get; set; }
+
     public IEnumerable<BalanceDto> BalanceLines { get; set; } = [];
+    public IEnumerable<WarehouseOptionDto> Warehouses { get; set; } = [];
 
     public decimal TotalStockQty { get; set; } = 0;
     public int CriticalItemCount { get; set; } = 0;
@@ -18,17 +24,29 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     {
         using var conn = db.Open();
 
+        // Depo listesi — filtre dropdown'ı için
+        Warehouses = await conn.QueryAsync<WarehouseOptionDto>(
+            "SELECT Id, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
+            new { CompanyId = company.Id });
+
         // tvf_InventoryBalance: CompanyId yalıtılmış, sıfır bakiyeler zaten hariç
+        // TOP 1000 + filtre: büyük tablolarda performans koruması; WHERE SARGable
         const string sql = @"
-            SELECT i.Code as ItemCode, i.Name as ItemName, wh.Name as WarehouseName,
+            SELECT TOP 1000
+                   i.Code as ItemCode, i.Name as ItemName, wh.Name as WarehouseName,
                    b.Code as BinCode, inv.QtyBalance as QtyOnHand
             FROM tvf_InventoryBalance(@CompanyId) inv
             JOIN Item i ON i.Id = inv.ItemId
             JOIN Warehouse wh ON wh.Id = inv.WarehouseId
             LEFT JOIN Bin b ON b.Id = inv.BinId
+            WHERE (@WarehouseId IS NULL OR inv.WarehouseId = @WarehouseId)
+              AND (@Q IS NULL
+                   OR i.Code LIKE '%' + @Q + '%'
+                   OR i.Name LIKE '%' + @Q + '%')
             ORDER BY i.Code, wh.Name, b.Code";
 
-        BalanceLines = await conn.QueryAsync<BalanceDto>(sql, new { CompanyId = company.Id });
+        BalanceLines = await conn.QueryAsync<BalanceDto>(sql,
+            new { CompanyId = company.Id, WarehouseId, Q });
 
         // Total Stock Quantity
         TotalStockQty = BalanceLines.Sum(x => x.QtyOnHand);
@@ -71,7 +89,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     }
 
     public record BalanceDto(string ItemCode, string ItemName, string WarehouseName, string? BinCode, decimal QtyOnHand);
-    
+    public record WarehouseOptionDto(Guid Id, string Name);
     private record ItemMinQtyDto(string Code, string? Description);
 
     private class UdfDataDto

@@ -9,17 +9,36 @@ namespace Operax.Web.Features.Transfer;
 [Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
+    // Transfer no araması
+    [BindProperty(SupportsGet = true)]
+    public string? Q { get; set; }
+
+    // Durum filtresi — DocStatus sabitleri veya boş
+    [BindProperty(SupportsGet = true)]
+    public string? StatusFilter { get; set; }
+
+    // Şube filtresi — Guid veya null
+    [BindProperty(SupportsGet = true)]
+    public Guid? BranchFilter { get; set; }
+
     public IEnumerable<TransferDto> Transfers { get; set; } = [];
     public IEnumerable<DdlDto>     Branches  { get; set; } = [];
-    
+
     public int DraftCount { get; set; }
     public int PostedCount { get; set; }
     public decimal TotalTransferQty { get; set; }
 
     public async Task OnGetAsync()
     {
+        // İş kuralı: arama terimi varsa DocNo LIKE filtresi uygulanır
+        var search = string.IsNullOrWhiteSpace(Q) ? null : $"%{Q.Trim()}%";
+
+        // İş kuralı: durum filtresi DocStatus sabitlerinden biri değilse tümü gösterilir
+        var statusParam = StatusFilter is DocStatus.Draft or DocStatus.Posted
+            ? StatusFilter : null;
+
         using var conn = db.Open();
-        
+
         Transfers = await conn.QueryAsync<TransferDto>(@"
             SELECT t.Id, t.DocNo, t.Status, t.TransferType, t.CreatedAt,
                    fw.Code AS FromWhCode, fw.BranchId AS FromBranchId, fb.Name AS FromBranchName,
@@ -31,7 +50,11 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             LEFT JOIN Branch fb ON fb.Id = fw.BranchId
             LEFT JOIN Branch tb ON tb.Id = tw.BranchId
             WHERE t.CompanyId = @CompanyId
-            ORDER BY t.CreatedAt DESC", new { CompanyId = company.Id });
+              AND (@Search     IS NULL OR t.DocNo LIKE @Search)
+              AND (@Status     IS NULL OR t.Status = @Status)
+              AND (@BranchId   IS NULL OR fw.BranchId = @BranchId OR tw.BranchId = @BranchId)
+            ORDER BY t.CreatedAt DESC",
+            new { CompanyId = company.Id, Search = search, Status = statusParam, BranchId = BranchFilter });
 
         // Şube filtresi dropdown için
         Branches = await conn.QueryAsync<DdlDto>(

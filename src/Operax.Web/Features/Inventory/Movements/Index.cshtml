@@ -42,16 +42,22 @@
 </div>
 
 <div class="card overflow-hidden mt-6 text-sm">
-    <div class="filter-bar">
-        <input type="date" class="form-ctrl text-xs font-semibold" />
-        <select class="form-ctrl text-xs font-semibold w-44">
-            <option>Tüm Hareketler</option>
-            <option>RECEIPT</option>
-            <option>ISSUE</option>
-            <option>TRANSFER</option>
+    <form method="get" class="filter-bar">
+        <input type="date" name="From" value="@Model.From?.ToString("yyyy-MM-dd")" class="form-ctrl text-xs font-semibold" title="Başlangıç tarihi" />
+        <input type="date" name="To" value="@Model.To?.ToString("yyyy-MM-dd")" class="form-ctrl text-xs font-semibold" title="Bitiş tarihi" />
+        <select name="Type" class="form-ctrl text-xs font-semibold w-44" onchange="this.form.submit()">
+            <option value="">Tüm Hareketler</option>
+            <option value="RECEIPT" selected="@(Model.Type == "RECEIPT")">Giriş (RECEIPT)</option>
+            <option value="ISSUE"   selected="@(Model.Type == "ISSUE")">Çıkış (ISSUE)</option>
+            <option value="TRANSFER" selected="@(Model.Type == "TRANSFER")">Transfer</option>
         </select>
-        <input type="text" placeholder="SKU, Lot veya Belge ara..." class="form-ctrl text-xs w-1/3" />
-    </div>
+        <input type="text" name="Q" value="@Model.Q" placeholder="SKU, ürün adı veya belge no ara..." class="form-ctrl text-xs w-1/3" />
+        <button type="submit" class="btn btn-primary text-xs">Ara</button>
+        @if (!string.IsNullOrEmpty(Model.Q) || !string.IsNullOrEmpty(Model.Type) || Model.From.HasValue || Model.To.HasValue)
+        {
+            <a href="/Inventory/Movements" class="btn btn-ghost text-xs">Temizle</a>
+        }
+    </form>
     
     <table class="data-table">
         <thead>

@@ -72,12 +72,21 @@
 </div>
 
 <div class="card overflow-hidden">
-    <div class="filter-bar">
-        <select class="form-ctrl w-48 text-xs font-semibold">
-            <option>Tüm Depolar</option>
+    <form method="get" class="filter-bar">
+        <select name="WarehouseId" class="form-ctrl w-48 text-xs font-semibold" onchange="this.form.submit()">
+            <option value="">Tüm Depolar</option>
+            @foreach (var wh in Model.Warehouses)
+            {
+                <option value="@wh.Id" selected="@(Model.WarehouseId == wh.Id)">@wh.Name</option>
+            }
         </select>
-        <input type="text" placeholder="Ürün kodu veya adı ile ara..." class="form-ctrl flex-1 text-xs" />
-    </div>
+        <input type="text" name="Q" value="@Model.Q" placeholder="Ürün kodu veya adı ile ara..." class="form-ctrl flex-1 text-xs" />
+        <button type="submit" class="btn btn-primary text-xs">Ara</button>
+        @if (!string.IsNullOrEmpty(Model.Q) || Model.WarehouseId.HasValue)
+        {
+            <a href="/Inventory/Balance" class="btn btn-ghost text-xs">Temizle</a>
+        }
+    </form>
 
     <table class="data-table">
         <thead>

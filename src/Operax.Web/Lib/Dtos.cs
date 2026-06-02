@@ -84,6 +84,20 @@ public static class DocPrefix
     public const string CycleCount     = "CYC";
 }
 
+/// <summary>Fiyat listesi yönü (Plan 30) — magic string yerine kullanılır.</summary>
+public static class PriceDirection
+{
+    public const string Sales    = "SALES";     // Satış (müşteri) fiyat listesi
+    public const string Purchase = "PURCHASE";  // Alış (tedarikçi) fiyat listesi
+}
+
+/// <summary>Fiyat listesi satır tipi (Plan 30).</summary>
+public static class PriceLineType
+{
+    public const string Fixed    = "FIXED";     // Sabit birim fiyat (zincir iskonto üstüne uygulanır)
+    public const string Discount = "DISCOUNT";  // Sadece iskonto kademesi taşıyan satır
+}
+
 /// <summary>Mal Kabulü (Receiving) detay DTO</summary>
 public class ReceivingLineDto
 {

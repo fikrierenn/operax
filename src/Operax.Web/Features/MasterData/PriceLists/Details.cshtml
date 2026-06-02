@@ -1,0 +1,225 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.MasterData.PriceLists.DetailsModel
+@{
+    var isNew = Model.IsNew;
+    ViewData["Title"] = isNew ? "Yeni Fiyat Listesi" : "Fiyat Listesi Düzenle";
+}
+
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Tanımlamalar</span>
+            <span class="breadcrumb-sep">/</span>
+            <a asp-page="./Index" class="breadcrumb-item hover:text-indigo-600">Fiyat Listeleri</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">@(isNew ? "Yeni" : Model.Header.Code)</span>
+        </div>
+        <h1>@(isNew ? "Yeni Fiyat Listesi" : Model.Header.Name)</h1>
+    </div>
+    <div class="page-hdr-r">
+        <a asp-page="./Index" class="btn btn-secondary">Geri</a>
+    </div>
+</div>
+
+@if (TempData["Error"] is string err)
+{
+    <div class="alert-banner alert-danger">@err</div>
+}
+@if (TempData["Success"] is string ok)
+{
+    <div class="alert-banner alert-info">@ok</div>
+}
+
+<div class="card p-6 mb-6">
+    <form method="post" asp-page-handler="SaveHeader">
+        @Html.AntiForgeryToken()
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Kod <span class="req">*</span></label>
+                <input asp-for="Header.Code" class="form-ctrl" placeholder="Örn. SAT-2026-A" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ad <span class="req">*</span></label>
+                <input asp-for="Header.Name" class="form-ctrl" placeholder="Örn. 2026 Bayi Satış Listesi" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Yön <span class="req">*</span></label>
+                <select asp-for="Header.Direction" class="form-ctrl">
+                    <option value="@PriceDirection.Sales">Satış (müşteri)</option>
+                    <option value="@PriceDirection.Purchase">Alış (tedarikçi)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Cari</label>
+                <select asp-for="Header.PartnerId" class="form-ctrl">
+                    <option value="">Genel (tüm cariler)</option>
+                    @foreach (var p in Model.Partners)
+                    {
+                        <option value="@p.Id">@p.Code — @p.Name</option>
+                    }
+                </select>
+                <span class="form-hint">Boş = genel; cari-özel fiyat şube fiyatını ezer (cari baskın).</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Şube</label>
+                <select asp-for="Header.BranchId" class="form-ctrl">
+                    <option value="">Tüm Şubeler</option>
+                    @foreach (var b in Model.Branches)
+                    {
+                        <option value="@b.Id">@b.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Öncelik</label>
+                <input asp-for="Header.Priority" type="number" class="form-ctrl" min="0" />
+                <span class="form-hint">Eşitlikte yüksek öncelik kazanır.</span>
+            </div>
+        </div>
+
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Para Birimi</label>
+                <select asp-for="Header.Currency" class="form-ctrl">
+                    <option value="TRY">₺ TRY</option>
+                    <option value="USD">$ USD</option>
+                    <option value="EUR">€ EUR</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Geçerlilik Başlangıç</label>
+                <input asp-for="Header.ValidFrom" type="date" class="form-ctrl" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Geçerlilik Bitiş</label>
+                <input asp-for="Header.ValidTo" type="date" class="form-ctrl" />
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-4">
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input asp-for="Header.IsActive" type="checkbox" class="chk" />
+                Aktif
+            </label>
+            <button type="submit" class="btn btn-primary px-8">@(isNew ? "Oluştur" : "Kaydet")</button>
+        </div>
+    </form>
+</div>
+
+@if (isNew)
+{
+    <div class="card p-8 text-center text-slate-400 italic">
+        Satır eklemek için önce listeyi kaydedin.
+    </div>
+}
+else
+{
+    <div class="card overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 font-bold text-slate-700">Satırlar</div>
+        <table class="data-table w-full">
+            <thead>
+                <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
+                    <th class="px-6 py-3 text-left">Ürün</th>
+                    <th class="px-6 py-3 text-right">Brüt Fiyat</th>
+                    <th class="px-6 py-3 text-center">Min. Miktar</th>
+                    <th class="px-6 py-3 text-center">Tip</th>
+                    <th class="px-6 py-3 text-center">İskonto Zinciri</th>
+                    <th class="px-6 py-3 text-right">Net Efektif</th>
+                    <th class="px-6 py-3 text-right">İşlem</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach (var l in Model.Lines)
+                {
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="px-6 py-3">
+                            <div class="font-mono text-xs text-indigo-600 font-bold">@l.ItemCode</div>
+                            <div class="font-semibold text-slate-800 text-sm">@l.ItemName</div>
+                        </td>
+                        <td class="px-6 py-3 text-right font-mono text-sm text-slate-600">@UiHelpers.FmtNum(l.UnitPrice, 2)</td>
+                        <td class="px-6 py-3 text-center text-sm text-slate-500">@UiHelpers.FmtNum(l.MinQty, 2)</td>
+                        <td class="px-6 py-3 text-center">
+                            @if (l.LineType == PriceLineType.Discount)
+                            {
+                                <span class="badge b-amber">İSKONTO</span>
+                            }
+                            else
+                            {
+                                <span class="badge b-gray">SABİT</span>
+                            }
+                        </td>
+                        <td class="px-6 py-3 text-center text-sm text-slate-600">@l.ChainText</td>
+                        <td class="px-6 py-3 text-right font-mono text-sm font-bold text-slate-800">@UiHelpers.FmtNum(l.EffectivePrice, 2)</td>
+                        <td class="px-6 py-3 text-right">
+                            <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Header.Id" class="inline" onsubmit="return confirm('Satır silinsin mi?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="lineId" value="@l.Id" />
+                                <button type="submit" class="btn btn-danger btn-sm">Sil</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Lines.Any())
+                {
+                    <tr><td colspan="7" class="px-6 py-12 text-center text-slate-400 italic">Henüz satır yok. Aşağıdan ekleyin.</td></tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Satır ekleme formu -->
+        <div class="p-4 bg-slate-50/60 border-t border-slate-100">
+            <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Header.Id" class="flex flex-wrap items-end gap-3">
+                @Html.AntiForgeryToken()
+                <div class="form-group mb-0 flex-1 min-w-[220px]">
+                    <label class="form-label">Ürün <span class="req">*</span></label>
+                    <select name="itemId" id="pl-item" class="form-ctrl" required>
+                        <option value="">Seçiniz...</option>
+                        @foreach (var it in Model.Items)
+                        {
+                            <option value="@it.Id">@it.Code — @it.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-0 w-32">
+                    <label class="form-label">Brüt Fiyat <span class="req">*</span></label>
+                    <input name="unitPrice" id="pl-price" type="number" step="0.0001" min="0" class="form-ctrl" required />
+                </div>
+                <div class="form-group mb-0 w-28">
+                    <label class="form-label">Min. Miktar</label>
+                    <input name="minQty" type="number" step="0.000001" min="0" value="0" class="form-ctrl" />
+                </div>
+                <div class="form-group mb-0 w-32">
+                    <label class="form-label">Tip</label>
+                    <select name="lineType" class="form-ctrl">
+                        <option value="@PriceLineType.Fixed">Sabit</option>
+                        <option value="@PriceLineType.Discount">İskonto</option>
+                    </select>
+                </div>
+                <div class="form-group mb-0 w-36">
+                    <label class="form-label">İskonto Zinciri</label>
+                    <input name="discountChain" type="text" class="form-ctrl" placeholder="10+5+3" />
+                    <span class="form-hint">Ardışık uygulanır</span>
+                </div>
+                <button type="submit" class="btn btn-primary">Satır Ekle</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            // Ürün seçilince brüt fiyat boşsa ortalama maliyetle önerilir
+            var prices = @Html.Raw(Model.ItemPriceJson);
+            var sel = document.getElementById('pl-item');
+            var priceIn = document.getElementById('pl-price');
+            if (sel && priceIn) {
+                sel.addEventListener('change', function () {
+                    var v = prices[this.value];
+                    if (v && !priceIn.value) { priceIn.value = v; }
+                });
+            }
+        })();
+    </script>
+}

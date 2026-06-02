@@ -12,7 +12,7 @@
 
 ## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)
 
-- [/] **Faz A–D ✅ / Faz E kaldı:** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire. Build+sql-sp-reviewer+code-reviewer+smoke geçti. **Kalan: Faz E** — PriceList CRUD UI (liste başlık + satır + "10+5+3" iskonto kısayolu).
+- [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–E):** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire + **PriceList CRUD UI** (Index+Details, "10+5+3" iskonto kısayolu). build+sql-sp-reviewer+code-reviewer+security-reviewer+browser smoke geçti. Plan arşivde.
 - [ ] **DEBT · MinQty miktar filtresi (IMP-2, pre-existing):** `sp_CheckPriceVariance` ORDER BY `MinQty DESC` ile en yüksek kademeyi seçiyor ama belge miktarına göre **WHERE `MinQty <= @OrderQty` filtresi YOK** (SP'ye @OrderQty geçmiyor). Toplu-fiyat kademesi devreye alınınca ulaşılmamış indirimli fiyat yanlış seçilir → @OrderQty parametresi + qty bandı predikatı eklenmeli. Eski SP'de de vardı, Plan 30 kapsamı değil.
 
 ---

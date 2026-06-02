@@ -1,6 +1,15 @@
 # Plan 30 — PriceList Kapsam Boyutları (şube/müşteri/genel + tarih + aktiflik)
 
-**Tier 3** · Durum: ✅ KARARLAR TAMAM — implement'e hazır · 2026-06-02
+**Tier 3** · Durum: 🔨 IMPLEMENT — Faz A–D ✅ (build+sql-sp-reviewer+code-reviewer+smoke geçti), Faz E (CRUD UI) kaldı · 2026-06-03
+
+## 🔨 IMPLEMENT İLERLEME (2026-06-03)
+- **Faz A ✅** `schema_M02_Costing.sql`: PriceList += BranchId(FK)/Priority/CreatedAt-By/UpdatedAt/IsDeleted + Direction NOT NULL+CHECK backfill; PriceListLine += LineType(CK)/IsDeleted; yeni `PriceListLineDiscount`(FK+CK Pct 0-100+UQ LineId,Seq). Canlı VT'de doğrulandı.
+- **Faz B ✅** `db_objects_starter.sql` `tvf_PriceListEffective(@CompanyId)` — ROW_NUMBER dense-rank + recursive CTE zincir (DECIMAL(28,12), boşluk/offset-toleranslı anchor), BasePrice/NetMultiplier/EffectivePrice/TotalDiscountAmount AYRI. Smoke: 10+5+3 → **82,9350** (Seq 1,2,3 ve boşluklu 5,10,15 ikisi de).
+- **Faz C ✅** `sp_CheckPriceVariance` += @BranchId; TOP 1 ORDER BY MatchScore(Partner×2+Branch×1) DESC, Priority, MinQty, ValidFrom, LineId. NET efektif kıyas. Smoke: cari(95,skor2) şubeyi(90,skor1) ezdi; cari yokken şube(90) kazandı.
+- **Faz D ✅** `PurchaseOrders/Details.CheckPriceVarianceAsync` → PO Warehouse'tan @BranchId türetip geçiyor. Satış/fatura: aktif resolver caller yok, tvf tek-kaynak hazır (capability).
+- **Review düzeltmeleri:** CRIT-1 (Seq=1 hardcoded anchor → dense-rank) + IMP-1 (Direction NULL backfill+NOT NULL+CHECK) + code HIGH (PriceCheckCtx.PartnerId non-nullable, gereksiz guard kaldırıldı) uygulandı.
+- **DEBT (kapsam dışı, pre-existing):** IMP-2 — sp_CheckPriceVariance MinQty kademesini belge miktarına göre filtrelemiyor (@OrderQty yok); en yüksek MinQty'li kademe seçilebilir → ulaşılmamış toplu-fiyat. Eski SP'de de vardı; toplu-fiyat devreye alınınca @OrderQty eklenmeli. → `docs/TODO.md`.
+- **Karar:** Satış fiyat önceliği = Alış (CARİ BASKIN, Partner×2+Branch×1) — kullanıcı onayı 2026-06-03.
 
 ## 🎯 NİHAİ KARAR — CARİ BASKIN (kullanıcı: "cari özelinde varsa cari olmalı")
 - **Skor: `Partner×2 + Branch×1`** → cari-özel (T-P, skor 2) şube-özel'i (T-B, skor 1) EZER.

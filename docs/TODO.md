@@ -10,6 +10,13 @@
   - [ ] **KALAN (kozmetik)**: 65 sayfayı `_PageHeader`'a standardize et (şu an global float buton kapsıyor; auth/terminal hariç). Action button'ların ActionsHtml'e taşınması dikkat ister.
   - [ ] **Opsiyonel**: yardım render'ı için `.help-content` CSS (h2/ul/table stili) — şu an tarayıcı default.
 
+## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)
+
+- [/] **Faz A–D ✅ / Faz E kaldı:** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire. Build+sql-sp-reviewer+code-reviewer+smoke geçti. **Kalan: Faz E** — PriceList CRUD UI (liste başlık + satır + "10+5+3" iskonto kısayolu).
+- [ ] **DEBT · MinQty miktar filtresi (IMP-2, pre-existing):** `sp_CheckPriceVariance` ORDER BY `MinQty DESC` ile en yüksek kademeyi seçiyor ama belge miktarına göre **WHERE `MinQty <= @OrderQty` filtresi YOK** (SP'ye @OrderQty geçmiyor). Toplu-fiyat kademesi devreye alınınca ulaşılmamış indirimli fiyat yanlış seçilir → @OrderQty parametresi + qty bandı predikatı eklenmeli. Eski SP'de de vardı, Plan 30 kapsamı değil.
+
+---
+
 ## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
 
 - [x] **Düzeltme revizyonu BUILD → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` AM yerinde UPDATE canlıda; build defalarca yeşil. (stale)

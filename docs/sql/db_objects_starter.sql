@@ -80,9 +80,103 @@ END
 GO
 
 -- =============================================================================
--- sp_CheckPriceVariance — PO satır fiyat sapması kontrolü
--- NE YAPAR: PO satırındaki gerçek fiyatı tedarikçiye özel veya genel PriceList ile
---   karşılaştırır; sapma toleransı aşılırsa PriceVariance DRAFT kaydı oluşturur.
+-- tvf_PriceListEffective — Plan 30: TEK DOĞRULUK KAYNAĞI fiyat çözümü
+-- NE YAPAR: Şirketin aktif + geçerli (bugün) PriceList satırlarını boyutlarıyla
+--   (Direction/Cari/Şube/Öncelik/MinQty/tarih) ve zincir-iskonto uygulanmış
+--   net efektif fiyatıyla birlikte döner. Resolver (sp_CheckPriceVariance /
+--   satış fiyat çözümü) bu TVF üzerinden TOP 1 seçer — tek kaynak.
+-- ZİNCİR İSKONTO: PriceListLineDiscount kademeleri ARDIŞIK çarpılır (toplanmaz):
+--   100 → 90 → 85,5 → 82,935. Hesap recursive CTE ile TAM DECIMAL (float YASAK —
+--   kuruş kayması engellenir). Sonda ROUND(...,4).
+-- MEVZUAT (KDVK md.25/a): BasePrice (brüt), TotalDiscountAmount, EffectivePrice
+--   (net) AYRI döner — KDV matrahı net üzerinden, iskonto faturada gösterilir.
+-- PARAMETRE: @CompanyId UNIQUEIDENTIFIER — şirket kimliği
+-- DÖNEN KOLONLAR: CompanyId, PriceListId, PriceListCode, Direction, PartnerId,
+--   BranchId, Priority, LineId, ItemId, MinQty, LineType, ValidFrom, ValidTo,
+--   Currency, BasePrice, NetMultiplier, EffectivePrice, TotalDiscountAmount
+-- NOT: MatchScore TVF'te HESAPLANMAZ — belge bağlamını (cari/şube) bilmediği için
+--   skorlama resolver'a (sp_CheckPriceVariance) bırakılır; TVF dimension-agnostik.
+-- =============================================================================
+CREATE OR ALTER FUNCTION dbo.tvf_PriceListEffective (@CompanyId UNIQUEIDENTIFIER)
+RETURNS TABLE
+AS
+RETURN
+(
+    WITH Ranked AS (
+        -- Kademeleri Seq sırasına göre 1..N yoğun indeksle (rn). Seq'in 1'den başlaması
+        -- veya boşluksuz olması ŞART DEĞİL; rn her zaman contiguous → recursive anchor güvenli.
+        -- (Aggregate recursive part'ta yasak olduğundan boşluk toleransı burada çözülür.)
+        SELECT LineId, Pct,
+               ROW_NUMBER() OVER (PARTITION BY LineId ORDER BY Seq) AS rn
+        FROM PriceListLineDiscount
+    ),
+    DiscountChain AS (
+        -- Anchor: ilk kademe (rn=1)
+        SELECT LineId, rn,
+               CAST(1 - Pct / 100.0 AS DECIMAL(28,12)) AS RunningMult
+        FROM Ranked
+        WHERE rn = 1
+        UNION ALL
+        -- Sonraki kademe: birikmiş çarpanı bir sonraki rn ile ardışık çarp (toplanmaz)
+        SELECT r.LineId, r.rn,
+               CAST(dc.RunningMult * (1 - r.Pct / 100.0) AS DECIMAL(28,12))
+        FROM Ranked r
+        JOIN DiscountChain dc ON dc.LineId = r.LineId AND r.rn = dc.rn + 1
+    ),
+    FinalMult AS (
+        -- Her satırın en yüksek rn'deki birikmiş çarpanı = nihai net çarpan
+        SELECT LineId, RunningMult AS NetMultiplier
+        FROM (
+            SELECT LineId, RunningMult,
+                   ROW_NUMBER() OVER (PARTITION BY LineId ORDER BY rn DESC) AS lastRn
+            FROM DiscountChain
+        ) x
+        WHERE x.lastRn = 1
+    )
+    SELECT
+        pl.CompanyId,
+        pl.Id            AS PriceListId,
+        pl.Code          AS PriceListCode,
+        pl.Direction,
+        pl.PartnerId,
+        pl.BranchId,
+        pl.Priority,
+        pll.Id           AS LineId,
+        pll.ItemId,
+        pll.MinQty,
+        pll.LineType,
+        pl.ValidFrom,
+        pl.ValidTo,
+        COALESCE(pll.Currency, pl.Currency, 'TRY') AS Currency,
+        -- Brüt baz fiyat (mevzuat: KDV matrahı/gösterim için AYRI)
+        CAST(pll.UnitPrice AS DECIMAL(18,4)) AS BasePrice,
+        -- Nihai net çarpan (iskonto kademesi yoksa 1)
+        COALESCE(fm.NetMultiplier, CAST(1 AS DECIMAL(28,12))) AS NetMultiplier,
+        -- Net efektif fiyat (zincir uygulanmış, sonda kuruşa ROUND)
+        CAST(ROUND(pll.UnitPrice * COALESCE(fm.NetMultiplier, CAST(1 AS DECIMAL(28,12))), 4) AS DECIMAL(18,4)) AS EffectivePrice,
+        -- Toplam iskonto tutarı (brüt − net) — faturada gösterim
+        CAST(pll.UnitPrice - ROUND(pll.UnitPrice * COALESCE(fm.NetMultiplier, CAST(1 AS DECIMAL(28,12))), 4) AS DECIMAL(18,4)) AS TotalDiscountAmount
+    FROM PriceList pl
+    JOIN PriceListLine pll ON pll.PriceListId = pl.Id
+    LEFT JOIN FinalMult fm ON fm.LineId = pll.Id
+    WHERE pl.CompanyId = @CompanyId
+      AND pl.IsActive = 1
+      AND pl.IsDeleted = 0
+      AND pll.IsDeleted = 0
+      -- Geçerlilik: bugün ValidFrom/ValidTo aralığında (NULL = sınırsız)
+      AND (pl.ValidFrom IS NULL OR pl.ValidFrom <= CAST(GETUTCDATE() AS DATE))
+      AND (pl.ValidTo   IS NULL OR pl.ValidTo   >= CAST(GETUTCDATE() AS DATE))
+);
+GO
+
+-- =============================================================================
+-- sp_CheckPriceVariance — PO satır fiyat sapması kontrolü (Plan 30: branch-aware)
+-- NE YAPAR: PO satırındaki gerçek fiyatı tvf_PriceListEffective'ten çözülen NET
+--   efektif beklenen fiyatla karşılaştırır; sapma varsa PriceVariance DRAFT açar.
+-- ÖNCELİK (Plan 30 — CARİ BASKIN): MatchScore = Partner×2 + Branch×1 DESC, sonra
+--   Priority DESC → MinQty DESC → ValidFrom DESC → LineId ASC (deterministik tie-break).
+--   Katman: T-PB(3) > T-P(2) > T-B(1) > T-G(0). Cari-özel fiyat şube fiyatını ezer.
+-- MEVZUAT (KDVK md.25/a): kıyas NET efektif fiyat üzerinden (brüt-net karıştırma yok).
 -- PARAMETRELERİ:
 --   @CompanyId   UNIQUEIDENTIFIER — şirket kimliği
 --   @PoHeaderId  UNIQUEIDENTIFIER — PO başlık kimliği
@@ -90,11 +184,12 @@ GO
 --   @ItemId      UNIQUEIDENTIFIER — malzeme kimliği
 --   @PartnerId   UNIQUEIDENTIFIER — tedarikçi kimliği
 --   @ActualPrice DECIMAL(18,4) — PO'daki gerçek birim fiyat
+--   @BranchId    UNIQUEIDENTIFIER (NULL) — belgenin şubesi (PO Warehouse'tan); NULL = genel
 --   @UserId      UNIQUEIDENTIFIER (NULL) — işlemi yapan kullanıcı
 --   @VarianceId  UNIQUEIDENTIFIER OUTPUT — oluşan PriceVariance kaydının kimliği (sapma yoksa NULL)
--- SIDE EFFECTS: PriceVariance (INSERT — tolerans aşılırsa DRAFT kayıt)
+-- SIDE EFFECTS: PriceVariance (INSERT — sapma varsa DRAFT kayıt)
 -- THROW: yok (liste fiyatı yoksa sessizce döner)
--- BAĞIMLILIK: PriceList, PriceListLine (tolerans YOK — her sapma variance)
+-- BAĞIMLILIK: tvf_PriceListEffective (tolerans YOK — her sapma variance)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CheckPriceVariance
     @CompanyId      UNIQUEIDENTIFIER,
@@ -103,6 +198,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_CheckPriceVariance
     @ItemId         UNIQUEIDENTIFIER,
     @PartnerId      UNIQUEIDENTIFIER,
     @ActualPrice    DECIMAL(18,4),
+    @BranchId       UNIQUEIDENTIFIER = NULL,
     @UserId         UNIQUEIDENTIFIER = NULL,
     @VarianceId     UNIQUEIDENTIFIER OUTPUT
 AS
@@ -112,29 +208,22 @@ BEGIN
 
     DECLARE @ExpectedPrice DECIMAL(18,4);
 
-    -- İş kuralı: PriceList üzerinde önce tedarikçi-özel, yoksa genel liste; Direction=PURCHASE
-    SELECT TOP 1 @ExpectedPrice = pll.UnitPrice
-    FROM PriceList pl
-    JOIN PriceListLine pll ON pll.PriceListId = pl.Id
-    WHERE pl.CompanyId = @CompanyId
-      AND pl.Direction = 'PURCHASE'
-      AND pl.PartnerId = @PartnerId
-      AND pl.IsActive = 1
-      AND pll.ItemId = @ItemId
-      AND (pl.ValidFrom IS NULL OR pl.ValidFrom <= CAST(GETUTCDATE() AS DATE))
-      AND (pl.ValidTo   IS NULL OR pl.ValidTo   >= CAST(GETUTCDATE() AS DATE))
-    ORDER BY pll.MinQty DESC;
-
-    IF @ExpectedPrice IS NULL
-        SELECT TOP 1 @ExpectedPrice = pll.UnitPrice
-        FROM PriceList pl
-        JOIN PriceListLine pll ON pll.PriceListId = pl.Id
-        WHERE pl.CompanyId = @CompanyId
-          AND pl.Direction = 'PURCHASE'
-          AND pl.PartnerId IS NULL
-          AND pl.IsActive = 1
-          AND pll.ItemId = @ItemId
-        ORDER BY pll.MinQty DESC;
+    -- İş kuralı: tek kaynak tvf_PriceListEffective'ten Direction=PURCHASE için TOP 1.
+    -- Uygun boyutlar: (Cari eşleşir VEYA genel) AND (Şube eşleşir VEYA genel).
+    -- MatchScore = Partner×2 + Branch×1 → cari baskın; net efektif fiyat alınır.
+    SELECT TOP 1 @ExpectedPrice = pe.EffectivePrice
+    FROM dbo.tvf_PriceListEffective(@CompanyId) pe
+    WHERE pe.Direction = 'PURCHASE'
+      AND pe.ItemId = @ItemId
+      AND (pe.PartnerId = @PartnerId OR pe.PartnerId IS NULL)
+      AND (pe.BranchId  = @BranchId  OR pe.BranchId  IS NULL)
+    ORDER BY
+        (CASE WHEN pe.PartnerId = @PartnerId THEN 2 ELSE 0 END
+       + CASE WHEN pe.BranchId  = @BranchId  THEN 1 ELSE 0 END) DESC,
+        pe.Priority   DESC,
+        pe.MinQty     DESC,
+        pe.ValidFrom  DESC,
+        pe.LineId     ASC;
 
     -- Liste fiyatı yoksa sapma kontrolü yapılamaz
     IF @ExpectedPrice IS NULL RETURN;

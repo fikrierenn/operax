@@ -220,20 +220,27 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     private async Task CheckPriceVarianceAsync(
         System.Data.IDbConnection conn, Guid headerId, Guid lineId, Guid itemId, decimal actualPrice)
     {
-        // Tedarikçi (PartnerId) header'dan okunur
-        var partnerId = await conn.ExecuteScalarAsync<Guid?>(
-            "SELECT PartnerId FROM PurchaseOrderHeader WHERE Id = @Id AND CompanyId = @CompanyId",
+        // Tedarikçi (PartnerId) ve belge şubesi (Warehouse → BranchId) header'dan okunur.
+        // Plan 30: şube boyutu fiyat önceliğine girer (cari baskın, Partner×2+Branch×1).
+        var ctx = await conn.QuerySingleOrDefaultAsync<PriceCheckCtx>(
+            @"SELECT h.PartnerId, w.BranchId
+              FROM PurchaseOrderHeader h
+              JOIN Warehouse w ON w.Id = h.WarehouseId
+              WHERE h.Id = @Id AND h.CompanyId = @CompanyId",
             new { Id = headerId, CompanyId = company.Id });
 
-        if (partnerId is null) return;
+        // Güvenlik: header veya bağlı depo kaydı bulunamazsa (silinmiş/tutarsız) kontrol atlanır.
+        // PartnerId şemada NOT NULL olduğundan ayrıca null kontrolü gereksiz.
+        if (ctx is null) return;
 
         var prm = new DynamicParameters();
         prm.Add("CompanyId",  company.Id);
         prm.Add("PoHeaderId", headerId);
         prm.Add("PoLineId",   lineId);
         prm.Add("ItemId",     itemId);
-        prm.Add("PartnerId",  partnerId.Value);
+        prm.Add("PartnerId",  ctx.PartnerId);
         prm.Add("ActualPrice", actualPrice);
+        prm.Add("BranchId",   ctx.BranchId);   // NULL = genel (şube ataması yoksa)
         prm.Add("UserId",     user.Id);
         prm.Add("VarianceId", dbType: System.Data.DbType.Guid, direction: System.Data.ParameterDirection.Output);
 
@@ -305,6 +312,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     }
 
     // ─── DTO'lar ────────────────────────────────────────────────
+    // Fiyat farkı kontrolü için belge bağlamı (tedarikçi + şube). Plan 30.
+    private sealed record PriceCheckCtx(Guid PartnerId, Guid? BranchId);
+
     public record PurchaseOrderHeaderDto
     {
         public Guid     Id                 { get; set; }

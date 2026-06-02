@@ -50,10 +50,31 @@ Terminal girişi: belge seçimi yerine **mod + bağlam** seçilir.
 - Stok: kabul → depo bin'i; `ReturnQty` → **iade/karantina bin'i** (sp_ReceivingPost; ReturnQty ayrı bin RECEIPT, çift-sayım yok).
 
 ### Faz C — Fatura-aşaması PO eşleştirme (BULK için, DO-NOW-after-B)
-Toplu kabul (BULK) → ReceivingLine PO satırına bağlı değil. Alış faturası kesilirken:
-- `sp_CreatePurchaseInvoiceFromReceiving` / N:1 birleştirme ekranında: kabul edilen ürün miktarları, tedarikçinin **açık PO satırlarına dağıtılır** (öneri: en eski PO önce / FIFO + kullanıcı override).
-- Eşleşen miktar `PurchaseInvoiceLine.SourceReceivingLineId` + ilgili `PurchaseOrderLineId` üzerinden bağlanır; PO `QtyReceived` güncellenir.
-- Fazla (havuz dışı) → fatura dışı / iade.
+Toplu kabul (BULK) → ReceivingLine PO satırına bağlı değil. Alış faturası kesilirken kabul miktarları tedarikçinin açık PO satırlarına dağıtılır.
+
+**Skill denetimi (2026-06-02): competitor-analyst + mali-evrak-mevzuat — tasarım ONAYLANDI + 5 düzeltme.**
+
+#### C1 — Şema (idempotent `schema_M03_ReceivingInvoiceMatch.sql`)
+- `PurchaseInvoiceLine += PurchaseOrderLineId UNIQUEIDENTIFIER NULL` — **şu an YOK** (sadece SourceReceivingLineId var). Fatura satırı hangi PO satırına tahsis edildi.
+- `ReceivingLine += InvoicedQty DECIMAL(18,6) NOT NULL DEFAULT 0` — kısmi faturalama (1 kabul → N fatura; plan 21 `ShippingLine.InvoicedQty` aynası).
+- (Ops.) satır-seviyesi açık-PO TVF: `tvf_OpenPurchaseOrderLines(@CompanyId, @PartnerId)` → PO satırı + QtyOrdered−QtyReceived (şu an yalnız başlık-seviye `tvf_OpenPurchaseOrders`).
+
+#### C2 — Tahsis SP (`sp_AllocateReceivingToPoLines` veya `sp_CreatePurchaseInvoiceFromReceiving` genişletme)
+- BULK kabul satırları (PurchaseOrderLineId NULL) için: ürün bazında kabul miktarı, tedarikçinin **açık PO satırlarına FIFO öner** (en eski PO/satır önce — **LIFO DEĞİL**, o iade'ye özel §12.8.1) + **kullanıcı override**.
+- Eşleşen miktar → `PurchaseInvoiceLine.PurchaseOrderLineId` set + **fiyat o PO satırından** + `SourceReceivingLineId` (satır-bazlı, §12.9 inbound aynası).
+- PO `QtyReceived` += tahsis (yalnız tahsis edilen). `ReceivingLine.InvoicedQty` += faturalanan.
+- Validasyon: `∑ InvoicedQty ≤ QtyBase` (aşırı-faturalama engeli, THROW).
+
+#### C3 — Mevzuat kuralları (mali-evrak, ZORUNLU)
+- **🔴 Alış faturası POST'unda 7-GÜN THROW YOK** — 7 gün kuralı düzenleyeni (tedarikçi) bağlar, alıcıyı değil. (Satış tarafında guard var; alışta KOYMA.)
+- **Tarih ayrımı:** `StockMovement.MovementDate` = tedarikçi irsaliye tarihi (Faz A SupplierWaybillDate); `AccountMovement` = tedarikçi fatura tarihi. İki tarih AYRI, karıştırma.
+- **Cari borç = fatura fiyatı** (PO değil); `ItemCost.AvgCost` = fatura fiyatı (gerçek maliyet); fark → PriceVariance (plan 27 AI-override) — cari borcu değiştirmez.
+- `sp_GuardPeriodOpen` her hareket kendi tarihiyle.
+
+#### C4 — UI
+- PurchaseInvoices Create/Details: BULK kaynaklı satırlarda PO satır seçici (FIFO ön-dolu + override), açık-PO satır listesi + kalan miktar.
+
+**DOĞRULANMADI (Faz C öncesi karar):** toplu kabulde **çoklu tedarikçi irsaliyesi** — başlık tek `SupplierWaybillNo` alanı tutuyor; bir toplu kabulde N irsaliye gelirse satır/çoklu referans gerekir mi (3-way match tamlığı). Faz C kapsamı mı, ileri mi?
 
 ### Faz D — Tedarikçiye iade faturası (DEFERRED — İade modülü bağımlı)
 - `ReturnQty > 0` → tedarikçiye iade faturası (mali-evrak: SourceInvoiceLineId, DocumentTypeCode=RETURN, fatura no+tarih zorunlu).

@@ -26,7 +26,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public bool IsNew => Header.Id == Guid.Empty;
     public decimal Subtotal => Lines.Sum(l => l.QtyOrdered * (l.Price ?? 0));
-    public decimal Vat      => System.Math.Round(Subtotal * 0.20m, 2);
+    // KDV satır-bazlı (her ürünün kendi TaxRate'i) — sabit %20 değil
+    public decimal Vat      => Lines.Sum(l => l.LineTax);
     public decimal Grand    => Subtotal + Vat;
 
     // Sipariş detay sayfasını yükler: yeni sipariş ise boş form, mevcut ise başlık+satır+aktivite
@@ -103,7 +104,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         Lines = await conn.QueryAsync<SalesOrderLineDto>(@"
             SELECT
                 l.Id, i.Code AS ItemCode, i.Name AS ItemName, dv.Code AS UomCode,
-                l.QtyOrdered, l.QtyReserved, l.QtyShipped, l.Price
+                l.QtyOrdered, l.QtyReserved, l.QtyShipped, l.Price,
+                ISNULL(i.TaxRate, 20) AS TaxRate
             FROM SalesOrderLine l
             JOIN SalesOrderHeader oh ON oh.Id = l.HeaderId
             JOIN Item i ON i.Id = l.ItemId
@@ -330,7 +332,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public decimal  QtyReserved { get; set; }
         public decimal  QtyShipped  { get; set; }
         public decimal? Price       { get; set; }
+        public decimal  TaxRate     { get; set; } = 20;
         public decimal  LineTotal   => QtyOrdered * (Price ?? 0);
+        public decimal  LineTax     => System.Math.Round(LineTotal * TaxRate / 100m, 2);
         public decimal  OpenQty     => QtyOrdered - QtyShipped;
     }
 

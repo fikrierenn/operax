@@ -218,7 +218,7 @@
                                         <td><span class="badge badge-neutral" style="height:18px;">@l.UomCode</span></td>
                                         <td class="num">@UiHelpers.FmtNum(l.QtyOrdered)</td>
                                         <td class="num">@UiHelpers.FmtNum(l.Price ?? 0, 2)</td>
-                                        <td class="num muted">%20</td>
+                                        <td class="num muted">%@UiHelpers.FmtNum(l.TaxRate, 0)</td>
                                         <td class="num"><span class="row-strong">@UiHelpers.FmtTL(l.LineTotal)</span></td>
                                     </tr>
                                 }
@@ -271,7 +271,7 @@
                                 <span class="mono text-strong">@UiHelpers.FmtTL(Model.Subtotal)</span>
                             </div>
                             <div class="doc-total">
-                                <span class="text-mute">KDV (%20)</span>
+                                <span class="text-mute">KDV</span>
                                 <span class="mono text-strong">@UiHelpers.FmtTL(Model.Vat)</span>
                             </div>
                             <div class="doc-total">

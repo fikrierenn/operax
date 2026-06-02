@@ -29,7 +29,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public bool IsNew => Header.Id == Guid.Empty;
     public decimal Subtotal => Lines.Sum(l => l.QtyOrdered * (l.Price ?? 0));
-    public decimal Vat      => System.Math.Round(Subtotal * 0.20m, 2);
+    // KDV satır-bazlı (her ürünün kendi TaxRate'i) — sabit %20 değil
+    public decimal Vat      => Lines.Sum(l => l.LineTax);
     public decimal Grand    => Subtotal + Vat;
 
     public async Task OnGetAsync(Guid? id)
@@ -112,7 +113,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         Lines = await conn.QueryAsync<PurchaseOrderLineDto>(@"
             SELECT
                 l.Id, i.Code AS ItemCode, i.Name AS ItemName, dv.Code AS UomCode,
-                l.QtyOrdered, l.QtyReceived, l.Price
+                l.QtyOrdered, l.QtyReceived, l.Price,
+                ISNULL(i.TaxRate, 20) AS TaxRate
             FROM PurchaseOrderLine l
             JOIN PurchaseOrderHeader oh ON oh.Id = l.HeaderId
             JOIN Item i ON i.Id = l.ItemId
@@ -330,7 +332,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public decimal  QtyOrdered  { get; set; }
         public decimal  QtyReceived { get; set; }
         public decimal? Price       { get; set; }
+        public decimal  TaxRate     { get; set; } = 20;
         public decimal  LineTotal   => QtyOrdered * (Price ?? 0);
+        public decimal  LineTax     => System.Math.Round(LineTotal * TaxRate / 100m, 2);
     }
 
     // Denetim izi satırı — UserName NULL ise view 'Sistem' fallback uygular, etiket UiHelpers.AuditActionLabel'dan gelir.

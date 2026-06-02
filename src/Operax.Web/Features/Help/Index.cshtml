@@ -2,6 +2,23 @@
 @model Operax.Web.Features.Help.IndexModel
 @{
     ViewData["Title"] = Model.Title;
+    if (Model.Embed) { Layout = null; }
+}
+
+@* Kayan panel (drawer) için layout'suz fragment — yalnızca o ekranın yardım içeriği *@
+@if (Model.Embed)
+{
+    if (Model.Found)
+    {
+        <div class="help-content">@Html.Raw(Model.ContentHtml)</div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p class="text-slate-500 font-medium">Bu ekran için yardım içeriği henüz hazırlanmadı.</p>
+        </div>
+    }
+    return;
 }
 
 <div class="page" data-screen-label="Yardım" style="max-width:1100px;">

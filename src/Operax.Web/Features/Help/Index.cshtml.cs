@@ -17,14 +17,16 @@ public class IndexModel(IWebHostEnvironment env, ILogger<IndexModel> logger) : P
     public string ContentHtml { get; set; } = "";
     public bool Found { get; set; }
     public string? ReturnPath { get; set; }
+    public bool Embed { get; set; }   // true → kayan panel (drawer) için layout'suz fragment
     public List<(string Slug, string Title)> AllTopics { get; set; } = [];
 
     // Markdown render hattı — güvenli HTML (raw inline HTML devre dışı, XSS yüzeyi yok)
     private static readonly MarkdownPipeline Pipeline =
         new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
-    public void OnGet(string? ret)
+    public void OnGet(string? ret, bool embed = false)
     {
+        Embed = embed;
         ReturnPath = string.IsNullOrWhiteSpace(ret) ? null : ret;
         var dir = Path.Combine(env.ContentRootPath, "App_Data", "manual", "screens");
         LoadTopics(dir);

@@ -40,12 +40,16 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
 
         if (ActiveDoc == null) return;
 
+        // İlerleme sayacı: beklenen miktar tek-sipariş modunda PO satırından (QtyOrdered) gelir;
+        // toplu/serbest modda PO satırı olmadığından okutulan orijinal (QtyOriginal) beklenen sayılır.
         ActiveDoc.Lines = (await conn.QueryAsync<ReceivingLineTermDto>(@"
             SELECT l.Id, i.Code AS ItemCode, i.Name AS ItemName,
-                   l.QtyOriginal AS QtyExpected, l.QtyBase AS QtyReceived, l.LotNo
+                   COALESCE(pol.QtyOrdered, l.QtyOriginal) AS QtyExpected,
+                   l.QtyBase AS QtyReceived, l.ReturnQty AS ReturnPending, l.LotNo
             FROM ReceivingLine l
             JOIN Item i ON i.Id = l.ItemId
             JOIN ReceivingHeader h ON h.Id = l.HeaderId
+            LEFT JOIN PurchaseOrderLine pol ON pol.Id = l.PurchaseOrderLineId
             WHERE l.HeaderId = @DocId AND h.CompanyId = @CompanyId
             ORDER BY i.Code",
             new { DocId = docId, CompanyId = company.Id })).ToList();
@@ -115,6 +119,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         public string ItemName { get; set; } = "";
         public decimal QtyExpected { get; set; }
         public decimal QtyReceived { get; set; }
+        public decimal ReturnPending { get; set; }
         public string? LotNo { get; set; }
         public bool IsComplete => QtyReceived >= QtyExpected && QtyExpected > 0;
     }

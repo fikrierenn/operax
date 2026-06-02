@@ -55,6 +55,14 @@ public static class SourceDoc
     public const string Production = "PRODUCTION";
 }
 
+/// <summary>Mal kabul modu sabitleri (Plan 28) — terminal/masaüstü kabul akışı</summary>
+public static class ReceivingMode
+{
+    public const string SinglePo      = "SINGLE_PO";      // Tek siparişe karşı kontrollü kabul
+    public const string BulkSupplier  = "BULK_SUPPLIER";  // Tedarikçinin tüm açık siparişleri — toplu/kör kabul
+    public const string Free          = "FREE";           // Siparişsiz serbest kabul (yetkili)
+}
+
 /// <summary>Belge ön ek sabitleri</summary>
 public static class DocPrefix
 {

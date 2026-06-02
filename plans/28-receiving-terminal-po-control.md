@@ -5,7 +5,7 @@
 ## İLERLEME
 - ✅ **Faz A** (şema): ReceivingMode + tedarikçi irsaliye no/tarih + ReturnQty + Bin.IsReturnArea + IADE bin seed.
 - ✅ **Faz B** (SP+handler+post): sp_ReceivingTerminalScan 3 mod (smoke: 500+400→800 kabul/100 iade); terminal handler SP+FREE yetki+fazla uyarı; sp_ReceivingPost ReturnQty→iade bin. sql-sp-reviewer: CRITICAL yok, 2 advisory eşzamanlılık notu dokümante edildi.
-- ⬜ **Faz B-UI kalan:** terminal mod-seçim girişi (BULK tedarikçi seç / FREE oluşturma); tedarikçi irsaliye no/tarih giriş alanı; terminal ilerleme beklenen=PO'dan.
+- ✅ **Faz B-UI:** Receiving/Details mod seçici (Tek Sipariş/Toplu/Serbest) + mode→PO görünürlük JS + tedarikçi irsaliye no/tarih alanı + mod whitelist guard (garbage mod→FREE bypass kapatıldı) + FREE oluşturma yetki gate. Terminal ilerleme beklenen=PO QtyOrdered (COALESCE) + iade-bekleyen rozeti. ReceivingMode sabiti Dtos.cs.
 - ⬜ **Faz C:** toplu kabul → fatura aşaması PO eşleştirme (plan 21 satır-bağ).
 - ⬜ **Faz D:** iade faturası (İade modülü bağımlı).
 

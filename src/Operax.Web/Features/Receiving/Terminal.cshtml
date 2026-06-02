@@ -118,6 +118,10 @@ else
                         <div class="text-[10px] @(line.IsComplete ? "text-green-500" : "text-slate-500")">
                             @(line.IsComplete ? "✓ Tamamlandı" : "Bekliyor")
                         </div>
+                        @if (line.ReturnPending > 0)
+                        {
+                            <div class="text-[10px] text-red-400 font-bold">⚠ İade: @line.ReturnPending.ToString("N2")</div>
+                        }
                     </div>
                 </div>
             }

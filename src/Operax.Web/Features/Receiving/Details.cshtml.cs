@@ -53,6 +53,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         {
             Header = await conn.QueryFirstOrDefaultAsync<ReceivingHeaderDto>(@"
                 SELECT r.Id, r.WarehouseId, r.PartnerId, r.PurchaseOrderId, r.DocNo, r.Status, r.Notes,
+                       r.ReceivingMode AS Mode, r.SupplierWaybillNo, r.SupplierWaybillDate,
                        p.Name as PartnerName
                 FROM ReceivingHeader r
                 JOIN Partner p ON p.Id = r.PartnerId
@@ -112,6 +113,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             return RedirectToPage(new { id = IsNew ? (Guid?)null : Header.Id });
         }
 
+        // Güvenlik: mod istemciden gelir; geçersiz değer SP'de FREE gibi davranıp yetki kapısını atlayabilir.
+        // Bu yüzden yalnız bilinen 3 sabit kabul edilir (mass-assignment / mod enjeksiyonu koruması).
+        if (Header.Mode is not (ReceivingMode.SinglePo or ReceivingMode.BulkSupplier or ReceivingMode.Free))
+        {
+            TempData["Error"] = "Geçersiz kabul modu.";
+            return RedirectToPage(new { id = IsNew ? (Guid?)null : Header.Id });
+        }
+
+        // İş kuralı: serbest (FREE) mod oluşturmak yalnız yetkili rollerde (terminal scan da ayrıca kontrol eder)
+        if (IsNew && Header.Mode == ReceivingMode.Free
+            && !user.HasRole(Roles.Administrator, Roles.WarehouseManager, Roles.Purchasing))
+        {
+            TempData["Error"] = "Siparişsiz (serbest) mal kabul oluşturma yetkiniz yok.";
+            return RedirectToPage(new { id = (Guid?)null });
+        }
+
         if (IsNew)
         {
             Header.Id = Guid.NewGuid();
@@ -121,23 +138,39 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 new { CompanyId = company.Id });
             Header.DocNo = $"{DocPrefix.Receiving}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
+            // İş kuralı (Plan 28): tek-sipariş modunda PO seçimi zorunlu; toplu/serbest modda PO boş kalır
+            if (Header.Mode == ReceivingMode.SinglePo && Header.PurchaseOrderId == null)
+            {
+                TempData["Error"] = "Tek sipariş modunda açık sipariş seçimi zorunludur.";
+                return RedirectToPage(new { id = (Guid?)null });
+            }
+
             await conn.ExecuteAsync(@"
                 INSERT INTO ReceivingHeader
-                    (Id, CompanyId, WarehouseId, PartnerId, PurchaseOrderId, DocNo, Status, Notes, CreatedBy)
+                    (Id, CompanyId, WarehouseId, PartnerId, PurchaseOrderId, ReceivingMode,
+                     SupplierWaybillNo, SupplierWaybillDate, DocNo, Status, Notes, CreatedBy)
                 VALUES
-                    (@Id, @CompanyId, @WarehouseId, @PartnerId, @PurchaseOrderId, @DocNo, @Status, @Notes, @UserId)",
+                    (@Id, @CompanyId, @WarehouseId, @PartnerId, @PurchaseOrderId, @Mode,
+                     @SupplierWaybillNo, @SupplierWaybillDate, @DocNo, @Status, @Notes, @UserId)",
                 new {
                     Header.Id, CompanyId = company.Id, Header.WarehouseId, Header.PartnerId,
-                    Header.PurchaseOrderId, Header.DocNo, Status = DocStatus.Draft, Header.Notes,
+                    PurchaseOrderId = Header.Mode == ReceivingMode.SinglePo ? Header.PurchaseOrderId : (Guid?)null,
+                    Header.Mode, Header.SupplierWaybillNo, Header.SupplierWaybillDate,
+                    Header.DocNo, Status = DocStatus.Draft, Header.Notes,
                     UserId = user.Id
                 });
             await audit.LogAsync("CREATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
         else
         {
-            await conn.ExecuteAsync(
-                "UPDATE ReceivingHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, PurchaseOrderId=@PurchaseOrderId, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
-                new { Header.WarehouseId, Header.PartnerId, Header.PurchaseOrderId, Header.Notes, Header.Id, CompanyId = company.Id });
+            await conn.ExecuteAsync(@"
+                UPDATE ReceivingHeader
+                SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, PurchaseOrderId=@PurchaseOrderId,
+                    SupplierWaybillNo=@SupplierWaybillNo, SupplierWaybillDate=@SupplierWaybillDate, Notes=@Notes
+                WHERE Id=@Id AND CompanyId=@CompanyId",
+                new { Header.WarehouseId, Header.PartnerId, Header.PurchaseOrderId,
+                      Header.SupplierWaybillNo, Header.SupplierWaybillDate, Header.Notes,
+                      Header.Id, CompanyId = company.Id });
             await audit.LogAsync("UPDATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
@@ -236,6 +269,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public string  Status           { get; set; } = DocStatus.Draft;
         public string? Notes            { get; set; }
         public string? PartnerName      { get; set; }
+        // Plan 28: kabul modu + tedarikçi sevk irsaliyesi (VUK md.230 — 3-way match)
+        public string  Mode             { get; set; } = ReceivingMode.SinglePo;
+        public string? SupplierWaybillNo   { get; set; }
+        public DateTime? SupplierWaybillDate { get; set; }
     }
 
     public record ReceivingLineDto

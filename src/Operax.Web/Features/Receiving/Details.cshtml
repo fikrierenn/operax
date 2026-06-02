@@ -46,6 +46,30 @@
     <!-- Belge Başlığı -->
     <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
         <div class="form-group mb-0">
+            <label class="form-label">Kabul Modu</label>
+            @if (Model.IsNew)
+            {
+                <select asp-for="Header.Mode" id="rcv-mode" class="form-ctrl w-full">
+                    <option value="@Operax.Web.Lib.ReceivingMode.SinglePo">Tek Sipariş (Kontrollü)</option>
+                    <option value="@Operax.Web.Lib.ReceivingMode.BulkSupplier">Toplu Kabul (Tedarikçi — Kör)</option>
+                    <option value="@Operax.Web.Lib.ReceivingMode.Free">Serbest (Siparişsiz)</option>
+                </select>
+                <span class="form-hint">Tek sipariş: PO satırına karşı kontrol. Toplu: tüm açık siparişler, fatura aşamasında eşleştirilir. Serbest: yetkili kullanıcı.</span>
+            }
+            else
+            {
+                <div class="mt-1">
+                    <span class="badge badge-neutral font-mono font-bold">
+                        @(Model.Header.Mode switch {
+                            Operax.Web.Lib.ReceivingMode.BulkSupplier => "TOPLU KABUL",
+                            Operax.Web.Lib.ReceivingMode.Free => "SERBEST",
+                            _ => "TEK SİPARİŞ" })
+                    </span>
+                </div>
+                <input type="hidden" asp-for="Header.Mode" />
+            }
+        </div>
+        <div class="form-group mb-0">
             <label class="form-label">Depo</label>
             <select asp-for="Header.WarehouseId" class="form-ctrl w-full" required>
                 <option value="">Depo Seçiniz...</option>
@@ -78,6 +102,16 @@
                 }
             </select>
             <span class="form-hint" id="po-empty-hint" style="display:none">Seçili tedarikçinin açık siparişi yok.</span>
+        </div>
+        <div class="form-group mb-0">
+            <label class="form-label">Tedarikçi İrsaliye No</label>
+            <input asp-for="Header.SupplierWaybillNo" class="form-ctrl w-full" placeholder="Gelen sevk irsaliyesi no" maxlength="50" />
+            <span class="form-hint">VUK md.230 — mal kabulün dayanağı sevk irsaliyesi.</span>
+        </div>
+        <div class="form-group mb-0">
+            <label class="form-label">İrsaliye Tarihi</label>
+            <input asp-for="Header.SupplierWaybillDate" type="date" class="form-ctrl w-full" />
+            <span class="form-hint">Fiili sevk/teslim tarihi (stok hareket tarihi).</span>
         </div>
         <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
             <label class="form-label md:text-right">Belge Durumu</label>
@@ -148,6 +182,18 @@
     if (poSearch)   { poSearch.addEventListener('input', applyFilter); }
     poSelect.addEventListener('change', fillFromPo);
     applyFilter();
+
+    // Plan 28: kabul moduna göre sipariş seçici görünürlüğü (yalnız tek-sipariş modunda)
+    var modeSel = document.getElementById('rcv-mode');
+    var poGroup = poSelect.closest('.form-group');
+    function applyMode() {
+        if (!modeSel || !poGroup) return;
+        var single = modeSel.value === 'SINGLE_PO';
+        poGroup.style.display = single ? '' : 'none';
+        poSelect.required = single;
+        if (!single) { poSelect.value = ''; }
+    }
+    if (modeSel) { modeSel.addEventListener('change', applyMode); applyMode(); }
 })();
 </script>
 

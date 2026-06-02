@@ -36,12 +36,21 @@ public class IndexModel(IWebHostEnvironment env, ILogger<IndexModel> logger) : P
         if (slug is null) { Title = "Kullanıcı Kitapçığı"; Found = false; return; }
 
         var path = Path.Combine(dir, slug + ".md");
+        // Route /PurchaseOrders → slug "purchaseorders"; varsayılan sayfa Index → "purchaseorders-index" dene
         if (!System.IO.File.Exists(path))
         {
-            // Slug birebir yoksa modül kökü (ilk segment) yardımına düş
+            var indexPath = Path.Combine(dir, slug + "-index.md");
+            if (System.IO.File.Exists(indexPath)) path = indexPath;
+        }
+        if (!System.IO.File.Exists(path))
+        {
+            // Hâlâ yoksa modül kökü (ilk segment) yardımına düş
             var moduleSlug = slug.Split('-')[0];
-            var modulePath = Path.Combine(dir, moduleSlug + ".md");
-            if (System.IO.File.Exists(modulePath)) path = modulePath;
+            foreach (var cand in new[] { moduleSlug + ".md", moduleSlug + "-index.md" })
+            {
+                var mp = Path.Combine(dir, cand);
+                if (System.IO.File.Exists(mp)) { path = mp; break; }
+            }
         }
 
         if (System.IO.File.Exists(path))

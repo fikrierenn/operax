@@ -433,7 +433,7 @@
             ov.style.display = 'block';
             body.innerHTML = 'Yükleniyor…';
             document.getElementById('help-fulllink').href = '/Help?ret=' + encodeURIComponent(ret);
-            fetch('/Help?embed=1&ret=' + encodeURIComponent(ret), { credentials: 'same-origin' })
+            fetch('/Help?embed=true&ret=' + encodeURIComponent(ret), { credentials: 'same-origin' })
                 .then(function (r) { return r.text(); })
                 .then(function (html) { body.innerHTML = html; body.scrollTop = 0; })
                 .catch(function () { body.innerHTML = '<p>Yardım yüklenemedi.</p>'; });

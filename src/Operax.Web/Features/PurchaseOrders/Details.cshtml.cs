@@ -48,11 +48,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0", p);
 
         // Ürün → önerilen alış fiyatı (son hareketli ortalama maliyet). Satır eklerken fiyat otomatik gelir.
+        // ItemCost ürün başına birden çok satır olabilir (depo bazlı) → GROUP BY ile tek değer (mükerrer key hatası önlenir).
         var itemPrices = await conn.QueryAsync<(Guid Id, decimal AvgCost)>(
-            @"SELECT i.Id, ISNULL(ic.AvgCost, 0) AS AvgCost
+            @"SELECT i.Id, ISNULL(MAX(ic.AvgCost), 0) AS AvgCost
               FROM Item i
               LEFT JOIN ItemCost ic ON ic.ItemId = i.Id AND ic.CompanyId = @CompanyId
-              WHERE i.CompanyId = @CompanyId AND i.IsActive = 1 AND i.IsDeleted = 0", p);
+              WHERE i.CompanyId = @CompanyId AND i.IsActive = 1 AND i.IsDeleted = 0
+              GROUP BY i.Id", p);
         ItemPriceJson = System.Text.Json.JsonSerializer.Serialize(
             itemPrices.ToDictionary(x => x.Id.ToString(), x => x.AvgCost));
 

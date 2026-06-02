@@ -55,6 +55,25 @@ Toplu kabul (BULK) → ReceivingLine PO satırına bağlı değil. Alış fatura
 ## Faz sonu (A+B)
 build-validator → sql-sp-reviewer (sp_ReceivingPost + ReturnQty) → security-reviewer (yetki) → E2E smoke (PO 100 → 120 okut → 100 kabul + 20 iade-pending + uyarı; yanlış ürün → red; yetkisiz serbest → red).
 
+## Mevzuat Denetimi (mali-evrak-mevzuat skill, 2026-06-03)
+- **(a) Kör/toplu kabul VUK uygun** — mal kabul iç stok hareketi; resmi belge zorunluluğu yaratmaz. Kritik olan tedarikçi **sevk irsaliyesi** (VUK md.230).
+- **(b) ZORUNLU EKLE:** `ReceivingHeader.SupplierWaybillNo` + `SupplierWaybillDate` (gelen tedarikçi irsaliyesi). Toplu kabulde birden çok irsaliye olabilir → satır-bazlı veya çoklu irsaliye referansı. 3-way match için şart.
+- **(c) FAZLA MAL AKIŞI DÜZELTİLDİ:** "iade faturası" tek başına yanlış. Doğru:
+  - Fazla → **karantina/iade alanı** (henüz fatura yok).
+  - Yol 1: **Reddet + geri gönder** → iade İRSALİYESİ (faturasız, mal çıkışı), stok girmemiş sayılır.
+  - Yol 2: **Kabul et** → tedarikçi fazlayı faturalarsa → **ALICI (biz) iade faturası** keser (Faz D). Faturalanmadıysa iade faturası YOK.
+  - İade faturasını **ALICI keser** (mali-evrak §2) — biz tedarikçiye keseriz, doğru; ama yalnız faturalı fazlada.
+- **(d) MovementDate = fiili teslim/irsaliye tarihi** (sistem tarihi değil — B19 gap). sp_ReceivingPost MovementDate'i irsaliye tarihinden almalı.
+- **Faz D yeniden:** "iade faturası" → "fazla mal çözümü" (reddet-iade-irsaliyesi VEYA faturalı-fazla-iade-faturası). İkincisi İade modülü (M-F2.2) bağımlı.
+
+## Rakip Analizi (competitor-analyst skill, 2026-06-03)
+- **Pazar parite:** Mikro/Logo mal kabul = "Giriş İrsaliyesi" (PO bağı opsiyonel) + serbest "Depo Giriş Fişi". Plan'ın 3 modu pazarla uyumlu.
+- **Toplu kabul→fatura = inbound aynası:** Mikro N irsaliye→1 fatura satır-bazlı bağ (§12.9). Operax outbound'da MEVCUT (plan 21, SourceShipmentLineId). Toplu kabul→fatura eşleştirme aynı pattern'i PO/inbound'a uygula → tutarlı + denenmiş.
+- **TR gap M03.F1** (faturalı vs faturasız mal kabul, Operax ⚠️): plan kabul=stok / fatura=mali ayrımıyla kapatıyor ✓.
+- **🎯 Farklılaşma:** terminal barkod-tarama ile kontrollü + toplu kabul; rakipler masaüstü form ağırlıklı. Saha hızı avantajı.
+
+## VERDİKT (skill denetimi): Tasarım UYGUN — mevzuat fix'leri (b/c/d) işlenince. Toplu kabul→fatura için plan 21 satır-bağ pattern'i yeniden kullan.
+
 ## Riskler
 - **sp_ReceivingPost değişimi** ledger'a dokunur (StockMovement) → iade-pending ayrı bin, çift-sayım yok (flag-only dersi).
 - Beklenen/alınan ayrımı mevcut serbest akışı bozmamalı (PO-suz belgede Ordered=null → eski davranış).

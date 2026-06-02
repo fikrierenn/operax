@@ -82,7 +82,7 @@
         <div class="kpi-foot">
             @if (Model.OverdueInvoiceCount > 0)
             {
-                <span class="kpi-delta down">@Model.OverdueInvoiceCount adet @Operax.Web.Features.Receiving.IndexModel.InvoiceAgingThresholdDays+ gün gecikti</span>
+                <span class="kpi-delta down">@Model.OverdueInvoiceCount adet @Model.InvoiceAgingThresholdDays+ gün gecikti</span>
             }
             else
             {
@@ -141,7 +141,7 @@
                     <td>
                         @{
                             var awaiting = r.BillingStatus is "NONE" or "PARTIAL";
-                            var overdue  = awaiting && r.DaysSinceReceipt >= Operax.Web.Features.Receiving.IndexModel.InvoiceAgingThresholdDays;
+                            var overdue  = awaiting && r.DaysSinceReceipt >= Model.InvoiceAgingThresholdDays;
                         }
                         @switch (r.BillingStatus)
                         {

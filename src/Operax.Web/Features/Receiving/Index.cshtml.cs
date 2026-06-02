@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.Receiving;
 
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameters) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
@@ -27,12 +27,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int AwaitingInvoiceCount { get; set; } = 0;
     public int OverdueInvoiceCount { get; set; } = 0;
 
-    // GRNI yaşlandırma eşiği: bu kadar gündür faturasız POSTED mal kabul "geciken" sayılır
-    public const int InvoiceAgingThresholdDays = 30;
+    // GRNI yaşlandırma eşiği — parametrik (Parameter: INVOICE_AGING_DAYS), kayıt yoksa 30 gün varsayılan
+    public int InvoiceAgingThresholdDays { get; set; } = 30;
 
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+
+        // GRNI yaşlandırma eşiğini parametreden oku (Admin > Parametreler ile değiştirilebilir)
+        InvoiceAgingThresholdDays = await parameters.GetIntAsync("INVOICE_AGING_DAYS", 30);
 
         // KPI sayaçları: filtre uygulanmadan tüm belgelerin durum dağılımı
         const string countSql = @"

@@ -126,6 +126,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<ICurrentCompany, CurrentCompany>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
+builder.Services.AddScoped<Operax.Web.Lib.ParameterStore>();
 // Plan 27: Yerel AI istemcisi (qwen2.5, LLamaSharp süreç-içi) — fiyat farkı gerekçe denetimi.
 // Singleton: model bir kez yüklenir (tembel, Ai:Enabled=false ise hiç yüklenmez). Bulut yok.
 builder.Services.AddSingleton<Operax.Web.Lib.Ai.IOperaxAiClient, Operax.Web.Lib.Ai.OperaxAiClient>();

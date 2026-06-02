@@ -18,3 +18,14 @@ BEGIN
     PRINT 'ReceivingLine.InvoicedQty eklendi (kısmi faturalama).';
 END
 GO
+
+-- GRNI faturasız mal kabul yaşlandırma eşiği (gün) — kod içinde sabit DEĞİL, parametrik.
+-- Her şirkete varsayılan 30; Admin > Parametreler ekranından değiştirilebilir.
+INSERT INTO Parameter (Id, CompanyId, ModuleCode, Code, Value, Description)
+SELECT NEWID(), c.Id, 'M03', 'INVOICE_AGING_DAYS', '30',
+       N'Faturasız mal kabul kaç gün sonra "geciken" sayılır (GRNI yaşlandırma eşiği).'
+FROM Company c
+WHERE NOT EXISTS (
+    SELECT 1 FROM Parameter p
+    WHERE p.CompanyId = c.Id AND p.Code = 'INVOICE_AGING_DAYS' AND p.IsDeleted = 0);
+GO

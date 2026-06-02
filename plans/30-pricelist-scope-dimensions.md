@@ -33,6 +33,12 @@
 - **E — UI:** PriceList CRUD ekranı (yok!) — liste başlık (Direction/Cari/Şube/Priority/tarih) + satır (ürün/fiyat/LineType) + iskonto "10+5+3" kısayol → child satır.
 - Faz sonu: build + sql-sp-reviewer + smoke (cari-özel şube-özeli ezer; 10+5+3 → 82,935 doğrula).
 
+## ⚖️ MEVZUAT DOĞRULAMASI (mali-evrak-mevzuat, 2026-06-02)
+- **(a) KDV matrahı [DOC — KDVK md.25/a]:** iskonto sonrası NET üzerinden KDV. Şart: iskonto faturada gösterilmeli.
+- **(c) Gösterim [DOC/YORUM]:** iskonto faturada AÇIKÇA görünmeli (brüt + iskonto + net). Efektifi tek satır yazıp iskontoyu gizlemek matrahı brüt yapar → YANLIŞ. ⇒ **iTVF `EffectivePrice` (net) + `BasePrice` (brüt) + `TotalDiscountAmount` AYRI dönmeli** (fatura gösterimi).
+- **(e) Variance [YORUM]:** net-efektif fiyat ↔ PO net fiyat kıyası. Brüt-net karıştırma = yanlış variance.
+- **(b/d) UBL-TR:** satır `AllowanceCharge` (ChargeIndicator=false). Zincir → tek net iskonto tutarına indirgenip gösterilir (yaygın). **DOĞRULANMADI:** çoklu vs tek AllowanceCharge — e-Belge faz öncesi GİB kılavuz teyidi.
+
 ## NOT
 Şema ALTER (BranchId + audit) bu oturumda yazılıp **geri alındı** — Priority + child iskonto tablosu + iTVF ile BİRLİKTE tek seferde yazılacak (parçalı şema asılmasın). Aşağıdaki orijinal Faz A bu kararlarla revize edilecek.
 

@@ -11,6 +11,10 @@ Terminal mal kabul **serbest mod**: DRAFT belgeye herhangi barkod okutulup eklen
 ## Kullanıcı Kararları
 - **Fazla okutma:** UYAR + kabul et; aşan miktar **iade alanına** (return-pending) ayrılır → sonra tedarikçiye **iade faturası** kesilir.
 - **Serbest (siparişsiz) mod:** kalsın ama **yetki dahilinde** (yetkisiz kullanıcı PO'suz mal kabul yapamaz).
+- **Üç mod (kullanıcı eklemesi):**
+  1. **Tek sipariş** — bir PO seçilip ona karşı kontrollü kabul.
+  2. **Çoklu / toplu (kör) kabul** — tedarikçinin TÜM açık siparişleri seçilip mal toptan okutulur (karışık gelen yükü PO bazında ayıklamak zor). Tarama anında PO ayrımı yapılmaz; ürün+miktar toplanır. **PO satır eşleştirmesi FATURA aşamasında** yapılır (fatura hangi siparişlere ne kadar dağıtacağını belirler).
+  3. **Serbest** — siparişsiz (yetkili).
 
 ## Scope — 3 Faz
 
@@ -19,18 +23,34 @@ Terminal mal kabul **serbest mod**: DRAFT belgeye herhangi barkod okutulup eklen
 - **Bug fix:** beklenen miktar PO satırından TÜRETİLİR (canlı `PurchaseOrderLine.QtyOrdered`), `QtyOriginal` artık "beklenen" değil = okutulan orijinal birim miktarı. Terminal DTO: `Ordered` (PO'dan), `Received` (QtyBase), `ReturnPending` (ReturnQty).
 - İade alanı = `Warehouse.IsReceivingArea` benzeri bir **karantina/iade bin'i** (yeni `IsReturnArea` bin flag veya mevcut KABUL bin'i alt-ayrımı — Faz A'da kolon, fiziksel yerleştirme Faz B).
 
-### Faz B — Terminal sipariş kontrollü tarama (DO-NOW)
-`OnPostScanAsync` PO-bağlı belgede (`ReceivingHeader.PurchaseOrderId` set):
-1. Barkod→ItemId; **ürün PO'da mı?** (`PurchaseOrderLine WHERE HeaderId=@PoId AND ItemId`). Değilse → THROW/Error "Bu ürün siparişte yok".
-2. `remaining = QtyOrdered - (bu PO için toplam alınan)`. 
-3. `qty <= remaining` → `QtyBase += qty`.
-4. `qty > remaining` → `QtyBase += remaining`; `ReturnQty += (qty - remaining)`; **UYAR**: "Sipariş aşıldı: X adet iade alanına ayrıldı". (terminal-scan error/warn feedback)
-5. PO-suz belge → serbest (mevcut), AMA **yetki**: `user.HasRole(...)` veya `RoleModuleAccess` "ReceivingFree" yoksa → "Siparişsiz mal kabul yetkiniz yok".
-- Stok hareketi: kabul edilen depo bin'ine; iade-pending miktar **iade/karantina bin'ine** (sp_ReceivingPost güncellenir — ReturnQty ayrı bin'e RECEIPT veya ayrı işaret).
+### Faz B — Terminal: 3 mod (DO-NOW)
+Terminal girişi: belge seçimi yerine **mod + bağlam** seçilir.
+`ReceivingHeader.ReceivingMode` (`SINGLE_PO` / `BULK_SUPPLIER` / `FREE`) + `PurchaseOrderId` (SINGLE) veya yalnız `PartnerId` (BULK).
 
-### Faz C — Tedarikçiye iade faturası (DEFERRED — İade modülü bağımlı)
-- `ReturnQty > 0` mal kabuller → tedarikçiye iade faturası (mali-evrak: SourceInvoiceLineId, DocumentTypeCode=RETURN, fatura no+tarih zorunlu).
-- **Bağımlılık:** İade modülü (M-F2.2) henüz YOK. Bu faz İade modülü kurulunca. Şimdilik ReturnQty kaydı + raporu yeterli (iade bekleyenler listesi).
+**Mod 1 — Tek sipariş (SINGLE_PO):** `OnPostScanAsync`:
+1. Barkod→ItemId; **ürün PO'da mı?** Değilse → "Bu ürün siparişte yok".
+2. `remaining = QtyOrdered - bu PO için toplam alınan`.
+3. `qty<=remaining` → `QtyBase+=qty`; `qty>remaining` → kalan kabul + aşan `ReturnQty`'ye + UYAR "Sipariş aşıldı: X iade alanına".
+
+**Mod 2 — Çoklu/toplu kör kabul (BULK_SUPPLIER):**
+- Tedarikçi seçilir; o tedarikçinin tüm açık PO satırları **beklenen havuzu** (ürün bazında toplanır: ürün X için ∑QtyOrdered − ∑alınan).
+- Tarama: ürün havuzda mı? Değilse UYAR (tedarikçinin açık siparişinde yok — yine de yetkiyle kabul/iade'ye). Miktar toplanır (PO satırına DAĞITILMAZ — sadece ürün+miktar).
+- Havuz toplamı aşılırsa → fazla `ReturnQty` + UYAR.
+- **PO eşleştirme YOK bu aşamada.** ReceivingLine.PurchaseOrderLineId NULL kalır; fatura aşamasında doldurulur.
+
+**Mod 3 — Serbest (FREE):** PO-suz; **yetki** (`RoleModuleAccess`/role "ReceivingFree") yoksa → "Siparişsiz mal kabul yetkiniz yok".
+
+- Stok: kabul → depo bin'i; `ReturnQty` → **iade/karantina bin'i** (sp_ReceivingPost; ReturnQty ayrı bin RECEIPT, çift-sayım yok).
+
+### Faz C — Fatura-aşaması PO eşleştirme (BULK için, DO-NOW-after-B)
+Toplu kabul (BULK) → ReceivingLine PO satırına bağlı değil. Alış faturası kesilirken:
+- `sp_CreatePurchaseInvoiceFromReceiving` / N:1 birleştirme ekranında: kabul edilen ürün miktarları, tedarikçinin **açık PO satırlarına dağıtılır** (öneri: en eski PO önce / FIFO + kullanıcı override).
+- Eşleşen miktar `PurchaseInvoiceLine.SourceReceivingLineId` + ilgili `PurchaseOrderLineId` üzerinden bağlanır; PO `QtyReceived` güncellenir.
+- Fazla (havuz dışı) → fatura dışı / iade.
+
+### Faz D — Tedarikçiye iade faturası (DEFERRED — İade modülü bağımlı)
+- `ReturnQty > 0` → tedarikçiye iade faturası (mali-evrak: SourceInvoiceLineId, DocumentTypeCode=RETURN, fatura no+tarih zorunlu).
+- **Bağımlılık:** İade modülü (M-F2.2) henüz YOK. Şimdilik ReturnQty kaydı + "iade bekleyenler" raporu yeterli.
 
 ## Faz sonu (A+B)
 build-validator → sql-sp-reviewer (sp_ReceivingPost + ReturnQty) → security-reviewer (yetki) → E2E smoke (PO 100 → 120 okut → 100 kabul + 20 iade-pending + uyarı; yanlış ürün → red; yetkisiz serbest → red).

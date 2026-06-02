@@ -82,32 +82,49 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Sevkiyat başlığını kaydeder veya günceller (DRAFT)
         using var conn = db.Open();
 
-        if (IsNew)
+        try
         {
-            Header.Id = Guid.NewGuid();
-            var seq = await conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(1) + 1 FROM ShippingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
-                new { CompanyId = company.Id });
-            Header.DocNo = $"{DocPrefix.Shipping}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
+            if (IsNew)
+            {
+                Header.Id = Guid.NewGuid();
+                var seq = await conn.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(1) + 1 FROM ShippingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
+                    new { CompanyId = company.Id });
+                Header.DocNo = $"{DocPrefix.Shipping}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
-            await conn.ExecuteAsync(@"
-                INSERT INTO ShippingHeader
-                    (Id, CompanyId, WarehouseId, DocNo, Status, DocDate, CarrierName, VehiclePlate, Notes, CreatedBy)
-                VALUES
-                    (@Id, @CompanyId, @WarehouseId, @DocNo, @Status, @DocDate, @CarrierName, @VehiclePlate, @Notes, @UserId)",
-                new {
-                    Header.Id, CompanyId = company.Id, Header.WarehouseId, Header.DocNo,
-                    Status = DocStatus.Draft, Header.DocDate, Header.CarrierName, Header.VehiclePlate,
-                    Header.Notes, UserId = user.Id
-                });
-            await audit.LogAsync("CREATE", "ShippingHeader", Header.Id, $"DocNo: {Header.DocNo}");
+                await conn.ExecuteAsync(@"
+                    INSERT INTO ShippingHeader
+                        (Id, CompanyId, WarehouseId, DocNo, Status, DocDate, CarrierName, VehiclePlate, Notes, CreatedBy)
+                    VALUES
+                        (@Id, @CompanyId, @WarehouseId, @DocNo, @Status, @DocDate, @CarrierName, @VehiclePlate, @Notes, @UserId)",
+                    new {
+                        Header.Id, CompanyId = company.Id, Header.WarehouseId, Header.DocNo,
+                        Status = DocStatus.Draft, Header.DocDate, Header.CarrierName, Header.VehiclePlate,
+                        Header.Notes, UserId = user.Id
+                    });
+                await audit.LogAsync("CREATE", "ShippingHeader", Header.Id, $"DocNo: {Header.DocNo}");
+            }
+            else
+            {
+                await conn.ExecuteAsync(
+                    "UPDATE ShippingHeader SET WarehouseId=@WarehouseId, CarrierName=@CarrierName, VehiclePlate=@VehiclePlate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
+                    new { Header.WarehouseId, Header.CarrierName, Header.VehiclePlate, Header.Notes, Header.Id, CompanyId = company.Id });
+                await audit.LogAsync("UPDATE", "ShippingHeader", Header.Id, $"DocNo: {Header.DocNo}");
+            }
+
+            TempData["Success"] = "Sevkiyat kaydedildi.";
         }
-        else
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
-            await conn.ExecuteAsync(
-                "UPDATE ShippingHeader SET WarehouseId=@WarehouseId, CarrierName=@CarrierName, VehiclePlate=@VehiclePlate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
-                new { Header.WarehouseId, Header.CarrierName, Header.VehiclePlate, Header.Notes, Header.Id, CompanyId = company.Id });
-            await audit.LogAsync("UPDATE", "ShippingHeader", Header.Id, $"DocNo: {Header.DocNo}");
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id = Header.Id == Guid.Empty ? (Guid?)null : Header.Id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Sevkiyat başlık kayıt hatası: {HeaderId}", Header.Id);
+            TempData["Error"] = "Sevkiyat kaydedilirken veritabanı hatası oluştu.";
+            return RedirectToPage(new { id = Header.Id == Guid.Empty ? (Guid?)null : Header.Id });
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -118,76 +135,92 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Satır ekler; UOM dönüşümünü fn_GetConversionRate ile hesaplar
         using var conn = db.Open();
 
-        // Eğer itemId boşsa ve soLineId (Satış Sipariş Başlık ID'si) verilmişse, siparişteki tüm açık satırları aktar
-        if (itemId == Guid.Empty && soLineId != Guid.Empty)
+        try
         {
-            var soLines = await conn.QueryAsync<(Guid Id, Guid ItemId, Guid UomId, decimal QtyRemaining)>(@"
-                SELECT sol.Id, sol.ItemId, sol.UomId, (sol.QtyOrdered - sol.QtyShipped) as QtyRemaining
-                FROM SalesOrderLine sol
-                JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId
-                WHERE sol.HeaderId = @SalesOrderHeaderId AND soh.CompanyId = @CompanyId AND (sol.QtyOrdered - sol.QtyShipped) > 0",
-                new { SalesOrderHeaderId = soLineId, CompanyId = company.Id });
-
-            foreach (var sol in soLines)
+            // Eğer itemId boşsa ve soLineId (Satış Sipariş Başlık ID'si) verilmişse, siparişteki tüm açık satırları aktar
+            if (itemId == Guid.Empty && soLineId != Guid.Empty)
             {
-                var rate = await conn.ExecuteScalarAsync<decimal>(
-                    "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
-                    new { ItemId = sol.ItemId, UomId = sol.UomId });
+                var soLines = await conn.QueryAsync<(Guid Id, Guid ItemId, Guid UomId, decimal QtyRemaining)>(@"
+                    SELECT sol.Id, sol.ItemId, sol.UomId, (sol.QtyOrdered - sol.QtyShipped) as QtyRemaining
+                    FROM SalesOrderLine sol
+                    JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId
+                    WHERE sol.HeaderId = @SalesOrderHeaderId AND soh.CompanyId = @CompanyId AND (sol.QtyOrdered - sol.QtyShipped) > 0",
+                    new { SalesOrderHeaderId = soLineId, CompanyId = company.Id });
 
-                if (rate == 0) rate = 1;
+                foreach (var sol in soLines)
+                {
+                    var rate = await conn.ExecuteScalarAsync<decimal>(
+                        "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
+                        new { ItemId = sol.ItemId, UomId = sol.UomId });
 
-                await conn.ExecuteAsync(@"
-                    -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-                    -- Gerekçe: kaynak SalesOrderLine'lar bu handler'da
-                    -- JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId ... AND soh.CompanyId = @CompanyId
-                    -- filtresiyle çekildi; yalnızca aynı firmanın açık sipariş satırları döndü.
-                    -- Döngüdeki her sol kaydı o doğrulanmış sorgudan geldiğinden farklı firmaya satır eklenemez.
-                    -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-                    INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
-                    VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
-                    new {
-                        HeaderId = id,
-                        SOLineId = sol.Id,
-                        ItemId = sol.ItemId,
-                        UomId = sol.UomId,
-                        Qty = sol.QtyRemaining,
-                        QtyBase = sol.QtyRemaining * rate,
-                        LotNo = (string?)null
-                    });
+                    if (rate == 0) rate = 1;
+
+                    await conn.ExecuteAsync(@"
+                        -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                        -- Gerekçe: kaynak SalesOrderLine'lar bu handler'da
+                        -- JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId ... AND soh.CompanyId = @CompanyId
+                        -- filtresiyle çekildi; yalnızca aynı firmanın açık sipariş satırları döndü.
+                        -- Döngüdeki her sol kaydı o doğrulanmış sorgudan geldiğinden farklı firmaya satır eklenemez.
+                        -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                        INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
+                        VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
+                        new {
+                            HeaderId = id,
+                            SOLineId = sol.Id,
+                            ItemId = sol.ItemId,
+                            UomId = sol.UomId,
+                            Qty = sol.QtyRemaining,
+                            QtyBase = sol.QtyRemaining * rate,
+                            LotNo = (string?)null
+                        });
+                }
+
+                TempData["Success"] = "Sipariş satırları sevkiyata aktarıldı.";
+                return RedirectToPage(new { id });
             }
 
-            return RedirectToPage(new { id });
+            // Guard: madde geçerli ve satışa uygun mu? CONSUMABLE sevkiyatta kabul edilmez
+            var exists = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> 'CONSUMABLE'",
+                new { ItemId = itemId, CompanyId = company.Id });
+
+            // Guard: madde sevkiyata uygun değilse (sarf malzeme/pasif) sessiz dönme; kullanıcıyı bilgilendir
+            if (exists == 0)
+            {
+                logger.LogWarning("Sevkiyat satır ekleme reddedildi: Item {ItemId} sevkiyata uygun değil (CONSUMABLE/pasif), Shipping {HeaderId}", itemId, id);
+                TempData["Error"] = "Seçilen madde sevkiyata uygun değil (sarf malzeme veya pasif). Satır eklenmedi.";
+                return RedirectToPage(new { id });
+            }
+
+            var rateVal = await conn.ExecuteScalarAsync<decimal>(
+                "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
+                new { ItemId = itemId, UomId = uomId });
+
+            if (rateVal == 0) rateVal = 1;
+
+            await conn.ExecuteAsync(@"
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+                -- doğrulandı; bulunamazsa işlem iptal edildi (exists == 0).
+                -- @HeaderId değeri OnGetAsync'te WHERE Id = @Id AND CompanyId = @CompanyId ile
+                -- yüklenen ShippingHeader.Id'dir; farklı firmanın sevkiyatına satır eklenemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
+                VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
+                new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rateVal, LotNo = lotNo });
+
+            TempData["Success"] = "Satır eklendi.";
         }
-
-        // Guard: madde geçerli ve satışa uygun mu? CONSUMABLE sevkiyatta kabul edilmez
-        var exists = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> 'CONSUMABLE'",
-            new { ItemId = itemId, CompanyId = company.Id });
-
-        // Guard: madde sevkiyata uygun değilse (sarf malzeme/pasif) sessiz dönme; kullanıcıyı bilgilendir
-        if (exists == 0)
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
-            logger.LogWarning("Sevkiyat satır ekleme reddedildi: Item {ItemId} sevkiyata uygun değil (CONSUMABLE/pasif), Shipping {HeaderId}", itemId, id);
-            TempData["Error"] = "Seçilen madde sevkiyata uygun değil (sarf malzeme veya pasif). Satır eklenmedi.";
-            return RedirectToPage(new { id });
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
         }
-
-        var rateVal = await conn.ExecuteScalarAsync<decimal>(
-            "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
-            new { ItemId = itemId, UomId = uomId });
-
-        if (rateVal == 0) rateVal = 1;
-
-        await conn.ExecuteAsync(@"
-            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
-            -- doğrulandı; bulunamazsa işlem iptal edildi (exists == 0).
-            -- @HeaderId değeri OnGetAsync'te WHERE Id = @Id AND CompanyId = @CompanyId ile
-            -- yüklenen ShippingHeader.Id'dir; farklı firmanın sevkiyatına satır eklenemez.
-            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
-            VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
-            new { HeaderId = id, SOLineId = soLineId, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rateVal, LotNo = lotNo });
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Sevkiyat satır ekleme hatası: {HeaderId}", id);
+            TempData["Error"] = "Satır eklenirken veritabanı hatası oluştu.";
+        }
 
         return RedirectToPage(new { id });
     }

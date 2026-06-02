@@ -138,31 +138,47 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public async Task<IActionResult> OnPostAsync()
     {
         using var conn = db.Open();
-
-        if (IsNew)
+        try
         {
-            Header.Id = Guid.NewGuid();
-            // İş kuralı: evrak numarası belge seri yönetiminden (NumberSeries, ayardan) atanır
-            Header.OrderNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.SalesOrder);
+            if (IsNew)
+            {
+                Header.Id = Guid.NewGuid();
+                // İş kuralı: evrak numarası belge seri yönetiminden (NumberSeries, ayardan) atanır
+                Header.OrderNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.SalesOrder);
 
-            await conn.ExecuteAsync(@"
-                INSERT INTO SalesOrderHeader
-                    (Id, CompanyId, WarehouseId, PartnerId, OrderNo, Status, OrderDate, RequestedDeliveryDate, Notes, CreatedBy)
-                VALUES
-                    (@Id, @CompanyId, @WarehouseId, @PartnerId, @OrderNo, @Status, @OrderDate, @RequestedDeliveryDate, @Notes, @UserId)",
-                new {
-                    Header.Id, CompanyId = company.Id, Header.WarehouseId, Header.PartnerId,
-                    Header.OrderNo, Status = DocStatus.Draft, Header.OrderDate,
-                    Header.RequestedDeliveryDate, Header.Notes, UserId = user.Id
-                });
-            await audit.LogAsync("CREATE", "SalesOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
+                await conn.ExecuteAsync(@"
+                    INSERT INTO SalesOrderHeader
+                        (Id, CompanyId, WarehouseId, PartnerId, OrderNo, Status, OrderDate, RequestedDeliveryDate, Notes, CreatedBy)
+                    VALUES
+                        (@Id, @CompanyId, @WarehouseId, @PartnerId, @OrderNo, @Status, @OrderDate, @RequestedDeliveryDate, @Notes, @UserId)",
+                    new {
+                        Header.Id, CompanyId = company.Id, Header.WarehouseId, Header.PartnerId,
+                        Header.OrderNo, Status = DocStatus.Draft, Header.OrderDate,
+                        Header.RequestedDeliveryDate, Header.Notes, UserId = user.Id
+                    });
+                await audit.LogAsync("CREATE", "SalesOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
+                TempData["Success"] = "Sipariş oluşturuldu.";
+            }
+            else
+            {
+                await conn.ExecuteAsync(
+                    "UPDATE SalesOrderHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, RequestedDeliveryDate=@RequestedDeliveryDate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
+                    new { Header.WarehouseId, Header.PartnerId, Header.RequestedDeliveryDate, Header.Notes, Header.Id, CompanyId = company.Id });
+                await audit.LogAsync("UPDATE", "SalesOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
+                TempData["Success"] = "Sipariş kaydedildi.";
+            }
         }
-        else
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
-            await conn.ExecuteAsync(
-                "UPDATE SalesOrderHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, RequestedDeliveryDate=@RequestedDeliveryDate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
-                new { Header.WarehouseId, Header.PartnerId, Header.RequestedDeliveryDate, Header.Notes, Header.Id, CompanyId = company.Id });
-            await audit.LogAsync("UPDATE", "SalesOrderHeader", Header.Id, $"OrderNo: {Header.OrderNo}");
+            // İş kuralı THROW — SP Türkçe mesaj fırlattı, kullanıcıya gösterilebilir
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id = Header.Id == Guid.Empty ? (Guid?)null : Header.Id });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Satış siparişi başlık kaydet hatası");
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+            return RedirectToPage(new { id = Header.Id == Guid.Empty ? (Guid?)null : Header.Id });
         }
 
         return RedirectToPage(new { id = Header.Id });
@@ -172,31 +188,46 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, decimal qty, decimal? price)
     {
         using var conn = db.Open();
-        // İş kuralı: CONSUMABLE satılamaz; sorgu sarf maddesini eler, BaseUomId null dönerse satır eklenmez
-        var baseUomId = await conn.ExecuteScalarAsync<Guid?>(
-            "SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND ItemType <> 'CONSUMABLE'",
-            new { ItemId = itemId, CompanyId = company.Id });
-
-        // Guard: madde satışa uygun değilse (sarf malzeme/pasif/UOM tanımsız) sessiz dönme; kullanıcıyı bilgilendir
-        if (baseUomId is null)
+        try
         {
-            logger.LogWarning("SO satır ekleme reddedildi: Item {ItemId} satışa uygun değil (CONSUMABLE/pasif/UOM yok), SO {OrderId}", itemId, id);
-            TempData["Error"] = "Seçilen madde satışa uygun değil (sarf malzeme veya tanımsız ölçü birimi). Satır eklenmedi.";
-            return RedirectToPage(new { id });
+            // İş kuralı: CONSUMABLE satılamaz; sorgu sarf maddesini eler, BaseUomId null dönerse satır eklenmez
+            var baseUomId = await conn.ExecuteScalarAsync<Guid?>(
+                "SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND ItemType <> 'CONSUMABLE'",
+                new { ItemId = itemId, CompanyId = company.Id });
+
+            // Guard: madde satışa uygun değilse (sarf malzeme/pasif/UOM tanımsız) sessiz dönme; kullanıcıyı bilgilendir
+            if (baseUomId is null)
+            {
+                logger.LogWarning("SO satır ekleme reddedildi: Item {ItemId} satışa uygun değil (CONSUMABLE/pasif/UOM yok), SO {OrderId}", itemId, id);
+                TempData["Error"] = "Seçilen madde satışa uygun değil (sarf malzeme veya tanımsız ölçü birimi). Satır eklenmedi.";
+                return RedirectToPage(new { id });
+            }
+
+            await conn.ExecuteAsync(@"
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
+                -- doğrulandı; bulunamazsa işlem iptal edildi (BaseUomId null döndü).
+                -- @HeaderId değeri OnGetAsync/LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId
+                -- ile yüklenen SalesOrderHeader.Id'dir; farklı firmanın siparişine satır eklenemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                INSERT INTO SalesOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
+                VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",
+                new { HeaderId = id, ItemId = itemId, UomId = baseUomId, Qty = qty, Price = price ?? 0 });
+
+            await audit.LogAsync("ADD_LINE", "SalesOrderHeader", id, $"Item: {itemId} Qty: {qty}");
+            TempData["Success"] = "Satır eklendi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı THROW — SP Türkçe mesaj fırlattı, kullanıcıya gösterilebilir
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Satış siparişi satır ekleme hatası: SO {OrderId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
         }
 
-        await conn.ExecuteAsync(@"
-            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-            -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
-            -- doğrulandı; bulunamazsa işlem iptal edildi (BaseUomId null döndü).
-            -- @HeaderId değeri OnGetAsync/LoadHeaderAsync'te WHERE o.Id = @Id AND o.CompanyId = @CompanyId
-            -- ile yüklenen SalesOrderHeader.Id'dir; farklı firmanın siparişine satır eklenemez.
-            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            INSERT INTO SalesOrderLine (HeaderId, ItemId, UomId, QtyOrdered, Price, Currency)
-            VALUES (@HeaderId, @ItemId, @UomId, @Qty, @Price, 'TRY')",
-            new { HeaderId = id, ItemId = itemId, UomId = baseUomId, Qty = qty, Price = price ?? 0 });
-
-        await audit.LogAsync("ADD_LINE", "SalesOrderHeader", id, $"Item: {itemId} Qty: {qty}");
         return RedirectToPage(new { id });
     }
 

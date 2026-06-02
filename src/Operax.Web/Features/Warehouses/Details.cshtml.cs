@@ -53,6 +53,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         using var conn = db.Open();
 
+        var wasNew = IsNew; // redirect öncesinde durumu yakala
+
         // İş kuralı: BranchId bu firmaya ait olmalı (IDOR koruması)
         if (Warehouse.BranchId.HasValue)
         {
@@ -77,6 +79,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             await conn.ExecuteAsync(sql, new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id });
         }
 
+        TempData["Success"] = wasNew ? "Depo oluşturuldu." : "Depo güncellendi.";
         return RedirectToPage(new { id = Warehouse.Id });
     }
 

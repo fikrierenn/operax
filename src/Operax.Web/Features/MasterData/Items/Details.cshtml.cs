@@ -119,6 +119,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Ürünü kaydeder veya günceller
         using var conn = db.Open();
 
+        var wasNew = IsNew; // redirect öncesinde durumu yakala (IsNew → Item.Id set sonrası değişir)
+
         // UDF JSON Serialization
         var udfData = new UdfDataDto
         {
@@ -166,6 +168,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await audit.LogAsync("UPDATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
 
+        TempData["Success"] = wasNew ? "Ürün oluşturuldu." : "Ürün güncellendi.";
         return RedirectToPage(new { id = Item.Id });
     }
 

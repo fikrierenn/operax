@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.Manufacturing.BOM;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ProductModelDto Model { get; set; } = new();
@@ -71,23 +71,39 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     {
         // Ürün modelini kaydeder (insert veya update)
         using var conn = db.Open();
+        try
+        {
+            if (IsNew)
+            {
+                Model.Id = Guid.NewGuid();
+                await conn.ExecuteAsync(@"
+                    INSERT INTO ProductModel (Id, CompanyId, Code, Name, BaseItemId, IsActive)
+                    VALUES (@Id, @CompanyId, @Code, @Name, @BaseItemId, @IsActive)",
+                    new { Model.Id, CompanyId = company.Id, Model.Code, Model.Name, Model.BaseItemId, Model.IsActive });
+            }
+            else
+            {
+                // CompanyId: başka şirketin modelini güncelleyemez
+                await conn.ExecuteAsync(@"
+                    UPDATE ProductModel
+                    SET Code = @Code, Name = @Name, BaseItemId = @BaseItemId, IsActive = @IsActive
+                    WHERE Id = @Id AND CompanyId = @CompanyId",
+                    new { Model.Code, Model.Name, Model.BaseItemId, Model.IsActive, Model.Id, CompanyId = company.Id });
+            }
 
-        if (IsNew)
-        {
-            Model.Id = Guid.NewGuid();
-            await conn.ExecuteAsync(@"
-                INSERT INTO ProductModel (Id, CompanyId, Code, Name, BaseItemId, IsActive)
-                VALUES (@Id, @CompanyId, @Code, @Name, @BaseItemId, @IsActive)",
-                new { Model.Id, CompanyId = company.Id, Model.Code, Model.Name, Model.BaseItemId, Model.IsActive });
+            TempData["Success"] = "Ürün modeli kaydedildi.";
         }
-        else
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
-            // CompanyId: başka şirketin modelini güncelleyemez
-            await conn.ExecuteAsync(@"
-                UPDATE ProductModel
-                SET Code = @Code, Name = @Name, BaseItemId = @BaseItemId, IsActive = @IsActive
-                WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Model.Code, Model.Name, Model.BaseItemId, Model.IsActive, Model.Id, CompanyId = company.Id });
+            // İş kuralı hatası — SP veya DB kısıtı Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+            return Page();
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Ürün modeli kayıt hatası: {ModelId}", Model.Id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+            return Page();
         }
 
         return RedirectToPage(new { id = Model.Id });
@@ -104,16 +120,31 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             new { Id = id, CompanyId = company.Id });
         if (exists == 0) return RedirectToPage("./Index");
 
-        await conn.ExecuteAsync(@"
-            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-            -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
-            -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
-            -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
-            -- farklı firmanın modeline parametre eklenemez.
-            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            INSERT INTO ProductModelParameter (ProductModelId, Code, Name, DataType, DefaultValue, Unit)
-            VALUES (@ModelId, @Code, @Name, @DataType, @DefaultValue, @Unit)",
-            new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit });
+        try
+        {
+            await conn.ExecuteAsync(@"
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
+                -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
+                -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
+                -- farklı firmanın modeline parametre eklenemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                INSERT INTO ProductModelParameter (ProductModelId, Code, Name, DataType, DefaultValue, Unit)
+                VALUES (@ModelId, @Code, @Name, @DataType, @DefaultValue, @Unit)",
+                new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit });
+
+            TempData["Success"] = "Parametre eklendi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP veya DB kısıtı Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Parametre ekleme hatası: {ModelId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+        }
 
         return RedirectToPage(new { id });
     }
@@ -140,16 +171,31 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             new { Id = id, CompanyId = company.Id });
         if (exists == 0) return RedirectToPage("./Index");
 
-        await conn.ExecuteAsync(@"
-            -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-            -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
-            -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
-            -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
-            -- farklı firmanın reçetesine bileşen eklenemez.
-            -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            INSERT INTO ProductModelBOM (ProductModelId, ComponentItemId, QtyFormula, WastePercentage, ConditionFormula)
-            VALUES (@ModelId, @ItemId, @QtyFormula, @WastePercentage, @ConditionFormula)",
-            new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula });
+        try
+        {
+            await conn.ExecuteAsync(@"
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
+                -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
+                -- @ModelId parametresi o doğrulanmış ProductModel.Id değeridir;
+                -- farklı firmanın reçetesine bileşen eklenemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                INSERT INTO ProductModelBOM (ProductModelId, ComponentItemId, QtyFormula, WastePercentage, ConditionFormula)
+                VALUES (@ModelId, @ItemId, @QtyFormula, @WastePercentage, @ConditionFormula)",
+                new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula });
+
+            TempData["Success"] = "BOM satırı eklendi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP veya DB kısıtı Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "BOM satırı ekleme hatası: {ModelId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+        }
 
         return RedirectToPage(new { id });
     }

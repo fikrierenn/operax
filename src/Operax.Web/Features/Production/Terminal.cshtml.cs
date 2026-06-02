@@ -94,12 +94,28 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
 
             trans.Commit();
         }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP veya DB kısıtı Türkçe mesaj fırlattı
+            trans.Rollback();
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage();
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — kullanıcıya generic mesaj, detay log'a
+            trans.Rollback();
+            logger.LogError(sqlEx, "Üretim terminali aktivite başlatma hatası: {OrderId}", orderId);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+            return RedirectToPage();
+        }
         catch (Exception ex)
         {
-            // Hata durumunda transaction geri alınır; sessiz yutma yasak, log'a yazılır
+            // Beklenmeyen hata — transaction geri alınır, log'a yazılır
             trans.Rollback();
-            logger.LogError(ex, "Üretim terminali aktivite başlatma hatası: {OrderId}", orderId);
-            throw;
+            logger.LogError(ex, "Üretim terminali beklenmeyen hata: {OrderId}", orderId);
+            TempData["Error"] = "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyiniz.";
+            return RedirectToPage();
         }
 
         return RedirectToPage();

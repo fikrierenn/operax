@@ -5,6 +5,7 @@
     var activeTab = Request.Query["tab"].ToString();
     if (string.IsNullOrEmpty(activeTab)) activeTab = "general";
 }
+@* TempData banner _Layout'ta global render ediliyor — sayfa-içi tekrar yok (çift gösterim önlenir) *@
 
 <div class="flex items-start justify-between mb-8">
     <div>

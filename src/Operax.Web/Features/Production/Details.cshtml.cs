@@ -45,9 +45,23 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // sp_ProductionLoadBOM: BOM'dan hammadde ihtiyaçlarını üretim emrine yükler
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ProductionLoadBOM",
-            new { OrderId = id, CompanyId = company.Id },
-            commandType: CommandType.StoredProcedure);
+        try
+        {
+            await conn.ExecuteAsync("sp_ProductionLoadBOM",
+                new { OrderId = id, CompanyId = company.Id },
+                commandType: CommandType.StoredProcedure);
+            TempData["Success"] = "Reçete başarıyla yüklendi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "BOM yükleme SP hatası: {OrderId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
@@ -55,14 +69,28 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // sp_ProductionCreatePickTask: hammadde toplama görevi oluşturur
         using var conn = db.Open();
-        var result = await conn.QueryFirstOrDefaultAsync<dynamic>("sp_ProductionCreatePickTask",
-            new { OrderId = id, CompanyId = company.Id, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
+        try
+        {
+            var result = await conn.QueryFirstOrDefaultAsync<dynamic>("sp_ProductionCreatePickTask",
+                new { OrderId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
 
-        // SP oluşturulan TaskId'yi döner; picking sayfasına yönlendir
-        if (result?.TaskId is Guid taskId)
-            return RedirectToPage("/Picking/Details", new { id = taskId });
+            TempData["Success"] = "Hammadde toplama görevi oluşturuldu.";
 
+            // SP oluşturulan TaskId'yi döner; picking sayfasına yönlendir
+            if (result?.TaskId is Guid taskId)
+                return RedirectToPage("/Picking/Details", new { id = taskId });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Toplama görevi oluşturma SP hatası: {OrderId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { id });
     }
 
@@ -70,10 +98,25 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // sp_ProductionFinish: mamul stoğa girer, emri COMPLETED yapar
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ProductionFinish",
-            new { OrderId = id, CompanyId = company.Id, Qty = qty, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
-        return RedirectToPage("./Index");
+        try
+        {
+            await conn.ExecuteAsync("sp_ProductionFinish",
+                new { OrderId = id, CompanyId = company.Id, Qty = qty, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
+            TempData["Success"] = "Üretim tamamlandı, mamul stoğa girdi.";
+            return RedirectToPage("./Index");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Üretim tamamlama SP hatası: {OrderId}", id);
+            TempData["Error"] = "İşlem sırasında veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
     }
 
     public async Task<IActionResult> OnPostReverseAsync(Guid id)

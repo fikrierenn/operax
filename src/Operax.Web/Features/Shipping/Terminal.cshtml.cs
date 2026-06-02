@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.Shipping;
 
 [Authorize]
-public class TerminalModel(Db db, ICurrentCompany company) : PageModel
+public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel> logger) : PageModel
 {
     public ShipmentTermDto? ActiveDoc { get; set; }
     public IEnumerable<PendingShipDto> PendingDocs { get; set; } = [];
@@ -52,25 +52,39 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
         // Barkod okunan ürünü sevkiyat satırında doğrular
         using var conn = db.Open();
 
-        var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
-            SELECT i.Id FROM ItemBarcode b
-            JOIN Item i ON i.Id = b.ItemId
-            WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
-            UNION
-            SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
-            new { Barcode = barcode, CompanyId = company.Id });
+        try
+        {
+            var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
+                SELECT i.Id FROM ItemBarcode b
+                JOIN Item i ON i.Id = b.ItemId
+                WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
+                UNION
+                SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
+                new { Barcode = barcode, CompanyId = company.Id });
 
-        if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
+            if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
 
-        var lineExists = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM ShippingLine l
-            JOIN ShippingHeader h ON h.Id = l.HeaderId
-            WHERE l.HeaderId = @DocId AND l.ItemId = @ItemId AND h.CompanyId = @CompanyId",
-            new { DocId = docId, ItemId = itemId });
+            var lineExists = await conn.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(1) FROM ShippingLine l
+                JOIN ShippingHeader h ON h.Id = l.HeaderId
+                WHERE l.HeaderId = @DocId AND l.ItemId = @ItemId AND h.CompanyId = @CompanyId",
+                new { DocId = docId, ItemId = itemId });
 
-        if (lineExists == 0) { TempData["Error"] = "Bu ürün sevkiyat belgesinde yok."; return RedirectToPage(new { docId }); }
+            if (lineExists == 0) { TempData["Error"] = "Bu ürün sevkiyat belgesinde yok."; return RedirectToPage(new { docId }); }
 
-        TempData["Success"] = $"Doğrulandı: {barcode} × {qty}";
+            TempData["Success"] = $"Doğrulandı: {barcode} × {qty}";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Terminal barkod tarama hatası: DocId={DocId}, Barkod={Barcode}", docId, barcode);
+            TempData["Error"] = "Tarama sırasında veritabanı hatası oluştu.";
+        }
+
         return RedirectToPage(new { docId });
     }
 

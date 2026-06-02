@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = Model.IsNew ? "Yeni Depo" : $"Depo — {Model.Warehouse.Code}";
 }
+@* TempData banner _Layout'ta global render ediliyor — sayfa-içi tekrar yok *@
 
 <div class="flex items-start justify-between mb-8">
     <div>

@@ -1,6 +1,11 @@
 # Plan 30 — PriceList Kapsam Boyutları (şube/müşteri/genel + tarih + aktiflik)
 
-**Tier 3** · Durum: ⏸️ PARK — tasarım kararları bekliyor (kullanıcı: "ezme konusunu sonra netleştirelim") · 2026-06-02
+**Tier 3** · Durum: ✅ KARARLAR TAMAM — implement'e hazır · 2026-06-02
+
+## 🎯 NİHAİ KARAR — CARİ BASKIN (kullanıcı: "cari özelinde varsa cari olmalı")
+- **Skor: `Partner×2 + Branch×1`** → cari-özel (T-P, skor 2) şube-özel'i (T-B, skor 1) EZER.
+- Katman sırası: **T-PB(3) > T-P(2) > T-B(1) > T-G(0)**. Cari-özel fiyat varsa şube fiyatına bakılmaz.
+- Para hesabı: **DECIMAL** (float YASAK — kuruş kayması). Zincir iskonto: recursive CTE (tam kesin) tercih; log-exp basit alt (ROUND'lu).
 
 ## 📚 LİTERATÜR + RAKİP TARAMASI (2026-06-02 — reference-researcher + competitor-analyst)
 - **SAP** access-sequence (en spesifik→genel, ilk-bulunan, Exclusive durdurur). **Odoo** en spesifik; eşitse en yüksek fiyat. **ERPNext** açık sayısal `priority` (kullanıcı) + eşitse THROW conflict. **D365** politika anahtarı (en düşük fiyat / rank). **NetSuite** sabit hiyerarşi (müşteri-özel>grup>kart>baz).
@@ -17,9 +22,16 @@
 6. **Mimari = iTVF tek doğruluk kaynağı:** `tvf_PriceListEffective(@CompanyId)` → boyutlar + zincir-iskonto + EffectivePrice. Resolver = TOP 1 (tie-break sıralı). Tüm çağıranlar (fatura/sipariş/variance) aynı TVF.
 7. **Stacking YOK** ama **zincir VAR** — fark: tek kazanan liste seçilir (stacking değil), o listenin iskonto ZİNCİRİ uygulanır.
 
-## ⏸️ KALAN TEK KARAR (kullanıcı onayı)
-- **Cari mı Şube mi baskın** (T-P vs T-B): araştırma `Partner×2 + Branch×1` (CARİ baskın — TR B2B pazarlık fiyatı bağlayıcı) öneriyor. Plan taslağındaki `Branch×2+Branch×1` şube-baskındı → ters. **Tek satırlık skor formülü = tüm kararı belirler.** Detay: `docs/reference/PriceList_Override_Senaryolar.xlsx`.
+## ✅ KARAR VERİLDİ — Cari baskın (yukarı bkz). Açık karar kalmadı.
 - (Opsiyonel ileride) D365-tarzı "en düşük fiyat" politika anahtarı — şimdilik gerek yok.
+
+## İMPLEMENT FAZLARI (onaylı — sırayla, her faz review-gate)
+- **A — Şema:** `PriceList += BranchId, Priority INT DEFAULT 0, CreatedAt/By, UpdatedAt/By` (Direction/PartnerId/Valid* zaten var) + yeni `PriceListLineDiscount(Id, LineId, Seq, Pct DECIMAL, FK)` + `PriceListLine += LineType ('FIXED'/'DISCOUNT')`.
+- **B — iTVF:** `tvf_PriceListEffective(@CompanyId)` → liste×ürün satırı + boyutlar + zincir net çarpan (recursive CTE) + EffectivePrice (DECIMAL, ROUND).
+- **C — Resolver:** `sp_ResolveSalesPrice` / alış karşılığı → TOP 1 `ORDER BY MatchScore DESC, Priority DESC, MinQty DESC, ValidFrom DESC, Id ASC`. MatchScore = Partner×2+Branch×1.
+- **D — Wire:** SO/PO/fatura satır fiyatı + PriceVariance resolver'dan beslenir (tek kaynak).
+- **E — UI:** PriceList CRUD ekranı (yok!) — liste başlık (Direction/Cari/Şube/Priority/tarih) + satır (ürün/fiyat/LineType) + iskonto "10+5+3" kısayol → child satır.
+- Faz sonu: build + sql-sp-reviewer + smoke (cari-özel şube-özeli ezer; 10+5+3 → 82,935 doğrula).
 
 ## NOT
 Şema ALTER (BranchId + audit) bu oturumda yazılıp **geri alındı** — Priority + child iskonto tablosu + iTVF ile BİRLİKTE tek seferde yazılacak (parçalı şema asılmasın). Aşağıdaki orijinal Faz A bu kararlarla revize edilecek.

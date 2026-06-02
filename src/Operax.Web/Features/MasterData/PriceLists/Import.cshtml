@@ -35,7 +35,7 @@
         </div>
         <div class="flex items-center gap-3 mb-4">
             <span class="text-xs text-slate-400">veya</span>
-            <input type="file" name="file" accept=".csv,.txt" class="form-ctrl" style="max-width:320px" />
+            <input type="file" name="file" accept=".csv,.txt" class="form-ctrl max-w-80" />
         </div>
         <button type="submit" class="btn btn-primary px-8">Önizle</button>
     </form>
@@ -49,7 +49,15 @@
             <div class="kpi-mini"><span class="text-2xl font-bold text-slate-800">@prev.Toplam</span><div class="text-xs text-slate-400">Toplam</div></div>
             <div class="kpi-mini"><span class="text-2xl font-bold text-green-600">@prev.Gecerli</span><div class="text-xs text-slate-400">Geçerli</div></div>
             <div class="kpi-mini"><span class="text-2xl font-bold text-red-600">@prev.Hatali</span><div class="text-xs text-slate-400">Hatalı</div></div>
+            @if (Model.SkippedCount > 0)
+            {
+                <div class="kpi-mini"><span class="text-2xl font-bold text-amber-600">@Model.SkippedCount</span><div class="text-xs text-slate-400">Atlandı (format)</div></div>
+            }
         </div>
+        @if (Model.SkippedCount > 0)
+        {
+            <div class="alert-banner alert-info mb-3">@Model.SkippedCount satır ayrıştırılamadı (eksik kolon, boş kod veya geçersiz fiyat) ve atlandı.</div>
+        }
 
         @if (prev.Hatalar.Any())
         {

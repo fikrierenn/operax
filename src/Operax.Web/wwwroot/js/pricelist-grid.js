@@ -8,6 +8,9 @@
 
     var cfg = window.PL_CFG || {};
     var items = window.PL_ITEMS || [];
+    // Satır tipleri C# sabitinden (PriceLineType) PL_CFG ile gelir — JS'de magic string yok
+    var lineTypes = cfg.lineTypes || {};
+    var defaultLineType = cfg.defaultLineType || Object.keys(lineTypes)[0] || "FIXED";
 
     // Ürün kimliği → "kod — ad" etiketi (formatter ve liste editörü için)
     var itemLabel = {};
@@ -68,8 +71,8 @@
             },
             {
                 title: "Tip", field: "lineType", width: 95,
-                editor: "list", editorParams: { values: { "FIXED": "Sabit", "DISCOUNT": "İskonto" } },
-                formatter: function (cell) { return cell.getValue() === "DISCOUNT" ? "İskonto" : "Sabit"; }
+                editor: "list", editorParams: { values: lineTypes },
+                formatter: function (cell) { return lineTypes[cell.getValue()] || lineTypes[defaultLineType]; }
             },
             {
                 title: "İskonto Zinciri", field: "discountChain", width: 125,
@@ -90,7 +93,7 @@
     // Yeni boş satır ekle (varsayılan tip sabit)
     var addBtn = document.getElementById("pl-add-row");
     if (addBtn) addBtn.addEventListener("click", function () {
-        table.addRow({ itemId: "", unitPrice: 0, minQty: 0, lineType: "FIXED", discountChain: "" });
+        table.addRow({ itemId: "", unitPrice: 0, minQty: 0, lineType: defaultLineType, discountChain: "" });
     });
 
     // Fill-down (Ctrl+D): seçili aralığın ilk satır değerini alta kopyala
@@ -124,7 +127,7 @@
                     itemId: r.itemId,
                     unitPrice: parseFloat(r.unitPrice) || 0,
                     minQty: parseFloat(r.minQty) || 0,
-                    lineType: r.lineType || "FIXED",
+                    lineType: r.lineType || defaultLineType,
                     discountChain: r.discountChain || null
                 };
             });

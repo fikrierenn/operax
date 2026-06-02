@@ -6,11 +6,13 @@ using Dapper;
 using Operax.Web.Lib;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 
 namespace Operax.Web.Features.MasterData.PriceLists;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, PriceListBulkService bulk) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user,
+    PriceListBulkService bulk, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty] public PriceListInput Header { get; set; } = new();
 
@@ -88,11 +90,21 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, Pri
     }
 
     // Grid "Kaydet": JSON satır dizisini bulk-upsert eder (SyncDelete=1 → grid otoritedir).
-    public async Task<IActionResult> OnPostBulkSaveAsync(Guid id)
+    public async Task<IActionResult> OnPostBulkSaveAsync(Guid id, CancellationToken ct = default)
     {
-        using var reader = new StreamReader(Request.Body);
-        var json = await reader.ReadToEndAsync();
-        var rows = JsonSerializer.Deserialize<List<GridRow>>(json, JsonOpts) ?? [];
+        // İş kuralı: gövdeyi oku + ayrıştır; bozuk JSON sistem hatası gibi 500'e gitmemeli
+        List<GridRow> rows;
+        try
+        {
+            using var reader = new StreamReader(Request.Body);
+            var json = await reader.ReadToEndAsync(ct);
+            rows = JsonSerializer.Deserialize<List<GridRow>>(json, JsonOpts) ?? [];
+        }
+        catch (JsonException jsonEx)
+        {
+            logger.LogWarning(jsonEx, "Fiyat listesi toplu kaydet: geçersiz JSON gövde. Liste {ListId}", id);
+            return new JsonResult(new { ok = false, error = "Gönderilen veri okunamadı. Sayfayı yenileyip tekrar deneyin." });
+        }
 
         // Ürün seçilmemiş satırları ele; grid ItemId yolunu kullanır
         var lines = rows.Where(r => r.ItemId != Guid.Empty)
@@ -101,7 +113,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, Pri
                 r.LineType ?? PriceLineType.Fixed, r.DiscountChain));
         try
         {
-            var written = await bulk.BulkSaveAsync(company.Id, id, user.Id, lines);
+            var written = await bulk.BulkSaveAsync(company.Id, id, user.Id, lines, ct);
             return new JsonResult(new { ok = true, written });
         }
         catch (SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
@@ -109,33 +121,51 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, Pri
             // İş kuralı hatası — SP Türkçe yazdı, kullanıcıya gösterilebilir
             return new JsonResult(new { ok = false, error = sqlEx.Message });
         }
-        catch (SqlException)
+        catch (SqlException sqlEx)
         {
+            logger.LogError(sqlEx, "Fiyat listesi toplu kaydet DB hatası. Liste {ListId}", id);
             return new JsonResult(new { ok = false, error = "Veritabanı hatası oluştu." });
         }
     }
 
     // Tüm aktif ürünleri listeye ekle (fiyat = ortalama maliyet/0). Mevcutları korur.
-    public async Task<IActionResult> OnPostAddAllItemsAsync(Guid id)
+    public async Task<IActionResult> OnPostAddAllItemsAsync(Guid id, CancellationToken ct = default)
     {
-        var n = await bulk.AddAllItemsAsync(company.Id, id, user.Id);
-        TempData["Success"] = $"{n} ürün eklendi/güncellendi.";
+        try
+        {
+            var n = await bulk.AddAllItemsAsync(company.Id, id, user.Id, ct);
+            TempData["Success"] = $"{n} ürün eklendi/güncellendi.";
+        }
+        catch (SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fiyat listesi tüm-ürün ekleme DB hatası. Liste {ListId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage("Details", new { id });
     }
 
     // Başka bir listenin satır + iskontolarını bu listeye kopyala.
-    public async Task<IActionResult> OnPostCloneAsync(Guid id, Guid sourceId)
+    public async Task<IActionResult> OnPostCloneAsync(Guid id, Guid sourceId, CancellationToken ct = default)
     {
         // Guard: kaynak seçilmemişse işlem yok
         if (sourceId == Guid.Empty) { TempData["Error"] = "Kaynak liste seçiniz."; return RedirectToPage("Details", new { id }); }
         try
         {
-            var n = await bulk.CloneAsync(company.Id, sourceId, id, user.Id);
+            var n = await bulk.CloneAsync(company.Id, sourceId, id, user.Id, ct);
             TempData["Success"] = $"{n} satır kopyalandı.";
         }
         catch (SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
             TempData["Error"] = sqlEx.Message;
+        }
+        catch (SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Fiyat listesi çoğaltma DB hatası. Liste {ListId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
         }
         return RedirectToPage("Details", new { id });
     }
@@ -174,12 +204,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, Pri
     private static async Task<string> BuildGridLinesJsonAsync(System.Data.IDbConnection conn, Guid priceListId)
     {
         var rawLines = await conn.QueryAsync<LineRaw>(
-            @"SELECT l.Id, l.ItemId, l.UnitPrice, l.MinQty, l.LineType
+            @"/* isolation-guard:ignore: parent liste OnGet'te CompanyId ile doğrulandı, @Pid güvenli */
+              SELECT l.Id, l.ItemId, l.UnitPrice, l.MinQty, l.LineType
               FROM PriceListLine l WHERE l.PriceListId = @Pid AND l.IsDeleted = 0",
             new { Pid = priceListId });
 
         var discounts = (await conn.QueryAsync<(Guid LineId, int Seq, decimal Pct)>(
-            @"SELECT d.LineId, d.Seq, d.Pct FROM PriceListLineDiscount d
+            @"/* isolation-guard:ignore: parent liste OnGet'te CompanyId ile doğrulandı, @Pid güvenli */
+              SELECT d.LineId, d.Seq, d.Pct FROM PriceListLineDiscount d
               JOIN PriceListLine l ON l.Id = d.LineId
               WHERE l.PriceListId = @Pid AND l.IsDeleted = 0 ORDER BY d.LineId, d.Seq",
             new { Pid = priceListId })).ToList();

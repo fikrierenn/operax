@@ -126,7 +126,7 @@ else
             {
                 <form method="post" asp-page-handler="Clone" asp-route-id="@Model.Header.Id" class="flex items-center gap-1">
                     @Html.AntiForgeryToken()
-                    <select name="sourceId" class="form-ctrl form-ctrl-sm" style="width:200px">
+                    <select name="sourceId" class="form-ctrl form-ctrl-sm w-52">
                         <option value="">Listeden çoğalt…</option>
                         @foreach (var o in Model.OtherLists)
                         {
@@ -155,7 +155,9 @@ else
         window.PL_LINES = @Html.Raw(Model.GridLinesJson);
         window.PL_CFG = {
             saveUrl: '@Url.Page("Details", "BulkSave", new { id = Model.Header.Id })',
-            token: document.querySelector('input[name="__RequestVerificationToken"]').value
+            token: document.querySelector('input[name="__RequestVerificationToken"]').value,
+            lineTypes: { '@PriceLineType.Fixed': 'Sabit', '@PriceLineType.Discount': 'İskonto' },
+            defaultLineType: '@PriceLineType.Fixed'
         };
     </script>
     <script src="~/lib/tabulator/tabulator.min.js"></script>

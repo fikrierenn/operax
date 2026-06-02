@@ -53,6 +53,10 @@ BEGIN
         BEGIN
             IF @PartnerId IS NULL THROW 51576, N'Belge tedarikçiye bağlı değil.', 1;
             -- Tedarikçinin açık siparişlerinde bu ürünün kalanı (havuz). PO satır bağı YOK — fatura aşaması.
+            -- NOT (sql-sp-reviewer IMP-1): havuz "kalan" yalnız BU belgenin okutmasını düşer; aynı
+            -- tedarikçi+ürün için EŞZAMANLI ikinci taslak havuzu bağımsız tüketebilir → kalan göstergesi
+            -- ÖNERİ niteliğinde. Ledger yanlış olmaz (fazla yine ReturnQty'ye ayrılır). Tek-terminal seri
+            -- okutmada sorun değil; ileride çoklu-terminal için PO satır rezervasyonu gerekebilir.
             DECLARE @Pool DECIMAL(18,6) = (
                 SELECT ISNULL(SUM(pol.QtyOrdered - ISNULL(pol.QtyReceived, 0)), 0)
                 FROM PurchaseOrderLine pol JOIN PurchaseOrderHeader poh ON poh.Id = pol.HeaderId

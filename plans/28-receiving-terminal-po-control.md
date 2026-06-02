@@ -1,6 +1,13 @@
 # Plan 28 — Sipariş Kontrollü Mal Kabul Terminali (+ fazla→iade alanı)
 
-**Tier 3** · Durum: TASLAK (onay bekliyor) · 2026-06-03
+**Tier 3** · Durum: Faz A+B TAMAM (smoke+sql-sp-reviewer ✅) · Faz C/D kaldı · 2026-06-03
+
+## İLERLEME
+- ✅ **Faz A** (şema): ReceivingMode + tedarikçi irsaliye no/tarih + ReturnQty + Bin.IsReturnArea + IADE bin seed.
+- ✅ **Faz B** (SP+handler+post): sp_ReceivingTerminalScan 3 mod (smoke: 500+400→800 kabul/100 iade); terminal handler SP+FREE yetki+fazla uyarı; sp_ReceivingPost ReturnQty→iade bin. sql-sp-reviewer: CRITICAL yok, 2 advisory eşzamanlılık notu dokümante edildi.
+- ⬜ **Faz B-UI kalan:** terminal mod-seçim girişi (BULK tedarikçi seç / FREE oluşturma); tedarikçi irsaliye no/tarih giriş alanı; terminal ilerleme beklenen=PO'dan.
+- ⬜ **Faz C:** toplu kabul → fatura aşaması PO eşleştirme (plan 21 satır-bağ).
+- ⬜ **Faz D:** iade faturası (İade modülü bağımlı).
 
 ## Problem
 Terminal mal kabul **serbest mod**: DRAFT belgeye herhangi barkod okutulup eklenir. Sipariş kontrolü yok:

@@ -1506,7 +1506,10 @@ BEGIN
         IF @ReceivingBinId IS NULL
             THROW 50012, N'Seçilen depoda hücre (bin) tanımlı değil. Önce depo hücresi oluşturun.', 1;
 
-        -- İade/karantina bin'i (Plan 28): sipariş fazlası buraya; yoksa kabul bin'ine düş
+        -- İade/karantina bin'i (Plan 28): sipariş fazlası buraya; yoksa kabul bin'ine düş.
+        -- TASARIM (sql-sp-reviewer): iade RECEIPT fiziksel stok bakiyesini (tvf_InventoryBalance) artırır
+        -- ama ItemCost.OnHandQty + AvgCost'a GİRMEZ (yalnız kabul/QtyBase maliyetlenir) — iade malı tedarikçiye
+        -- geri döneceği için COGS havuzuna katılmaz. Karantina bin'i ayrı sayılır; bakiye≠maliyet-OnHand drift'i kasıtlı.
         DECLARE @ReturnBinId UNIQUEIDENTIFIER;
         SELECT TOP 1 @ReturnBinId = Id FROM Bin
         WHERE WarehouseId = @WarehouseId AND IsReturnArea = 1 AND IsActive = 1 AND IsDeleted = 0;

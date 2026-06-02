@@ -72,3 +72,49 @@ Kaynak: NNGroup, Baymard, Smashing, SAP Fiori, Pencil&Paper. `screen-ux-standard
 6. 🟢 Command palette Ctrl+K (§6), staged disclosure (§3)
 
 Her ekran ayrı commit; veri-giriş ekranları (Sipariş/Mal Kabul/Fatura) önce. Faz sonu `phase-review-gate.md`.
+
+---
+
+# MOBİL / EL-TERMİNALİ (Handheld WMS)
+
+Kapsam: `/*/Terminal` (Mal Kabul/Sevkiyat/Sayım/Toplama/Üretim/Transfer). Depo personeli barkod okuyuculu cihazda, eldivenli, gürültülü/hareketli ortamda. Masaüstü kuralları DEĞİL — ayrı tasarım. Kaynak: Zebra, NNGroup, Scandit, UXmatters, Material. Detay: `docs/UX_RESEARCH_MOBILE_2026-06-03.md`.
+
+## M1. Ortam + Tek Görev
+- **Bir ekran = bir görev** (tek soru: "Ürünü tara" VEYA "Miktar gir"). Çok soruyu sıkıştırma. [Zebra]
+- **Minimum UI** — dekoratif çizgi/gradient/logo yok; başlık + talimat + input + tek aksiyon.
+- **Talimat Türkçe, emir kipi, ≤8 kelime** ("Ürünü tara").
+- **Offline-dayanıklı:** Wi-Fi ölü nokta var → aksiyon yerel kuyruğa, bağlanınca sync; "Bağlantı yok — kaydedildi" göster. [Zebra/LeanCode]
+
+## M2. Barkod-Tarama-Öncelikli (Scan-to-Act)
+- **Scan-first, type-fallback:** akış taramayla başlar; manuel giriş ayrı buton, ana akışın önünde değil. [Scanbot/Aptean]
+- **Anlık 3-kanal geri bildirim (≤200ms):** başarı=yeşil flash+bip+titreşim; hata=kırmızı flash+çift bip+çift titreşim. Tek kanal (görsel) gürültüde yetmez. `navigator.vibrate([100])` / `([200,100,200])`. [Scandit/D365]
+- **Hata spesifik + yönlendirici:** "Geçersiz barkod" değil → "Bu ürün siparişte yok. Rafı kontrol edin veya [Manuel Giriş]."
+
+## M3. Dokunmatik Hedef
+- **Min 48×48dp** her interaktif öğe; **birincil CTA ≥60×60dp** (eldiven); aralık ≥8dp. [NNGroup/Material/WCAG]
+- **Thumb zone:** birincil buton (Onayla/Tara/Devam) ekranın **alt %40'ında**; İptal/Geri üstte (kaza önler). [Baymard]
+- **Tek kolon, tam genişlik buton** (`width:100%`); yan yana küçük 2 buton yok.
+
+## M4. Mobil Giriş
+- **`inputmode="numeric"`** miktar alanlarında zorunlu (sayısal klavye). [MDN/WCAG]
+- **Büyük input:** min-height 56px, font ≥20px. **Autofocus** birincil input.
+- **Akıllı varsayılan:** beklenen miktar/lokasyon/ürün önceden dolu → kullanıcı ONAYLAR. Zorunlu alan ≤3, gerisi sistemden.
+
+## M5. Geri Bildirim + İlerleme
+- **Tam ekran başarı/hata** (büyük ✓/✗ + talimat 1-2sn), küçük toast yetmez (uzaktan/depo ışığı).
+- **İlerleme sayacı büyük:** "3 / 10 toplandı".
+- **Bağlantı durumu** köşede pasif ikon (yeşil/sarı/gri).
+- **Geri-alınamaz işlem öncesi onay modalı** (büyük Evet/İptal + scrim).
+
+## M6. Görsel
+- **Font ≥20px birincil, ≥16px talimat, <14px yasak**; kontrast 7:1 hedef. [WCAG]
+- **Koyu zemin/açık metin varsayılan** (depo parıltısı) veya `prefers-color-scheme`.
+- **Kaydırma yerine sayfalama** (≤8 satır + "Sonraki").
+- **Renk + ikon + metin birlikte** (renk tek başına bilgi taşımaz).
+
+## M7. Operax Terminal Uygulama
+- Ortak `_TerminalLayout` + `_TerminalButtons` partial (alt sabit aksiyon barı, büyük hedef).
+- `wwwroot/css/parts/_terminal.css` — koyu tema + büyük tipografi token override.
+- `wwwroot/js/terminal-scan.js` — tarama geri bildirim (vibrate/bip/flash) + offline kuyruk (localStorage + retry).
+- İlerleme: her Terminal PageModel `CurrentCount/TotalCount`.
+- Öncelik: Mal Kabul + Toplama (en sık) → Sevkiyat → Sayım/Üretim/Transfer.

@@ -25,9 +25,9 @@
 > pre-existing kod (drive-by yasağı → ayrı borç). 2 CRITICAL silent-failure bu oturumda kapatıldı (`8...`).
 
 - [x] **MED · SP catch üst-sınır → REDDEDİLDİ 2026-06-01:** silent-failure-hunter `>= 50000` üst-sınırsız 60000+ sızdırır dedi; **canlı kodda yanlış.** Tüm ≥60000 THROW (60001/60002/60004/60010 — 4 adet) temiz Türkçe finans iş mesajı (çek/ödeme bulunamadı), sistem hatası değil. `< 60000` eklemek meşru iş mesajını gizler. Sistem SqlException'ları (FK 547, PK 2627, login 18456) zaten <50000. Üst-sınırsız `>= 50000` DOĞRU. (Not: `SalesInvoices/Create.cshtml.cs:91` `< 60000` kullanıyor ama orada SP yalnız 50210-50213 fırlatıyor → zararsız, tutarlılık için ileride hizalanabilir.)
-- [ ] **HIGH · hata yönetimi yok:** `SalesOrders/Details.cshtml.cs` `OnPostAsync` (kaydet, NumberSeries+INSERT korumasız) + `OnPostAddLineAsync` (INSERT+audit try/catch yok). Approve/Cancel pattern'ini uygula.
-- [ ] **HIGH · audit izolasyonu DOĞRULANMADI:** `IAuditService.LogAsync` caller'ı patlatıyor mu? İzole değilse audit hatası satır eklemeyi geçersiz kılar. Kaynak okunmalı.
-- [ ] **HIGH · inline style:** `SalesInvoices/Index.cshtml:96` `style="color:@dueColor;"` Razor expression — class'a çevir (`text-danger`/`text-2`). "Touch ettikçe azalt".
+- [x] **HIGH · hata yönetimi → ✅ STALE/KAPALI 2026-06-02:** canlı kodda `SalesOrders/Details.cshtml.cs` `OnPostAsync`(143/173/179) + `OnPostAddLineAsync`(193/222/227) zaten try/catch'li (SqlException 50000-59999 → kullanıcı mesajı + generic catch + logger). TODO yazıldığından beri kapanmış.
+- [x] **HIGH · audit izolasyonu → ✅ KAPALI 2026-06-02:** `AuditService.LogAsync` try/catch'li → caller PATLAMIYOR (tasarımca izole, audit hatası asıl işlemi durdurmaz). Endişe yanlıştı. Bonus: sessiz catch artık `logger.LogWarning` ile loglar (AuditService.cs:47).
+- [x] **HIGH · inline style → ✅ KAPALI 2026-06-02:** `SalesInvoices/Index.cshtml` dueColor `var(--danger-text)`/`var(--text-2)` → `text-danger`/`muted` class; satır 93 `var(--brand-500)` → `text-brand`. "CANCELLED" string → `DocStatus.Cancelled`.
 - [ ] **MED · magic string:** `SalesOrders/Details.cshtml.cs:42` `'CUSTOMER'`/`'BOTH'` — `Dtos.cs`'e `PartnerType` sabiti ekle.
 - [ ] **MED · CancellationToken:** handler'lar `ct` almıyor, `OperationCanceledException` rethrow yok (`error-handling.md §4-5`). Disiplin borcu.
 

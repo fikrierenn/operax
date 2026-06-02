@@ -20,7 +20,8 @@ public class AuditService(
     Db db,
     ICurrentCompany company,
     ICurrentUser user,
-    IHttpContextAccessor http) : IAuditService
+    IHttpContextAccessor http,
+    ILogger<AuditService> logger) : IAuditService
 {
     public async Task LogAsync(string action, string entityType, Guid? entityId = null, string? details = null)
     {
@@ -44,9 +45,10 @@ public class AuditService(
                     Ip         = http.HttpContext?.Connection.RemoteIpAddress?.ToString()
                 });
         }
-        catch
+        catch (Exception ex)
         {
-            // Audit log hatası asıl işlemi durdurmamalı
+            // Audit log hatası asıl işlemi DURDURMAZ (izole — bilinçli). Ama sessiz yutulmaz: uyarı loglanır.
+            logger.LogWarning(ex, "Audit log yazılamadı: {Action} {EntityType} {EntityId}", action, entityType, entityId);
         }
     }
 }

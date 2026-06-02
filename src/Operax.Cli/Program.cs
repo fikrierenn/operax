@@ -129,6 +129,9 @@ class Program
                     // 10. Mal kabul terminal tarama SP'si (Plan 28) — 3 mod (SINGLE_PO/BULK/FREE) + iade alanı
                     var rcvScan = Path.Combine(sqlDir, "db_objects_receiving.sql");
                     if (File.Exists(rcvScan)) await ExecuteScriptAsync(rcvScan, tolerant: false);
+                    // 11. Fiyat listesi toplu giriş SP'leri (Plan 31) — sp_PriceListBulkUpsert + sp_PriceListClone (TVP)
+                    var plBulk = Path.Combine(sqlDir, "db_objects_pricelist_bulk.sql");
+                    if (File.Exists(plBulk)) await ExecuteScriptAsync(plBulk, tolerant: false);
                     break;
 
                 case "seed":

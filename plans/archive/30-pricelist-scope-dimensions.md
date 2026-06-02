@@ -1,6 +1,13 @@
 # Plan 30 — PriceList Kapsam Boyutları (şube/müşteri/genel + tarih + aktiflik)
 
-**Tier 3** · Durum: 🔨 IMPLEMENT — Faz A–D ✅ (build+sql-sp-reviewer+code-reviewer+smoke geçti), Faz E (CRUD UI) kaldı · 2026-06-03
+**Tier 3** · Durum: ✅ TAMAMLANDI — Faz A–E hepsi bitti (build+sql-sp-reviewer+code-reviewer+security-reviewer+browser smoke geçti) · 2026-06-03
+
+## ✅ FAZ E (CRUD UI) — TAMAMLANDI (2026-06-03)
+- `Features/MasterData/PriceLists/Index.cshtml(.cs)` — liste + KPI(satış/alış) + filtre(yön/aktiflik/arama) + soft-delete.
+- `Features/MasterData/PriceLists/Details.cshtml(.cs)` — New+Edit tek sayfa; başlık (Code/Name/Direction/Cari/Şube/Priority/Currency/Valid*/IsActive) + satır grid (ürün/brüt/MinQty/LineType/zincir/net) + "10+5+3" iskonto kısayolu → child kademe + ürün fiyat öneri JS.
+- Sidebar: Ana Veri → "Fiyat Listeleri". Dtos.cs: PriceDirection + PriceLineType sabitleri.
+- **Browser smoke (gerçek login):** Liste render ✅, Yeni→kaydet ✅, satır ekle 10+5+3 → **net 82,94** ✅, console hatasız. Smoke verisi temizlendi.
+- **Review:** security-reviewer temiz (IDOR/mass-assign/SQLi/CSRF/XSS yok). code-reviewer: utility-salad (sistemik, tüm ekranlarda — tutarlılık için bırakıldı); tarih formatı dd MMM yyyy'e düzeltildi; PriceListLine CompanyId bulgusu YANLIŞ POZİTİF (kolon yok, parent üzerinden bağlı).
 
 ## 🔨 IMPLEMENT İLERLEME (2026-06-03)
 - **Faz A ✅** `schema_M02_Costing.sql`: PriceList += BranchId(FK)/Priority/CreatedAt-By/UpdatedAt/IsDeleted + Direction NOT NULL+CHECK backfill; PriceListLine += LineType(CK)/IsDeleted; yeni `PriceListLineDiscount`(FK+CK Pct 0-100+UQ LineId,Seq). Canlı VT'de doğrulandı.

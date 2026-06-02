@@ -13,7 +13,10 @@
 ## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)
 
 - [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–E):** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire + **PriceList CRUD UI** (Index+Details, "10+5+3" iskonto kısayolu). build+sql-sp-reviewer+code-reviewer+security-reviewer+browser smoke geçti. Plan arşivde.
-- [ ] **DEBT · MinQty miktar filtresi (IMP-2, pre-existing):** `sp_CheckPriceVariance` ORDER BY `MinQty DESC` ile en yüksek kademeyi seçiyor ama belge miktarına göre **WHERE `MinQty <= @OrderQty` filtresi YOK** (SP'ye @OrderQty geçmiyor). Toplu-fiyat kademesi devreye alınınca ulaşılmamış indirimli fiyat yanlış seçilir → @OrderQty parametresi + qty bandı predikatı eklenmeli. Eski SP'de de vardı, Plan 30 kapsamı değil.
+- [ ] **DEBT · Qty-break / MinQty kademeli fiyat (Plan 30 IMP-2 + Plan 31 kapsam-dışı birleşti):** Şu an model **ürün başına tek fiyat satırı** (`UX_PriceListLine_ListItem` unique index). Çok-kademeli fiyat (aynı ürün 0→10₺, 100→9₺) için: (1) PriceListLine ürün-tekil index kaldırılıp `(ItemId,MinQty)` tekilliğe geçilmeli, (2) `sp_CheckPriceVariance`/resolver'a `@OrderQty` + `WHERE MinQty<=@OrderQty` eklenmeli, (3) bulk upsert MERGE anahtarı `(PriceListId,ItemId,MinQty)` olmalı. Ayrı plan — qty-break gerçek ihtiyaç olunca.
+
+## 💲 PLAN 31 — FİYAT LİSTESİ TOPLU GİRİŞ (2026-06-03)
+- [x] **✅ TAMAMLANDI:** Tabulator grid (Excel paste/fill-down/net önizleme) + `sp_PriceListBulkUpsert` (TVP/MERGE idempotent/DryRun/SyncDelete) + `sp_PriceListClone` + Excel/CSV import (önizleme→onay) + Tüm-Ürün/Çoğalt. build+sql-sp-reviewer+security-reviewer+browser smoke geçti. `UX_PriceListLine_ListItem` (ürün-tekil) eklendi. Plan arşivde.
 
 ---
 

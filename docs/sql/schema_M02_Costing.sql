@@ -213,3 +213,49 @@ BEGIN
     PRINT 'PriceListLineDiscount tablosu olusturuldu.';
 END
 GO
+
+-- ─── Plan 31: Toplu fiyat girişi için TVP (Table-Valued Parameter) ─────
+-- sp_PriceListBulkUpsert bu tip üzerinden satır demetini tek transaction'da alır.
+-- İKİ besleme yolu: grid → @ItemId doğrudan (Item.Code tekil değil!); Excel import →
+-- @ItemCode ile çözülür. ItemId doluysa o kullanılır, yoksa koddan çözülür.
+-- DiscountChain "10+5+3" ham string; SP STRING_SPLIT(...,1) ordinal ile Seq'e açar.
+-- NOT: CREATE TYPE'ın OR ALTER'ı yok. Eski şekil (ItemId kolonsuz) varsa bağımlı SP + tip düşürülür.
+IF TYPE_ID('dbo.PriceLineTVP') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.table_types tt
+                   JOIN sys.columns c ON c.object_id = tt.type_table_object_id
+                   WHERE tt.name = 'PriceLineTVP' AND c.name = 'ItemId')
+BEGIN
+    IF OBJECT_ID('dbo.sp_PriceListBulkUpsert') IS NOT NULL DROP PROCEDURE dbo.sp_PriceListBulkUpsert;
+    DROP TYPE dbo.PriceLineTVP;
+    PRINT 'Eski PriceLineTVP (ItemId kolonsuz) + bagimli SP dusuruldu, yeniden kurulacak.';
+END
+GO
+
+-- Ürün başına tek fiyat satırı (Plan 31 kararı): (PriceListId, ItemId) filtered UNIQUE.
+-- Qty-break (aynı ürün farklı MinQty kademeleri) KAPSAM DIŞI — bulk upsert/clone/grid
+-- modeli ürün-tekil varsayar; bu index MERGE'i doğru kılar + clone çapraz-eşleşmeyi önler.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_PriceListLine_ListItem'
+              AND object_id = OBJECT_ID('PriceListLine'))
+   AND NOT EXISTS (SELECT PriceListId, ItemId FROM PriceListLine
+                   WHERE IsDeleted = 0 GROUP BY PriceListId, ItemId HAVING COUNT(*) > 1)
+BEGIN
+    CREATE UNIQUE INDEX UX_PriceListLine_ListItem
+        ON PriceListLine(PriceListId, ItemId) WHERE IsDeleted = 0;
+    PRINT 'UX_PriceListLine_ListItem (urun-tekil) olusturuldu.';
+END
+GO
+
+IF TYPE_ID('dbo.PriceLineTVP') IS NULL
+BEGIN
+    CREATE TYPE dbo.PriceLineTVP AS TABLE (
+        RowNo         INT              NOT NULL,   -- kaynak satır no (hata raporu için)
+        ItemId        UNIQUEIDENTIFIER NULL,       -- grid yolu: doğrudan ürün kimliği (öncelikli)
+        ItemCode      NVARCHAR(50)     NULL,       -- Excel yolu: ürün kodu (ItemId boşsa çözülür)
+        UnitPrice     DECIMAL(18,4)    NOT NULL,   -- brüt birim fiyat
+        MinQty        DECIMAL(18,6)    NOT NULL,   -- minimum miktar kademesi
+        LineType      NVARCHAR(10)     NOT NULL,   -- FIXED / DISCOUNT
+        DiscountChain NVARCHAR(200)    NULL        -- "10+5+3" zincir iskonto (opsiyonel)
+    );
+    PRINT 'dbo.PriceLineTVP table type olusturuldu.';
+END
+GO

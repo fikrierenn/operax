@@ -125,6 +125,9 @@ class Program
                     // 9. Sarf fişi SP'leri (Plan 25) — sp_MaterialIssuePost + Reverse
                     var matIssue = Path.Combine(sqlDir, "db_objects_materialissue.sql");
                     if (File.Exists(matIssue)) await ExecuteScriptAsync(matIssue, tolerant: false);
+                    // 10. Mal kabul terminal tarama SP'si (Plan 28) — 3 mod (SINGLE_PO/BULK/FREE) + iade alanı
+                    var rcvScan = Path.Combine(sqlDir, "db_objects_receiving.sql");
+                    if (File.Exists(rcvScan)) await ExecuteScriptAsync(rcvScan, tolerant: false);
                     break;
 
                 case "seed":

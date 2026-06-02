@@ -48,6 +48,9 @@
         selectableRangeColumns: true,
         selectableRangeRows: true,
         editTriggerEvent: "click",
+        // Net efektif hücresi unitPrice/discountChain'e bağlı — herhangi bir düzenlemede
+        // satırı yeniden biçimle ki net canlı güncellensin.
+        cellEdited: function (cell) { cell.getRow().reformat(); },
         columns: [
             {
                 title: "Ürün", field: "itemId", widthGrow: 3, minWidth: 200, editor: "list",

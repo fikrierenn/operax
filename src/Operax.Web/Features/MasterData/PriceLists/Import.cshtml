@@ -24,11 +24,6 @@
     </div>
 </div>
 
-@if (TempData["Error"] is string err)
-{
-    <div class="alert-banner alert-danger">@err</div>
-}
-
 <div class="card p-6 mb-6">
     <form method="post" asp-page-handler="Preview" asp-route-id="@Model.ListId" enctype="multipart/form-data">
         @Html.AntiForgeryToken()

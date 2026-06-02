@@ -21,15 +21,6 @@
     </div>
 </div>
 
-@if (TempData["Error"] is string err)
-{
-    <div class="alert-banner alert-danger">@err</div>
-}
-@if (TempData["Success"] is string ok)
-{
-    <div class="alert-banner alert-info">@ok</div>
-}
-
 <div class="card p-6 mb-6">
     <form method="post" asp-page-handler="SaveHeader">
         @Html.AntiForgeryToken()

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-900">
+<html lang="tr" class="h-full bg-slate-900">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -22,31 +22,41 @@
 
         <!-- Terminal Main Area -->
         <main class="flex-1 overflow-hidden">
+            @* El-terminali tarama/aksiyon geri bildirimi — TempData bayrağı (flash+titreşim+bip) *@
+            @if (TempData["Success"] is string termOk)
+            {
+                <div data-term-feedback="success" data-term-msg="@termOk" hidden></div>
+            }
+            @if (TempData["Error"] is string termErr)
+            {
+                <div data-term-feedback="error" data-term-msg="@termErr" hidden></div>
+            }
             @RenderBody()
         </main>
 
         <!-- Terminal Quick Navbar (Optional) -->
         <footer class="h-14 bg-slate-800 grid grid-cols-4 gap-px shrink-0 border-t border-slate-700">
-            <button class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
+            <button onclick="history.back()" class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
                 <div class="text-[10px] uppercase font-bold text-slate-400">Esc</div>
-                <div class="text-[10px]">Back</div>
+                <div class="text-[10px]">Geri</div>
             </button>
-            <button class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
+            <button onclick="document.querySelector('input,select')?.focus()" class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
                 <div class="text-[10px] uppercase font-bold text-slate-400">F2</div>
-                <div class="text-[10px]">Find</div>
+                <div class="text-[10px]">Bul</div>
             </button>
-            <button class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
+            <a href="/Dashboard" class="flex flex-col items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
                 <div class="text-[10px] uppercase font-bold text-slate-400">Alt+L</div>
-                <div class="text-[10px]">List</div>
-            </button>
-            <button class="col-span-1 bg-indigo-600 flex flex-col items-center justify-center active:bg-indigo-500 transition-colors">
+                <div class="text-[10px]">Liste</div>
+            </a>
+            <button onclick="var f=document.querySelector('form'); if(f) f.requestSubmit();" class="col-span-1 bg-indigo-600 flex flex-col items-center justify-center active:bg-indigo-500 transition-colors">
                 <div class="text-[10px] uppercase font-bold text-white/60">Enter</div>
-                <div class="text-[10px] font-bold">OK</div>
+                <div class="text-[10px] font-bold">Tamam</div>
             </button>
         </footer>
     </div>
 
     <script src="~/js/Shortcuts.js" asp-append-version="true"></script>
+    <script src="~/js/terminal-scan.js" asp-append-version="true"></script>
     <script>
         // Terminal Clock
         function updateClock() {

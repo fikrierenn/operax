@@ -79,7 +79,7 @@
                         <div class="form-label">@L.T("Müşteri", "Customer") <span class="req">*</span></div>
                         @if (isDraft || Model.IsNew)
                         {
-                            <select class="form-ctrl" asp-for="Header.PartnerId" required>
+                            <select class="form-ctrl" asp-for="Header.PartnerId" required data-combobox>
                                 <option value="">@L.T("Seçiniz…", "Select…")</option>
                                 @foreach (var c in Model.Customers)
                                 {
@@ -216,7 +216,7 @@
                                             <form method="post" asp-page-handler="AddLine" class="row" style="gap:8px;padding:6px;">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@Model.Header.Id" />
-                                                <select name="itemId" class="form-ctrl" style="flex:2;" required>
+                                                <select name="itemId" class="form-ctrl" style="flex:2;" required data-combobox>
                                                     <option value="">@L.T("Ürün seçiniz…", "Select item…")</option>
                                                     @foreach (var i in Model.AvailableItems)
                                                     {

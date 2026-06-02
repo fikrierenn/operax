@@ -99,7 +99,7 @@
                         @Html.AntiForgeryToken()
                         <div class="form-group">
                             <label class="form-label">Ürün (sarf edilebilir)</label>
-                            <select name="itemId" class="form-ctrl" required>
+                            <select name="itemId" class="form-ctrl" required data-combobox>
                                 <option value="">Seçiniz...</option>
                                 @foreach (var i in Model.Items) { <option value="@i.Id">@i.Code - @i.Name</option> }
                             </select>

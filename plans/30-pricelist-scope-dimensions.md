@@ -1,6 +1,16 @@
 # Plan 30 — PriceList Kapsam Boyutları (şube/müşteri/genel + tarih + aktiflik)
 
-**Tier 3** · Durum: UYGULANIYOR · 2026-06-02
+**Tier 3** · Durum: ⏸️ PARK — tasarım kararları bekliyor (kullanıcı: "ezme konusunu sonra netleştirelim") · 2026-06-02
+
+## ⏸️ PARK GEREKÇESİ + AÇIK KARARLAR (implement etmeden önce netleşmeli)
+1. **Override önceliği (cari mı şube mi baskın):** çakışmada hangi fiyat ezer kesinleşmedi. Deterministik 4 katman + tie-breaker (aktif + tarih aralığı + en güncel ValidFrom + MinQty kademesi) yazılacak — ama Cari>Şube mi Şube>Cari mi KARAR yok.
+2. **🆕 Sabit fiyat listesi + İSKONTO girişi (kullanıcı):** PriceList yalnız "birim fiyat" değil; **sabit fiyat** VEYA **iskonto (% / tutar)** girişi de olabilir. Bu şemayı etkiler: `PriceListLine` += satır tipi (FIXED_PRICE / DISCOUNT_PCT / DISCOUNT_AMT?) + iskonto alanları. Liste seviyesinde de tip olabilir (komple iskonto listesi). 
+   - Soru: iskonto neyin üzerine? (liste fiyatı / Item.SalesPrice / Item.PurchasePrice baz). Zincirleme iskonto mu (kademeli)?
+   - Bu netleşmeden BranchId + audit eklemek yeterli ama EKSİK kalır → tüm boyut tasarımı birlikte yapılmalı.
+3. Şema ALTER (BranchId + audit) bu oturumda dosyaya yazılıp **geri alındı** (revert) — park kararı sonrası yarım şema asılı kalmasın diye. Aşağıdaki Faz A geçerli ama iskonto kararıyla birlikte revize edilecek.
+
+---
+**Tier 3** · (orijinal taslak — park) · 2026-06-02
 
 ## Problem
 Kullanıcı: PriceList'in giriş tarihi, aktiflik, geçerlilik (başlangıç/son) tarihi, **şube bazlı**, müşteri bazlı, genel kapsam özellikleri olmalı. Mevcut: `IsActive`, `ValidFrom`, `ValidTo`, `PartnerId`(NULL=genel), `Direction`(SALES/PURCHASE) VAR. **Eksik:** `BranchId` (şube bazlı) + giriş tarihi audit (`CreatedAt/By`).

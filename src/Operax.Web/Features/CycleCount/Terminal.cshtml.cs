@@ -23,9 +23,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
                    (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id) AS TotalLines,
                    (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id AND QtyCounted > 0) AS CountedLines
             FROM CycleCount c
-            WHERE c.CompanyId = @CompanyId AND c.Status = 'IN_PROGRESS'
+            WHERE c.CompanyId = @CompanyId AND c.Status = @Status
             ORDER BY c.CreatedAt DESC",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id, Status = DocStatus.Counting });
 
         if (!countId.HasValue) return;
 

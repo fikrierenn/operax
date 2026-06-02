@@ -66,13 +66,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             ORDER BY v.CreatedAt", new { Id, CompanyId = company.Id })).ToList();
 
         // Düzeltme yetkisi: POSTED + ödenmiş plan yok + yetkili rol
-        if (Header.Status == DocStatus.Posted && user.HasRole("Administrator", "Finance", "Purchasing"))
+        if (Header.Status == DocStatus.Posted && user.HasRole(Roles.Administrator, Roles.Finance, Roles.Purchasing))
         {
             var paid = await conn.ExecuteScalarAsync<int>(@"
                 SELECT COUNT(*) FROM PaymentPlan
                 WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@Id
-                  AND Status IN ('PAID','PARTIAL') AND FinancialTransactionId IS NOT NULL",
-                new { Id });
+                  AND Status IN (@Paid, @Partial) AND FinancialTransactionId IS NOT NULL",
+                new { Id, Paid = DocStatus.Paid, Partial = DocStatus.Partial });
             CanCorrect = paid == 0;
         }
 
@@ -97,7 +97,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                         ? $"/Finance/Payments/Create?partnerId={Header.PartnerId}&txType=EXPENSE&amount={remaining}&sourceDocId={Id}&sourceDocType=PURCHASE_INVOICE"
                         : null,
                     CreateLabel: remaining > 0 ? "Ödeme Yap" : "Tam Ödendi",
-                    CanCreate: remaining > 0 && user.HasRole("Administrator", "Finance", "Purchasing"),
+                    CanCreate: remaining > 0 && user.HasRole(Roles.Administrator, Roles.Finance, Roles.Purchasing),
                     IsGetCreate: true)
             ]);
         }

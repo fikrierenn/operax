@@ -28,14 +28,14 @@
 - [x] **HIGH · hata yönetimi → ✅ STALE/KAPALI 2026-06-02:** canlı kodda `SalesOrders/Details.cshtml.cs` `OnPostAsync`(143/173/179) + `OnPostAddLineAsync`(193/222/227) zaten try/catch'li (SqlException 50000-59999 → kullanıcı mesajı + generic catch + logger). TODO yazıldığından beri kapanmış.
 - [x] **HIGH · audit izolasyonu → ✅ KAPALI 2026-06-02:** `AuditService.LogAsync` try/catch'li → caller PATLAMIYOR (tasarımca izole, audit hatası asıl işlemi durdurmaz). Endişe yanlıştı. Bonus: sessiz catch artık `logger.LogWarning` ile loglar (AuditService.cs:47).
 - [x] **HIGH · inline style → ✅ KAPALI 2026-06-02:** `SalesInvoices/Index.cshtml` dueColor `var(--danger-text)`/`var(--text-2)` → `text-danger`/`muted` class; satır 93 `var(--brand-500)` → `text-brand`. "CANCELLED" string → `DocStatus.Cancelled`.
-- [ ] **MED · magic string:** `SalesOrders/Details.cshtml.cs:42` `'CUSTOMER'`/`'BOTH'` — `Dtos.cs`'e `PartnerType` sabiti ekle.
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `Dtos.cs`'e `PartnerType` sabiti (Customer/Vendor/Both) eklendi; `SalesOrders/Details:43` `'CUSTOMER'/'BOTH'` → `@Customer/@Both` parametre. (Receiving vendor filtresi + Partners diğer kullanımlar dokunulmadı — touch ettikçe.)
 - [ ] **MED · CancellationToken:** handler'lar `ct` almıyor, `OperationCanceledException` rethrow yok (`error-handling.md §4-5`). Disiplin borcu.
 
 ### Plan 28/29 faz-kapanış review (2026-06-02 — pre-existing, kapsam-dışı)
 > security-reviewer TEMİZ (≥80 yok). code-reviewer: oturumun YENİ kodu (ParameterStore, Receiving mod/GRNI, ReceivingMode sabiti) temiz. Aşağısı dokunmadığım Plan 27 kodu (drive-by yasağı). `'REJECTED'` magic string bu oturumda düzeltildi (1 satır, sıfır risk).
-- [ ] **MED · magic string:** `PurchaseInvoices/Details.cshtml.cs:69,100` rol adları string literal (`"Administrator","Finance","Purchasing"`) — `Roles.*` sabiti kullan (`Roles.Finance` yoksa ekle). Terminal/Receiving sabit kullanıyor, burada tutarsız.
-- [ ] **MED · magic string:** `PurchaseInvoices/Details.cshtml.cs:74` SQL `Status IN ('PAID','PARTIAL')` — `DocStatus.Paid` var, `PARTIAL` için sabit yok; parametrize et.
-- [ ] **MED · sessiz catch:** `MasterData/Items/Details.cshtml.cs:79` UDF JSON parse `catch { ... }` log yok — `ILogger` inject + `LogWarning` ekle.
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `PurchaseInvoices/Details.cshtml.cs:69,100` rol string'leri → `Roles.Administrator/Finance/Purchasing` (Roles.Finance zaten vardı).
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `:74` `Status IN ('PAID','PARTIAL')` → `@Paid/@Partial`; `Dtos.cs`'e `DocStatus.Partial` eklendi.
+- [x] **MED · sessiz catch → ✅ KAPALI 2026-06-02:** `Items/Details.cshtml.cs` UDF JSON catch → `ILogger` inject + `LogWarning` (ham metin fallback korundu).
 
 ---
 

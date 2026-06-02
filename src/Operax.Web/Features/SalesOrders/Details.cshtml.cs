@@ -40,7 +40,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
 
         Customers = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('CUSTOMER', 'BOTH') AND IsDeleted = 0", p);
+            "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN (@Customer, @Both) AND IsDeleted = 0",
+            new { CompanyId = company.Id, Customer = PartnerType.Customer, Both = PartnerType.Both });
 
         // İş kuralı: CONSUMABLE (sarf malzeme) satışta gizlenir; yalnızca sarf fişinde kullanılır
         AvailableItems = await conn.QueryAsync<DdlDto>(

@@ -31,6 +31,7 @@ public static class DocStatus
     public const string InProgress = "IN_PROGRESS";
     public const string Assigned   = "ASSIGNED";
     public const string Paid       = "PAID";       // Gider faturası ödendi
+    public const string Partial    = "PARTIAL";    // Kısmi ödeme/tahsilat
     public const string Rejected   = "REJECTED";   // Fiyat farkı reddedildi
     public const string Pending    = "PENDING";    // Onay bekliyor
 }
@@ -53,6 +54,14 @@ public static class SourceDoc
     public const string Transfer   = "TRANSFER";
     public const string CycleCount = "CYCLE_COUNT";
     public const string Production = "PRODUCTION";
+}
+
+/// <summary>Cari (Partner) tip sabitleri — müşteri / tedarikçi / her ikisi</summary>
+public static class PartnerType
+{
+    public const string Customer = "CUSTOMER";  // Müşteri
+    public const string Vendor   = "VENDOR";    // Tedarikçi
+    public const string Both     = "BOTH";      // Hem müşteri hem tedarikçi
 }
 
 /// <summary>Mal kabul modu sabitleri (Plan 28) — terminal/masaüstü kabul akışı</summary>

@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
@@ -76,8 +76,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                         Item.MaxQty = udf.MaxQty;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    // UDF JSON ayrıştırılamadı → açıklama ham metin olarak gösterilir (bozulmaz), uyarı loglanır
+                    logger.LogWarning(ex, "Ürün UDF JSON ayrıştırma hatası: {ItemId}", id);
                     Item.ActualDescription = Item.Description;
                 }
             }

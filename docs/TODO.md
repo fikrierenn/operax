@@ -13,7 +13,7 @@
 ## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
 
 - [x] **Düzeltme revizyonu BUILD → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` AM yerinde UPDATE canlıda; build defalarca yeşil. (stale)
-- [x] **PO bağı YOKSA PriceList sapması → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost`'a PO-bağsız satırlar için PriceList variance (CROSS APPLY, tedarikçi-özel>genel, tolerans `PriceTolerancePercent` %5). PO-bağlı satırlar zaten tolerans-yok PO variance alıyor.
+- [x] **PO bağı YOKSA PriceList sapması → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost`'a PO-bağsız satırlar için PriceList variance (CROSS APPLY, tedarikçi-özel>genel). **TOLERANS YOK** (Plan 27 ilkesi — kullanıcı: "tolerans olamaz"): `sp_CheckPriceVariance` + invoice PriceList path tolerans kaldırıldı, `PriceTolerancePercent` param silindi (ölü). Her sapma variance.
 - [x] **Vade tarihi tedarikçi kartından → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost` @DueDate NULL ise `Partner.PaymentTermDays` → yoksa `DEFAULT_PAYMENT_TERM_DAYS` (Plan 29) → fatura tarihi + gün. Hardcoded +30 kalktı.
 - [x] **Düzeltme sonrası variance yeniden hesapla → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` fiyat değişince PriceVariance recompute (fark 0→soft-delete, sürüyor→güncelle, yeni fark→DRAFT). sql-sp-reviewer: IMP-1 (BULK→LINKED denetim boşluğu → COALESCE join) + IMP-2 (UX_PriceVariance_Source filtered unique) düzeltildi.
 

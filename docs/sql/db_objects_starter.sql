@@ -94,7 +94,7 @@ GO
 --   @VarianceId  UNIQUEIDENTIFIER OUTPUT — oluşan PriceVariance kaydının kimliği (sapma yoksa NULL)
 -- SIDE EFFECTS: PriceVariance (INSERT — tolerans aşılırsa DRAFT kayıt)
 -- THROW: yok (liste fiyatı yoksa sessizce döner)
--- BAĞIMLILIK: Parameter (PriceTolerancePercent), PriceList, PriceListLine
+-- BAĞIMLILIK: PriceList, PriceListLine (tolerans YOK — her sapma variance)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_CheckPriceVariance
     @CompanyId      UNIQUEIDENTIFIER,
@@ -110,7 +110,7 @@ BEGIN
     SET NOCOUNT ON;
     SET @VarianceId = NULL;
 
-    DECLARE @ExpectedPrice DECIMAL(18,4), @Tolerance DECIMAL(8,4);
+    DECLARE @ExpectedPrice DECIMAL(18,4);
 
     -- İş kuralı: PriceList üzerinde önce tedarikçi-özel, yoksa genel liste; Direction=PURCHASE
     SELECT TOP 1 @ExpectedPrice = pll.UnitPrice
@@ -139,21 +139,15 @@ BEGIN
     -- Liste fiyatı yoksa sapma kontrolü yapılamaz
     IF @ExpectedPrice IS NULL RETURN;
 
-    -- Tolerans yüzdesini parametre tablosundan al
-    SELECT @Tolerance = CAST(Value AS DECIMAL(8,4))
-    FROM Parameter
-    WHERE CompanyId = @CompanyId AND Code = 'PriceTolerancePercent';
-    SET @Tolerance = ISNULL(@Tolerance, 5);  -- varsayılan %5
+    -- TOLERANS YOK (Plan 27 ilkesi): liste fiyatından HER sapma variance üretir; eşit ise kayıt yok.
+    IF @ActualPrice = @ExpectedPrice RETURN;
 
     -- Sapma hesabı
     DECLARE @Variance DECIMAL(18,4)        = @ActualPrice - @ExpectedPrice;
     DECLARE @VariancePct DECIMAL(8,4)      =
         CASE WHEN @ExpectedPrice > 0 THEN @Variance / @ExpectedPrice * 100 ELSE 0 END;
 
-    -- Tolerans altında ise kayıt oluşturma
-    IF ABS(@VariancePct) <= @Tolerance RETURN;
-
-    -- Sapma var ve eşiğin üzerinde: PriceVariance kaydı
+    -- Sapma var: PriceVariance kaydı
     SET @VarianceId = NEWID();
     INSERT INTO PriceVariance (
         Id, CompanyId, SourceDocType, SourceDocId, SourceLineId,

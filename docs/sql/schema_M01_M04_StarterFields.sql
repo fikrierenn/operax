@@ -171,13 +171,5 @@ WHERE NOT EXISTS (
 );
 GO
 
-INSERT INTO Parameter (Id, CompanyId, ModuleCode, Code, Value, Description, CreatedAt)
-SELECT NEWID(), c.Id, 'M03', 'PriceTolerancePercent', '5',
-       N'Tedarikci fiyat listesinden sapma toleransi (yuzde). Bu eskigin uzeri PriceVariance kaydi.',
-       GETUTCDATE()
-FROM Company c
-WHERE NOT EXISTS (
-    SELECT 1 FROM Parameter p
-    WHERE p.CompanyId = c.Id AND p.Code = 'PriceTolerancePercent'
-);
-GO
+-- NOT (Plan 27): PriceTolerancePercent KALDIRILDI — fiyat farkında tolerans YOK ilkesi.
+-- Liste/PO fiyatından her sapma variance üretir (satınalmacı gerekçelendirir). Param artık seed edilmez.

@@ -458,11 +458,8 @@ BEGIN
           AND pil.UnitPrice <> pol.Price;
 
         -- Plan 27 #2: PO bağı OLMAYAN satırlar (manuel/UNLINKED) → fiyat listesi (PriceList) sapması.
-        -- Sözleşme PO fiyatı yok; referans = katalog. Tolerans var (PriceTolerancePercent, varsayılan %5):
-        -- katalog fiyatı yaklaşık referans olduğu için küçük sapmalar variance üretmez (PO'da tolerans=0 idi).
+        -- TOLERANS YOK (Plan 27 ilkesi): referans fiyattan HER sapma variance üretir, satınalmacı gerekçelendirir.
         -- Öncelik: tedarikçi-özel liste > genel liste; geçerlilik tarihi + miktar kademesi gözetilir.
-        DECLARE @PlTol DECIMAL(8,4) = ISNULL((SELECT TRY_CAST(Value AS DECIMAL(8,4)) FROM Parameter
-            WHERE CompanyId = @CompanyId AND Code = 'PriceTolerancePercent' AND IsDeleted = 0), 5);
         INSERT INTO PriceVariance
             (Id, CompanyId, SourceDocType, SourceDocId, SourceLineId,
              ItemId, PartnerId, ExpectedPrice, ActualPrice,
@@ -489,7 +486,7 @@ BEGIN
           AND pil.PurchaseOrderLineId IS NULL   -- yalnız PO bağı olmayan satır
           AND pil.UnitPrice > 0
           AND ex.ExpectedPrice IS NOT NULL
-          AND ABS(CASE WHEN ex.ExpectedPrice > 0 THEN (pil.UnitPrice - ex.ExpectedPrice) / ex.ExpectedPrice * 100 ELSE 0 END) > @PlTol;
+          AND pil.UnitPrice <> ex.ExpectedPrice;   -- TOLERANS YOK: her sapma variance
 
         COMMIT TRANSACTION;
     END TRY

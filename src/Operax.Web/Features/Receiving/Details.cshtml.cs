@@ -245,7 +245,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await conn.ExecuteAsync("sp_ReceivingPost",
                 new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
-            await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul irsaliyesi onaylandı");
+            await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul belgesi onaylandı (stoğa aktarıldı)");
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
         {

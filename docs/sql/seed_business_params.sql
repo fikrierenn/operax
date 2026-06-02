@@ -7,9 +7,8 @@ INSERT INTO @params (ModuleCode, Code, Value, Descr) VALUES
  ('M03','DEFAULT_PURCHASE_TAX_RATE',   '20', N'Alış belgelerinde varsayılan KDV oranı (%) — ürün kendi oranını (Item.TaxRate) taşıyorsa o önceliklidir, bu yalnız fallback.'),
  ('M04','DEFAULT_SALES_TAX_RATE',      '20', N'Satış belgelerinde varsayılan KDV oranı (%) — ürün kendi oranını taşıyorsa o önceliklidir, bu yalnız fallback. Alış oranından farklı olabilir.'),
  ('M00','DEFAULT_PAYMENT_TERM_DAYS',   '30', N'Yeni cari/sipariş için varsayılan ödeme vadesi (gün).'),
- ('M11','AGING_BUCKET_2_DAYS',         '30', N'Cari yaşlandırma 1. eşik (gün): 0-bu değer arası ilk kova.'),
- ('M11','AGING_BUCKET_3_DAYS',         '60', N'Cari yaşlandırma 2. eşik (gün).'),
- ('M11','AGING_BUCKET_4_DAYS',         '90', N'Cari yaşlandırma 3. eşik (gün); üstü en yaşlı kova.'),
+ -- NOT: Yaşlandırma kovaları (30/60/90) inline TVF içinde — DECLARE yok, parametrik yapmak 16 subquery
+ -- gerektirir; ayrıca 30/60/90 muhasebe standardı. Maliyet>değer → şimdilik sabit, gerekirse ileride.
  ('M11','PARTNER_RECON_DEADLINE_MONTHS','1', N'Cari mutabakat sessiz onay süresi (ay): bu süre dolunca otomatik kabul.'),
  ('M16','AI_INFERENCE_TIMEOUT_SECONDS','120',N'Yerel AI (fiyat farkı gerekçe denetimi) zaman aşımı (saniye).');
 

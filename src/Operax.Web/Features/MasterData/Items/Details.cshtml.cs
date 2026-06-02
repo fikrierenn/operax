@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
@@ -42,6 +42,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         TaxRates = await conn.QueryAsync<DdlDto>(
             "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'TAX_RATE' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0 ORDER BY dv.OrderNo",
             p);
+
+        // Yeni ürün varsayılan KDV oranı parametreden (Plan 29) — Admin > Parametreler ile değişir
+        if (!id.HasValue)
+            Item.TaxRate = await parameters.GetDecimalAsync("DEFAULT_SALES_TAX_RATE", 20);
 
         if (id.HasValue)
         {

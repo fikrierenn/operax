@@ -1,6 +1,6 @@
 # Plan 29 — İş-Ayarı Magic-Number'ları Parameter Paneline Taşı
 
-**Tier 3** · Durum: UYGULANIYOR · 2026-06-02
+**Tier 3** · Durum: TAMAM (yaşlandırma kovaları gerekçeli kapsam-dışı) · 2026-06-02
 
 ## Problem
 İş-ayarı niteliğindeki sabitler kod/SP içinde hardcoded. Müşteri başına değişebilmeli (Admin > Parametreler). Tarama (Explore, 2026-06-02) ~15 aday buldu; **yalnız iş-ayarları** kapsamda — güvenlik/altyapı (rate-limit, lockout, session, HSTS, cron) appsettings'te kalır (DB panele almak riskli), teknik sabitler (THROW, cache TTL, DocStatus) taşınmaz.
@@ -25,9 +25,9 @@
 
 ## Fazlar
 - ✅ **A — Altyapı:** ParameterStore += GetDecimalAsync/GetIntAsync. `seed_business_params.sql` (idempotent, her şirket) + migrate listesi. DI kayıt.
-- 🟡 **B — C# tüketiciler:** ✅ AI timeout (PurchaseInvoices). ⬜ PO/SO/Item/Partner form KDV+vade default'ları (kalan).
-- 🟡 **C — SP tüketiciler:** ✅ **KDV fix** — alış SP (`sp_CreatePurchaseInvoiceFromReceiving`) artık `Item.TaxRate` kullanır (önceden sabit %20 → 0/10% ürün yanlış faturalanıyordu) + `@PurchaseDefaultTax` fallback; satış SP'leri (`sp_GenerateSalesInvoiceFromShipping(s)`) `@SalesDefaultTax`. Smoke PASS (%0 ürün → 0/0). ⬜ yaşlandırma kovaları + mutabakat deadline SP'leri (kalan).
-- ⬜ **D — Panel UX:** Admin > Parametreler generic düzenleme zaten var; ModuleCode grupları yeterli.
+- ✅ **B — C# tüketiciler:** AI timeout (PurchaseInvoices) + Item yeni-kayıt KDV (`DEFAULT_SALES_TAX_RATE`) + Partner yeni-kayıt vade (`DEFAULT_PAYMENT_TERM_DAYS`). PO/SO satır DTO `=20` initializer kozmetik bırakıldı (SP artık item rate kullanıyor, posting authoritative).
+- ✅ **C — SP tüketiciler:** KDV fix (alış→Item.TaxRate+fallback, satış→@SalesDefaultTax, smoke PASS %0→0/0) + mutabakat deadline (`@DeadlineMonths`). **Yaşlandırma kovaları (30/60/90) ATLANDI** — inline TVF'de DECLARE yok, parametrik=16 subquery + 30/60/90 muhasebe standardı; maliyet>değer (gerekçeli, seed'den çıkarıldı).
+- ✅ **D — Panel UX:** Admin > Parametreler generic key-value düzenleme zaten var; seed Türkçe açıklama + ModuleCode grupları.
 
 ## Done
 - Hardcoded iş-ayarı kalmadı (güvenlik/altyapı hariç — gerekçeli).

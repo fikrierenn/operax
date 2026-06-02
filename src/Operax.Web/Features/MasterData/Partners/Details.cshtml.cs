@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Partners;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ParameterStore parameters) : PageModel
 {
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
@@ -108,8 +108,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             Partner.Type                 = "BOTH";
             Partner.RiskScore            = 3;
             Partner.RiskCategory         = "MEDIUM";
-            Partner.MaxOverdueDays       = 30;
-            Partner.PaymentTermDays      = 30;
+            // Yeni cari varsayılan ödeme vadesi parametreden (Plan 29)
+            var termDays                 = await parameters.GetIntAsync("DEFAULT_PAYMENT_TERM_DAYS", 30);
+            Partner.MaxOverdueDays       = termDays;
+            Partner.PaymentTermDays      = termDays;
             Partner.DefaultPaymentMethod = "EFT";
         }
     }

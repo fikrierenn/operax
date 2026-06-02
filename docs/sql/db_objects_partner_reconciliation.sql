@@ -56,12 +56,17 @@ BEGIN
         DECLARE @now DATETIME2 = GETUTCDATE();
         SET @NewId = NEWID();
 
+        -- Sessiz onay süresi (Plan 29 parametrik) — kayıt yoksa 1 ay (TTK md.94 makul süre)
+        DECLARE @DeadlineMonths INT = ISNULL(
+            (SELECT TRY_CAST(Value AS INT) FROM Parameter
+             WHERE CompanyId = @CompanyId AND Code = 'PARTNER_RECON_DEADLINE_MONTHS' AND IsDeleted = 0), 1);
+
         INSERT INTO dbo.PartnerReconciliationLog
             (Id, CompanyId, PartnerId, StatementDate, BalanceSnapshot, Status,
              SentAt, SentChannel, DeadlineAt, CreatedBy)
         VALUES
             (@NewId, @CompanyId, @PartnerId, @StatementDate, @bal, 'SENT',
-             @now, @SentChannel, DATEADD(MONTH, 1, @now), @UserId);
+             @now, @SentChannel, DATEADD(MONTH, @DeadlineMonths, @now), @UserId);
 
         COMMIT TRANSACTION;
     END TRY

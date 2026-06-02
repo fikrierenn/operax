@@ -141,6 +141,12 @@ BEGIN
             (@NewInvoiceId, @CompanyId, @PartnerId, @InvDocNo, @InvDocNo, CAST(GETUTCDATE() AS DATE),
              CAST(GETUTCDATE() AS DATE), 0, 0, 0, 'DRAFT', TRY_CAST(@UserId AS UNIQUEIDENTIFIER));
 
+        -- Varsayılan alış KDV oranı (Plan 29 — parametrik). Ürün kendi oranını (Item.TaxRate) taşır;
+        -- bu YALNIZ ürün oranı bulunamazsa fallback. %0 geçerli orandır → ISNULL ile korunur (0 ezilmez).
+        DECLARE @PurchaseDefaultTax DECIMAL(8,4) = ISNULL(
+            (SELECT TRY_CAST(Value AS DECIMAL(8,4)) FROM Parameter
+             WHERE CompanyId = @CompanyId AND Code = 'DEFAULT_PURCHASE_TAX_RATE' AND IsDeleted = 0), 20);
+
         -- ============================================================================
         -- SATIR ÜRETİMİ (Plan 28 Faz C) — iki yol:
         --   (1) SINGLE_PO satırı (rl.PurchaseOrderLineId DOLU): doğrudan o PO satırına bağla, fiyat PO'dan.
@@ -164,6 +170,8 @@ BEGIN
         BEGIN
             -- Bu çağrıda işlenen kalan (BULK iç loop @rlRemain'i tükettiği için ayrı tut — additive InvoicedQty)
             DECLARE @rlProcessed DECIMAL(18,6) = @rlRemain;
+            -- KDV oranı üründen gelir (%0 dahil geçerli); ürün bulunamazsa parametrik fallback
+            DECLARE @taxRate DECIMAL(8,4) = ISNULL((SELECT TaxRate FROM Item WHERE Id = @rlItem), @PurchaseDefaultTax);
             IF @rlPoLine IS NOT NULL
             BEGIN
                 -- (1) SINGLE_PO — doğrudan bağ, fiyat PO satırından
@@ -172,8 +180,8 @@ BEGIN
                     (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
                      TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
                 VALUES
-                    (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, @spPrice, @rlRemain * @spPrice, 20,
-                     @rlRemain * @spPrice * 0.20, @rlRemain * @spPrice * 1.20, @rlId, @rlPoLine, 'LINKED');
+                    (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, @spPrice, @rlRemain * @spPrice, @taxRate,
+                     @rlRemain * @spPrice * @taxRate / 100.0, @rlRemain * @spPrice * (1 + @taxRate / 100.0), @rlId, @rlPoLine, 'LINKED');
             END
             ELSE
             BEGIN
@@ -197,8 +205,8 @@ BEGIN
                         (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
                          TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
                     VALUES
-                        (@NewInvoiceId, @rlItem, @rlUom, @take, @poPrice, @take * @poPrice, 20,
-                         @take * @poPrice * 0.20, @take * @poPrice * 1.20, @rlId, @poId, 'LINKED');
+                        (@NewInvoiceId, @rlItem, @rlUom, @take, @poPrice, @take * @poPrice, @taxRate,
+                         @take * @poPrice * @taxRate / 100.0, @take * @poPrice * (1 + @taxRate / 100.0), @rlId, @poId, 'LINKED');
                     -- BULK atfı: PO QtyReceived fatura anında güncellenir (kabulde PO bağı yoktu)
                     UPDATE PurchaseOrderLine SET QtyReceived = QtyReceived + @take WHERE Id = @poId;
                     SET @rlRemain = @rlRemain - @take;
@@ -212,7 +220,7 @@ BEGIN
                         (InvoiceId, ItemId, UomId, Qty, UnitPrice, LineSubtotal, TaxRatePercent,
                          TaxAmount, LineTotal, SourceReceivingLineId, PurchaseOrderLineId, SourceLinkType)
                     VALUES
-                        (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, 0, 0, 20, 0, 0, @rlId, NULL, 'UNLINKED');
+                        (@NewInvoiceId, @rlItem, @rlUom, @rlRemain, 0, 0, @taxRate, 0, 0, @rlId, NULL, 'UNLINKED');
             END
 
             -- Kısmi faturalama izi: işlenen kalan eklenir (additive — gelecekte kısmi-kısmi için güvenli)

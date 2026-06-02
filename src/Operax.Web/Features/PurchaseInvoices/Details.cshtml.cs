@@ -11,7 +11,7 @@ namespace Operax.Web.Features.PurchaseInvoices;
 /// Mal alım faturası detayı: başlık + kalemler + tedarikçi belge bilgisi düzenleme + Onayla/İptal/Ödeme.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger, IOperaxAiClient ai) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger, IOperaxAiClient ai, ParameterStore parameters) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
     [BindProperty] public EditDto Edit { get; set; } = new();
@@ -231,7 +231,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         // İnference'i HTTP istek-abort'tan AYIR: yavaş CPU inference'inde tarayıcı/proxy
         // isteği iptal ederse 0 token'da kesilmesin diye kendi timeout'lu CTS (120s).
         var context = $"Ürün: {ctx.Item}. Sipariş fiyatı {ctx.Expected:N2}, fatura fiyatı {ctx.Actual:N2}.";
-        using var aiCts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var aiTimeout = await parameters.GetIntAsync("AI_INFERENCE_TIMEOUT_SECONDS", 120);
+        using var aiCts = new CancellationTokenSource(TimeSpan.FromSeconds(aiTimeout));
         var verdict = await ai.CheckJustificationAsync(context, reason, aiCts.Token);
 
         await conn.ExecuteAsync(@"

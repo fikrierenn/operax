@@ -267,6 +267,11 @@ BEGIN
         IF @CompanyId IS NULL THROW 50201, N'Sevkiyat bulunamadı.', 1;
         IF @ShipStatus <> 'POSTED' THROW 50202, N'Sadece POSTED sevkiyatlar faturalanabilir.', 1;
 
+        -- Varsayılan satış KDV (Plan 29 parametrik) — ürün oranı (Item.TaxRate) öncelikli, bu fallback. %0 korunur.
+        DECLARE @SalesDefaultTax DECIMAL(8,4) = ISNULL(
+            (SELECT TRY_CAST(Value AS DECIMAL(8,4)) FROM Parameter
+             WHERE CompanyId = @CompanyId AND Code = 'DEFAULT_SALES_TAX_RATE' AND IsDeleted = 0), 20);
+
         -- Dönem kilidi: fatura oluşturma anının dönemi açık olmalı (Plan 14)
         DECLARE @now DATETIME2 = GETUTCDATE();
         DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
@@ -337,9 +342,9 @@ BEGIN
             sl.QtyBase,
             ISNULL(sol.Price, ISNULL(i.SalesPrice, 0))                                 AS UnitPrice,
             sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0))                    AS LineSubtotal,
-            ISNULL(i.TaxRate, 20)                                                      AS TaxRatePercent,
-            sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, 20) / 100 AS TaxAmount,
-            sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, 20) / 100) AS LineTotal,
+            ISNULL(i.TaxRate, @SalesDefaultTax)                                         AS TaxRatePercent,
+            sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, @SalesDefaultTax) / 100 AS TaxAmount,
+            sl.QtyBase * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, @SalesDefaultTax) / 100) AS LineTotal,
             ic.AvgCost                                                                 AS UnitCost,
             sl.Id
         FROM ShippingLine sl
@@ -438,6 +443,11 @@ BEGIN
         )
             THROW 50211, N'Seçili sevkiyatlar aynı cariye ait, onaylı ve geçerli olmalıdır.', 1;
 
+        -- Varsayılan satış KDV (Plan 29 parametrik) — ürün oranı (Item.TaxRate) öncelikli, bu fallback. %0 korunur.
+        DECLARE @SalesDefaultTax DECIMAL(8,4) = ISNULL(
+            (SELECT TRY_CAST(Value AS DECIMAL(8,4)) FROM Parameter
+             WHERE CompanyId = @CompanyId AND Code = 'DEFAULT_SALES_TAX_RATE' AND IsDeleted = 0), 20);
+
         DECLARE @now DATETIME2 = GETUTCDATE();
         DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @userStr;
@@ -485,9 +495,9 @@ BEGIN
             (sl.QtyBase - sl.InvoicedQty),
             ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)),
             (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)),
-            ISNULL(i.TaxRate, 20),
-            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, 20) / 100,
-            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, 20) / 100),
+            ISNULL(i.TaxRate, @SalesDefaultTax),
+            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * ISNULL(i.TaxRate, @SalesDefaultTax) / 100,
+            (sl.QtyBase - sl.InvoicedQty) * ISNULL(sol.Price, ISNULL(i.SalesPrice, 0)) * (1 + ISNULL(i.TaxRate, @SalesDefaultTax) / 100),
             ic.AvgCost,
             sl.Id
         FROM ShippingLine sl

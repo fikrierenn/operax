@@ -28,4 +28,12 @@ public sealed class ParameterStore(Db db, ICurrentCompany company)
         // İş kuralı: bozuk değer kaydedilmişse sessiz fallback (parametre ekranı doğrulamalı)
         return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
     }
+
+    /// <summary>Parametreyi ondalık olarak okur; kayıt yoksa veya geçersizse fallback.
+    /// Değer InvariantCulture'da saklanır (nokta ondalık) — kültür bağımsız çözümleme.</summary>
+    public async Task<decimal> GetDecimalAsync(string code, decimal fallback)
+    {
+        var raw = await GetStringAsync(code, fallback.ToString(CultureInfo.InvariantCulture));
+        return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : fallback;
+    }
 }

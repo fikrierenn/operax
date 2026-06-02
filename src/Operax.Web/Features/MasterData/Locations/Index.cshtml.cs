@@ -17,20 +17,20 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         SelectedWhId = whId;
         using var conn = db.Open();
 
-        // Get Warehouses
+        // Depoları getir
         Warehouses = await conn.QueryAsync<WarehouseDto>(@"
             SELECT Id, Code, Name FROM Warehouse 
             WHERE CompanyId = @CompanyId AND IsDeleted = 0 
             ORDER BY Code", 
             new { CompanyId = company.Id });
 
-        // If no WH selected but there are warehouses, select the first one
+        // Depo seçilmediyse ilk depoyu varsayılan seç
         if (whId == null && Warehouses.Any())
         {
             SelectedWhId = Warehouses.First().Id;
         }
 
-        // Get Bins for selected WH
+        // Seçili depoya ait hücreleri getir
         if (SelectedWhId != null)
         {
             // CompanyId JOIN: URL manipülasyonuyla yabancı depo rafları görülemesin

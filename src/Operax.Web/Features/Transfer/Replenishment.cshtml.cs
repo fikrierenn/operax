@@ -89,5 +89,6 @@ public class ReplenishmentModel(Db db, ICurrentCompany company, ILogger<Replenis
         public decimal MaxQty        { get; set; }
         public decimal CurrentQty    { get; set; }
         public decimal NeededQty     { get; set; }
+        public string? UomCode       { get; set; }
     }
 }

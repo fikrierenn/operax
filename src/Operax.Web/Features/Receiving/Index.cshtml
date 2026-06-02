@@ -80,7 +80,14 @@
             <span class="kpi-unit">evrak</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">Mal girdi, fatura gelmedi (tıkla → filtrele)</span>
+            @if (Model.OverdueInvoiceCount > 0)
+            {
+                <span class="kpi-delta down">@Model.OverdueInvoiceCount adet @Operax.Web.Features.Receiving.IndexModel.InvoiceAgingThresholdDays+ gün gecikti</span>
+            }
+            else
+            {
+                <span class="kpi-trend text-slate-400">Mal girdi, fatura gelmedi (tıkla → filtrele)</span>
+            }
         </div>
     </a>
 </div>
@@ -132,12 +139,22 @@
                         </span>
                     </td>
                     <td>
+                        @{
+                            var awaiting = r.BillingStatus is "NONE" or "PARTIAL";
+                            var overdue  = awaiting && r.DaysSinceReceipt >= Operax.Web.Features.Receiving.IndexModel.InvoiceAgingThresholdDays;
+                        }
                         @switch (r.BillingStatus)
                         {
                             case "NONE":    <span class="badge badge-warn">Faturasız</span> break;
                             case "PARTIAL": <span class="badge badge-info">Kısmi</span> break;
                             case "FULL":    <span class="badge badge-success">Faturalı</span> break;
                             default:        <span class="text-slate-300">—</span> break;
+                        }
+                        @if (awaiting)
+                        {
+                            <span class="@(overdue ? "text-red-600 font-bold" : "text-slate-400") text-xs ml-1">
+                                @(overdue ? "⚠ " : "")@r.DaysSinceReceipt gün
+                            </span>
                         }
                     </td>
                     <td class="num">

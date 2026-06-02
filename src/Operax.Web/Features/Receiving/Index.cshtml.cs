@@ -25,6 +25,10 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int PostedCount { get; set; } = 0;
     public int CancelledCount { get; set; } = 0;
     public int AwaitingInvoiceCount { get; set; } = 0;
+    public int OverdueInvoiceCount { get; set; } = 0;
+
+    // GRNI yaşlandırma eşiği: bu kadar gündür faturasız POSTED mal kabul "geciken" sayılır
+    public const int InvoiceAgingThresholdDays = 30;
 
     public async Task OnGetAsync()
     {
@@ -45,13 +49,18 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             if (status == DocStatus.Cancelled) CancelledCount = cnt;
         }
 
-        // Fatura bekleyen (POSTED + faturasız/kısmi) sayacı — açıkta kalan mal kabuller (GRNI)
-        AwaitingInvoiceCount = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(*) FROM ReceivingHeader r
+        // Fatura bekleyen (POSTED + faturasız/kısmi) + geciken (eşik aşan) sayaçları — GRNI
+        var grni = await conn.QueryFirstAsync<(int Awaiting, int Overdue)>(@"
+            SELECT
+                COUNT(*) AS Awaiting,
+                SUM(CASE WHEN DATEDIFF(DAY, r.DocDate, CAST(GETUTCDATE() AS DATE)) >= @Threshold THEN 1 ELSE 0 END) AS Overdue
+            FROM ReceivingHeader r
             WHERE r.CompanyId = @CompanyId AND r.IsDeleted = 0 AND r.Status = @Posted
               AND EXISTS (SELECT 1 FROM ReceivingLine l
                           WHERE l.HeaderId = r.Id AND (l.QtyBase - l.InvoicedQty) > 0.000001)",
-            new { CompanyId = company.Id, Posted = DocStatus.Posted });
+            new { CompanyId = company.Id, Posted = DocStatus.Posted, Threshold = InvoiceAgingThresholdDays });
+        AwaitingInvoiceCount = grni.Awaiting;
+        OverdueInvoiceCount  = grni.Overdue;
 
         // Faturalama durumu satır toplamlarından türetilir (BillingStatus):
         //   NONE (faturasız) · PARTIAL (kısmi) · FULL (faturalı). Yalnız POSTED belge için anlamlı.
@@ -61,7 +70,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                    CASE WHEN r.Status <> @Posted THEN NULL
                         WHEN ISNULL(agg.Inv,0) <= 0.000001 THEN 'NONE'
                         WHEN agg.Inv < agg.Rcv - 0.000001 THEN 'PARTIAL'
-                        ELSE 'FULL' END AS BillingStatus
+                        ELSE 'FULL' END AS BillingStatus,
+                   DATEDIFF(DAY, r.DocDate, CAST(GETUTCDATE() AS DATE)) AS DaysSinceReceipt
             FROM ReceivingHeader r
             JOIN Partner p  ON p.Id  = r.PartnerId
             JOIN Warehouse wh ON wh.Id = r.WarehouseId
@@ -87,5 +97,5 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     }
 
     public record ReceivingDto(Guid Id, string DocNo, DateTime DocDate, string Status,
-        string PartnerName, string WarehouseCode, string? BillingStatus);
+        string PartnerName, string WarehouseCode, string? BillingStatus, int DaysSinceReceipt);
 }

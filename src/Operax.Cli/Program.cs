@@ -98,7 +98,8 @@ class Program
                         "schema_M03_ReceivingInvoiceMatch.sql", // Plan 28 Faz C: PurchaseInvoiceLine.PurchaseOrderLineId + ReceivingLine.InvoicedQty
                         "schema_M18_ExpenseReporting.sql",    // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
                         "schema_M02_MaterialIssue.sql",       // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
-                        "schema_M04_ShipmentInvoiceMerge.sql" // Plan 21: İrsaliye↔Fatura N:1 (InvoicedQty + SourceShipmentLineId + IssueDate)
+                        "schema_M04_ShipmentInvoiceMerge.sql", // Plan 21: İrsaliye↔Fatura N:1 (InvoicedQty + SourceShipmentLineId + IssueDate)
+                        "schema_M01_SupplierItem.sql"         // Plan 32: Tedarikçi-Ürün Kataloğu (SupplierItem)
 
                     })
                     {
@@ -132,6 +133,9 @@ class Program
                     // 11. Fiyat listesi toplu giriş SP'leri (Plan 31) — sp_PriceListBulkUpsert + sp_PriceListClone (TVP)
                     var plBulk = Path.Combine(sqlDir, "db_objects_pricelist_bulk.sql");
                     if (File.Exists(plBulk)) await ExecuteScriptAsync(plBulk, tolerant: false);
+                    // 12. Tedarikçi-ürün kataloğu SP'leri (Plan 32) — sp_SupplierItemBulkUpsert + sp_SetPreferredSupplier (TVP)
+                    var supItem = Path.Combine(sqlDir, "db_objects_supplieritem.sql");
+                    if (File.Exists(supItem)) await ExecuteScriptAsync(supItem, tolerant: false);
                     break;
 
                 case "seed":

@@ -182,7 +182,7 @@ RETURN
         sup.LeadTimeDays     AS LeadTimeDays,
         sup.MinOrderQty      AS SupplierMinOrderQty
     FROM ItemBinConfig c
-    JOIN Item i  ON i.Id  = c.ItemId
+    JOIN Item i  ON i.Id  = c.ItemId AND i.CompanyId = @CompanyId AND i.IsDeleted = 0
     JOIN Bin  pb ON pb.Id = c.BinId
     LEFT JOIN dbo.tvf_InventoryBalance(@CompanyId) inv
            ON inv.ItemId = c.ItemId
@@ -193,7 +193,7 @@ RETURN
           AND sup.ItemId      = c.ItemId
           AND sup.IsPreferred = 1
           AND sup.IsDeleted   = 0
-    LEFT JOIN Partner psup ON psup.Id = sup.PartnerId
+    LEFT JOIN Partner psup ON psup.Id = sup.PartnerId AND psup.CompanyId = @CompanyId
     WHERE c.CompanyId                  = @CompanyId
       AND ISNULL(inv.QtyBalance, 0)    < c.MinQty
 );

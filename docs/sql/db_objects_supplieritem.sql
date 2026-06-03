@@ -61,11 +61,13 @@ BEGIN
         SET IsPreferred = 0, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND IsDeleted = 0 AND IsPreferred = 1;
 
-        -- 2) Upsert — (CompanyId, ItemId, PartnerId) idempotent
+        -- 2) Upsert — (CompanyId, ItemId, PartnerId) idempotent.
+        --    ON'da IsDeleted YOK (gerçek kimlik eşleşmesi): daha önce soft-delete edilmiş
+        --    tedarikçi tekrar eklenince orphan satır yerine REAKTİVE edilir (IsDeleted=0).
         MERGE SupplierItem AS tgt
         USING (SELECT * FROM #final) AS src
             ON tgt.CompanyId = @CompanyId AND tgt.ItemId = @ItemId
-               AND tgt.PartnerId = src.PartnerId AND tgt.IsDeleted = 0
+               AND tgt.PartnerId = src.PartnerId
         WHEN MATCHED THEN
             UPDATE SET SupplierItemCode = src.SupplierItemCode,
                        SupplierItemName = src.SupplierItemName,
@@ -74,6 +76,7 @@ BEGIN
                        LastPrice        = src.LastPrice,
                        Currency         = src.Currency,
                        IsPreferred      = src.IsPreferred,
+                       IsDeleted        = 0,   -- soft-delete edilmişi reaktive et (orphan önle)
                        UpdatedAt        = GETUTCDATE(), UpdatedBy = @UserId
         WHEN NOT MATCHED THEN
             INSERT (Id, CompanyId, PartnerId, ItemId, SupplierItemCode, SupplierItemName,

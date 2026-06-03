@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, SupplierItemService supplierItems, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
@@ -17,6 +17,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public IEnumerable<DdlDto>           Uoms           { get; set; } = [];
     public IEnumerable<DdlDto>           Categories     { get; set; } = [];
     public IEnumerable<DdlDto>           TaxRates       { get; set; } = [];
+
+    public string SupplierLinesJson { get; set; } = "[]";   // Tedarikçiler tab grid
+    public string VendorsJson       { get; set; } = "[]";   // tedarikçi (cari) lookup
 
     public decimal QtyOnHand { get; set; } = 0;
     public int MovementCount { get; set; } = 0;
@@ -112,6 +115,19 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN Item i ON i.Id = b.ItemId
                 WHERE b.ItemId = @Id AND i.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id });
+
+            // Tedarikçiler tab (Plan 32): mevcut tedarikçi-ürün eşlemeleri + tedarikçi (cari) lookup
+            var suppliers = await supplierItems.ListByItemAsync(company.Id, id.Value);
+            SupplierLinesJson = System.Text.Json.JsonSerializer.Serialize(suppliers.Select(s => new
+            {
+                partnerId = s.PartnerId, supplierItemCode = s.SupplierItemCode, supplierItemName = s.SupplierItemName,
+                leadTimeDays = s.LeadTimeDays, minOrderQty = s.MinOrderQty, lastPrice = s.LastPrice,
+                currency = s.Currency, isPreferred = s.IsPreferred
+            }));
+            var vendors = await conn.QueryAsync<DdlDto>(
+                "SELECT Id, Code, Name FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 AND Type IN ('VENDOR','BOTH') ORDER BY Name",
+                new { CompanyId = company.Id });
+            VendorsJson = System.Text.Json.JsonSerializer.Serialize(vendors.Select(v => new { id = v.Id, code = v.Code, name = v.Name }));
         }
         else
         {
@@ -176,6 +192,62 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         TempData["Success"] = wasNew ? "Ürün oluşturuldu." : "Ürün güncellendi.";
         return RedirectToPage(new { id = Item.Id });
+    }
+
+    // Tedarikçiler grid "Kaydet" (Plan 32): JSON satır dizisini bulk-upsert (SyncDelete=1).
+    public async Task<IActionResult> OnPostSupplierBulkSaveAsync(Guid id, CancellationToken ct = default)
+    {
+        // İş kuralı: bozuk JSON sistem hatası gibi 500'e gitmemeli
+        List<SupplierItemService.SupplierRow> rows;
+        try
+        {
+            using var reader = new StreamReader(Request.Body);
+            var json = await reader.ReadToEndAsync(ct);
+            rows = System.Text.Json.JsonSerializer.Deserialize<List<SupplierItemService.SupplierRow>>(
+                json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        }
+        catch (System.Text.Json.JsonException jsonEx)
+        {
+            logger.LogWarning(jsonEx, "Tedarikçi toplu kaydet: geçersiz JSON. Ürün {ItemId}", id);
+            return new JsonResult(new { ok = false, error = "Gönderilen veri okunamadı. Sayfayı yenileyip tekrar deneyin." });
+        }
+
+        var lines = rows.Where(r => r.PartnerId != Guid.Empty);
+        try
+        {
+            var n = await supplierItems.BulkSaveAsync(company.Id, id, user.Id, lines, ct);
+            return new JsonResult(new { ok = true, written = n });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe yazdı (geçersiz tedarikçi / çoklu tercih)
+            return new JsonResult(new { ok = false, error = sqlEx.Message });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Tedarikçi toplu kaydet DB hatası. Ürün {ItemId}", id);
+            return new JsonResult(new { ok = false, error = "Veritabanı hatası oluştu." });
+        }
+    }
+
+    // Tercih edilen tedarikçiyi tekil ayarla (exclusive).
+    public async Task<IActionResult> OnPostSetPreferredAsync(Guid id, Guid partnerId, CancellationToken ct = default)
+    {
+        try
+        {
+            await supplierItems.SetPreferredAsync(company.Id, id, partnerId, user.Id, ct);
+            TempData["Success"] = "Tercih edilen tedarikçi ayarlandı.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Tercih tedarikçi ayarlama DB hatası. Ürün {ItemId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id, tab = "suppliers" });
     }
 
     public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate)

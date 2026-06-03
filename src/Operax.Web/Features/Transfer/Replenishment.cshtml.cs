@@ -90,5 +90,12 @@ public class ReplenishmentModel(Db db, ICurrentCompany company, ILogger<Replenis
         public decimal CurrentQty    { get; set; }
         public decimal NeededQty     { get; set; }
         public string? UomCode       { get; set; }
+
+        // Plan 32: tercih edilen tedarikçi bilgisi (kimden/ne sürede sipariş)
+        public Guid?    PreferredSupplierId   { get; set; }
+        public string?  PreferredSupplierName { get; set; }
+        public string?  SupplierItemCode      { get; set; }
+        public int?     LeadTimeDays          { get; set; }
+        public decimal? SupplierMinOrderQty   { get; set; }
     }
 }

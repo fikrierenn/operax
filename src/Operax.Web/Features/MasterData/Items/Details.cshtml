@@ -68,7 +68,43 @@
             @tab.Item2
         </a>
     }
+    @if (!Model.IsNew)
+    {
+        <a href="?tab=suppliers" class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px @(activeTab == "suppliers" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-slate-800")">
+            Tedarikçiler
+        </a>
+    }
 </div>
+
+@* TAB: Tedarikçiler (Plan 32) — bir ürünün tedarikçileri: kod/lead-time/MOQ/son-fiyat/tercih *@
+@if (activeTab == "suppliers" && !Model.IsNew)
+{
+    <link rel="stylesheet" href="~/lib/tabulator/tabulator_simple.min.css" />
+    <link rel="stylesheet" href="~/lib/tabulator/operax-theme.css" asp-append-version="true" />
+
+    <div class="card p-4 mb-6">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <button type="button" id="si-add-row" class="btn btn-secondary btn-sm">+ Tedarikçi Ekle</button>
+            <button type="button" id="si-save" class="btn btn-primary btn-sm ml-auto">Kaydet</button>
+        </div>
+        <div class="text-xs text-slate-400 mb-2">
+            Bu ürünü hangi tedarikçilerden, hangi kod/teslim süresi/asgari sipariş ile aldığınız. <strong>Son Fiyat</strong> yalnız bilgilendiricidir (resmi fiyat Fiyat Listesi'nde). <strong>Tercih</strong> tek tedarikçiye verilir.
+        </div>
+        <div id="si-grid"></div>
+    </div>
+
+    @Html.AntiForgeryToken()
+    <script>
+        window.SI_PARTNERS = @Html.Raw(Model.VendorsJson);
+        window.SI_LINES = @Html.Raw(Model.SupplierLinesJson);
+        window.SI_CFG = {
+            saveUrl: '@Url.Page("Details", "SupplierBulkSave", new { id = Model.Item.Id })',
+            token: document.querySelector('input[name="__RequestVerificationToken"]').value
+        };
+    </script>
+    <script src="~/lib/tabulator/tabulator.min.js"></script>
+    <script src="~/js/supplieritem-grid.js" asp-append-version="true"></script>
+}
 
 <!-- TAB: Genel Bilgiler -->
 @if (activeTab == "general")

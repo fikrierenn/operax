@@ -174,13 +174,26 @@ RETURN
         c.MinQty,
         c.MaxQty,
         ISNULL(inv.QtyBalance, 0)               AS CurrentQty,
-        (c.MaxQty - ISNULL(inv.QtyBalance, 0))  AS NeededQty
+        (c.MaxQty - ISNULL(inv.QtyBalance, 0))  AS NeededQty,
+        -- Plan 32: tercih edilen tedarikçi (satınalmacı kimden/ne sürede sipariş verecek)
+        sup.PartnerId        AS PreferredSupplierId,
+        psup.Name            AS PreferredSupplierName,
+        sup.SupplierItemCode AS SupplierItemCode,
+        sup.LeadTimeDays     AS LeadTimeDays,
+        sup.MinOrderQty      AS SupplierMinOrderQty
     FROM ItemBinConfig c
     JOIN Item i  ON i.Id  = c.ItemId
     JOIN Bin  pb ON pb.Id = c.BinId
     LEFT JOIN dbo.tvf_InventoryBalance(@CompanyId) inv
            ON inv.ItemId = c.ItemId
           AND inv.BinId  = c.BinId
+    -- Tercih edilen tedarikçi (ürüne tek; filtered unique garanti eder)
+    LEFT JOIN SupplierItem sup
+           ON sup.CompanyId   = @CompanyId
+          AND sup.ItemId      = c.ItemId
+          AND sup.IsPreferred = 1
+          AND sup.IsDeleted   = 0
+    LEFT JOIN Partner psup ON psup.Id = sup.PartnerId
     WHERE c.CompanyId                  = @CompanyId
       AND ISNULL(inv.QtyBalance, 0)    < c.MinQty
 );

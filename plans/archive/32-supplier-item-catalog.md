@@ -2,7 +2,18 @@
 
 **Tarih:** 2026-06-03
 **Yazan:** Fikri / Claude
-**Durum:** `Onaylandı` (2026-06-03)
+**Durum:** `Tamamlandı` (2026-06-03) — Faz A-F + review-gate. P32-7 (PO kod görünürlük) ERTELENDİ (hafif, TODO).
+
+## ✅ TAMAMLANDI (2026-06-03)
+- **A** SupplierItem tablosu + UQ(Company,Partner,Item) + filtered preferred UQ + TVP. Smoke: UQ + preferred-exclusive.
+- **B** sp_SupplierItemBulkUpsert (MERGE + reaktivasyon + tek-tercih + SyncDelete) + sp_SetPreferredSupplier. Smoke: idempotent/syncdelete/reaktivasyon (orphan yok).
+- **C** SupplierItemService (list/bulk/setPreferred, ILogger+ct).
+- **D** supplieritem-grid.js (Tabulator + tek-tercih cellEdited).
+- **E** Item kartı "Tedarikçiler" tab + grid + bulk handler. Browser smoke: round-trip (TED-002/VND-X1/7gün/50/120,50/tercih), bozuk JSON→{ok:false}.
+- **F** tvf_ReplenishmentSuggestions += tercih edilen tedarikçi (ad/kod/lead-time/MOQ) + Replenishment ekran kartı.
+- **Review-gate:** security-reviewer temiz; sql-sp-reviewer IMP-1 (reaktivasyon orphan) + IMP-2 (tvf CompanyId/IsDeleted) düzeltildi. Full migrate 0 fail.
+- **ERTELENDİ:** P32-7 PO satırında SupplierItemCode görünürlük (hafif; PO Details grid'e JS; gerçek ihtiyaç/dokunuş olunca) → TODO.
+- Commit: 1dfb212 (A-B) · 68bbcaf (C-F) · b2fb0c9 (review fix).
 
 ## ⚖️ Rakip validasyonu (competitor-analyst, 2026-06-03)
 TR-standart gap: Mikro/Logo'da tedarikçi stok kodu + temin süresi (lead-time) + MOQ standart; Operax ❌. Alan adları rakiple birebir (SupplierItemCode/LeadTimeDays/MinOrderQty/IsPreferred). Min/Max sipariş önerisi tüm rakiplerde var, Operax ❌ [COMPETITOR_ANALYSIS s.68] → replenishment wire ilk adım. 🎯 Web grid (Tabulator) + katalog≠fiyat ayrımı = Mikro fat-client'a karşı farklılaşma. Plan over-engineering değil, doğrulandı.

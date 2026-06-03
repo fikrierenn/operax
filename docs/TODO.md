@@ -10,6 +10,11 @@
   - [ ] **KALAN (kozmetik)**: 65 sayfayı `_PageHeader`'a standardize et (şu an global float buton kapsıyor; auth/terminal hariç). Action button'ların ActionsHtml'e taşınması dikkat ister.
   - [ ] **Opsiyonel**: yardım render'ı için `.help-content` CSS (h2/ul/table stili) — şu an tarayıcı default.
 
+## 🏭 PLAN 32 — TEDARİKÇİ-ÜRÜN KATALOĞU (2026-06-03)
+
+- [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–F):** `SupplierItem` tablosu (tedarikçi kodu/lead-time/MOQ/son-fiyat/tercih, UQ + filtered preferred UQ) + `sp_SupplierItemBulkUpsert`/`sp_SetPreferredSupplier` + `SupplierItemService` + Item kartı **Tedarikçiler tab** (Tabulator grid) + `tvf_ReplenishmentSuggestions` tercih edilen tedarikçi wire. security-reviewer temiz; sql-sp-reviewer IMP-1 (reaktivasyon orphan) + IMP-2 (tvf CompanyId) düzeltildi. Browser smoke + migrate 0 fail. Plan arşivde. Commit: 1dfb212/68bbcaf/b2fb0c9.
+- [ ] **DEBT · P32-7 PO satırında SupplierItemCode görünürlük (ERTELENDİ):** PO Details add-line'da tedarikçi seçiliyse ürünün SupplierItemCode'u gösterilsin. Hafif (JS + lookup). PO Details bir sonraki dokunuşta eklenir; gerçek ihtiyaç düşük.
+
 ## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)
 
 - [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–E):** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire + **PriceList CRUD UI** (Index+Details, "10+5+3" iskonto kısayolu). build+sql-sp-reviewer+code-reviewer+security-reviewer+browser smoke geçti. Plan arşivde.

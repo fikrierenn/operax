@@ -2,6 +2,20 @@
 
 ---
 
+## 🔧 PLAN 33 — SQL/SP + MİMARİ BÜTÜNLÜK DÜZELTMELERİ (2026-06-04 — denetim çıktısı)
+
+Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/33-sql-arch-conformance-fixes.md`. **Onay bekliyor.**
+
+- [ ] **Faz A — Ledger immutability (VUK-kritik, lokalize):** C3 `sp_CorrectPurchaseInvoiceLine` AccountMovement UPDATE→ters-kayıt + H1 CompanyId · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST.
+- [ ] **Faz B — Terminal/Putaway SP'ye taşı (mimari+idempotency+hata):** AC1 `sp_PutawayPost` (Putaway.cshtml.cs:47-86 C# StockMovement INSERT kaldır) · AC2 `sp_PickConfirm` (Picking/Terminal.cshtml.cs:60-112) · AH4 Transfer/Terminal ILogger.
+- [ ] **Faz C — SP transaction normalizasyon + idempotency:** C1 8 SP TRY/CATCH+ROLLBACK+THROW · C2 status guard + StockMovement idempotent UNIQUE.
+- [ ] **Faz D — DocumentLock helper + edit guard:** `Lib/DocumentLock.cs` (rule §7, henüz YOK) · AH6/AH7 PO Details guard + SO/Shipping/CycleCount.
+- [ ] **Faz E — THROW kod hizalama + DEAD servis temizliği:** H3 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment) · AC3/AH8 ProductionReceiptService+ProductionActivityService sil (DI+caller yok DOĞRULANDI).
+- [ ] **Faz F — Dönem-tarih simetrisi (şema, en büyük):** H6s StockMovement.MovementDate kolonu + trigger INSERTED.MovementDate (AccountMovement ile simetrik) + backfill.
+- [ ] **DEBT · MEDIUM/LOW birikimi (kapsam-dışı):** `SELECT *` ~22, magic-string ~14 (DocStatus/MovementType sabiti var, kullanılmamış), timezone DateTime.Now ~3, immutability guard SO/Shipping/CycleCount. Ayrı temizlik turu.
+
+---
+
 ## 📘 YARDIM BUTONU + KULLANICI KİTAPÇIĞI (2026-06-02 — büyük iş, ajan fan-out)
 
 - [x] ✅ **Ekran-içi yardım butonu + 92 ekran kullanıcı kitapçığı** — TAMAM (2026-06-02, commit b858cb0 infra + 2637ff3 içerik).

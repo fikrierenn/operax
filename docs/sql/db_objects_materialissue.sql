@@ -135,7 +135,8 @@ BEGIN
 
         -- Flag-only iptal: ISSUE hareketlerini kapat (ters satır YAZILMAZ — çift-sayım önlemi)
         UPDATE StockMovement
-        SET IsCancelled = 1, CancelledAt = @now, CancelledBy = @UserId
+        -- CancelledBy UNIQUEIDENTIFIER → @UserId NVARCHAR TRY_CAST ile (header UpdatedBy ile simetrik; H5)
+        SET IsCancelled = 1, CancelledAt = @now, CancelledBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE SourceDocType = 'CONSUMPTION' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
         UPDATE MaterialIssueHeader

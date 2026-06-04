@@ -515,11 +515,11 @@ BEGIN
 
         DECLARE @Status NVARCHAR(20), @PartnerId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
                 @Grand DECIMAL(18,4), @Subtotal DECIMAL(18,4), @TaxAmt DECIMAL(18,4),
-                @SupInvDate DATE;
+                @SupInvDate DATE, @Currency NVARCHAR(3);
 
         SELECT @Status = Status, @PartnerId = PartnerId, @DocNo = DocNo,
                @Grand = GrandTotal, @Subtotal = Subtotal, @TaxAmt = TaxAmount,
-               @SupInvDate = SupplierInvoiceDate
+               @SupInvDate = SupplierInvoiceDate, @Currency = ISNULL(Currency, 'TRY')
         FROM PurchaseInvoice WITH (UPDLOCK, ROWLOCK)
         WHERE Id = @InvoiceId AND CompanyId = @CompanyId;
 
@@ -577,13 +577,14 @@ BEGIN
 
         -- AccountMovement ters kayıt: orijinal Credit'i nötrlemek için Debit
         -- DueDate ters satırda yazılmaz (vadesiz) — bakiye SUM(Debit-Credit) ile doğru nötrlenir
+        -- Para birimi faturadan okunur (H2): döviz faturada 'TRY' sabiti bakiyeyi nötrlemezdi
         INSERT INTO dbo.AccountMovement
             (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
              NetAmount, TaxAmount, Currency,
              SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
         VALUES
             (NEWID(), @CompanyId, @PartnerId, @nowDt, @Grand, 0,
-             -@Subtotal, -@TaxAmt, 'TRY',
+             -@Subtotal, -@TaxAmt, @Currency,
              'REVERSAL', @InvoiceId, @DocNo, N'Alış Faturası İptali: ' + @DocNo, @UserId);
 
         COMMIT TRANSACTION;
@@ -698,12 +699,24 @@ BEGIN
             UpdatedBy=TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE Id = @InvoiceId;
 
-        -- 3) Cari defter: veri-giriş hatası düzeltmesi (ödeme yok, GİB'e gitmemiş alış faturası).
-        --    Ters/delta kayıt GEREKSİZ — yanlış girilen movement satırı doğru tutara YERİNDE güncellenir.
-        --    İz audit log'da tutulur (eski→yeni + gerekçe). Cari ekstre temiz kalır.
-        UPDATE dbo.AccountMovement
-        SET Credit = @NewGrand, NetAmount = @NewSub, TaxAmount = @NewTax, MovementDate = @nowDt
-        WHERE SourceDocType = 'PURCHASE_INVOICE' AND SourceDocId = @InvoiceId;
+        -- 3) Cari defter: AccountMovement append-only (document-immutability.md §1.b).
+        --    Yerinde UPDATE YASAK — orijinal hareketin izi silinmemeli (VUK/e-defter bağlayıcı).
+        --    Düzeltme = ters REVERSAL satır (eski Credit'i Debit ile nötrler) + yeni doğru Credit satır.
+        --    Net bakiye = SUM(Credit-Debit) → eski iptal + yeni doğru = sadece yeni tutar kalır.
+        --    Currency faturadan (@Currency) — döviz faturada nötrleme doğru çalışır (H1: CompanyId INSERT'te).
+        INSERT INTO dbo.AccountMovement
+            (Id, CompanyId, PartnerId, MovementDate, Debit, Credit,
+             NetAmount, TaxAmount, Currency,
+             SourceDocType, SourceDocId, SourceDocNo, Description, CreatedBy)
+        VALUES
+            -- Ters satır: eski tutarı nötrle (Debit=@OldGrand)
+            (NEWID(), @CompanyId, @PartnerId, @nowDt, @OldGrand, 0,
+             -@OldSub, -@OldTax, @Currency,
+             'REVERSAL', @InvoiceId, @DocNo, N'Fatura Düzeltme (eski iptal): ' + @DocNo, @UserId),
+            -- Yeni doğru satır: düzeltilmiş tutar (Credit=@NewGrand)
+            (NEWID(), @CompanyId, @PartnerId, @nowDt, 0, @NewGrand,
+             @NewSub, @NewTax, @Currency,
+             'PURCHASE_INVOICE', @InvoiceId, @DocNo, N'Fatura Düzeltme (yeni tutar): ' + @DocNo, @UserId);
 
         -- 4) Açık ödeme planını yeni tutara çek (ödenmemiş)
         UPDATE PaymentPlan SET Amount = @NewGrand

@@ -136,6 +136,9 @@ class Program
                     // 12. Tedarikçi-ürün kataloğu SP'leri (Plan 32) — sp_SupplierItemBulkUpsert + sp_SetPreferredSupplier (TVP)
                     var supItem = Path.Combine(sqlDir, "db_objects_supplieritem.sql");
                     if (File.Exists(supItem)) await ExecuteScriptAsync(supItem, tolerant: false);
+                    // 13. WMS terminal SP'leri (Plan 33 Faz B) — sp_PutawayPost + sp_PickConfirm (SQL-First)
+                    var putawayPick = Path.Combine(sqlDir, "db_objects_putaway_pick.sql");
+                    if (File.Exists(putawayPick)) await ExecuteScriptAsync(putawayPick, tolerant: false);
                     break;
 
                 case "seed":

@@ -2,13 +2,14 @@ using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Data.SqlClient;
 using Dapper;
 using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Transfer;
 
 [Authorize]
-public class TerminalModel(Db db, ICurrentCompany company) : PageModel
+public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel> logger) : PageModel
 {
     public TransferTermDto? ActiveTransfer { get; set; }
     public IEnumerable<PendingTransferDto> PendingTransfers { get; set; } = [];
@@ -89,7 +90,13 @@ public class TerminalModel(Db db, ICurrentCompany company) : PageModel
             trans.Commit();
             TempData["Success"] = "Satır onaylandı!";
         }
-        catch { trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
+        catch (SqlException sqlEx)
+        {
+            // Sistem/DB hatası — logla, kullanıcıya generic mesaj (detay sızdırma)
+            trans.Rollback();
+            logger.LogError(sqlEx, "Transfer satır onaylama SQL hatası");
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { transferId });
     }
 

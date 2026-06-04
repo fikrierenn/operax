@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Data.SqlClient;
 using Dapper;
 using Operax.Web.Lib;
 
@@ -56,63 +57,26 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
 
     public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode)
     {
-        // Barkod doğrulama: ürün kodu eşleşiyorsa satırı tamamla
+        // Barkod onayı + satır tamamlama + durum geçişi — iş mantığı SP'de (SQL-First).
+        // sp_PickConfirm: barkod doğrula, satırı tamamla, DRAFT→IN_PROGRESS, bitince COMPLETED.
         using var conn = db.Open();
-        using var trans = conn.BeginTransaction();
         try
         {
-            var line = await conn.QueryFirstOrDefaultAsync<dynamic>(@"
-                SELECT l.ItemId, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase, i.Code AS ItemCode
-                FROM PickTaskLine l
-                JOIN PickTask pt ON pt.Id = l.PickTaskId
-                JOIN Item i ON i.Id = l.ItemId
-                WHERE l.Id = @LineId AND l.PickTaskId = @TaskId AND pt.CompanyId = @CompanyId",
-                new { LineId = lineId, TaskId = taskId, CompanyId = company.Id }, trans);
-
-            if (line == null) { TempData["Error"] = "Satır bulunamadı."; return RedirectToPage(new { taskId }); }
-
-            // İş kuralı: barkod ürün koduyla veya barkod listesiyle eşleşmeli
-            var barcodeMatch = await conn.ExecuteScalarAsync<int>(@"
-                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-                -- Gerekçe: @ItemId değeri bu handler'da PickTaskLine sorgusuyla alındı; o sorgu
-                -- JOIN PickTask pt ON pt.Id = l.PickTaskId ... AND pt.CompanyId = @CompanyId filtresi
-                -- taşıdığından yalnızca aynı firmanın toplama görevine ait satır döndü.
-                -- ItemBarcode yalnızca barkod eşleşme kontrolü içindir; firma verisi içermez.
-                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-                SELECT COUNT(1) FROM ItemBarcode WHERE ItemId = @ItemId AND Barcode = @Barcode",
-                new { ItemId = (Guid)line.ItemId, Barcode = barcode }, trans);
-
-            bool codeMatch = string.Equals((string)line.ItemCode, barcode, StringComparison.OrdinalIgnoreCase);
-
-            if (barcodeMatch == 0 && !codeMatch)
-            {
-                TempData["Error"] = $"Barkod eşleşmedi! Beklenen: {line.ItemCode}";
-                return RedirectToPage(new { taskId });
-            }
-
-            // Satırı tamamla
-            await conn.ExecuteAsync(
-                "UPDATE PickTaskLine SET QtyPickedBase = QtyRequestedBase WHERE Id = @LineId",
-                new { LineId = lineId }, trans);
-
-            // İş kuralı: DRAFT toplama görevi ilk barkodla IN_PROGRESS'e geçer
-            await conn.ExecuteAsync(
-                "UPDATE PickTask SET Status = @StInProgress, AssignedUserId = @UserId WHERE Id = @TaskId AND Status = @StDraft",
-                new { UserId = user.Id, TaskId = taskId, StDraft = DocStatus.Draft, StInProgress = DocStatus.InProgress }, trans);
-
-            // Tüm satırlar tamamlandıysa COMPLETED yap
-            var remaining = await conn.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = @TaskId AND QtyPickedBase < QtyRequestedBase",
-                new { TaskId = taskId }, trans);
-            if (remaining == 0)
-                await conn.ExecuteAsync(
-                    "UPDATE PickTask SET Status = @StCompleted WHERE Id = @TaskId",
-                    new { TaskId = taskId, StCompleted = DocStatus.Completed }, trans);
-
-            trans.Commit();
+            await conn.ExecuteAsync("sp_PickConfirm",
+                new { TaskId = taskId, LineId = lineId, Barcode = barcode, CompanyId = company.Id, UserId = user.Id },
+                commandType: CommandType.StoredProcedure);
             TempData["Success"] = "Toplama onaylandı!";
         }
-        catch (Exception ex) { logger.LogWarning(ex, "Pick satırı onaylama hatası"); trans.Rollback(); TempData["Error"] = "Hata oluştu."; }
+        catch (SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe mesaj fırlattı (barkod eşleşmedi / satır yok)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Pick onaylama SQL hatası");
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { taskId });
     }
 

@@ -6,7 +6,7 @@
 
 Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/33-sql-arch-conformance-fixes.md`. **Onay bekliyor.**
 
-- [ ] **Faz A — Ledger immutability (VUK-kritik, lokalize):** C3 `sp_CorrectPurchaseInvoiceLine` AccountMovement UPDATE→ters-kayıt + H1 CompanyId · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST.
+- [x] ✅ **Faz A — Ledger immutability (VUK-kritik, lokalize):** TAMAM 2026-06-04 commit b22db21. C3+H1 `sp_CorrectPurchaseInvoiceLine` UPDATE→ters REVERSAL+yeni satır (CompanyId+Currency) · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST (canlı VT: CancelledBy uniqueidentifier). migrate 0 fail · sql-sp-reviewer temiz (conf 93).
 - [ ] **Faz B — Terminal/Putaway SP'ye taşı (mimari+idempotency+hata):** AC1 `sp_PutawayPost` (Putaway.cshtml.cs:47-86 C# StockMovement INSERT kaldır) · AC2 `sp_PickConfirm` (Picking/Terminal.cshtml.cs:60-112) · AH4 Transfer/Terminal ILogger.
 - [ ] **Faz C — SP transaction normalizasyon + idempotency:** C1 8 SP TRY/CATCH+ROLLBACK+THROW · C2 status guard + StockMovement idempotent UNIQUE.
 - [ ] **Faz D — DocumentLock helper + edit guard:** `Lib/DocumentLock.cs` (rule §7, henüz YOK) · AH6/AH7 PO Details guard + SO/Shipping/CycleCount.

@@ -7,7 +7,9 @@
 Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/33-sql-arch-conformance-fixes.md`. **Onay bekliyor.**
 
 - [x] ✅ **Faz A — Ledger immutability (VUK-kritik, lokalize):** TAMAM 2026-06-04 commit b22db21. C3+H1 `sp_CorrectPurchaseInvoiceLine` UPDATE→ters REVERSAL+yeni satır (CompanyId+Currency) · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST (canlı VT: CancelledBy uniqueidentifier). migrate 0 fail · sql-sp-reviewer temiz (conf 93).
-- [ ] **Faz B — Terminal/Putaway SP'ye taşı (mimari+idempotency+hata):** AC1 `sp_PutawayPost` (Putaway.cshtml.cs:47-86 C# StockMovement INSERT kaldır) · AC2 `sp_PickConfirm` (Picking/Terminal.cshtml.cs:60-112) · AH4 Transfer/Terminal ILogger.
+- [x] ✅ **Faz B — Terminal/Putaway SP'ye taşı:** TAMAM 2026-06-04 commit ce9f318. AC1 `sp_PutawayPost` (negatif-stok guard+dönem kilidi) · AC2 `sp_PickConfirm` (durum-only, davranış birebir) · AH4 Transfer/Terminal catch+ILogger. CRIT-1 CreatedBy TRY_CAST + IMP-1 guard. build 0 · sql-sp+security temiz · putaway smoke (net-korundu + guard THROW).
+  - [ ] **DEBT · Pick smoke:** açık PickTask seed yok → sp_PickConfirm uçtan-uca test edilmedi. Seed eklenince doğrula.
+  - [ ] **DEBT · Pick-vs-shipping çift düşüm riski (sql-sp-reviewer):** `sp_PickLinePost` StockMovement ISSUE yazıyor, `sp_PickConfirm` yazmıyor — iki toplama yolu tutarsız. Doğru semantik: stok çıkışı yalnız sevkiyat POSTED (`sp_ShippingPost`). `sp_PickLinePost` ISSUE'sı çift-sayım kaynağı olabilir; ayrı denetle, tek-nokta stok-düşme kararı ver.
 - [ ] **Faz C — SP transaction normalizasyon + idempotency:** C1 8 SP TRY/CATCH+ROLLBACK+THROW · C2 status guard + StockMovement idempotent UNIQUE.
 - [ ] **Faz D — DocumentLock helper + edit guard:** `Lib/DocumentLock.cs` (rule §7, henüz YOK) · AH6/AH7 PO Details guard + SO/Shipping/CycleCount.
 - [ ] **Faz E — THROW kod hizalama + DEAD servis temizliği:** H3 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment) · AC3/AH8 ProductionReceiptService+ProductionActivityService sil (DI+caller yok DOĞRULANDI).

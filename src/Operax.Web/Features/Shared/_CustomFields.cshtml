@@ -1,0 +1,51 @@
+@using Operax.Web.Lib
+@model CustomFieldsVm
+
+@* Dinamik kullanıcı tanımlı alanlar (UDF) — UserFieldDefinition tanımlarına göre render edilir.
+   Tanım yoksa hiç HTML üretilmez. *@
+@if (Model.Definitions.Count > 0)
+{
+    <div class="form-row-3">
+        @foreach (var f in Model.Definitions)
+        {
+            // Mevcut değer: kayıtlı JSON > yoksa tanımlı varsayılan
+            var val = Model.CurrentValues.TryGetValue(f.FieldName, out var v) ? v : (f.DefaultValue ?? "");
+            var name = "UDF_" + f.FieldName;
+
+            <div class="form-group">
+                <label class="form-label">
+                    @f.LabelText
+                    @if (f.IsRequired)
+                    {
+                        <span class="req">*</span>
+                    }
+                </label>
+
+                @if (f.FieldType == "NUMBER")
+                {
+                    <input type="number" step="any" name="@name" value="@val" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else if (f.FieldType == "SELECT" && f.DataSourceType == "STATIC")
+                {
+                    <select name="@name" class="form-ctrl" disabled="@Model.ReadOnly" required="@f.IsRequired">
+                        <option value="">Seçiniz...</option>
+                        @foreach (var opt in UdfService.GetStaticOptions(f.DataSourceKey))
+                        {
+                            <option value="@opt" selected="@(opt == val)">@opt</option>
+                        }
+                    </select>
+                }
+                else if (f.FieldType == "TEXT")
+                {
+                    <input type="text" name="@name" value="@val" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else
+                {
+                    @* DATE / BOOLEAN / DICTIONARY / TABLE — Faz 2'de desteklenecek *@
+                }
+            </div>
+        }
+    </div>
+}

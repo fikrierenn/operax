@@ -56,36 +56,16 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             "SELECT COUNT(1) FROM Item WHERE CompanyId = @CompanyId AND CategoryId IS NULL AND IsDeleted = 0",
             new { CompanyId = company.Id });
 
-        // Emniyet altı kritik SKU hesaplama
-        var balances = (await conn.QueryAsync<(Guid ItemId, decimal Bal)>(
-            "SELECT ItemId, SUM(QtyBalance) as Bal FROM tvf_InventoryBalance(@CompanyId) GROUP BY ItemId",
-            new { CompanyId = company.Id })).ToDictionary(x => x.ItemId, x => x.Bal);
-
-        var itemDescs = await conn.QueryAsync<(Guid Id, string Description)>(
-            "SELECT Id, Description FROM Item WHERE CompanyId = @CompanyId AND IsDeleted = 0",
+        // Emniyet altı kritik SKU: ürün-seviyesi MinStockLevel altına düşmüş kalemler (Plan 34)
+        // Eski C# JSON parse döngüsü yerine tek SARGable SQL COUNT.
+        CriticalSkuCount = await conn.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1)
+            FROM Item i
+            WHERE i.CompanyId = @CompanyId AND i.IsDeleted = 0 AND i.MinStockLevel IS NOT NULL
+              AND (SELECT ISNULL(SUM(b.QtyBalance), 0)
+                   FROM tvf_InventoryBalance(@CompanyId) b
+                   WHERE b.ItemId = i.Id) < i.MinStockLevel",
             new { CompanyId = company.Id });
-
-        int criticalCount = 0;
-        foreach (var item in itemDescs)
-        {
-            if (!string.IsNullOrEmpty(item.Description) && item.Description.TrimStart().StartsWith("{"))
-            {
-                try
-                {
-                    var udf = System.Text.Json.JsonSerializer.Deserialize<DetailsModel.UdfDataDto>(item.Description);
-                    if (udf != null && udf.MinQty.HasValue)
-                    {
-                        balances.TryGetValue(item.Id, out decimal bal);
-                        if (bal < udf.MinQty.Value)
-                        {
-                            criticalCount++;
-                        }
-                    }
-                }
-                catch { }
-            }
-        }
-        CriticalSkuCount = criticalCount;
     }
 
     public record ItemDto(Guid Id, string Code, string Name, string? Barcode, decimal TaxRate, string BaseUom, string? CategoryName, bool IsLotTracked, bool IsSerialTracked, bool IsActive);

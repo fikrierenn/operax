@@ -1,0 +1,141 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Admin.UdfFields.IndexModel
+@{
+    ViewData["Title"] = "Özel Alanlar";
+    var header = new PageHeaderVm(
+        Title: "Özel Alanlar (UDF)",
+        Crumbs: new[] { "Anasayfa", "Sistem", "Özel Alanlar" },
+        Sub: "Çekirdek koda dokunmadan kartlara müşteriye özel alan ekleyin"
+    );
+}
+
+<div class="page" data-screen-label="Özel Alanlar">
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info"   style="margin-bottom:14px;">@ok</div>  }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger" style="margin-bottom:14px;">@err</div> }
+
+    @* Yeni özel alan formu *@
+    <div class="card" style="margin-bottom:14px;">
+        <div class="card-hdr">
+            <div class="card-title">Yeni Özel Alan</div>
+        </div>
+        <div class="card-body">
+            <form method="post" asp-page-handler="Create">
+                @Html.AntiForgeryToken()
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Varlık <span class="req">*</span></label>
+                        <select name="entityName" class="form-ctrl" required>
+                            @foreach (var e in Model.AllowedEntities)
+                            {
+                                <option value="@e">@e</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Alan Adı (kod) <span class="req">*</span></label>
+                        <input name="fieldName" class="form-ctrl" placeholder="Örn: Renk" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Etiket <span class="req">*</span></label>
+                        <input name="labelText" class="form-ctrl" placeholder="Örn: Ürün Rengi" required />
+                    </div>
+                </div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Tip <span class="req">*</span></label>
+                        <select name="fieldType" class="form-ctrl" required>
+                            <option value="TEXT">Metin</option>
+                            <option value="NUMBER">Sayı</option>
+                            <option value="SELECT">Seçim Listesi</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seçenekler (virgüllü)</label>
+                        <input name="dataSourceKey" class="form-ctrl" placeholder="Örn: Siyah,Beyaz,Kırmızı" />
+                        <span class="form-hint">Yalnız Seçim Listesi tipinde gereklidir.</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sıra</label>
+                        <input name="orderNo" type="number" class="form-ctrl" value="0" />
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                    <label class="form-label" style="display:flex;gap:6px;align-items:center;margin:0;">
+                        <input type="checkbox" name="isRequired" value="true" /> Zorunlu alan
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm">Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* Tanımlı özel alanlar *@
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Tanımlı Özel Alanlar</div>
+            <div class="card-sub">@Model.Definitions.Count alan</div>
+        </div>
+
+        @if (Model.Definitions.Count == 0)
+        {
+            var empty = new EmptyStateVm("Özel alan yok", "Henüz özel alan tanımlanmamış.");
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:80px">Varlık</th>
+                        <th style="width:140px">Alan Adı</th>
+                        <th>Etiket</th>
+                        <th style="width:90px">Tip</th>
+                        <th style="width:70px">Sıra</th>
+                        <th style="width:80px">Zorunlu</th>
+                        <th style="width:70px">Aktif</th>
+                        <th style="width:140px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in Model.Definitions)
+                    {
+                        <tr>
+                            <td><span class="badge badge-neutral">@d.EntityName</span></td>
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@d.FieldName</span></td>
+                            <td>
+                                <form method="post" asp-page-handler="Save" style="display:flex;gap:6px;align-items:center;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@d.Id" />
+                                    <input name="labelText" value="@d.LabelText" class="form-ctrl" style="height:30px;font-size:12px;flex:1;min-width:120px;" />
+                                    <input name="orderNo" type="number" value="@d.OrderNo" class="form-ctrl" style="height:30px;width:60px;font-size:12px;" title="Sıra" />
+                                    <label style="display:flex;gap:3px;align-items:center;font-size:11px;" title="Zorunlu">
+                                        <input type="checkbox" name="isRequired" value="true" checked="@d.IsRequired" /> Zor.
+                                    </label>
+                                    <label style="display:flex;gap:3px;align-items:center;font-size:11px;" title="Aktif">
+                                        <input type="checkbox" name="isActive" value="true" checked="@d.IsActive" /> Akt.
+                                    </label>
+                                    <button type="submit" class="btn btn-secondary btn-xs">Kaydet</button>
+                                </form>
+                            </td>
+                            <td><span class="badge badge-neutral">@d.FieldType</span></td>
+                            <td>@d.OrderNo</td>
+                            <td>@(d.IsRequired ? "Evet" : "—")</td>
+                            <td>@(d.IsActive ? "Evet" : "Hayır")</td>
+                            <td style="text-align:right;">
+                                <form method="post" asp-page-handler="Delete"
+                                      onsubmit="return confirm('@d.LabelText alanını silmek istiyor musunuz?')">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@d.Id" />
+                                    <button type="submit" class="btn btn-ghost btn-xs" style="color:var(--danger-text);">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

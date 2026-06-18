@@ -7,10 +7,13 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, SupplierItemService supplierItems, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, SupplierItemService supplierItems, UdfService udfSvc, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
+
+    // Dinamik kullanıcı tanımlı alanlar paneli (Plan 34)
+    public CustomFieldsVm UdfPanel { get; set; } = new("Item", [], new());
 
     public IEnumerable<UomConversionDto> UomConversions { get; set; } = [];
     public IEnumerable<BarcodeDto>       Barcodes       { get; set; } = [];
@@ -56,40 +59,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             Item = await conn.QueryFirstOrDefaultAsync<ItemDto>(@"
                 SELECT i.Id, i.Code, i.Name, i.Description, i.BaseUomId, i.CategoryId,
                        i.TaxRate, i.ItemType, i.IsLotTracked, i.IsSerialTracked, i.IsActive,
+                       i.MinStockLevel, i.MaxStockLevel, i.AdditionalFields,
                        dv.Code as BaseUomCode, c.Name as CategoryName
                 FROM Item i
                 JOIN DictionaryValue dv ON dv.Id = i.BaseUomId
                 LEFT JOIN Category c ON c.Id = i.CategoryId
                 WHERE i.Id = @Id AND i.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
-
-            // UDF JSON Deserialization
-            if (!string.IsNullOrEmpty(Item.Description) && Item.Description.TrimStart().StartsWith("{"))
-            {
-                try
-                {
-                    var udf = System.Text.Json.JsonSerializer.Deserialize<UdfDataDto>(Item.Description);
-                    if (udf != null)
-                    {
-                        Item.ActualDescription = udf.ActualDescription;
-                        Item.Volume = udf.Volume;
-                        Item.Weight = udf.Weight;
-                        Item.TempRange = udf.TempRange;
-                        Item.MinQty = udf.MinQty;
-                        Item.MaxQty = udf.MaxQty;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // UDF JSON ayrıştırılamadı → açıklama ham metin olarak gösterilir (bozulmaz), uyarı loglanır
-                    logger.LogWarning(ex, "Ürün UDF JSON ayrıştırma hatası: {ItemId}", id);
-                    Item.ActualDescription = Item.Description;
-                }
-            }
-            else
-            {
-                Item.ActualDescription = Item.Description;
-            }
 
             // Odoo Smart Buttons için stok bilgilerini getir
             QtyOnHand = await conn.QueryFirstOrDefaultAsync<decimal>(
@@ -116,24 +92,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 WHERE b.ItemId = @Id AND i.CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id });
 
-            // Tedarikçiler tab (Plan 32): mevcut tedarikçi-ürün eşlemeleri + tedarikçi (cari) lookup
-            var suppliers = await supplierItems.ListByItemAsync(company.Id, id.Value);
-            SupplierLinesJson = System.Text.Json.JsonSerializer.Serialize(suppliers.Select(s => new
-            {
-                partnerId = s.PartnerId, supplierItemCode = s.SupplierItemCode, supplierItemName = s.SupplierItemName,
-                leadTimeDays = s.LeadTimeDays, minOrderQty = s.MinOrderQty, lastPrice = s.LastPrice,
-                currency = s.Currency, isPreferred = s.IsPreferred
-            }));
-            var vendors = await conn.QueryAsync<DdlDto>(
-                "SELECT Id, Code, Name FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 AND Type IN ('VENDOR','BOTH') ORDER BY Name",
-                new { CompanyId = company.Id });
-            VendorsJson = System.Text.Json.JsonSerializer.Serialize(vendors.Select(v => new { id = v.Id, code = v.Code, name = v.Name }));
+            // Tedarikçiler tab (Plan 32) + dinamik UDF paneli (Plan 34) yüklenir
+            await LoadSupplierTabAsync(conn, id.Value);
+
+            var udfDefs = await udfSvc.LoadDefinitionsAsync("Item");
+            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(Item.AdditionalFields));
         }
         else
         {
             Item.IsActive = true;
-            Item.TempRange = "Normal";
         }
+    }
+
+    // Tedarikçiler tab verisini hazırlar: tedarikçi-ürün eşlemeleri + tedarikçi (cari) lookup JSON'ları
+    private async Task LoadSupplierTabAsync(System.Data.IDbConnection conn, Guid id)
+    {
+        var suppliers = await supplierItems.ListByItemAsync(company.Id, id);
+        SupplierLinesJson = System.Text.Json.JsonSerializer.Serialize(suppliers.Select(s => new
+        {
+            partnerId = s.PartnerId, supplierItemCode = s.SupplierItemCode, supplierItemName = s.SupplierItemName,
+            leadTimeDays = s.LeadTimeDays, minOrderQty = s.MinOrderQty, lastPrice = s.LastPrice,
+            currency = s.Currency, isPreferred = s.IsPreferred
+        }));
+        var vendors = await conn.QueryAsync<DdlDto>(
+            "SELECT Id, Code, Name FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 AND Type IN ('VENDOR','BOTH') ORDER BY Name",
+            new { CompanyId = company.Id });
+        VendorsJson = System.Text.Json.JsonSerializer.Serialize(vendors.Select(v => new { id = v.Id, code = v.Code, name = v.Name }));
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -143,17 +127,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         var wasNew = IsNew; // redirect öncesinde durumu yakala (IsNew → Item.Id set sonrası değişir)
 
-        // UDF JSON Serialization
-        var udfData = new UdfDataDto
+        // Dinamik UDF: form gönderimini tanımlara göre doğrula + güvenli JSON üret (Plan 34)
+        var udfDefs = await udfSvc.LoadDefinitionsAsync("Item");
+        var udfJson = udfSvc.BuildValidatedJson(Request.Form, udfDefs, out var udfErrors);
+        if (udfErrors.Count > 0)
         {
-            ActualDescription = Item.ActualDescription,
-            Volume = Item.Volume,
-            Weight = Item.Weight,
-            TempRange = Item.TempRange ?? "Normal",
-            MinQty = Item.MinQty,
-            MaxQty = Item.MaxQty
-        };
-        Item.Description = System.Text.Json.JsonSerializer.Serialize(udfData);
+            // İş kuralı: zorunlu/geçersiz UDF varsa kayıt yapılmaz, kullanıcı uyarılır
+            TempData["Error"] = string.Join(" ", udfErrors);
+            // UDF panelini tekrar kur (form yeniden gösterilecek)
+            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(udfJson));
+            return Page();
+        }
+        Item.AdditionalFields = udfJson;
 
         if (IsNew)
         {
@@ -161,14 +146,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await conn.ExecuteAsync(@"
                 INSERT INTO Item
                     (Id, CompanyId, Code, Name, Description, BaseUomId, CategoryId,
-                     TaxRate, ItemType, IsLotTracked, IsSerialTracked, IsActive, CreatedBy)
+                     TaxRate, ItemType, IsLotTracked, IsSerialTracked, IsActive,
+                     MinStockLevel, MaxStockLevel, AdditionalFields, CreatedBy)
                 VALUES
                     (@Id, @CompanyId, @Code, @Name, @Description, @BaseUomId, @CategoryId,
-                     @TaxRate, @ItemType, @IsLotTracked, @IsSerialTracked, @IsActive, @UserId)",
+                     @TaxRate, @ItemType, @IsLotTracked, @IsSerialTracked, @IsActive,
+                     @MinStockLevel, @MaxStockLevel, @AdditionalFields, @UserId)",
                 new {
                     Item.Id, CompanyId = company.Id, Item.Code, Item.Name, Item.Description,
                     Item.BaseUomId, Item.CategoryId, Item.TaxRate, Item.ItemType,
-                    Item.IsLotTracked, Item.IsSerialTracked, Item.IsActive, UserId = user.Id
+                    Item.IsLotTracked, Item.IsSerialTracked, Item.IsActive,
+                    Item.MinStockLevel, Item.MaxStockLevel, Item.AdditionalFields, UserId = user.Id
                 });
             await audit.LogAsync("CREATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
@@ -179,12 +167,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 SET Code=@Code, Name=@Name, Description=@Description,
                     BaseUomId=@BaseUomId, CategoryId=@CategoryId, TaxRate=@TaxRate,
                     ItemType=@ItemType, IsLotTracked=@IsLotTracked, IsSerialTracked=@IsSerialTracked,
-                    IsActive=@IsActive, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId
+                    IsActive=@IsActive, MinStockLevel=@MinStockLevel, MaxStockLevel=@MaxStockLevel,
+                    AdditionalFields=@AdditionalFields, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId
                 WHERE Id=@Id AND CompanyId=@CompanyId",
                 new {
                     Item.Code, Item.Name, Item.Description, Item.BaseUomId,
                     Item.CategoryId, Item.TaxRate, Item.ItemType, Item.IsLotTracked,
-                    Item.IsSerialTracked, Item.IsActive, UserId = user.Id,
+                    Item.IsSerialTracked, Item.IsActive, Item.MinStockLevel, Item.MaxStockLevel,
+                    Item.AdditionalFields, UserId = user.Id,
                     Item.Id, CompanyId = company.Id
                 });
             await audit.LogAsync("UPDATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
@@ -314,23 +304,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public bool    IsSerialTracked  { get; set; }
         public bool    IsActive         { get; set; }
 
-        // JSON UDF Helper Fields
-        public string? ActualDescription { get; set; }
-        public decimal? Volume           { get; set; }
-        public decimal? Weight           { get; set; }
-        public string? TempRange         { get; set; } = "Normal";
-        public decimal? MinQty           { get; set; }
-        public decimal? MaxQty           { get; set; }
-    }
-
-    public class UdfDataDto
-    {
-        public string? ActualDescription { get; set; }
-        public decimal? Volume           { get; set; }
-        public decimal? Weight           { get; set; }
-        public string? TempRange         { get; set; } = "Normal";
-        public decimal? MinQty           { get; set; }
-        public decimal? MaxQty           { get; set; }
+        // Ürün-seviyesi emniyet stok limitleri (Plan 34 — eski Description-JSON MinQty/MaxQty'den terfi)
+        public decimal? MinStockLevel    { get; set; }
+        public decimal? MaxStockLevel    { get; set; }
+        // Dinamik UDF JSON çantası — servisle doldurulur, kullanıcı bind etmez
+        public string? AdditionalFields  { get; set; }
     }
 
     public record UomConversionDto(Guid Id, string UomCode, string UomName, decimal ConversionRate);

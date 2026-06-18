@@ -170,29 +170,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Açıklama</label>
-                        <input asp-for="Item.ActualDescription" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="İsteğe bağlı açıklama" />
-                    </div>
-                    <div class="divider"></div>
-                    <div class="space-y-4">
-                        <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Lojistik Boyutları & Hacim</h3>
-                        <div class="grid grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Hacim (m³)</label>
-                                <input asp-for="Item.Volume" type="number" step="0.000001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="0.000000" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Ağırlık (kg)</label>
-                                <input asp-for="Item.Weight" type="number" step="0.001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="0.000" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Sıcaklık Rejimi</label>
-                                <select asp-for="Item.TempRange" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700">
-                                    <option value="Normal">Normal (Ortam)</option>
-                                    <option value="Soğuk">Soğuk (+2°C / +8°C)</option>
-                                    <option value="Donuk">Donuk (-18°C)</option>
-                                </select>
-                            </div>
-                        </div>
+                        <input asp-for="Item.Description" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="İsteğe bağlı açıklama" />
                     </div>
                     <div class="divider"></div>
                     <div class="space-y-4">
@@ -200,14 +178,23 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Minimum Stok (Emniyet)</label>
-                                <input asp-for="Item.MinQty" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Min limit" />
+                                <input asp-for="Item.MinStockLevel" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Min limit" />
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Maksimum Stok</label>
-                                <input asp-for="Item.MaxQty" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Max limit" />
+                                <input asp-for="Item.MaxStockLevel" type="number" step="0.01" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-800" placeholder="Max limit" />
                             </div>
                         </div>
                     </div>
+                    @* Dinamik kullanıcı tanımlı alanlar (UDF) — Hacim/Ağırlık/Sıcaklık artık buradan gelir (Plan 34) *@
+                    @if (Model.UdfPanel.Definitions.Count > 0)
+                    {
+                        <div class="divider"></div>
+                        <div class="space-y-4">
+                            <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Özel Alanlar</h3>
+                            <partial name="_CustomFields" model="Model.UdfPanel" />
+                        </div>
+                    }
                 </div>
             </div>
 

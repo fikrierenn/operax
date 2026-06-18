@@ -256,6 +256,8 @@ schema_M_UDF → Program.cs(CLI) migrate satırı → db_objects_udf backfill+se
   - code-reviewer 1 HIGH (OnGetAsync 85 satır) → `LoadSupplierTabAsync` helper'a bölündü.
   - security-reviewer: kritik bulgu YOK (6 açık doğrulandı kapalı).
 - Smoke (crafted-row): 2 test item (ActualDescription'lı + 'sız) → backfill doğru kolon/UDF dağıtımı, **veri kaybı yok**, **idempotent** (2. geçiş bozulmadı). Test verisi temizlendi.
+- **Browser smoke (preview, login→ekran):** Admin/Özel Alanlar 3 seed tanım render; Item Details UDF paneli (Volume/Weight/TempRange) render; kaydet→DB→reload round-trip (`{"Volume":"42","TempRange":"Soğuk"}` persist); Admin'den yeni "Renk" tanımı→Item formunda otomatik `UDF_Renk` render = **tam dinamik döngü doğrulandı.**
+- **Browser smoke 2 PRE-EXISTING bug ortaya çıkardı** (item edit-save tamamen kırıkmış, UDF dışı): (1) Details formunda hidden `Item.Id` yok → INSERT dup-key; (2) Item'da `UpdatedAt/UpdatedBy` kolonu yok → UPDATE 'Invalid column'. İkisi de düzeltildi (commit `fix(plan-34): item edit`).
 
 **DEBT (kapsam dışı, ayrı tur):**
 - `Items/Details.cshtml` tüm dosya Tailwind utility salatası (`ui-standard.md §2` ihlali) — PRE-EXISTING (bu plandan önce branch'te vardı), bu plan sadece dokunduğu bloğu var olan stille bıraktı. Tüm-view semantic-class refactoru ayrı iş.

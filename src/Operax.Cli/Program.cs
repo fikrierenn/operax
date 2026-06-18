@@ -99,7 +99,8 @@ class Program
                         "schema_M18_ExpenseReporting.sql",    // Plan 26: ExpenseType.ParentId + ExpenseInvoice.CostCenterId + Line.CostCenterId NULL
                         "schema_M02_MaterialIssue.sql",       // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
                         "schema_M04_ShipmentInvoiceMerge.sql", // Plan 21: İrsaliye↔Fatura N:1 (InvoicedQty + SourceShipmentLineId + IssueDate)
-                        "schema_M01_SupplierItem.sql"         // Plan 32: Tedarikçi-Ürün Kataloğu (SupplierItem)
+                        "schema_M01_SupplierItem.sql",        // Plan 32: Tedarikçi-Ürün Kataloğu (SupplierItem)
+                        "schema_M_UDF.sql"                    // Plan 34: UserFieldDefinition + Item.AdditionalFields/MinStockLevel/MaxStockLevel
 
                     })
                     {
@@ -139,6 +140,9 @@ class Program
                     // 13. WMS terminal SP'leri (Plan 33 Faz B) — sp_PutawayPost + sp_PickConfirm (SQL-First)
                     var putawayPick = Path.Combine(sqlDir, "db_objects_putaway_pick.sql");
                     if (File.Exists(putawayPick)) await ExecuteScriptAsync(putawayPick, tolerant: false);
+                    // 14. UDF backfill + seed (Plan 34) — Description JSON -> kolon/AdditionalFields + Volume/Weight/TempRange seed
+                    var udf = Path.Combine(sqlDir, "db_objects_udf.sql");
+                    if (File.Exists(udf)) await ExecuteScriptAsync(udf, tolerant: false);
                     break;
 
                 case "seed":

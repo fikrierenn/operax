@@ -8,6 +8,7 @@ Bu dosya, her Claude/Antigravity oturumunun başı, ortası ve sonu ritüellerin
 
 Her oturum başlatıldığında veya yeni bir Agent yüklendiğinde şu adımlar **sessizce ve sırayla** gerçekleştirilir:
 
+0. **SessionStart hook'unu KOŞULSUZ çalıştır (pusula dersi):** `bash .claude/hooks/session-start.sh` — context'te hook çıktısı görünüyor OLSA BİLE tekrar çalıştır. "Hook fire etti, çıktıyı gördüm, atlarım" varsayımı **yasak**: context stale olabilir, fresh çıktı farklı olabilir. Bu varsayım iki ayrı hata üretti (stale context + yanlış cevap). Cevap fresh okumaya dayanır, hafızaya/context'teki eski çıktıya değil.
 1. **Son Günlüklerin Okunması:** `docs/journal/` altındaki en son 2 oturum günlüğü (`YYYY-MM-DD.md`) `view_file` ile okunur.
    - Dün neyi tamamladık?
    - Hangi işler yarım kaldı ve bugün nereden başlanacak?

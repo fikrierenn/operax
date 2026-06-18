@@ -33,3 +33,23 @@ Bu dosya, Operax projesinin Git versiyon kontrol sistemi kullanımını, commit 
         5.  Dokümantasyon, TODO ve PLAN güncellemeleri.
     *   Her paket sırayla, anlamlı commit mesajlarıyla commit edilir.
     *   Commit'ler tamamlanıp temiz bir çalışma alanı elde edildikten sonra yeni göreve başlanır.
+
+---
+
+## 3. Commit → TODO `[x]` Senkronu (pusula'dan uyarlandı)
+
+*   **Bir TODO maddesini kapatan commit atılırken AYNI ANDA o madde `docs/TODO.md`'de `[x] ✅ <tarih> (commit <hash>)` yapılır.** Commit atıp TODO'yu açık bırakmak yasak — "done ama `[ ]`" birikiminin kök sebebi budur. İstisna yok.
+
+---
+
+## 4. Zararlı Komutlar (AÇIK ONAY olmadan YASAK)
+
+Aşağıdaki komutlar geri-alınamaz veri/geçmiş kaybı üretir; kullanıcı açıkça onaylamadan çalıştırılmaz:
+
+*   `git push --force` / `-f` — uzak geçmişi yeniden yazar
+*   `git reset --hard` — uncommitted iş uçar
+*   `git clean -fd` — untracked dosyaları siler
+*   `git checkout .` / `git restore .` — tüm değişiklikleri atar
+*   `git rebase -i` — interaktif (bu ortamda zaten desteklenmez)
+
+Gerekirse sor: **"Bu komut N dosya değişikliğini kaybedecek — emin misin?"**

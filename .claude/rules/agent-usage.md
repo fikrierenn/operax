@@ -40,6 +40,19 @@ Bu kural, ana ajanın (ben) işleri alt-ajanlara (subagent) NASIL dağıtacağı
 - Aynı türden çok sayıda hedef (N dosya/N modül) varsa: her birine ayrı dar-kapsamlı haiku/sonnet ajan; sonucu ana ajan sentezler.
 - Büyük çok-fazlı orkestrasyon (onlarca ajan) sadece kullanıcı açıkça "workflow" derse veya ultracode açıksa.
 
+### Rol & Derinlik (pusula'dan uyarlandı)
+
+Alt-ajan açarken **rol** yetki ve derinliği sınırlar:
+
+| Rol | Yetki |
+|---|---|
+| **leaf** (varsayılan) | Salt-işçi. Kendi alt-ajanını AÇAMAZ. Tek görev, izole bağlam. Denetim/araştırma ajanları yazma-tool'suz (§5). |
+| **orchestrator** | Alt-ajan açabilir ama derinlik-sınırlı; sonuçları sentezler. (`planner`, ana döngü) |
+
+- **max_concurrent = 3** — aynı anda en fazla 3 paralel alt-ajan. Daha fazla hedef → dalga dalga (3'lü grup).
+- **Derinlik ≤ 2** — orchestrator → leaf. Leaf alt-ajan açamaz (sonsuz fan-out engeli). 3. seviye gerekirse ana ajana dön.
+- **İzolasyon:** alt-ajan geçmiş konuşmayı GÖRMEZ — yalnızca verilen görev. Parent child özetini bekler (senkron).
+
 ## 5. Salt-Okuma Disiplini
 
 - Araştırma/denetim ajanlarına **yazma tool'u verme** (Edit/Write yok). reference-researcher, sql-sp-reviewer, security-reviewer, silent-failure-hunter, code-explorer, code-reviewer, db-schema-checker, build-validator, test-runner, pgsql-porter = read-only (+ Bash gerekiyorsa).

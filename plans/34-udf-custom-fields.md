@@ -246,6 +246,23 @@ schema_M_UDF → Program.cs(CLI) migrate satırı → db_objects_udf backfill+se
 - Faz kapısı: `.claude/rules/phase-review-gate.md`
 - Pattern ref: `Features/MasterData/Items/Details.cshtml.cs`, `docs/sql/schema_M01.sql`, `Lib/UiVms.cs`
 
+## 9.5 Uygulama Sonucu (2026-06-18)
+
+**Faz 0 + Faz 1 tamamlandı.** Branch `feat/udf-custom-fields`, commit C1(SQL)/C2(backend)/C3(UI).
+
+- Build: Web + CLI **0 hata** (1 pre-existing ForwardedHeaders uyarısı, bu plan dışı).
+- Phase-review-gate: code-reviewer + sql-sp-reviewer + security-reviewer paralel + smoke.
+  - sql-sp-reviewer **2 CRITICAL** (backfill veri kaybı: ActualDescription yoksa Description NULL) → `COALESCE(JSON_VALUE(...), Description)` + `NULLIF` ile düzeltildi.
+  - code-reviewer 1 HIGH (OnGetAsync 85 satır) → `LoadSupplierTabAsync` helper'a bölündü.
+  - security-reviewer: kritik bulgu YOK (6 açık doğrulandı kapalı).
+- Smoke (crafted-row): 2 test item (ActualDescription'lı + 'sız) → backfill doğru kolon/UDF dağıtımı, **veri kaybı yok**, **idempotent** (2. geçiş bozulmadı). Test verisi temizlendi.
+
+**DEBT (kapsam dışı, ayrı tur):**
+- `Items/Details.cshtml` tüm dosya Tailwind utility salatası (`ui-standard.md §2` ihlali) — PRE-EXISTING (bu plandan önce branch'te vardı), bu plan sadece dokunduğu bloğu var olan stille bıraktı. Tüm-view semantic-class refactoru ayrı iş.
+- `Admin/UdfFields/Index.cshtml` + `Details.cshtml.cs` inline-style (renk/font-size) — kardeş `Admin/Parameters/Index.cshtml` ile aynı kabul edilmiş pattern; proje-geneli inline-style temizliğiyle birlikte.
+- `DetailsModel` 312 satır (300 eşiği) — sıradaki dokunuşta service layer'a bölünmeli.
+- `db_objects_udf.sql` backfill TRY/CATCH sarmalı yok (XACT_ABORT var) — düşük öncelik.
+
 ## 9. Onay
 
 > Kullanıcı onay verene kadar implement edilmez.

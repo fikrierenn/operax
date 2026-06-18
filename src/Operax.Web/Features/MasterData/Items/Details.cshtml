@@ -110,6 +110,8 @@
 @if (activeTab == "general")
 {
     <form id="item-form" method="post">
+        @* Mevcut ürünü düzenlerken Id round-trip etmeli; yoksa POST'ta IsNew=true olur ve INSERT denenir (dup key). *@
+        <input type="hidden" asp-for="Item.Id" />
         <div class="grid grid-cols-2 gap-6">
             <!-- Sol Kart: Temel Bilgiler -->
             <div class="card">

@@ -56,3 +56,16 @@ BEGIN
     PRINT 'Item.MaxStockLevel kolonu eklendi.';
 END
 GO
+-- Zorunlu audit kolonları (sql-conventions §1) — Item'da eksikti, UPDATE bunları yazdığı için edit kırılıyordu
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'UpdatedAt' AND Object_ID = OBJECT_ID('Item'))
+BEGIN
+    ALTER TABLE Item ADD UpdatedAt DATETIME2 NULL;
+    PRINT 'Item.UpdatedAt kolonu eklendi.';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'UpdatedBy' AND Object_ID = OBJECT_ID('Item'))
+BEGIN
+    ALTER TABLE Item ADD UpdatedBy NVARCHAR(450) NULL;
+    PRINT 'Item.UpdatedBy kolonu eklendi.';
+END
+GO

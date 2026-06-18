@@ -129,6 +129,7 @@ builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
 builder.Services.AddScoped<Operax.Web.Lib.ParameterStore>();
 builder.Services.AddScoped<Operax.Web.Lib.PriceListBulkService>();   // Plan 31: fiyat listesi toplu giriş
 builder.Services.AddScoped<Operax.Web.Lib.SupplierItemService>();    // Plan 32: tedarikçi-ürün kataloğu
+builder.Services.AddScoped<Operax.Web.Lib.UdfService>();             // Plan 34: dinamik kullanıcı tanımlı alanlar
 // Plan 27: Yerel AI istemcisi (qwen2.5, LLamaSharp süreç-içi) — fiyat farkı gerekçe denetimi.
 // Singleton: model bir kez yüklenir (tembel, Ai:Enabled=false ise hiç yüklenmez). Bulut yok.
 builder.Services.AddSingleton<Operax.Web.Lib.Ai.IOperaxAiClient, Operax.Web.Lib.Ai.OperaxAiClient>();

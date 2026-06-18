@@ -89,3 +89,28 @@ public record DocFlowItem(
     string? CreateLabel = null,
     bool CanCreate = true,
     bool IsGetCreate = false);
+
+/// <summary>
+/// Tek bir dinamik kullanıcı tanımlı alan (UDF) tanımı — runtime render için.
+/// UserFieldDefinition tablosunun render'a ihtiyaç duyulan kolonları.
+/// </summary>
+public record UdfFieldDef(
+    Guid Id,
+    string FieldName,
+    string LabelText,
+    string FieldType,         // TEXT | NUMBER | SELECT
+    string? DataSourceType,   // STATIC | null
+    string? DataSourceKey,
+    string? DefaultValue,
+    int OrderNo,
+    bool IsRequired);
+
+/// <summary>
+/// _CustomFields.cshtml partial'ına geçilen model — bir entity'nin UDF paneli.
+/// CurrentValues: AdditionalFields JSON'ından çözülmüş anahtar-değer.
+/// </summary>
+public record CustomFieldsVm(
+    string EntityName,
+    IReadOnlyList<UdfFieldDef> Definitions,
+    Dictionary<string, string> CurrentValues,
+    bool ReadOnly = false);

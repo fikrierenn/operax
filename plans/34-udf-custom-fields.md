@@ -136,7 +136,7 @@ Dikey sektörlerin (tekstil: Beden/Renk, kitap: Yazar/ISBN, gıda: Alerjen) veri
 ### Faz 2 — DATE/BOOLEAN + computed-index + Partner + TABLE source
 10. [x] ✅ 2026-06-19 DATE (invariant `yyyy-MM-dd`, `TODAY` default) + BOOLEAN switch render (smoke geçti)
 11. [ ] İsteğe bağlı `PERSISTED computed column + CAST + index` (müşteri talebiyle)
-12. [ ] `Partner.AdditionalFields` aktif + Partner Details wire
+12. [x] ✅ 2026-06-19 `Partner.AdditionalFields` aktif + Partner Details wire + Admin AllowedEntities (smoke geçti)
 13. [ ] `UdfWhitelist` + `TABLE` data source (Açık 6 tamamlanır)
 
 ### Faz 3 — Evrak zinciri inheritance

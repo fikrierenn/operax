@@ -656,8 +656,8 @@ BEGIN
     DECLARE @Status NVARCHAR(20);
     SELECT @Status = Status FROM Cheque WHERE Id = @ChequeId AND CompanyId = @CompanyId AND IsDeleted = 0;
 
-    IF @Status IS NULL THROW 60001, N'Çek bulunamadı.', 1;
-    IF @Status <> 'PORTFOLIO' THROW 60002, N'Sadece portföydeki çekler bankaya verilebilir.', 1;
+    IF @Status IS NULL THROW 55001, N'Çek bulunamadı.', 1;
+    IF @Status <> 'PORTFOLIO' THROW 55002, N'Sadece portföydeki çekler bankaya verilebilir.', 1;
 
     UPDATE Cheque
     SET Status               = 'IN_BANK',
@@ -786,7 +786,7 @@ BEGIN
     WHERE Id = @ChequeId AND CompanyId = @CompanyId AND Status IN ('IN_BANK', 'PORTFOLIO');
 
     IF @@ROWCOUNT = 0
-        THROW 60004, N'Çek karşılıksız olarak işaretlenemiyor (statü uygun değil).', 1;
+        THROW 55004, N'Çek karşılıksız olarak işaretlenemiyor (statü uygun değil).', 1;
 END
 GO
 
@@ -1348,7 +1348,7 @@ BEGIN
         WHERE lp.Id = @PaymentId AND lp.IsPaid = 0 AND l.CompanyId = @CompanyId;
 
         IF @LoanId IS NULL
-            THROW 60010, N'Ödeme bulunamadı veya zaten ödenmiş.', 1;
+            THROW 55010, N'Ödeme bulunamadı veya zaten ödenmiş.', 1;
 
         DECLARE @TxId UNIQUEIDENTIFIER = NEWID();
         INSERT INTO FinancialTransaction (

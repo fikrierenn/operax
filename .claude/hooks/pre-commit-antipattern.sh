@@ -10,6 +10,10 @@
 #   2 -> commit BLOKLA (antipattern bulundu, stdout'taki mesaj user'a gider)
 
 set -e
+
+# Env override: acil durumda taramayı tamamen atla (CLAUDE_PRECOMMIT_SKIP=1)
+[ "${CLAUDE_PRECOMMIT_SKIP:-0}" = "1" ] && exit 0
+
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
 
 input=$(cat)

@@ -134,7 +134,7 @@ Dikey sektörlerin (tekstil: Beden/Renk, kitap: Yazar/ISBN, gıda: Alerjen) veri
 9. [ ] **34-9** `operax-cli migrate` + smoke (tanım→kaydet→JSON doğrula) + faz kapanış kapısı
 
 ### Faz 2 — DATE/BOOLEAN + computed-index + Partner + TABLE source
-10. [ ] DATE (invariant `yyyy-MM-dd`, `TODAY` default) + BOOLEAN switch render
+10. [x] ✅ 2026-06-19 DATE (invariant `yyyy-MM-dd`, `TODAY` default) + BOOLEAN switch render (smoke geçti)
 11. [ ] İsteğe bağlı `PERSISTED computed column + CAST + index` (müşteri talebiyle)
 12. [ ] `Partner.AdditionalFields` aktif + Partner Details wire
 13. [ ] `UdfWhitelist` + `TABLE` data source (Açık 6 tamamlanır)

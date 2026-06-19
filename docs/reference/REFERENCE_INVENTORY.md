@@ -18,7 +18,7 @@
 | CURRENCY | TRY·₺ / USD / EUR / GBP / CHF | dict | ❌ hardcoded "TRY" dağınık, merkezi yok |
 | PAYMENT_METHOD | CASH·Nakit / EFT / HAVALE / CHEQUE·Çek / NOTE·Senet / CREDIT_CARD·Kredi Kartı / OFFSET·Mahsup | dict | ❌ hardcoded magic-string |
 | PAYMENT_TERM | PESIN / NET7 / NET15 / NET30 / NET60 / NET90 / EOM·Ay Sonu | dict | ❌ tek parametre var, liste yok |
-| WITHHOLDING (tevkifat) | GİB kodları: T10·Tekstil 7/10, T17·Demir-Çelik 5/10, T18·Hurda 7/10, T06·İşgücü 9/10… | dict | ❌ YOK — **e-Fatura zorunlu** (`DOĞRULANMADI` tam liste) |
+| WITHHOLDING (tevkifat) | **GERÇEK GİB kodları 601-625** (web-doğrulandı): 601·Yapım 4/10, 606·İşgücü 9/10, 609·Fason Tekstil 7/10, 612·Temizlik 9/10, 615·Baskı 7/10, 617·Hurda Metal Külçe 7/10, 621·Metal/Plastik Hurda 9/10, 622·Pamuk/Yün/Deri 9/10… (tam liste §Sertleştirme) | dict | ❌ YOK — **e-Fatura zorunlu**. 2026 alt sınır 12.000₺ |
 | PARTNER_CATEGORY | BAYI / KURUMSAL / PERAKENDE + bölge | dict | ❌ yok (Mikro cari_grup/bölge muadili) |
 | MOV_TYPE | RECEIPT/ISSUE/TRANSFER/COUNT_ADJ/PRODUCTION | **kod sabiti** | ✅ Dtos.cs. Eksik: Fire/Sarf/Açılış (Mikro sth_cins) |
 | SOURCE_DOC | RECEIVING/SHIPPING/TRANSFER/CYCLE_COUNT/PRODUCTION | **kod sabiti** | ✅. Eksik: RETURN_IN/OUT, WASTE, OPENING_STOCK |
@@ -32,7 +32,7 @@
 ## (B) SEKTÖREL KATMAN — UDF + DictionaryType (çekirdek şemaya kolon eklemeden)
 
 **Tekstil:** SIZE (XS–XXL/36–48), COLOR, SEASON (SS26/FW26), FABRIC(UDF), tevkifat T10. ⚠️ Varyant matrisi (beden×renk SKU) = **yapısal GAP** (Item tek-seviye), ayrı plan.
-**Kitap:** PUBLISHER, LANGUAGE, BINDING (Ciltli/Karton/E-Kitap), GENRE, ISBN (ItemBarcode mevcut). KDV %10 (`DOĞRULANMADI güncel`).
+**Kitap:** PUBLISHER, LANGUAGE, BINDING (Ciltli/Karton/E-Kitap), GENRE, ISBN (ItemBarcode mevcut). **KDV %1** (matbu kitap/dergi/gazete I sayılı liste — web-doğrulandı; envanterdeki %10 YANLIŞTI).
 **Gıda:** ALLERGEN (EU 14), STORAGE (Oda/Soğuk+4/Donmuş-18), CERTIFICATE (Helal/Organik/ISO22000/HACCP), SHELF_LIFE. ⚠️ **Lot/SKT izi + FEFO** — StockMovement parti kolonu `DOĞRULANMADI` (şema kontrol gerek).
 
 ---
@@ -50,12 +50,29 @@
 - **P1 (e-Belge öncesi):** WITHHOLDING tevkifat listesi · PAYMENT_TERM listesi.
 - **P2 (sektörel, pilote göre):** Tekstil varyant (yapısal) · Gıda lot/SKT+FEFO · Kitap dict'leri (düşük maliyet).
 
-## DOĞRULANMADI (sonraki teyit)
-1. Fresh DB "4 tip/13 değer" tam dökümü (yalnız TAX_RATE kod-kanıtlı; CLI query gerek).
-2. GİB tevkifat tam/güncel liste.
-3. Kitap KDV güncel oran.
-4. StockMovement lot/SKT/parti kolonu varlığı.
-5. COMPETITOR_ANALYSIS.md / REFERENCE_STUDY.md bu turda açılmadı — Logo/Netsis/SAP/Odoo/ERPNext katalogları genel ERP bilgisinden (repo-okuma değil).
+## DOĞRULANMADI (kalan — derin tur sonrası)
+- ✅ KAPANDI: tevkifat tam liste (601-625) · kitap KDV (%1) · UN/ECE eşleme (C62) · EU14 alerjen · ISO 4217 sembol/numeric.
+- ❌ Kalan: (1) Fresh DB tam dict dökümü (CLI query). (2) StockMovement lot/SKT/parti kolonu (şema okuma). (3) Koli UN/ECE kesin kod (PC vs PK — resmi GİB PDF). (4) Odoo `res.currency`+payment-terms XML + ERPNext Mode-of-Payment fixture (raw erişilemedi). (5) GİB resmi tevkifat GUID listesi son-teyit.
+
+## SERTLEŞTİRME — web-doğrulanmış değerler (2026-06-19, reference-researcher derin tur)
+
+### UOM — ERPNext/UN-ECE deseni (P0 backlog)
+UOM dict'e 2 kolon eklenmeli (ERPNext fixture deseni): **`UnEceCode`** (e-Belge zorunlu: Adet=**C62** [NIU geçersiz], Kg=KGM, Gram=GRM, Litre=LTR, Metre=MTR, m²=MTK, m³=MTQ, Çift=PR, Kutu=BX, Palet=PAL; Koli=PC/PK `DOĞRULANMADI`) + **`IsWholeNumber`** (Adet/Koli/Çift → kesirsiz miktar guard). Odoo dersi: kategori+referans-birim+`factor` ile item-bağımsız dönüşüm (kg↔g) SQL-side — `fn_GetConversionRate`'e kategori/factor kolonu opsiyonel genişleme.
+
+### WITHHOLDING — GİB tevkifat tam liste (601-625, YÜKSEK güven)
+601·Yapım+mühendislik 4/10 · 602·Etüt-proje-danışmanlık 9/10 · 603·Makine bakım-onarım 7/10 · 604·Yemek servis 5/10 · 605·Organizasyon 5/10 · 606·İşgücü temin 9/10 · 607·Özel güvenlik 9/10 · 608·Yapı denetim 9/10 · **609·Fason tekstil-konfeksiyon-deri dikim 7/10** · 610·Turistik mağaza 9/10 · 611·Spor kulübü yayın/reklam 9/10 · 612·Temizlik 9/10 · 613·Çevre-bahçe bakım 9/10 · 614·Servis taşımacılığı 5/10 · 615·Baskı-basım 7/10 · 616·Kurumlara diğer hizmet 5/10 · 617·Hurda metal külçe 7/10 · 618·Diğer külçe 7/10 · 619·Bakır/çinko/alüminyum ürün 7/10 · 620·İstisnadan vazgeçen hurda 7/10 · 621·Metal/plastik/kâğıt/cam hurda 9/10 · 622·Pamuk/tiftik/yün/deri 9/10 · 623·Ağaç/orman ürünü 5/10 · 624·Yük taşımacılığı 2/10 · 625·Ticari reklam 3/10. **2026 alt sınır: 12.000₺ (KDV dahil).** (GİB resmi GUID listesiyle son teyit önerilir.)
+
+### CURRENCY — ISO 4217 (sembol + numeric)
+TRY·₺·949 · USD·$·840 · EUR·€·978 · GBP·£·826 · CHF·Fr·756 · JPY·¥·392.
+
+### Gıda ALLERGEN — EU 14 (Reg. 1169/2011 Annex II, kanonik sıra)
+1 Glüten tahıl · 2 Kabuklu (crustacea) · 3 Yumurta · 4 Balık · 5 Yer fıstığı · 6 Soya · 7 Süt/laktoz · 8 Sert kabuklu yemiş · 9 Kereviz · 10 Hardal · 11 Susam · 12 Sülfit (>10mg) · 13 Acı bakla · 14 Yumuşakça.
+
+### KDV oranları (2026) — kitap DÜZELTME
+%0 ihracat/istisna · %1 temel gıda + **kitap/dergi/gazete** · %10 tekstil/giyim/restoran/mobilya (eski %8) · %20 genel (elektronik/yazılım/hizmet). Operax'ta %8 varsa %10'a güncelle.
+
+### Tekstil beden
+TR beden = EU beden (EN 13402). TR34=XS…TR42=XL (kadın); harf↔numerik eşleme cinsiyet/kategoriye kayar → SIZE dict serbest-değer, sabit eşleme dayatma.
 
 ## İlişkili
 - `src/Operax.Web/Lib/Dtos.cs` (canonical) · `docs/sql/schema_M00.sql` (dict altyapı) · `setup_tax_dictionary.sql` (TAX seed) · `schema_M01_UOM.sql:30-37` (UOM commented) · `docs/reference/MIKRO_V16_ANALYSIS.md §12` · `.claude/skills/referans-tanim-seed/SKILL.md`.

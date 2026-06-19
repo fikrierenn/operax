@@ -60,6 +60,15 @@ model: inherit
 - Kod üreten agent/skill → `build-validator` ile derle (0 hata).
 - Skill/rule: tetik ifadesiyle bir kuru-koşu (doğru yükleniyor mu).
 
+### 4.b Eval — baseline vs with-skill (skill/agent; çıktısı OBJEKTİF ise)
+anthropics/skill-creator dersi: yeni/güncel skill'in **işe yaradığını kanıtla**, varsay-ma. Çıktı objektif-değerlendirilebilir olduğunda (üretilen SQL/kod/rapor doğru mu) uygula:
+1. **2 koşu kıyasla** — *baseline* (skill YOK / eski sürüm) vs *with-skill* (yeni taslak), AYNI tetik görevde. İzole alt-ajanla paralel çalıştırılabilir (agent-usage §4, max 3).
+2. **Assertion yaz** (koşudan ÖNCE) — her biri NE'yi kontrol ettiğini açıklayan 3-5 ölçülebilir kriter (örn. "üretilen seed idempotent mi", "CompanyId predikatı var mı", "Türkçe yorum var mı"). Kuralları kanıt yapar.
+3. **Grade + karşılaştır** — with-skill baseline'ı geçti mi? Geçmediyse skill değer katmıyor → gövdeyi sadeleştir/düzelt, tekrar.
+4. **Genelleştir, overfit etme** — feedback'ten KURAL çıkar, tek örneğe göre talimat şişirme. Tekrarlayan yardımcı kod 2+ koşuda görülürse → ayrı script/agent'a topla.
+- Subjektif çıktı (rule metni, UI tonu) → eval atla, kuru-koşu + onay yeter.
+- Operax'ta eval-viewer altyapısı yok; kıyas + assertion grade'i konuşmada raporla, sonucu journal'a not et.
+
 ## 5. Mevcut Yeteneği GÜNCELLE (self-update)
 - Tetik: "bu skill eksik/yanlış", kullanıcı feedback, stale bulgu.
 - Aynı workflow: oku → eksiği bul → minimal düzelt (surgical, `coding-discipline.md`) → test → onay.
@@ -83,3 +92,4 @@ model: inherit
 - `.claude/skills/impl-spec/SKILL.md` — büyük basamak (SP/UI) için dosya-dosya spec.
 - `.claude/rules/phase-review-gate.md` — kod üreten yetenek sonrası kapı.
 - `.claude/settings.json` — hook kayıt yeri.
+- **Upstream spec:** agentskills.io/specification + github.com/anthropics/skills (skill-creator eval döngüsü, progressive-disclosure 3-katman: metadata≤100tok / SKILL.md<5000tok≤500satır / references on-demand). Frontmatter: `name`≤64 lowercase-hyphen `--`yok klasör-adıyla-AYNI · `description`≤1024 ne+ne-zaman+tetik. Operax tarama 2026-06-19: 15 skill + 14 agent %100 uyumlu.

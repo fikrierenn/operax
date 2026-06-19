@@ -77,9 +77,13 @@ Her bulgu paralel `sql-sp-reviewer`/`code-reviewer` (opus) ile bulundu, 2 bağı
 - **Kapanış:** sql-sp-reviewer + security-reviewer + smoke (putaway → StockMovement bakiye doğru, çift-tara reddedilir).
 
 ### Faz C — SP Transaction Normalizasyon + Idempotency
-- C1: 8 SP TRY/CATCH+ROLLBACK+THROW (Faz B'de yeni yazılan 2 SP zaten dahil).
-- C2: status guard + StockMovement idempotent UNIQUE index (migration).
-- **Kapanış:** sql-sp-reviewer + smoke (her stok SP'si çift-post → ikinci çağrı THROW).
+> DÜZELTME (2026-06-19, koddan doğrulandı — plan scope'u stale çıktı):
+- **C2 ✅ (gerçek fix yapıldı):** Çift-post riski yalnız **sp_ProductionFinish + sp_PickLinePost**'taydı (UPDLOCK+guard yoktu). Eklendi: UPDLOCK + status/QtyPicked guard + TRY/CATCH. sql-sp-reviewer CRITICAL yok, smoke (COMPLETED emre finish→THROW 50010). commit.
+  - ShippingPost (canlı=starter:1704)/TransferPost/CycleCountPost **zaten** UPDLOCK+sp_ValidateStatusTransition ile çift-post korumalıydı (POSTED→POSTED kuralı yok→THROW).
+  - Plan'ın `StockMovement(SourceDocType,SourceDocId) UNIQUE` fikri **ÇALIŞMAZ** (belge çok-satırlı→o kolonlar tekil değil). Doğru mekanizma status guard.
+- **C1 (8→5 SP, DÜŞÜK ÖNCELİK — ERTELENDİ):** sp_ShippingPost zaten hardened (starter). Kalan 5 (ShippingCreatePickTask/TransferPost/CycleCountPost/ProductionLoadBOM/ProductionCreatePickTask) TRY/CATCH'siz **ama `SET XACT_ABORT ON` zaten partial-write'ı auto-rollback ediyor** → consistency polish, kritik değil. ProductionFinish+PickLinePost C1 zaten yapıldı (C2 ile birlikte).
+- **DEBT (ayrı):** PickLinePost ISSUE-stok yazması (sevkiyatta çift-sayım riski) + dönem-guard eksikliği.
+- **Kapanış:** sql-sp-reviewer + smoke ✅ (yapılan 2 SP için).
 
 ### Faz D — DocumentLock Helper + Edit Guard
 - `Lib/DocumentLock.cs` yaz (rule §7 imzası).

@@ -85,10 +85,11 @@ Her bulgu paralel `sql-sp-reviewer`/`code-reviewer` (opus) ile bulundu, 2 bağı
 - **DEBT (ayrı):** PickLinePost ISSUE-stok yazması (sevkiyatta çift-sayım riski) + dönem-guard eksikliği.
 - **Kapanış:** sql-sp-reviewer + smoke ✅ (yapılan 2 SP için).
 
-### Faz D — DocumentLock Helper + Edit Guard
-- `Lib/DocumentLock.cs` yaz (rule §7 imzası).
-- AH6, AH7: PO Details guard'ları + SalesOrders/Shipping/CycleCount (MEDIUM, fırsat).
-- **Kapanış:** code-reviewer + security-reviewer + smoke (POSTED PO satır ekle → reddedilir).
+### Faz D — DocumentLock Helper + Edit Guard ✅ (2026-06-19)
+- `Lib/DocumentLock.cs` ✅ — 4 async helper (PO→Receiving, Receiving→PurchaseInvoice, SO→Shipping, Shipping→SalesInvoice). Rule §7 imzası uyarlandı (ExpenseInvoice değil PurchaseInvoice — §7 stale çıktı, koddan düzeltildi).
+- Guard wire ✅: PO/SO/Shipping edit + PO/SO/Receiving add-line + Receiving edit.
+- **Kapanış ✅:** code-reviewer (2 bulgu CRITICAL+HIGH düzeltildi) + smoke (faturalı receiving→guard true, build 0/0). commit.
+- **DEBT:** CycleCount guard (count-immutability ayrı, status-bazlı child değil) eklenmedi — gerçek child yok; Shipping OnPostAddLine 93-satır (pre-existing) split.
 
 ### Faz E — THROW Kod Hizalama + DEAD Servis Temizliği
 - H3: 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment).

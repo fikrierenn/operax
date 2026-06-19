@@ -145,7 +145,7 @@ Dikey sektörlerin (tekstil: Beden/Renk, kitap: Yazar/ISBN, gıda: Alerjen) veri
 
 ### Faz 4 — Yaygınlaştırma + raporlama
 16. [ ] Diğer entity UDF desteği + readonly liste gösterimi
-17. [ ] DICTIONARY data source (tablolar hazır olunca) + UDF üzerinden filtreleme
+17. [x] ✅ 2026-06-19 DICTIONARY data source (mevcut DictionaryType/Value, şirket-kapsamlı, ResolveOptionsAsync — smoke geçti) · [ ] UDF üzerinden filtreleme (kaldı)
 
 > `docs/TODO.md`'ye Faz 1 maddeleri ayrıca eklenecek (onay sonrası, plan-tracker).
 

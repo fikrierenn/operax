@@ -1,0 +1,99 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Loans.IndexModel
+@{
+    ViewData["Title"] = L.T("Krediler", "Loans");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Banka Kredileri", "Bank Loans"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Krediler", "Loans") },
+        SubHtml: $"{L.T("Kalan anapara", "Outstanding")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalOutstanding)}</span> · {L.T("30 gün içinde", "Next 30 days")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.NextMonthDue)}</span>",
+        ActionsHtml: $"<a href=\"/Finance/Loans/Create\" class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Kredi", "New Loan")}</a>"
+    );
+
+    var tabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),       "all",    Model.Counts.Total),
+            new TabVm(L.T("Aktif", "Active"),   "ACTIVE", Model.Counts.Active),
+            new TabVm(L.T("Kapalı", "Closed"),  "CLOSED", Model.Counts.Closed),
+        },
+        ActiveValue: Model.Status,
+        QueryParamName: "status"
+    );
+}
+
+<div class="page" data-screen-label="Krediler">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+        <partial name="_Tabs" model="tabs" />
+
+        @if (Model.Loans.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Kredi bulunamadı", "No loan found"),
+                Message: L.T("Yeni Kredi butonu ile banka kredisi tanımlayın.", "Define a bank loan to start."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Kredi No", "Loan No")</th>
+                        <th>@L.T("Banka", "Bank")</th>
+                        <th class="num">@L.T("Anapara", "Principal")</th>
+                        <th class="num">@L.T("Faiz %", "Rate %")</th>
+                        <th class="num">@L.T("Vade Ay", "Term")</th>
+                        <th class="num">@L.T("Aylık Taksit", "Monthly")</th>
+                        <th class="num">@L.T("Kalan Anapara", "Outstanding")</th>
+                        <th>@L.T("Sıradaki Vade", "Next Due")</th>
+                        <th>@L.T("Durum", "Status")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model.Loans)
+                    {
+                        string statusBadge = l.Status switch
+                        {
+                            "ACTIVE" => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
+                            "CLOSED" => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPALI</span>",
+                            "OVERDUE" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
+                            _ => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{l.Status}</span>"
+                        };
+
+                        var progressPct = l.Principal > 0
+                            ? (int)(100 - (l.OutstandingBalance / l.Principal * 100))
+                            : 0;
+
+                        <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Loans/Details?id=@l.Id'">
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@l.LoanNo</span></td>
+                            <td class="row-strong">@l.BankName</td>
+                            <td class="num">@UiHelpers.FmtTL(l.Principal)</td>
+                            <td class="num mono muted">%@l.InterestRate.ToString("0.00")</td>
+                            <td class="num muted">@l.TermMonths</td>
+                            <td class="num">@UiHelpers.FmtTL(l.MonthlyPayment)</td>
+                            <td class="num">
+                                <div class="row-strong">@UiHelpers.FmtTL(l.OutstandingBalance)</div>
+                                <div class="row-sub">@progressPct% @L.T("ödendi", "paid")</div>
+                            </td>
+                            <td class="mono">
+                                @if (l.NextDueDate.HasValue)
+                                {
+                                    @UiHelpers.FmtDateShort(l.NextDueDate.Value)
+                                    <div class="row-sub">@l.RemainingInstallments @L.T("taksit", "left") · @UiHelpers.FmtTL(l.NextDueAmount ?? 0)</div>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td>@Html.Raw(statusBadge)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

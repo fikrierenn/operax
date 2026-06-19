@@ -4,120 +4,224 @@
     ViewData["Title"] = "Transfer Detayı";
 }
 
-<div class="flex items-start justify-between mb-8">
-    <div>
-        <div class="flex items-center gap-2 mb-2">
-            <a asp-page="./Index" class="btn btn-secondary py-1 px-3 text-xs">Geri</a>
-            <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Transfer #@Model.Header.DocNo</span>
+<form method="post" id="main-form" class="fade-in">
+    <input type="hidden" asp-for="Header.Id" />
+    <div class="page-hdr">
+        <div>
+            <div class="flex items-center gap-2 mb-2 text-xs">
+                <a asp-page="./Index" class="btn btn-secondary btn-sm py-1 px-2.5 min-h-0">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3" viewBox="0 0 24 24">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    Transfer Listesi
+                </a>
+                <span class="text-slate-400">/</span>
+                <span class="text-slate-600 font-semibold">Transfer Detayı</span>
+            </div>
+            <h1>Transfer Hareketi: #@Model.Header.DocNo</h1>
+            <p class="page-hdr-sub">Depolar arası veya raflar arası stok hareket planlaması</p>
         </div>
-        <h1 class="text-2xl font-black text-slate-800 tracking-tight">Stok Hareket Detayı</h1>
-    </div>
-    <form method="post">
-        <input type="hidden" asp-for="Header.Id" />
-        <button type="submit" class="btn btn-primary">Bilgileri Kaydet</button>
-    </form>
-</div>
+        <div class="page-hdr-r flex gap-2">
+            <a asp-page="./Index" class="btn btn-secondary">
+                Listeye Dön
+            </a>
+            @if (Model.IsNew || Model.Header.Status == DocStatus.Draft)
+            {
+                <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
+                    Bilgileri Kaydet
+                </button>
+            }
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+            {
+                <button type="submit" asp-page-handler="Reverse" class="btn btn-danger"
+                        onclick="return confirm('Bu transfer iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                    Transferi İptal Et
+                </button>
+            }
+          </div>
+      </div>
 
-<div class="grid grid-cols-3 gap-6">
-    <div class="col-span-1">
-        <div class="card p-6">
-            <div class="text-[10px] font-bold uppercase text-slate-400 mb-4 pb-2 border-b">Genel Ayarlar</div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Transfer Tipi</label>
-                    <select class="w-full px-3 py-2 border rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="WH_TO_WH">Depolar Arası Transfer</option>
-                        <option value="BIN_TO_BIN">Raf/Hücre Arası Transfer</option>
-                    </select>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-1">
+            <div class="card p-6 bg-white h-full">
+                <div class="card-ttl mb-4 pb-2 border-b border-slate-100">TRANSFER AYARLARI</div>
+                <div class="space-y-4">
+                    @* Transfer tipi: kaynak/hedef depo seçilince JS türetir — hidden field DB'ye gider *@
+                    <input type="hidden" asp-for="Header.TransferType" id="transfer-type-code" />
+                    <div class="form-group mb-0">
+                        <label class="form-label">Transfer Tipi</label>
+                        <div id="transfer-type-badge" class="badge b-indigo text-sm px-3 py-1.5">—</div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Kaynak Depo</label>
+                        <select asp-for="Header.FromWarehouseId" id="from-wh" class="form-ctrl w-full" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var wh in Model.Warehouses)
+                            {
+                                <option value="@wh.Id" data-branch="@wh.BranchId">@wh.Code - @wh.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Hedef Depo</label>
+                        <select asp-for="Header.ToWarehouseId" id="to-wh" class="form-ctrl w-full" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var wh in Model.Warehouses)
+                            {
+                                <option value="@wh.Id" data-branch="@wh.BranchId">@wh.Code - @wh.Name</option>
+                            }
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kaynak Depo</label>
-                    <select asp-for="Header.FromWarehouseId" class="w-full px-3 py-2 border rounded-lg text-sm font-semibold">
-                        @foreach (var wh in Model.Warehouses) { <option value="@wh.Id">@wh.Code - @wh.Name</option> }
-                    </select>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2">
+            <div class="card mb-6 h-full flex flex-col">
+                <div class="card-hdr bg-slate-50/50">
+                    <span class="card-ttl">TRANSFER SATIRLARI</span>
+                    <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
+                        + Hareket Ekle
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Hedef Depo</label>
-                    <select asp-for="Header.ToWarehouseId" class="w-full px-3 py-2 border rounded-lg text-sm font-semibold">
-                        @foreach (var wh in Model.Warehouses) { <option value="@wh.Id">@wh.Code - @wh.Name</option> }
-                    </select>
+                <div class="overflow-x-auto flex-1">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ürün</th>
+                                <th>Kaynak Raf</th>
+                                <th>Hedef Raf</th>
+                                <th class="text-right">Miktar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in Model.Lines)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="font-bold text-slate-800">@line.ItemName</div>
+                                        <div class="text-xs text-slate-400 font-mono">@line.ItemCode</div>
+                                    </td>
+                                    <td><span class="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">@line.FromBinCode</span></td>
+                                    <td><span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">@line.ToBinCode</span></td>
+                                    <td class="text-right font-bold text-slate-700">@line.Qty.ToString("N2")</td>
+                                </tr>
+                            }
+                            @if (!Model.Lines.Any())
+                            {
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="empty-state">
+                                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
+                                            </svg>
+                                            <p class="text-slate-400 font-medium">Henüz transfer satırı eklenmedi. Başlamak için "+ Hareket Ekle" düğmesine tıklayın.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
-
-    <div class="col-span-2">
-        <div class="card overflow-hidden">
-            <div class="px-6 py-4 bg-slate-50 border-b flex justify-between items-center">
-                <span class="text-sm font-bold text-slate-800">Transfer Satırları</span>
-                <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="text-indigo-600 font-bold text-xs uppercase">+ Hareket Ekle</button>
-            </div>
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase">
-                    <tr>
-                        <th class="px-6 py-3 text-left">Ürün</th>
-                        <th class="px-6 py-3 text-left">Kaynak Raf</th>
-                        <th class="px-6 py-3 text-left">Hedef Raf</th>
-                        <th class="px-6 py-3 text-right">Miktar</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @foreach (var line in Model.Lines)
-                    {
-                        <tr>
-                            <td class="px-6 py-4">
-                                <div class="font-bold">@line.ItemName</div>
-                                <div class="text-[10px] text-slate-400">@line.ItemCode</div>
-                            </td>
-                            <td class="px-6 py-4 font-mono text-xs">@line.FromBinCode</td>
-                            <td class="px-6 py-4 font-mono text-xs font-bold text-indigo-600">@line.ToBinCode</td>
-                            <td class="px-6 py-4 text-right font-bold text-slate-700">@line.Qty.ToString("N2")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+</form>
 
 <!-- Modal -->
-<div id="add-line-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl">
-        <div class="p-6 border-b">
-            <h3 class="font-bold text-lg">Stok Hareketi Ekle</h3>
+<div id="add-line-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
+        <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+            <h3 class="font-bold text-base text-slate-800">Stok Hareketi Ekle</h3>
+            <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
         </div>
         <form method="post" asp-page-handler="AddLine">
             <div class="p-6 space-y-4">
                 <input type="hidden" name="id" value="@Model.Header.Id" />
-                <div>
-                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Ürün</label>
-                    <select name="itemId" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        @foreach (var item in Model.Items) { <option value="@item.Id">[@item.Code] @item.Name</option> }
+                <div class="form-group mb-0">
+                    <label class="form-label">Ürün</label>
+                    <select name="itemId" class="form-ctrl w-full" required>
+                        <option value="">Ürün Seçiniz...</option>
+                        @foreach (var item in Model.Items)
+                        {
+                            <option value="@item.Id">[@item.Code] @item.Name</option>
+                        }
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Kaynak Raf</label>
-                        <select name="fromBinId" class="w-full px-3 py-2 border rounded-lg text-sm">
-                            @foreach (var bin in Model.Bins.Where(b => b.WarehouseId == Model.Header.FromWarehouseId)) { <option value="@bin.Id">@bin.Code</option> }
+                    <div class="form-group mb-0">
+                        <label class="form-label">Kaynak Raf</label>
+                        <select name="fromBinId" class="form-ctrl w-full" required>
+                            <option value="">Raf Seçiniz...</option>
+                            @foreach (var bin in Model.Bins.Where(b => b.WarehouseId == Model.Header.FromWarehouseId))
+                            {
+                                <option value="@bin.Id">@bin.Code</option>
+                            }
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Raf</label>
-                        <select name="toBinId" class="w-full px-3 py-2 border rounded-lg text-sm">
-                            @foreach (var bin in Model.Bins.Where(b => b.WarehouseId == Model.Header.ToWarehouseId)) { <option value="@bin.Id">@bin.Code</option> }
+                    <div class="form-group mb-0">
+                        <label class="form-label">Hedef Raf</label>
+                        <select name="toBinId" class="form-ctrl w-full" required>
+                            <option value="">Raf Seçiniz...</option>
+                            @foreach (var bin in Model.Bins.Where(b => b.WarehouseId == Model.Header.ToWarehouseId))
+                            {
+                                <option value="@bin.Id">@bin.Code</option>
+                            }
                         </select>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Miktar</label>
-                    <input type="number" name="qty" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm" required />
+                <div class="form-group mb-0">
+                    <label class="form-label">Miktar</label>
+                    <input type="number" name="qty" step="0.01" class="form-ctrl w-full" required />
                 </div>
             </div>
-            <div class="p-4 bg-slate-50 border-t flex justify-end gap-2">
-                <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="px-4 py-2 text-sm font-bold text-slate-500">İptal</button>
+            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
                 <button type="submit" class="btn btn-primary">Hareketi Ekle</button>
             </div>
         </form>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    // Transfer tipi türetme: kaynak/hedef depo BranchId karşılaştırması
+    const BIN_TO_BIN = '@TransferTypeHelper.BinToBin';
+    const WH_TO_WH   = '@TransferTypeHelper.WhToWh';
+    const fromSel  = document.getElementById('from-wh');
+    const toSel    = document.getElementById('to-wh');
+    const badge    = document.getElementById('transfer-type-badge');
+    const codeInp  = document.getElementById('transfer-type-code');
+
+    function deriveType() {
+        const fromOpt = fromSel.selectedOptions[0];
+        const toOpt   = toSel.selectedOptions[0];
+        if (!fromOpt?.value || !toOpt?.value) { badge.textContent = '—'; return; }
+
+        const fromId     = fromOpt.value;
+        const toId       = toOpt.value;
+        const fromBranch = fromOpt.dataset.branch || '';
+        const toBranch   = toOpt.dataset.branch   || '';
+
+        let label, code;
+        if (fromId === toId) {
+            label = 'Raf / Hücre Arası';      code = BIN_TO_BIN;
+        } else if (fromBranch && toBranch && fromBranch !== toBranch) {
+            label = 'Şubeler Arası';           code = WH_TO_WH;
+        } else if (fromBranch && fromBranch === toBranch) {
+            label = 'Depo Arası (Aynı Şube)'; code = WH_TO_WH;
+        } else {
+            label = 'Depolar Arası';           code = WH_TO_WH;
+        }
+        badge.textContent = label;
+        codeInp.value     = code;
+    }
+
+    fromSel.addEventListener('change', deriveType);
+    toSel.addEventListener('change',   deriveType);
+    deriveType(); // sayfa yüklendiğinde mevcut seçimden türet
+})();
+</script>
+}
+

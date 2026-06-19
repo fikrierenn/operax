@@ -1,0 +1,133 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.Budget.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Yeni Bütçe" : $"Bütçe: {Model.Form.Code}";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">@(Model.IsNew ? "Yeni Bütçe Planı" : Model.Form.Name)</h2>
+        @if (!Model.IsNew)
+        {
+            var typeLabel = Model.Form.Type == "OPERATIONAL" ? "Operasyonel" : Model.Form.Type == "CASH_FLOW" ? "Nakit Akışı" : Model.Form.Type == "INVESTMENT" ? "Yatırım" : Model.Form.Type;
+            <p class="text-sm text-slate-500 mt-0.5">@Model.Form.Year yılı · @typeLabel</p>
+        }
+    </div>
+    <a asp-page="./Index" class="btn btn-secondary">← Geri</a>
+</div>
+
+<div class="card mb-6 p-5">
+    <form method="post">
+        <input asp-for="Form.Id" type="hidden" />
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <label class="label">Yıl *</label>
+                <input asp-for="Form.Year" type="number" min="2020" max="2099" class="input w-full" required />
+            </div>
+            <div>
+                <label class="label">Kod *</label>
+                <input asp-for="Form.Code" class="input w-full font-mono" placeholder="BUD-2026-OPS" required />
+            </div>
+            <div class="md:col-span-1">
+                <label class="label">Ad *</label>
+                <input asp-for="Form.Name" class="input w-full" placeholder="2026 Operasyonel Bütçesi" required />
+            </div>
+            <div>
+                <label class="label">Tip</label>
+                <select asp-for="Form.Type" class="input w-full">
+                    <option value="OPERATIONAL">Operasyonel</option>
+                    <option value="CASH_FLOW">Nakit Akışı</option>
+                    <option value="INVESTMENT">Yatırım</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+        </div>
+    </form>
+</div>
+@if (!Model.IsNew)
+{
+    <div class="card">
+        <div class="card-hdr">
+            <span class="card-ttl">Bütçe Satırları</span>
+            <div class="text-xs text-slate-500">
+                Toplam Gider: <span class="font-bold text-red-600">@Model.Lines.Where(l => l.Direction == "OUT").Sum(l => l.AmountPlanned).ToString("N2") ₺</span> |
+                Toplam Gelir: <span class="font-bold text-green-600">@Model.Lines.Where(l => l.Direction == "IN").Sum(l => l.AmountPlanned).ToString("N2") ₺</span>
+            </div>
+        </div>
+        <table class="data-table">
+            <thead><tr>
+                <th>Yön</th><th>Tahakkuk Tarihi</th><th>Nakit Tarihi</th>
+                <th>Maliyet Merkezi</th><th>Gider Tipi</th>
+                <th class="text-right">Planlanan</th>
+                <th class="text-right">Gerçekleşen</th>
+                <th class="text-right">Sapma</th>
+            </tr></thead>
+            <tbody>
+                @foreach (var line in Model.Lines)
+                {
+                    var dirBadge = line.Direction == "IN" ? "badge b-green" : "badge b-red";
+                    var dirLabel = line.Direction == "IN" ? "↑ GİRİŞ" : "↓ ÇIKIŞ";
+                    var actCls = line.AmountActual > line.AmountPlanned ? "text-right font-mono text-red-600 font-bold" : "text-right font-mono text-slate-600";
+                    var varCls = line.Variance < 0 ? "text-right font-mono text-red-500" : "text-right font-mono text-green-600";
+                    <tr>
+                        <td><span class="@dirBadge">@dirLabel</span></td>
+                        <td class="text-xs text-slate-500 font-mono">@line.AccrualDate.ToString("dd.MM.yyyy")</td>
+                        <td class="text-xs text-slate-500 font-mono">@line.CashDate.ToString("dd.MM.yyyy")</td>
+                        <td class="text-slate-600 text-sm">@(line.CostCenterName ?? "—")</td>
+                        <td class="text-slate-600 text-sm">@(line.ExpenseTypeName ?? "—")</td>
+                        <td class="text-right font-mono">@line.AmountPlanned.ToString("N2")</td>
+                        <td class="@actCls">@line.AmountActual.ToString("N2")</td>
+                        <td class="@varCls">@(line.Variance >= 0 ? "+" : "")@line.Variance.ToString("N2")</td>
+                    </tr>
+                }
+                @if (!Model.Lines.Any())
+                {
+                    <tr><td colspan="8"><div class="empty-state"><p>Henüz bütçe satırı yok.</p></div></td></tr>
+                }
+            </tbody>
+        </table>
+        <!-- Satır Ekle -->
+        <div class="p-4 bg-slate-50 border-t">
+            <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Form.Id">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div>
+                        <label class="label">Yön</label>
+                        <select name="direction" class="input w-full">
+                            <option value="OUT">↓ Gider</option>
+                            <option value="IN">↑ Gelir</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Tahakkuk Tarihi</label>
+                        <input name="accrualDate" type="date" class="input w-full" required />
+                    </div>
+                    <div>
+                        <label class="label">Nakit Tarihi</label>
+                        <input name="cashDate" type="date" class="input w-full" required />
+                    </div>
+                    <div>
+                        <label class="label">Maliyet Merkezi</label>
+                        <select name="costCenterId" class="input w-full">
+                            <option value="">— Seçiniz —</option>
+                            @foreach (var cc in Model.CostCenters) { <option value="@cc.Id">@cc.Name</option> }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Gider Tipi</label>
+                        <select name="expenseTypeId" class="input w-full">
+                            <option value="">— Seçiniz —</option>
+                            @foreach (var et in Model.ExpenseTypes) { <option value="@et.Id">@et.Name</option> }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Tutar *</label>
+                        <input name="amountPlanned" type="number" step="0.01" min="0" class="input w-full" required />
+                    </div>
+                </div>
+                <button type="submit" class="mt-3 btn btn-secondary w-full text-xs">+ Satır Ekle</button>
+            </form>
+        </div>
+    </div>
+}

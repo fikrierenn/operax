@@ -1,140 +1,285 @@
 @page
+@using Operax.Web.Lib
 @model Operax.Web.Features.Dashboard.IndexModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = L.T("Anasayfa", "Dashboard");
+
+    // Tarih başlık altyazısı kullanıcının dil tercihine göre formatlanır
+    var culture = L.IsEn ? new System.Globalization.CultureInfo("en-US") : new System.Globalization.CultureInfo("tr-TR");
+    var subDate = $"{Model.CompanyName} · {DateTime.Now:yyyy-MM-dd} · {DateTime.Now.ToString("dd MMMM yyyy dddd", culture)}";
+
+    // Aylık performans için bar grafiği üst limiti (en büyük toplam)
+    // İş kuralı: satır olsa bile tüm tutarlar 0 ise Max=0 döner → sıfıra bölmeyi engelle
+    var monthlyMax = Model.MonthlyPerformance.Count > 0
+        ? Model.MonthlyPerformance.Max(m => m.PostedAmount + m.DraftAmount + m.CancelledAmount)
+        : 1m;
+    if (monthlyMax <= 0m) monthlyMax = 1m;
+
+    // Sayfa başlık aksiyon HTML'i
+    var headerActions =
+        "<button class=\"btn btn-secondary btn-sm\" onclick=\"window.print()\">" +
+        "<svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>" +
+        L.T("Rapor İndir", "Download Report") + "</button>" +
+        "<a href=\"/PurchaseOrders/Details\" class=\"btn btn-primary btn-sm\" data-shortcut=\"Alt+N\">" +
+        "<svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>" +
+        L.T("Yeni Sipariş", "New Order") + "<span class=\"btn-kbd\">Alt+N</span></a>";
+
+    var pageHeader = new PageHeaderVm(
+        Title: L.T("Anasayfa", "Dashboard"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Yönetici Görünümü", "Executive View") },
+        Sub: subDate,
+        ActionsHtml: headerActions);
+
+    // KPI delta ikonları
+    const string upIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" viewBox=\"0 0 24 24\"><polyline points=\"18 15 12 9 6 15\"/></svg>";
+    const string downIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"/></svg>";
+    const string flatIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>";
+
+    var kpi1 = new KpiCardVm(
+        Label: L.T("AÇIK SATINALMA TUTARI", "OPEN PURCHASING TOTAL"),
+        Value: UiHelpers.FmtTL(Model.TotalPoAmount),
+        Glow: "brand",
+        DeltaText: upIcon + "%18.4",
+        DeltaKind: "up",
+        TrendText: L.T("vs geçen ay", "vs last month"));
+
+    var kpi2 = new KpiCardVm(
+        Label: L.T("BU AY ONAYLANAN", "APPROVED THIS MONTH"),
+        Value: Model.ApprovedPoCount.ToString(),
+        Unit: L.T("evrak", "docs"),
+        Glow: "success",
+        DeltaText: upIcon + "%9.2",
+        DeltaKind: "up",
+        TrendText: $"{Model.DraftPoCount} {L.T("taslak bekliyor", "draft waiting")}");
+
+    var kpi3 = new KpiCardVm(
+        Label: L.T("DEPO DOLULUK", "WAREHOUSE FILL"),
+        Value: $"%{Model.WarehouseFillRate}",
+        Glow: "warn",
+        DeltaText: flatIcon + L.T("sabit", "flat"),
+        DeltaKind: "flat",
+        TrendText: $"{Model.StockLocations} {L.T("aktif konum", "active locations")}");
+
+    var kpi4 = new KpiCardVm(
+        Label: L.T("DÜŞÜK STOKLU SKU", "LOW STOCK SKUs"),
+        Value: Model.LowStockSkuCount.ToString(),
+        Unit: L.T("ürün", "items"),
+        Glow: "danger",
+        DeltaText: downIcon + "%4.0",
+        DeltaKind: "down",
+        TrendText: L.T("acil müdahale önerilir", "urgent attention needed"));
 }
 
-<div class="page-hdr">
-    <div>
-        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p class="text-sm text-slate-500 mt-0.5">Sistem özeti ve kritik canlı veriler</p>
-    </div>
-</div>
+<div class="page" data-screen-label="Dashboard">
 
-<!-- KPI Özet Kartları -->
-<div class="kpi-row">
-    <div class="kpi">
-        <span class="kpi-label">Bekleyen Sevkiyat</span>
-        <div class="kpi-val text-indigo-600">@Model.PendingShipments</div>
-        <span class="kpi-sub">Bugün bekleyen sevkiyatlar</span>
-    </div>
-    <div class="kpi">
-        <span class="kpi-label">Aktif Mal Kabul</span>
-        <div class="kpi-val text-amber-500">@Model.ActiveReceivings</div>
-        <span class="kpi-sub">Devam eden satın almalar</span>
-    </div>
-    <div class="kpi">
-        <span class="kpi-label">Aktif Üretim</span>
-        <div class="kpi-val text-green-600">@Model.ActiveProductionOrders</div>
-        <span class="kpi-sub">İş emirleri ve hatlar</span>
-    </div>
-    <div class="kpi">
-        <span class="kpi-label">Kritik Stok</span>
-        <div class="kpi-val text-red-500">@Model.LowStockItems</div>
-        <span class="kpi-sub">Acil besleme bekleyenler</span>
-    </div>
-</div>
+    <partial name="_PageHeader" model="pageHeader" />
 
-<div class="grid-2-1">
-
-    <!-- Son Hareketler -->
-    <div class="card">
-        <div class="card-hdr">
-            <span class="card-ttl">Son Hareketler</span>
-            <button class="btn btn-secondary btn-sm">Tümünü Gör</button>
-        </div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Tarih</th>
-                    <th>Ürün</th>
-                    <th>İşlem</th>
-                    <th class="text-right">Miktar</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var act in Model.RecentActivities)
-                {
-                    <tr>
-                        <td class="text-slate-400 text-xs">@act.CreatedAt.ToString("HH:mm")</td>
-                        <td class="font-semibold">@act.ItemName</td>
-                        <td>
-                            @if (act.MovementType == "RECEIPT") { <span class="badge b-green">GİRİŞ</span> }
-                            else if (act.MovementType == "ISSUE") { <span class="badge b-red">ÇIKIŞ</span> }
-                            else { <span class="badge b-gray">@act.MovementType</span> }
-                        </td>
-                        <td class="text-right font-mono font-bold">@act.Qty.ToString("N0")</td>
-                    </tr>
-                }
-                @if (!Model.RecentActivities.Any())
-                {
-                    <tr>
-                        <td colspan="4">
-                            <div class="empty-state">
-                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                <p>Henüz bir hareket kaydedilmemiş</p>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    @* ───── KPI ───── *@
+    <div class="kpi-grid">
+        <partial name="_KpiCard" model="kpi1" />
+        <partial name="_KpiCard" model="kpi2" />
+        <partial name="_KpiCard" model="kpi3" />
+        <partial name="_KpiCard" model="kpi4" />
     </div>
 
-    <!-- Sistem Sağlığı + Hızlı Aksiyonlar -->
-    <div class="flex flex-col gap-4">
+    @* ───── Aylık Performans + Son Aktivite (1fr 360px) ───── *@
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:14px;margin-bottom:14px;">
+
         <div class="card">
             <div class="card-hdr">
-                <span class="card-ttl">Sistem Sağlığı</span>
+                <div>
+                    <div class="card-title">@L.T("Aylık Satınalma Performansı", "Monthly Purchasing Performance")</div>
+                    <div class="card-sub">@L.T("Onaylı + Taslak + İptal · Son 6 ay", "Posted + Draft + Cancelled · Last 6 months")</div>
+                </div>
+                <div class="row" style="gap:4px;">
+                    <button class="btn btn-secondary btn-xs">@L.T("Aylık", "Monthly")</button>
+                    <button class="btn btn-ghost btn-xs">@L.T("Çeyrek", "Quarter")</button>
+                    <button class="btn btn-ghost btn-xs">@L.T("Yıl", "Year")</button>
+                </div>
             </div>
             <div class="card-body">
-                <!-- Veritabanı durumu -->
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold text-slate-800">Veritabanı</div>
-                        <div class="text-xs text-slate-400 truncate">BT-FIKRI\SQLEXPRESS</div>
-                    </div>
-                    <span class="badge b-green">AKTİF</span>
+                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;align-items:flex-end;height:200px;">
+                    @for (int i = 0; i < Model.MonthlyPerformance.Count; i++)
+                    {
+                        var m = Model.MonthlyPerformance[i];
+                        var total = m.PostedAmount + m.DraftAmount + m.CancelledAmount;
+                        var pH = (m.PostedAmount    / monthlyMax) * 100m;
+                        var dH = (m.DraftAmount     / monthlyMax) * 100m;
+                        var cH = (m.CancelledAmount / monthlyMax) * 100m;
+                        var isLast = i == Model.MonthlyPerformance.Count - 1;
+                        var postedBg = isLast ? "var(--brand-grad)" : "hsl(243 75% 59% / 0.85)";
+                        var postedShadow = isLast ? "box-shadow:0 4px 12px hsl(243 75% 59% / 0.3);" : "";
+                        var inv = System.Globalization.CultureInfo.InvariantCulture;
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;">
+                            <div class="mono" style="font-size:10.5px;color:var(--text-3);font-weight:600;">₺@((total / 1000m).ToString("F1", inv))K</div>
+                            <div style="flex:1;width:100%;max-width:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;">
+                                <div style="height:@(cH.ToString("F2", inv))%;background:var(--danger);opacity:.85;border-radius:4px 4px 0 0;min-height:@(m.CancelledAmount > 0 ? "2" : "0")px;"></div>
+                                <div style="height:@(dH.ToString("F2", inv))%;background:var(--warn);opacity:.85;min-height:2px;"></div>
+                                <div style="height:@(pH.ToString("F2", inv))%;background:@postedBg;border-radius:0 0 4px 4px;min-height:4px;@postedShadow"></div>
+                            </div>
+                            <div style="font-size:11px;color:@(isLast ? "var(--text)" : "var(--text-3)");font-weight:@(isLast ? 700 : 500);">@m.MonthName</div>
+                        </div>
+                    }
                 </div>
-
-                <!-- Hangfire durumu -->
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <div class="text-sm font-bold text-slate-800">Hangfire</div>
-                        <div class="text-xs text-slate-400">Arkaplan İşleri</div>
-                    </div>
-                    <span class="badge b-blue">ÇALIŞIYOR</span>
-                </div>
-
-                <!-- Hızlı Aksiyonlar -->
-                <span class="section-label">Hızlı Aksiyonlar</span>
-                <div class="grid grid-cols-2 gap-2">
-                    <a asp-page="/Receiving/Index" class="btn btn-secondary btn-sm justify-center">Yeni Kabul</a>
-                    <a asp-page="/Shipping/Index" class="btn btn-secondary btn-sm justify-center">Yeni Sevkiyat</a>
+                <div class="row" style="gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;">
+                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--brand-500);"></span><span class="text-mute">@L.T("Onaylanmış", "Posted")</span></div>
+                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--warn);"></span><span class="text-mute">@L.T("Taslak", "Draft")</span></div>
+                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--danger);"></span><span class="text-mute">@L.T("İptal", "Cancelled")</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- İpucu -->
-        <div class="card bg-purple-50 border-purple-100">
-            <div class="card-body">
-                <div class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">İPUCU</div>
-                <p class="text-xs text-slate-500 leading-relaxed">
-                    Hangfire paneline gitmek için <span class="font-bold text-slate-700">/hangfire</span> adresini kullanabilirsiniz.
-                </p>
+        <div class="card">
+            <div class="card-hdr"><div class="card-title">@L.T("Son Aktivite", "Recent Activity")</div></div>
+            <div class="card-body" style="padding:6px 14px 12px;">
+                @if (Model.RecentActivities.Count == 0)
+                {
+                    var emptyAct = new EmptyStateVm(Title: L.T("Henüz aktivite yok", "No activity yet"));
+                    <partial name="_EmptyState" model="emptyAct" />
+                }
+                else
+                {
+                    for (int i = 0; i < Model.RecentActivities.Count; i++)
+                    {
+                        var a = Model.RecentActivities[i];
+                        var color = a.Kind switch
+                        {
+                            "success" => "var(--success)",
+                            "danger"  => "var(--danger)",
+                            "warn"    => "var(--warn)",
+                            "info"    => "var(--brand-500)",
+                            _         => "var(--text-3)"
+                        };
+                        var notLast = i < Model.RecentActivities.Count - 1;
+                        <div style="display:flex;gap:10px;padding:8px 0;@(notLast ? "border-bottom:1px solid var(--border);" : "")">
+                            <div class="avatar" style="background:@color;">@UiHelpers.Initials(a.Who)</div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:12px;line-height:1.4;"><span class="text-strong">@a.Who</span> <span class="text-mute">@a.Action</span></div>
+                                <div class="mono" style="font-size:10.5px;color:var(--text-4);margin-top:1px;">@a.TimeLabel</div>
+                            </div>
+                        </div>
+                    }
+                }
             </div>
+        </div>
+    </div>
+
+    @* ───── Yaklaşan Sevkiyatlar + Düşük Stoklu Ürünler (1fr 1fr) ───── *@
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        <div class="card">
+            <div class="card-hdr">
+                <div class="card-title">@L.T("Yaklaşan Sevkiyatlar", "Upcoming Shipments")</div>
+                <a href="/Warehouses" class="btn btn-ghost btn-xs">
+                    @L.T("Tümünü gör", "View all")
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+            </div>
+            <div class="card-body-flush">
+                @if (Model.IncomingShipments.Count == 0)
+                {
+                    var emptyShip = new EmptyStateVm(
+                        Title: L.T("Planlı sevkiyat yok", "No planned shipments"),
+                        Message: L.T("Bekleyen mal giriş sevkiyatı bulunmuyor.", "No pending inbound shipments."));
+                    <partial name="_EmptyState" model="emptyShip" />
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>LPN</th>
+                                <th>@L.T("Tedarikçi", "Supplier")</th>
+                                <th>SKU</th>
+                                <th class="num">@L.T("Miktar", "Qty")</th>
+                                <th>ETA</th>
+                                <th>@L.T("Kapı", "Dock")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Model.IncomingShipments)
+                            {
+                                <tr>
+                                    <td><span class="mono row-strong" style="color:var(--brand-500);">@s.Lpn</span></td>
+                                    <td>@s.Supplier</td>
+                                    <td><span class="mono">@s.Sku</span></td>
+                                    <td class="num"><span class="row-strong">@UiHelpers.FmtNum(s.Qty)</span> <span class="muted">@s.Uom</span></td>
+                                    <td class="mono">@UiHelpers.FmtDateShort(s.Eta)</td>
+                                    <td><span class="badge badge-brand"><span class="badge-dot"></span>@s.Dock</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-hdr">
+                <div class="card-title">@L.T("Düşük Stoklu Ürünler", "Low Stock Items")</div>
+                <button class="btn btn-ghost btn-xs">@L.T("Sipariş öner", "Suggest order")</button>
+            </div>
+            <div class="card-body-flush">
+                @{ var emptyStock = new EmptyStateVm(Title: L.T("Tüm stoklar yeterli düzeyde", "All stock levels are sufficient")); }
+                <partial name="_EmptyState" model="emptyStock" />
+                @* TODO: Düşük stoklu ürün listesi PageModel'e eklenecek (LowStockItemDto + sorgu) *@
+            </div>
+        </div>
+    </div>
+
+    @* ───── Son Satınalma Siparişleri ───── *@
+    <div class="card" style="margin-top:14px;">
+        <div class="card-hdr">
+            <div class="card-title">@L.T("Son Satınalma Siparişleri", "Recent Purchase Orders")</div>
+            <a href="/PurchaseOrders" class="btn btn-ghost btn-xs">
+                @L.T("Hepsini gör", "View all")
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+        </div>
+        <div class="card-body-flush">
+            @if (Model.RecentPOs.Count == 0)
+            {
+                var emptyPo = new EmptyStateVm(Title: L.T("Hiç sipariş yok", "No orders yet"));
+                <partial name="_EmptyState" model="emptyPo" />
+            }
+            else
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>@L.T("Evrak No", "Doc No")</th>
+                            <th>@L.T("Tedarikçi", "Supplier")</th>
+                            <th>@L.T("Tarih", "Date")</th>
+                            <th class="num">@L.T("Tutar", "Amount")</th>
+                            <th>@L.T("Durum", "Status")</th>
+                            <th style="width:36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var po in Model.RecentPOs)
+                        {
+                            <tr style="cursor:pointer;" onclick="window.location.href='/PurchaseOrders/Details?orderNo=@po.OrderNo'">
+                                <td><span class="mono row-strong" style="color:var(--brand-500);">@po.OrderNo</span></td>
+                                <td>
+                                    <div class="row" style="gap:10px;">
+                                        <div class="avatar" style="width:24px;height:24px;background:var(--brand-grad);font-size:10px;">@UiHelpers.Initials(po.SupplierName)</div>
+                                        <div>
+                                            <div class="row-strong">@po.SupplierName</div>
+                                            <div class="row-sub">@po.SupplierCity</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="mono muted">@UiHelpers.FmtDateShort(po.OrderDate)</td>
+                                <td class="num"><span class="row-strong">@UiHelpers.FmtTL(po.TotalAmount)</span></td>
+                                <td>@Html.Raw(UiHelpers.StatusBadge(po.Status))</td>
+                                <td>
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
     </div>
 

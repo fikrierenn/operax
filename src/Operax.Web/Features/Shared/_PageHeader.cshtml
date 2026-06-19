@@ -1,0 +1,65 @@
+@*
+    Operax Ortak Sayfa Başlığı Partial
+    Kullanım: <partial name="_PageHeader" model="new PageHeaderVm { Title = "...", Crumbs = new[] { ... } }" />
+    Standart: .claude/rules/ui-standard.md bölüm 4
+*@
+@model Operax.Web.Lib.PageHeaderVm
+@{
+    // _Layout'taki global yardım butonu bu flag'e bakar — _PageHeader olan sayfada çift buton olmasın
+    ViewData["HasPageHeader"] = "1";
+}
+
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        @if (Model.Crumbs is { Length: > 0 })
+        {
+            <div class="breadcrumb">
+                @for (int i = 0; i < Model.Crumbs.Length; i++)
+                {
+                    var isLast = i == Model.Crumbs.Length - 1;
+                    if (isLast)
+                    {
+                        <span class="breadcrumb-current">@Model.Crumbs[i]</span>
+                    }
+                    else
+                    {
+                        var href = Operax.Web.Lib.UiHelpers.CrumbHref(Model.Crumbs[i]);
+                        if (href != null)
+                        {
+                            <a class="breadcrumb-item" href="@href">@Model.Crumbs[i]</a>
+                        }
+                        else
+                        {
+                            <span class="breadcrumb-item">@Model.Crumbs[i]</span>
+                        }
+                        <svg class="breadcrumb-sep" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    }
+                }
+            </div>
+        }
+        <h1>@Model.Title</h1>
+        @if (!string.IsNullOrEmpty(Model.SubHtml))
+        {
+            <p>@Html.Raw(Model.SubHtml)</p>
+        }
+        else if (!string.IsNullOrEmpty(Model.Sub))
+        {
+            <p>@Model.Sub</p>
+        }
+    </div>
+    <div class="page-hdr-r">
+        @if (!string.IsNullOrEmpty(Model.ActionsHtml))
+        {
+            @Html.Raw(Model.ActionsHtml)
+        }
+        @* Ekran-içi yardım — bu ekranın yardımını sağdan kayan panelde açar (sayfadan ayrılmaz) *@
+        <button type="button" class="btn btn-secondary btn-sm" title="Bu ekran için yardım" onclick="OperaxHelp.open()">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            Yardım
+        </button>
+    </div>
+</div>

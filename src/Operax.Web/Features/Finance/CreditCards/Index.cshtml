@@ -1,0 +1,91 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.CreditCards.IndexModel
+@{
+    ViewData["Title"] = L.T("Kredi Kartları", "Credit Cards");
+
+    var usedPct = Model.TotalLimit > 0 ? (int)(Model.TotalUsed / Model.TotalLimit * 100) : 0;
+
+    var header = new PageHeaderVm(
+        Title: L.T("Kredi Kartları", "Credit Cards"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Kredi Kartları", "Cards") },
+        SubHtml: $"{L.T("Toplam limit", "Total limit")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalLimit)}</span> · {L.T("Kullanılan", "Used")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalUsed)} ({usedPct}%)</span>",
+        ActionsHtml: $"<a href=\"/Finance/CreditCards/Create\" class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Kart", "New Card")}</a>"
+    );
+}
+
+<div class="page" data-screen-label="Kredi Kartları">
+    <partial name="_PageHeader" model="header" />
+
+    @if (Model.Cards.Count == 0)
+    {
+        var empty = new EmptyStateVm(
+            Title: L.T("Kredi kartı tanımlı değil", "No credit card"),
+            Message: L.T("Yeni Kart butonu ile şirket kartlarınızı ekleyin.", "Add your company cards to start."));
+        <div class="card">
+            <partial name="_EmptyState" model="empty" />
+        </div>
+    }
+    else
+    {
+        <div class="grid-3" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));">
+            @foreach (var c in Model.Cards)
+            {
+                var usedAmt = c.CreditLimit - c.AvailableLimit;
+                var usedCardPct = c.CreditLimit > 0 ? (int)(usedAmt / c.CreditLimit * 100) : 0;
+                var pctColor = usedCardPct > 80 ? "var(--danger)" : usedCardPct > 50 ? "var(--warn)" : "var(--success)";
+
+                <div class="card lift" style="cursor:pointer;" onclick="window.location.href='/Finance/CreditCards/Details?id=@c.Id'">
+                    <div class="card-body" style="padding:20px;">
+                        <div class="row" style="justify-content:space-between;margin-bottom:12px;">
+                            <div>
+                                <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">@c.BankName</div>
+                                <div class="mono row-strong" style="font-size:16px;margin-top:4px;">@c.CardNoMasked</div>
+                            </div>
+                            <div>
+                                @{
+                                    var ctBadge = c.CardType switch
+                                    {
+                                        "CREDIT"    => "badge-info",
+                                        "DEBIT"     => "badge-neutral",
+                                        "BUSINESS"  => "badge-success",
+                                        "CORPORATE" => "badge-warn",
+                                        _           => "badge-neutral"
+                                    };
+                                }
+                                <span class="badge @ctBadge"><span class="badge-dot"></span>@c.CardType</span>
+                            </div>
+                        </div>
+
+                        <div style="font-size:12px;color:var(--text-2);margin-bottom:14px;">@c.HolderName</div>
+
+                        <div style="margin-bottom:8px;">
+                            <div class="row" style="justify-content:space-between;font-size:11px;color:var(--text-3);margin-bottom:4px;">
+                                <span>@L.T("Kullanılan", "Used")</span>
+                                <span class="mono">@UiHelpers.FmtTL(usedAmt) / @UiHelpers.FmtTL(c.CreditLimit)</span>
+                            </div>
+                            <div style="height:6px;background:var(--bg-2);border-radius:3px;overflow:hidden;">
+                                <div style="height:100%;width:@(usedCardPct)%;background:@pctColor;"></div>
+                            </div>
+                        </div>
+
+                        <div class="row" style="justify-content:space-between;font-size:11.5px;color:var(--text-3);margin-top:12px;">
+                            <div>
+                                @L.T("Ekstre", "Statement") <span class="mono text-strong">@c.StatementDay</span>
+                            </div>
+                            <div>
+                                @L.T("Vade", "Due") <span class="mono text-strong">@c.DueDay</span>
+                            </div>
+                            @if (c.LastStatementBalance.HasValue)
+                            {
+                                <div>
+                                    @L.T("Son Borç", "Last Balance") <span class="mono text-strong">@UiHelpers.FmtTL(c.LastStatementBalance.Value)</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

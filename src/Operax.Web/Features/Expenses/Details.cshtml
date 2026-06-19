@@ -1,0 +1,199 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.Expenses.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Yeni Gider Faturasi" : $"Fatura: {Model.Form.DocNo}";
+    var locked = !Model.IsNew && Model.Form.Status != DocStatus.Draft;
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">@(Model.IsNew ? "Yeni Gider Faturasi" : Model.Form.DocNo)</h2>
+        @if (!Model.IsNew)
+        {
+            <p class="text-sm text-slate-500 mt-0.5">@(Model.Form.PartnerName ?? "—") · @Model.Form.Status</p>
+        }
+    </div>
+    <div class="flex gap-2">
+        <a asp-page="./Index" class="btn btn-secondary">← Geri</a>
+        @if (!Model.IsNew && Model.Form.Status == DocStatus.Draft)
+        {
+            <form method="post" asp-page-handler="Post" asp-route-id="@Model.Form.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary" onclick="return confirm('Faturayı onaylamak istiyor musunuz?')">Onayla</button>
+            </form>
+        }
+        @if (!Model.IsNew && Model.Form.Status == DocStatus.Posted)
+        {
+            <form method="post" asp-page-handler="Reverse" asp-route-id="@Model.Form.Id">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Alış faturasını iptal etmek istediğinize emin misiniz?')">İptal Et</button>
+            </form>
+        }
+    </div>
+</div>
+
+@* Belge zinciri smart butonları *@
+@if (Model.DocFlow is not null)
+{
+    <partial name="_DocFlowButtons" model="Model.DocFlow" />
+}
+
+<!-- Başlık Formu -->
+<div class="card mb-6 p-5">
+    <form method="post">
+        <input asp-for="Form.Id" type="hidden" />
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+                <label class="label">Fatura No *</label>
+                @if (locked) {
+                    <input asp-for="Form.DocNo" class="input w-full font-mono" disabled />
+                } else {
+                    <input asp-for="Form.DocNo" class="input w-full font-mono" placeholder="FAT-2026-001" required />
+                }
+            </div>
+            <div>
+                <label class="label">Tedarikçi *</label>
+                @if (locked) {
+                    <select asp-for="Form.PartnerId" class="input w-full" disabled>
+                        @foreach (var p in Model.Partners) { <option value="@p.Id" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
+                    </select>
+                } else {
+                    <select asp-for="Form.PartnerId" class="input w-full" required>
+                        <option value="">— Seçiniz —</option>
+                        @foreach (var p in Model.Partners) { <option value="@p.Id" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
+                    </select>
+                }
+            </div>
+            <div>
+                <label class="label">Para Birimi</label>
+                @if (locked) {
+                    <select asp-for="Form.Currency" class="input w-full" disabled>
+                        <option value="TRY">TRY — Türk Lirası</option>
+                        <option value="USD">USD — Dolar</option>
+                        <option value="EUR">EUR — Euro</option>
+                    </select>
+                } else {
+                    <select asp-for="Form.Currency" class="input w-full">
+                        <option value="TRY">TRY — Türk Lirası</option>
+                        <option value="USD">USD — Dolar</option>
+                        <option value="EUR">EUR — Euro</option>
+                    </select>
+                }
+            </div>
+            <div>
+                <label class="label">Fatura Tarihi *</label>
+                @if (locked) {
+                    <input asp-for="Form.InvoiceDate" type="date" class="input w-full" disabled />
+                } else {
+                    <input asp-for="Form.InvoiceDate" type="date" class="input w-full" required />
+                }
+            </div>
+            <div>
+                <label class="label">Vade Tarihi</label>
+                @if (locked) {
+                    <input asp-for="Form.DueDate" type="date" class="input w-full" disabled />
+                } else {
+                    <input asp-for="Form.DueDate" type="date" class="input w-full" />
+                }
+            </div>
+        </div>
+        @if (!locked)
+        {
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </div>
+        }
+    </form>
+</div>
+@if (!Model.IsNew)
+{
+    <!-- Fatura Satırları -->
+    <div class="card mb-6">
+        <div class="px-4 py-3 border-b bg-slate-50 flex justify-between">
+            <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest">Fatura Kalemleri</h3>
+            <div class="text-right">
+                <span class="text-xs text-slate-500">Toplam: </span>
+                <span class="font-bold text-indigo-600">@Model.Form.TotalAmount.ToString("N2") @Model.Form.Currency</span>
+            </div>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Gider Tipi</th>
+                    <th>Maliyet Merkezi</th>
+                    <th class="text-right">Miktar</th>
+                    <th class="text-right">Birim Fiyat</th>
+                    <th class="text-right">Tutar</th>
+                    <th class="text-right">KDV %</th>
+                    <th class="text-right">KDV Dahil</th>
+                    @if (Model.Form.Status == DocStatus.Draft) { <th></th> }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in Model.Lines)
+                {
+                    <tr>
+                        <td class="font-medium text-slate-700">@line.ExpenseTypeName</td>
+                        <td class="text-slate-500">@line.CostCenterName</td>
+                        <td class="text-right font-mono">@line.Quantity.ToString("N3")</td>
+                        <td class="text-right font-mono">@line.UnitPrice.ToString("N4")</td>
+                        <td class="text-right font-mono">@line.Amount.ToString("N2")</td>
+                        <td class="text-right font-mono text-slate-400">%@line.TaxRate.ToString("N0")</td>
+                        <td class="text-right font-mono font-bold text-slate-900">@line.TotalAmount.ToString("N2")</td>
+                        @if (Model.Form.Status == DocStatus.Draft)
+                        {
+                            <td>
+                                <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Form.Id" asp-route-lineId="@line.Id"
+                                      onsubmit="return confirm('Bu satırı silmek istiyor musunuz?')">
+                                    <button type="submit" class="text-red-500 text-xs font-bold hover:text-red-700">Sil</button>
+                                </form>
+                            </td>
+                        }
+                    </tr>
+                }
+                @if (!Model.Lines.Any())
+                {
+                    <tr><td colspan="8"><div class="empty-state"><p>Henüz kalem eklenmemiş.</p></div></td></tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Model.Form.Status == DocStatus.Draft)
+        {
+            <!-- Satır Ekle -->
+            <div class="p-4 bg-slate-50 border-t">
+                <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Form.Id">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div class="md:col-span-1">
+                            <label class="label">Gider Tipi *</label>
+                            <select name="expenseTypeId" class="input w-full" required>
+                                <option value="">— Seçiniz —</option>
+                                @foreach (var t in Model.ExpenseTypes) { <option value="@t.Id">@t.Name</option> }
+                            </select>
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="label">Maliyet Merkezi *</label>
+                            <select name="costCenterId" class="input w-full" required>
+                                <option value="">— Seçiniz —</option>
+                                @foreach (var c in Model.CostCenters) { <option value="@c.Id">@c.Name</option> }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Miktar *</label>
+                            <input name="qty" type="number" step="0.001" min="0" value="1" class="input w-full" required />
+                        </div>
+                        <div>
+                            <label class="label">Birim Fiyat *</label>
+                            <input name="unitPrice" type="number" step="0.0001" min="0" class="input w-full" required />
+                        </div>
+                        <div>
+                            <label class="label">KDV (%)</label>
+                            <input name="taxRate" type="number" step="1" min="0" max="100" value="20" class="input w-full" />
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-3 btn btn-secondary w-full text-xs">+ Kalem Ekle</button>
+                </form>
+            </div>
+        }
+    </div>
+}

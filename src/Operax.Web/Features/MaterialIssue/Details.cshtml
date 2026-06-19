@@ -1,0 +1,148 @@
+@page "{id:guid?}"
+@using Operax.Web.Lib
+@model Operax.Web.Features.MaterialIssue.DetailsModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Yeni Sarf Fişi" : $"Sarf Fişi — {Model.Header.DocNo}";
+}
+
+@if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+{
+    <form id="reverse-form" method="post" asp-page-handler="Reverse" asp-route-id="@Model.Header.Id">
+        @Html.AntiForgeryToken()
+    </form>
+}
+
+<div class="page" data-screen-label="Sarf Fişi Detayı">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <a asp-page="./Index" class="breadcrumb-item">Sarf Fişleri</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">@(Model.IsNew ? "Yeni" : Model.Header.DocNo)</span>
+            </div>
+            <h1>@(Model.IsNew ? "Yeni Sarf Fişi" : Model.Header.DocNo)</h1>
+        </div>
+        <div class="page-hdr-r flex gap-2">
+            <a asp-page="./Index" class="btn btn-secondary btn-sm">Geri</a>
+            @if (!Model.IsNew && Model.IsDraft)
+            {
+                <form method="post" asp-page-handler="Post" asp-route-id="@Model.Header.Id">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-success" onclick="return confirm('Sarf fişini onaylamak ve stoğu düşmek istiyor musunuz?')">Onayla (Stoğa İşle)</button>
+                </form>
+            }
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+            {
+                <button form="reverse-form" type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Sarf fişini iptal edip stoğu geri almak istediğinize emin misiniz?')">İptal Et</button>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    @if (!Model.IsNew)
+    {
+        <div class="row" style="gap:8px;margin-bottom:14px;">@Html.Raw(UiHelpers.StatusBadge(Model.Header.Status))</div>
+    }
+
+    <div class="card p-6 mb-6">
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Header.Id" />
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label class="form-label">Depo <span class="req">*</span></label>
+                    <select asp-for="Header.WarehouseId" class="form-ctrl" disabled="@(!Model.IsDraft)" required>
+                        <option value="">Seçiniz...</option>
+                        @foreach (var w in Model.Warehouses) { <option value="@w.Id">@w.Code - @w.Name</option> }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tarih</label>
+                    <input asp-for="Header.IssueDate" type="date" class="form-ctrl" readonly="@(!Model.IsDraft)" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Masraf Merkezi</label>
+                    <select asp-for="Header.CostCenterId" class="form-ctrl" disabled="@(!Model.IsDraft)">
+                        <option value="">— Yok —</option>
+                        @foreach (var c in Model.CostCenters) { <option value="@c.Id">@c.Code - @c.Name</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Açıklama</label>
+                <input asp-for="Header.Notes" class="form-ctrl" readonly="@(!Model.IsDraft)" placeholder="Sarf gerekçesi" />
+            </div>
+            @if (Model.IsDraft)
+            {
+                <button type="submit" class="btn btn-primary mt-2">@(Model.IsNew ? "Oluştur" : "Kaydet")</button>
+            }
+        </form>
+    </div>
+
+    @if (!Model.IsNew)
+    {
+        <div class="card overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-800">Sarf Kalemleri</h3>
+                @if (Model.IsDraft)
+                {
+                    <button type="button" onclick="document.getElementById('add-line').classList.toggle('hidden')" class="btn btn-secondary btn-sm">+ Kalem Ekle</button>
+                }
+            </div>
+
+            @if (Model.IsDraft)
+            {
+                <div id="add-line" class="hidden p-4 bg-slate-50 border-b">
+                    <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Header.Id" class="form-row">
+                        @Html.AntiForgeryToken()
+                        <div class="form-group">
+                            <label class="form-label">Ürün (sarf edilebilir)</label>
+                            <select name="itemId" class="form-ctrl" required data-combobox>
+                                <option value="">Seçiniz...</option>
+                                @foreach (var i in Model.Items) { <option value="@i.Id">@i.Code - @i.Name</option> }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Miktar</label>
+                            <input name="qty" type="number" step="0.001" class="form-ctrl" required />
+                        </div>
+                        <div class="form-group" style="align-self:flex-end">
+                            <button type="submit" class="btn btn-primary">Ekle</button>
+                        </div>
+                    </form>
+                </div>
+            }
+
+            <table class="data-table">
+                <thead>
+                    <tr><th>Ürün</th><th class="text-right">Miktar</th>@if (Model.IsDraft) { <th></th> }</tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model.Lines)
+                    {
+                        <tr>
+                            <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                            <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
+                            @if (Model.IsDraft)
+                            {
+                                <td class="text-right">
+                                    <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Header.Id" onsubmit="return confirm('Satırı sil?')">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="lineId" value="@l.Id" />
+                                        <button type="submit" class="text-red-500 text-xs font-bold">Sil</button>
+                                    </form>
+                                </td>
+                            }
+                        </tr>
+                    }
+                    @if (!Model.Lines.Any())
+                    {
+                        <tr><td colspan="3" class="text-center text-slate-400 italic py-8">Kalem yok. "Kalem Ekle" ile başlayın.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

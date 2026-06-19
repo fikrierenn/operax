@@ -1,0 +1,114 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Loans.CreateModel
+@{
+    ViewData["Title"] = "Yeni Kredi";
+
+    var header = new PageHeaderVm(
+        Title: "Yeni Kredi",
+        Crumbs: new[] { "Anasayfa", "Finans", "Krediler", "Yeni" },
+        Sub: "Banka kredisi tanımla — taksit takvimi otomatik üretilir",
+        ActionsHtml: "<a href=\"/Finance/Loans/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"
+    );
+}
+
+<div class="page" data-screen-label="Yeni Kredi" style="max-width:900px;">
+
+    <partial name="_PageHeader" model="header" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert-banner alert-danger" style="margin-bottom:14px;">
+            @foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div>@e.ErrorMessage</div>
+            }
+        </div>
+    }
+
+    <form method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="card">
+            <div class="card-hdr"><div class="card-title">Kredi Bilgileri</div></div>
+            <div class="card-body">
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Kredi No <span class="req">*</span></label>
+                        <input asp-for="Form.LoanNo" class="form-ctrl" placeholder="KRD-2026-001" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Banka <span class="req">*</span></label>
+                        <input asp-for="Form.BankName" class="form-ctrl" placeholder="Akbank" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Yatacak Banka Hesabı</label>
+                        <select asp-for="Form.AccountId" class="form-ctrl">
+                            <option value="">Seçiniz...</option>
+                            @foreach (var a in Model.BankAccounts)
+                            {
+                                <option value="@a.Id">@a.Name</option>
+                            }
+                        </select>
+                        <span class="form-hint">Kredi tutarı bu hesaba gelir olarak işlenir</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Anapara (₺) <span class="req">*</span></label>
+                        <input asp-for="Form.Principal" type="number" step="0.01" min="0.01" class="form-ctrl" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Yıllık Faiz (%) <span class="req">*</span></label>
+                        <input asp-for="Form.InterestRate" type="number" step="0.01" min="0" class="form-ctrl" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vade (Ay) <span class="req">*</span></label>
+                        <input asp-for="Form.TermMonths" type="number" min="1" class="form-ctrl" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Başlangıç Tarihi <span class="req">*</span></label>
+                        <input asp-for="Form.StartDate" type="date" class="form-ctrl" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hesap Yöntemi <span class="req">*</span></label>
+                        <select asp-for="Form.CalcMethod" class="form-ctrl" id="calcMethod" onchange="toggleBalloon()">
+                            <option value="ANUITE">Anüite (eşit taksit)</option>
+                            <option value="EQUAL_PRINCIPAL">Eşit Anapara</option>
+                            <option value="BALLOON">Balon Ödemeli</option>
+                            <option value="SPOT">Spot (tek ödeme)</option>
+                            <option value="ROTATIVE">Rotatif</option>
+                            <option value="KMH">KMH (kredili mevduat)</option>
+                            <option value="DBS">DBS (otomatik tahsilat)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ödemesiz Dönem (Ay)</label>
+                        <input asp-for="Form.GracePeriodMonths" type="number" min="0" class="form-ctrl" />
+                        <span class="form-hint">İlk N ayda sadece faiz ödenir</span>
+                    </div>
+
+                    <div class="form-group" id="balloonGroup" style="display:none;">
+                        <label class="form-label">Balon Tutarı (₺) <span class="req">*</span></label>
+                        <input asp-for="Form.BalloonAmount" type="number" step="0.01" min="0" class="form-ctrl" />
+                        <span class="form-hint">Son taksitte ödenecek ek anapara</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-foot">
+                <a href="/Finance/Loans/Index" class="btn btn-secondary btn-sm">İptal</a>
+                <button type="submit" class="btn btn-primary btn-sm">Kredi Aç</button>
+            </div>
+        </div>
+    </form>
+
+</div>
+
+<script>
+    // BALLOON hesap yönteminde balon tutarı alanını göster
+    function toggleBalloon() {
+        const m = document.getElementById('calcMethod').value;
+        document.getElementById('balloonGroup').style.display = (m === 'BALLOON') ? 'flex' : 'none';
+    }
+    toggleBalloon();
+</script>

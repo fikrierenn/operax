@@ -1,0 +1,87 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.PurchaseInvoices.IndexModel
+@{
+    ViewData["Title"] = "Alış Faturaları";
+}
+
+<div class="page" data-screen-label="Alış Faturaları">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">Satınalma</span>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">Alış Faturaları</span>
+            </div>
+            <h1>Alış Faturaları</h1>
+            <p class="page-hdr-sub">Tedarikçi mal alım faturaları (mal/sarf — hizmet için Gider Faturası)</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    <div class="kpi-grid">
+        <div class="kpi">
+            <div class="kpi-glow brand"></div>
+            <span class="kpi-label">Taslak</span>
+            <div class="kpi-val">@Model.DraftCount</div>
+            <span class="kpi-sub">Onay bekleyen</span>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow success"></div>
+            <span class="kpi-label">Onaylı</span>
+            <div class="kpi-val">@Model.PostedCount</div>
+            <span class="kpi-sub">Cariye işlenmiş</span>
+        </div>
+    </div>
+
+    <div class="card overflow-hidden mt-6">
+        <div class="filter-bar">
+            <form method="get" class="row" style="gap:8px;width:100%">
+                <input type="text" name="q" value="@Model.Q" placeholder="Tedarikçi fatura no veya cari ara..." class="form-ctrl w-1/3 text-xs" />
+                <select name="status" class="form-ctrl w-44 text-xs font-semibold" onchange="this.form.submit()">
+                    <option value="all" selected="@(Model.Status == "all")">Tüm Durumlar</option>
+                    <option value="@DocStatus.Draft" selected="@(Model.Status == DocStatus.Draft)">Taslak</option>
+                    <option value="@DocStatus.Posted" selected="@(Model.Status == DocStatus.Posted)">Onaylı</option>
+                    <option value="@DocStatus.Cancelled" selected="@(Model.Status == DocStatus.Cancelled)">İptal</option>
+                </select>
+            </form>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Belge No</th>
+                    <th>Tedarikçi Fatura No</th>
+                    <th>Tedarikçi</th>
+                    <th>Fatura Tarihi</th>
+                    <th class="text-center">Kalem</th>
+                    <th class="text-right">Tutar</th>
+                    <th class="text-center">Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var i in Model.Invoices)
+                {
+                    <tr class="cursor-pointer" onclick="window.location.href='/PurchaseInvoices/Details?id=@i.Id'">
+                        <td><span class="mono font-bold text-indigo-600">@i.DocNo</span></td>
+                        <td class="mono text-xs">@(i.SupplierInvoiceNo ?? "—")</td>
+                        <td class="font-bold text-slate-700 text-sm">@i.PartnerName</td>
+                        <td class="text-xs text-slate-500">@(i.SupplierInvoiceDate?.ToString("dd.MM.yyyy") ?? i.InvoiceDate.ToString("dd.MM.yyyy"))</td>
+                        <td class="text-center">@i.LineCount</td>
+                        <td class="text-right mono font-bold">@i.GrandTotal.ToString("N2") ₺</td>
+                        <td class="text-center">@Html.Raw(UiHelpers.StatusBadge(i.Status))</td>
+                    </tr>
+                }
+                @if (!Model.Invoices.Any())
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state"><p>Henüz alış faturası bulunmuyor. Mal kabul belgesinden oluşturabilirsiniz.</p></div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

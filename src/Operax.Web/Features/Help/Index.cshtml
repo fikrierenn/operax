@@ -1,0 +1,76 @@
+@page
+@model Operax.Web.Features.Help.IndexModel
+@{
+    ViewData["Title"] = Model.Title;
+    if (Model.Embed) { Layout = null; }
+}
+
+@* Kayan panel (drawer) için layout'suz fragment — yalnızca o ekranın yardım içeriği *@
+@if (Model.Embed)
+{
+    if (Model.Found)
+    {
+        <div class="help-content">@Html.Raw(Model.ContentHtml)</div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p class="text-slate-500 font-medium">Bu ekran için yardım içeriği henüz hazırlanmadı.</p>
+        </div>
+    }
+    return;
+}
+
+<div class="page" data-screen-label="Yardım" style="max-width:1100px;">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">Yardım</span>
+                <svg class="breadcrumb-sep" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" /></svg>
+                <span class="breadcrumb-current">@Model.Title</span>
+            </div>
+            <h1>@Model.Title</h1>
+        </div>
+        <div class="page-hdr-r">
+            @if (Model.ReturnPath is not null)
+            {
+                <a class="btn btn-secondary btn-sm" href="@Model.ReturnPath">Ekrana Dön</a>
+            }
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:240px 1fr;gap:24px">
+        @* Kitapçık içindekiler *@
+        <aside class="card p-4" style="align-self:start">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Kullanıcı Kitapçığı</div>
+            <nav class="flex flex-col gap-1">
+                @foreach (var t in Model.AllTopics)
+                {
+                    <a class="text-sm text-slate-600 hover:text-indigo-600 py-1" href="/Help?ret=/@t.Slug.Replace('-','/')">@t.Title</a>
+                }
+                @if (!Model.AllTopics.Any())
+                {
+                    <span class="text-sm text-slate-400">Kitapçık hazırlanıyor…</span>
+                }
+            </nav>
+        </aside>
+
+        @* İçerik *@
+        <div class="card p-8">
+            @if (Model.Found)
+            {
+                <div class="help-content">@Html.Raw(Model.ContentHtml)</div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                        <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <p class="text-slate-500 font-medium mt-2">Bu ekran için yardım içeriği henüz hazırlanmadı.</p>
+                    <p class="text-slate-400 text-sm">Soldaki listeden bir konu seçebilirsiniz.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>

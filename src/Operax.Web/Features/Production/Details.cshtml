@@ -1,7 +1,7 @@
 @page "{id:guid}"
 @model Operax.Web.Features.Production.DetailsModel
 @{
-    ViewData["Title"] = $"Work Order {Model.Order.DocNo}";
+    ViewData["Title"] = $"İş Emri — {Model.Order.DocNo}";
 }
 
 <div class="flex justify-between items-start mb-6">
@@ -10,16 +10,16 @@
             <h2 class="text-2xl font-bold">@Model.Order.DocNo</h2>
             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-100 text-indigo-700">@Model.Order.Status</span>
         </div>
-        <p class="text-slate-500 text-sm">Target Product: <span class="font-bold text-slate-900">[@Model.Order.ItemCode] @Model.Order.ItemName</span></p>
+        <p class="text-slate-500 text-sm">Hedef Ürün: <span class="font-bold text-slate-900">[@Model.Order.ItemCode] @Model.Order.ItemName</span></p>
     </div>
     <div class="flex gap-2">
-        <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">Back</a>
+        <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">Geri</a>
         
         @if (!Model.Lines.Any())
         {
             <form method="post" asp-page-handler="LoadBOM">
                 <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all text-sm">
-                    Load BOM Requirements
+                    Reçeteyi Yükle
                 </button>
             </form>
         }
@@ -27,22 +27,32 @@
         {
             <form method="post" asp-page-handler="CreatePickTask">
                 <button type="submit" class="bg-amber-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-amber-600 transition-all text-sm shadow-lg shadow-amber-100">
-                    Create Picking Task for Raw Materials
+                    Hammadde Toplama Görevi Oluştur
                 </button>
             </form>
         }
         else
         {
             <a asp-page="/Picking/Details" asp-route-id="@Model.ActivePickTaskId.Value" class="bg-green-50 text-green-700 px-6 py-2 rounded-lg font-bold hover:bg-green-100 transition-all text-sm border border-green-200">
-                View Raw Material Pick Task
+                Toplama Görevini Gör
             </a>
         }
 
         @if (Model.Order.Status != "COMPLETED" && Model.Lines.Any() && Model.Lines.All(l => l.QtyIssued >= l.QtyRequired))
         {
             <button onclick="document.getElementById('finish-modal').classList.remove('hidden')" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-all text-sm shadow-lg shadow-green-100">
-                Finish Production
+                Üretimi Tamamla
             </button>
+        }
+
+        @if (Model.Order.Status == DocStatus.Completed)
+        {
+            <form method="post" asp-page-handler="Reverse">
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Bu üretim emri iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                    Üretim Emrini İptal Et
+                </button>
+            </form>
         }
     </div>
 </div>
@@ -50,20 +60,20 @@
 <div id="finish-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="p-6 border-b flex justify-between items-center">
-            <h3 class="font-bold text-lg text-slate-800">Finish Production</h3>
+            <h3 class="font-bold text-lg text-slate-800">Üretimi Tamamla</h3>
             <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light">&times;</button>
         </div>
         <form method="post" asp-page-handler="Finish">
             <div class="p-6 space-y-4">
                 <div class="flex flex-col gap-1">
-                    <label class="text-[10px] font-bold uppercase text-slate-400">Produced Quantity (EACH)</label>
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Üretilen Miktar (ADET)</label>
                     <input name="qty" type="number" step="0.0001" value="@Model.Order.QtyTarget" class="bg-white border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600" required />
                 </div>
-                <p class="text-xs text-slate-500 italic">This will add the stock to the target warehouse bin and complete the order.</p>
+                <p class="text-xs text-slate-500 italic">Stok hedef depo hücresine eklenecek ve iş emri tamamlanacaktır.</p>
             </div>
             <div class="p-6 bg-slate-50 flex justify-end gap-3">
-                <button type="button" onclick="document.getElementById('finish-modal').classList.add('hidden')" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-100 transition-all text-sm">Cancel</button>
-                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 active:scale-95 transition-all text-sm">Confirm & Post</button>
+                <button type="button" onclick="document.getElementById('finish-modal').classList.add('hidden')" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-100 transition-all text-sm">İptal Et</button>
+                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 active:scale-95 transition-all text-sm">Onayla</button>
             </div>
         </form>
     </div>
@@ -73,16 +83,16 @@
     <div class="lg:col-span-2">
         <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Raw Materials / BOM Consumption</h3>
-                <span class="text-[10px] font-bold text-slate-400">Target Qty: @Model.Order.QtyTarget.ToString("N0")</span>
+                <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Hammaddeler / Reçete Sarfı</h3>
+                <span class="text-[10px] font-bold text-slate-400">Hedef Miktar: @Model.Order.QtyTarget.ToString("N0")</span>
             </div>
             <table class="w-full text-left border-collapse text-sm">
                 <thead class="bg-slate-50 border-b">
                     <tr>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Item</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Required</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Issued (Picked)</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Status</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Ürün</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Gerekli</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Verilen (Toplanan)</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Durum</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -100,11 +110,11 @@
                             <td class="px-6 py-4 text-right">
                                 @if (line.QtyIssued >= line.QtyRequired)
                                 {
-                                    <span class="text-green-500 font-bold text-[10px]">READY</span>
+                                    <span class="text-green-500 font-bold text-[10px]">HAZIR</span>
                                 }
                                 else
                                 {
-                                    <span class="text-amber-500 font-bold text-[10px]">AWAITING PICK</span>
+                                    <span class="text-amber-500 font-bold text-[10px]">TOPLAMA BEKLİYOR</span>
                                 }
                             </td>
                         </tr>
@@ -112,7 +122,7 @@
                     @if (!Model.Lines.Any())
                     {
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No hammadde requirements loaded. Click "Load BOM" to start.</td>
+                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">Hammadde ihtiyacı yüklenmedi. Başlamak için "Reçeteyi Yükle" butonuna tıklayın.</td>
                         </tr>
                     }
                 </tbody>
@@ -122,25 +132,25 @@
     
     <div class="space-y-6">
         <div class="bg-white rounded-xl border shadow-sm p-6">
-            <h3 class="font-bold text-slate-900 mb-4">Work Order Info</h3>
+            <h3 class="font-bold text-slate-900 mb-4">İş Emri Bilgisi</h3>
             <div class="space-y-4 text-sm">
                 <div class="flex justify-between">
-                    <span class="text-slate-500">Priority</span>
+                    <span class="text-slate-500">Öncelik</span>
                     <span class="font-bold text-indigo-600">High (20)</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-slate-500">Warehouse</span>
+                    <span class="text-slate-500">Depo</span>
                     <span class="font-bold">Main Depo</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-slate-500">Type</span>
+                    <span class="text-slate-500">Tür</span>
                     <span class="font-bold">ASSEMBLY</span>
                 </div>
             </div>
         </div>
 
         <div class="bg-indigo-900 rounded-xl p-6 text-white text-center">
-            <div class="text-[10px] uppercase font-bold text-indigo-300 tracking-widest mb-2">Production Progress</div>
+            <div class="text-[10px] uppercase font-bold text-indigo-300 tracking-widest mb-2">Üretim İlerlemesi</div>
             <div class="text-4xl font-black mb-4">0%</div>
             <div class="w-full h-2 bg-indigo-800 rounded-full overflow-hidden">
                 <div class="h-full bg-indigo-400" style="width: 0%"></div>

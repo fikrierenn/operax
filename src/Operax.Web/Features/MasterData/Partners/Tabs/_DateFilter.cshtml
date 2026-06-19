@@ -1,0 +1,20 @@
+@model Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm
+@{
+    // Tarih aralığı filtresi — GET form, aktif tab korunur (df/dt query param)
+    var from = Model.DateFrom.ToString("yyyy-MM-dd");
+    var to   = Model.DateTo.ToString("yyyy-MM-dd");
+}
+<form method="get" action="/MasterData/Partners/Details/@Model.PartnerId"
+      style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+    <input type="hidden" name="tab" value="@Model.Tab" />
+    <div class="form-group" style="margin:0;">
+        <label class="form-label">Başlangıç</label>
+        <input type="date" name="df" value="@from" class="form-ctrl" />
+    </div>
+    <div class="form-group" style="margin:0;">
+        <label class="form-label">Bitiş</label>
+        <input type="date" name="dt" value="@to" class="form-ctrl" />
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Uygula</button>
+    <a href="/MasterData/Partners/Details/@Model.PartnerId?tab=@Model.Tab" class="btn btn-ghost btn-sm">Son 30 Gün</a>
+</form>

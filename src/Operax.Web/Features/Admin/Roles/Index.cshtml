@@ -6,62 +6,102 @@
 
 <div class="page-hdr">
     <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        <div class="flex items-center gap-2 mb-2 text-xs">
+            <a asp-page="/Admin/Settings/Index" class="btn btn-secondary btn-sm py-1 px-2.5 min-h-0">
+                <svg fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3" viewBox="0 0 24 24">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
                 Ayarlar
             </a>
-            <span style="font-size:11px;color:#64748b">Sistem / Yetki Grupları</span>
+            <span class="text-slate-400">/</span>
+            <span class="text-slate-400 font-medium">Sistem</span>
+            <span class="text-slate-400">/</span>
+            <span class="text-slate-600 font-semibold">Yetki Grupları</span>
         </div>
-        <h1>Yetki Grupları (Roles)</h1>
-        <p>Erişim seviyeleri ve modül bazlı yetkilendirme yönetimi</p>
+        <h1>Yetki Grupları</h1>
+        <p class="page-hdr-sub">Erişim seviyeleri ve modül bazlı yetkilendirme yönetimi</p>
     </div>
     <div class="page-hdr-r">
-        <button class="btn btn-primary" data-shortcut="Alt+N">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <a asp-page="./Create" class="btn btn-primary" data-shortcut="Alt+N">
+            <svg fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
             Yeni Rol
-        </button>
+        </a>
     </div>
 </div>
 
+@if (!ViewData.ModelState.IsValid)
+{
+    <div asp-validation-summary="All" class="alert-banner alert-danger mb-4"></div>
+}
+
 <div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th>Rol Adı</th>
-                <th>Yetki Seviyesi</th>
-                <th style="text-align:right">İşlem</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var r in Model.Roles)
-            {
-                <tr class="group">
-                    <td>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="width:10px;height:10px;border-radius:50%;background:#818cf8"></div>
-                            <div style="font-weight:700;font-size:13px;letter-spacing:0.5px">@r.Name</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span style="font-size:12.5px;color:#94a3b8;font-style:italic">Tüm Modüller</span>
-                    </td>
-                    <td style="text-align:right">
-                        <button class="btn btn-secondary btn-sm" style="color:#818cf8">Yetkileri Düzenle</button>
-                        <button class="btn btn-secondary btn-sm" style="color:#f87171;margin-left:4px">Sil</button>
-                    </td>
-                </tr>
-            }
-            @if (!Model.Roles.Any())
-            {
+    <div class="overflow-x-auto">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <td colspan="3">
-                        <div class="empty-state">
-                            <p>Henüz rol tanımlanmamış</p>
-                        </div>
-                    </td>
+                    <th>Rol Adı</th>
+                    <th>Yetki Seviyesi</th>
+                    <th class="text-right">İşlem</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Roles)
+                {
+                    <tr class="group">
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                                <span class="font-bold text-xs tracking-wider text-slate-800 uppercase">@r.Name</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-xs font-medium text-slate-400 italic">Tüm Modüller</span>
+                        </td>
+                        <td class="text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                @if (r.Name != "Administrator")
+                                {
+                                    <a asp-page="./Permissions" asp-route-id="@r.Id"
+                                       class="btn btn-secondary btn-sm">
+                                        Modül İzinleri
+                                    </a>
+                                    <form method="post" class="inline"
+                                          onsubmit="return confirm('@r.Name rolünü silmek istediğinizden emin misiniz?')">
+                                        <input type="hidden" name="id" value="@r.Id" />
+                                        <button asp-page-handler="Delete"
+                                                class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition">
+                                            Sil
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-[11px] font-semibold text-slate-400 tracking-wide uppercase bg-slate-100 py-1 px-2.5 rounded-md border border-slate-200">
+                                        Sistem Rolü
+                                    </span>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Roles.Any())
+                {
+                    <tr>
+                        <td colspan="3">
+                            <div class="empty-state">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12.75 15l3-3m0 0l-3-3m3 3h-7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p class="text-slate-400 font-medium">Henüz herhangi bir yetki grubu tanımlanmamış.</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>
+

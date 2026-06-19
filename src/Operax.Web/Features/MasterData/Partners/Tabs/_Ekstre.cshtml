@@ -1,0 +1,110 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    // İş kuralı: Ekstre tabı yalnızca mevcut kayıtta + veri yüklenmişse render edilir
+    var b = Model.Balance;
+}
+
+@if (b == null)
+{
+    var empty = new EmptyStateVm("Ekstre yok", "Bu cari için bakiye/hareket verisi bulunamadı.");
+    <partial name="_EmptyState" model="empty" />
+}
+else
+{
+    var openOrder = b.OpenSalesOrder + b.OpenPurchaseOrder;
+
+    @* Cari hesap özeti — ortak _KpiCard (dashboard tipi). Net = Borç-Alacak; açık sipariş bilgi. *@
+    <div class="kpi-grid">
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM BORÇ","TOTAL DEBIT"), UiHelpers.FmtTL(b.TotalDebit), Glow: "danger"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM ALACAK","TOTAL CREDIT"), UiHelpers.FmtTL(b.TotalCredit), Glow: "success"))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("NET BAKİYE","NET BALANCE"), UiHelpers.FmtTL(b.NetBalance), Glow: b.NetBalance >= 0 ? "success" : "danger", TrendText: b.NetBalance >= 0 ? L.T("alacaklı","receivable") : L.T("borçlu","payable")))" />
+        <partial name="_KpiCard" model="@(new KpiCardVm(L.T("AÇIK SİPARİŞ","OPEN ORDERS"), UiHelpers.FmtTL(openOrder), Glow: "brand"))" />
+    </div>
+
+    @* Vade davranış analizi *@
+    @if (Model.VadeAnalysis != null)
+    {
+        var v = Model.VadeAnalysis;
+        <div class="card" style="margin-top:14px;">
+            <div class="card-hdr">
+                <div class="card-title">Ödeme Davranışı Analizi</div>
+                <div class="card-sub">Tamamlanan @v.PaidCount ödeme</div>
+            </div>
+            <div class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+                <div>
+                    <div class="form-label">Ort. Gecikme (Gün)</div>
+                    <div class="row-strong mono" style="margin-top:4px;color:@(v.AvgDelayDays > 5 ? "var(--danger-text)" : "var(--success-text)");">
+                        @(v.AvgDelayDays.HasValue ? $"{v.AvgDelayDays.Value:0.#} gün" : "—")
+                    </div>
+                </div>
+                <div>
+                    <div class="form-label">Ort. Fatura Tutarı</div>
+                    <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(v.AvgInvoiceAmount ?? 0)</div>
+                </div>
+                <div>
+                    <div class="form-label">Toplam Tahakkuk</div>
+                    <div class="row-strong mono" style="margin-top:4px;">@UiHelpers.FmtTL(v.TotalPaidAmount)</div>
+                </div>
+                <div>
+                    <div class="form-label">Son Ödeme / Tahsilat</div>
+                    <div class="row-strong mono" style="margin-top:4px;">
+                        @(v.LastPayment.HasValue ? UiHelpers.FmtDateShort(v.LastPayment.Value) : "—")
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Hareketler — tarih filtresi + Borç/Alacak/Bakiye ekstresi *@
+    <div class="card" style="margin-top:14px;">
+        <div class="card-hdr">
+            <div class="card-title">Cari Ekstre</div>
+            <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Ledger.Count hareket</div>
+        </div>
+        <div class="card-body">
+            <partial name="Tabs/_DateFilter" model="@(new Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm(Model.Partner.Id, "ekstre", Model.DateFrom!.Value, Model.DateTo!.Value))" />
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>İşlem</th>
+                        <th>Belge No</th>
+                        <th class="num">Borç</th>
+                        <th class="num">Alacak</th>
+                        <th class="num">Bakiye</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ var running = Model.OpeningBalance; }
+                    <tr class="muted">
+                        <td class="mono">—</td>
+                        <td><span class="badge badge-neutral">DEVİR</span></td>
+                        <td>—</td>
+                        <td class="num">—</td>
+                        <td class="num">—</td>
+                        <td class="num mono">@UiHelpers.FmtTL(running)</td>
+                    </tr>
+                    @foreach (var r in Model.Ledger)
+                    {
+                        running += r.Debit - r.Credit;
+                        <tr>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(r.Date)</td>
+                            <td>@r.Type</td>
+                            <td class="mono muted">@(string.IsNullOrEmpty(r.DocNo) ? "—" : r.DocNo)</td>
+                            <td class="num">@(r.Debit != 0 ? UiHelpers.FmtTL(r.Debit) : "")</td>
+                            <td class="num">@(r.Credit != 0 ? UiHelpers.FmtTL(r.Credit) : "")</td>
+                            <td class="num mono row-strong">@UiHelpers.FmtTL(running)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.Ledger.Count == 0)
+            {
+                <div class="muted" style="padding:14px 4px;">Seçili tarih aralığında hareket yok.</div>
+            }
+        </div>
+    </div>
+}

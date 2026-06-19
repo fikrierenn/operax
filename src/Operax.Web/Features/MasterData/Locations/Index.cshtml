@@ -1,17 +1,17 @@
 @page
 @model Operax.Web.Features.MasterData.Locations.IndexModel
 @{
-    ViewData["Title"] = "Warehouse & Bins";
+    ViewData["Title"] = "Depo ve Hücreler";
 }
 
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="text-2xl font-bold">Locations</h2>
-        <p class="text-slate-500 text-sm">Manage warehouses and storage bins</p>
+        <h2 class="text-2xl font-bold">Lokasyonlar</h2>
+        <p class="text-slate-500 text-sm">Depo ve depolama hücrelerini yönetin</p>
     </div>
-    <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
-        + New Warehouse
-    </button>
+    <a href="/Warehouses/Details" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
+        + Yeni Depo
+    </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -31,19 +31,19 @@
     <div class="lg:col-span-3">
         <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Bins (Storage Locations)</h3>
+                <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Hücreler (Depolama Alanları)</h3>
                 <button class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">
-                    + Add Bins
+                    + Hücre Ekle
                 </button>
             </div>
             <table class="w-full text-left border-collapse">
                 <thead class="bg-slate-50 border-b">
                     <tr>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bin Code</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Zone</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Picking</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Receiving</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Hücre Kodu</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bölge</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Toplama</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Mal Kabul</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">İşlemler</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y text-sm">
@@ -61,14 +61,14 @@
                                 else { <span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span> }
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Delete</button>
+                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Sil</button>
                             </td>
                         </tr>
                     }
                     @if (!Model.Bins.Any())
                     {
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Select a warehouse or add bins to see storage locations.</td>
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Depolama hücrelerini görmek için bir depo seçin veya hücre ekleyin.</td>
                         </tr>
                     }
                 </tbody>

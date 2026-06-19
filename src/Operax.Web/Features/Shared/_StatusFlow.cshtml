@@ -1,0 +1,50 @@
+@*
+    Operax Ortak Status Flow Partial
+    Evrak yaşam döngüsü timeline'ı: Created → Draft → Posted → Cancelled (varsa).
+    StatusStepVm.State değeri "done" / "current" / "cancelled" / "pending" olabilir.
+*@
+@model Operax.Web.Lib.StatusFlowVm
+
+<div class="status-flow">
+    @for (int i = 0; i < Model.Steps.Count; i++)
+    {
+        var step = Model.Steps[i];
+        var stepClass = step.State switch
+        {
+            "done"      => "status-step done",
+            "current"   => "status-step current",
+            "cancelled" => "status-step cancelled",
+            _           => "status-step"
+        };
+        var dotChar = step.State switch
+        {
+            "done"      => "✓",
+            "current"   => "●",
+            "cancelled" => "×",
+            _           => ""
+        };
+        var nextStep = i + 1 < Model.Steps.Count ? Model.Steps[i + 1] : null;
+        var barClass = step.State switch
+        {
+            "done" when nextStep?.State == "done"      => "status-bar filled",
+            "done" when nextStep?.State == "current"   => "status-bar filled-current",
+            "done" when nextStep?.State == "cancelled" => "status-bar filled-cancel",
+            _ => "status-bar"
+        };
+
+        <div class="@stepClass">
+            <div class="status-dot">@dotChar</div>
+            <div>
+                <div class="status-step-label">@step.Label</div>
+                @if (!string.IsNullOrEmpty(step.Time))
+                {
+                    <div class="status-step-time">@step.Time</div>
+                }
+            </div>
+        </div>
+        if (i < Model.Steps.Count - 1)
+        {
+            <div class="@barClass"></div>
+        }
+    }
+</div>

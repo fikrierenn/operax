@@ -1,3 +1,11 @@
+---
+name: test-runner
+description: Operax test projesini (dotnet test) çalıştırır, geçen/başarısız/atlanan sayısını ve başarısız testleri dosya+metod ile raporlar; yeni özellikte test eksikse uyarır. "testleri çalıştır", "test al" denildiğinde veya yeni servis/SP sonrası proaktif çağır.
+tools: Bash, Read, Grep, Glob
+model: haiku
+color: blue
+---
+
 # Agent: Test Runner
 > Bu agent test projelerini çalıştırır ve sonuçları raporlar.
 > Görevi: Unit test ve integration test sonuçlarını analiz et.

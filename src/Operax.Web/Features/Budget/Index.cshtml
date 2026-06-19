@@ -1,0 +1,104 @@
+@page
+@model Operax.Web.Features.Budget.IndexModel
+@{
+    ViewData["Title"] = "Bütçe Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Bütçe & Nakit Akışı</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Yıllık bütçe planları ve 30 günlük nakit akışı takvimi</p>
+    </div>
+    <a asp-page="./Details" class="btn btn-primary">+ Yeni Bütçe</a>
+</div>
+
+<div class="kpi-row mb-6">
+    <div class="kpi">
+        <span class="kpi-label">30 Gün Net Nakit</span>
+        @{ var netClass = Model.NetCashFlow30 >= 0 ? "kpi-val text-green-600" : "kpi-val text-red-600"; }
+        <div class="@netClass">@(Model.NetCashFlow30 >= 0 ? "+" : "")@Model.NetCashFlow30.ToString("N2") ₺</div>
+        <span class="kpi-sub">Tahmin edilen net akış</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Planlanan Tahsilat</span>
+        <div class="kpi-val text-green-600">@Model.CashFlow30.Sum(x => x.CashIn).ToString("N2") ₺</div>
+        <span class="kpi-sub">30 gün içinde gelecek</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Planlanan Ödeme</span>
+        <div class="kpi-val text-red-500">@Model.CashFlow30.Sum(x => x.CashOut).ToString("N2") ₺</div>
+        <span class="kpi-sub">30 gün içinde gidecek</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Toplam Bütçe</span>
+        <div class="kpi-val text-indigo-600">@Model.Budgets.Count()</div>
+        <span class="kpi-sub">Kayıtlı bütçe planı</span>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Bütçe Listesi -->
+    <div class="card">
+        <div class="card-hdr"><span class="card-ttl">Bütçe Planları</span></div>
+        <table class="data-table">
+            <thead><tr>
+                <th>Yıl / Kod</th><th>Ad</th>
+                <th class="text-right">Planlanan</th>
+                <th class="text-right">Gerçekleşen</th>
+                <th class="text-center">Durum</th>
+                <th class="text-right">İşlem</th>
+            </tr></thead>
+            <tbody>
+                @foreach (var b in Model.Budgets)
+                {
+                    var vPct = b.TotalPlannedOut > 0 ? (int)(b.TotalActualOut / b.TotalPlannedOut * 100) : 0;
+                    var actClass = vPct > 100 ? "font-mono font-bold text-red-600" : "font-mono font-bold text-slate-900";
+                    var barClass = vPct > 100 ? "h-full bg-red-500 rounded" : "h-full bg-green-500 rounded";
+                    var sBadge = b.Status == "APPROVED" ? "badge b-green" : b.Status == "CLOSED" ? "badge b-gray" : "badge b-indigo";
+                    var sLabel = b.Status == "DRAFT" ? "Taslak" : b.Status == "APPROVED" ? "Onaylı" : b.Status == "CLOSED" ? "Kapalı" : b.Status;
+                    <tr>
+                        <td><div class="font-mono font-bold text-indigo-600">@b.Year</div><div class="text-[10px] text-slate-400 font-mono">@b.Code</div></td>
+                        <td class="font-medium text-slate-700">@b.Name</td>
+                        <td class="text-right font-mono text-slate-700">@b.TotalPlannedOut.ToString("N2")</td>
+                        <td class="text-right">
+                            <div class="@actClass">@b.TotalActualOut.ToString("N2")</div>
+                            <div class="h-1 bg-slate-100 rounded mt-1"><div class="@barClass" style="width:@(Math.Min(vPct,100))%"></div></div>
+                        </td>
+                        <td class="text-center"><span class="@sBadge">@sLabel</span></td>
+                        <td class="text-right"><a asp-page="./Details" asp-route-id="@b.Id" class="btn btn-secondary btn-sm">Aç</a></td>
+                    </tr>
+                }
+                @if (!Model.Budgets.Any())
+                {
+                    <tr><td colspan="6"><div class="empty-state"><p>Henüz bütçe tanımlanmamış.</p></div></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <!-- 30 Günlük Nakit Takvimi -->
+    <div class="card">
+        <div class="card-hdr"><span class="card-ttl">30 Günlük Nakit Takvimi</span></div>
+        @if (Model.CashFlow30.Any())
+        {
+            <div class="p-3 space-y-1 max-h-80 overflow-y-auto">
+                @foreach (var day in Model.CashFlow30)
+                {
+                    var nsc = day.Net >= 0 ? "font-mono font-bold w-20 text-right shrink-0 text-green-600" : "font-mono font-bold w-20 text-right shrink-0 text-red-600";
+                    <div class="flex items-center gap-3 text-xs py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500 w-16 shrink-0 font-mono">@day.CashDate.ToString("dd MMM")</span>
+                        <div class="flex-1 flex gap-1">
+                            @if (day.CashIn > 0) { <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-mono font-bold">+@day.CashIn.ToString("N0")</span> }
+                            @if (day.CashOut > 0) { <span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-mono font-bold">-@day.CashOut.ToString("N0")</span> }
+                        </div>
+                        <span class="@nsc">@(day.Net >= 0 ? "+" : "")@day.Net.ToString("N0") ₺</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state"><p>30 gün içinde nakit akışı planlanmamış.</p></div>
+        }
+    </div>
+
+</div>

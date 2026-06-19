@@ -1,0 +1,136 @@
+@page
+@model Operax.Web.Features.Serial.IndexModel
+@{
+    ViewData["Title"] = "Seri No Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Seri Numara Takibi</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Tekil ürün bazlı seri numarası ve konum izleme</p>
+    </div>
+</div>
+
+<!-- KPI Özet Kartları -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Toplam Seri No</span>
+        <div class="kpi-val text-indigo-600">@Model.Serials.Count()</div>
+        <span class="kpi-sub">Kayıtlı seriler</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Depoda</span>
+        <div class="kpi-val text-green-600">@Model.Serials.Count(x => x.Status == "IN_STOCK")</div>
+        <span class="kpi-sub">Stokta bulunan</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Sevk Edildi</span>
+        <div class="kpi-val text-slate-500">@Model.Serials.Count(x => x.Status == "SHIPPED")</div>
+        <span class="kpi-sub">Müşteriye gönderilen</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Karantina</span>
+        <div class="kpi-val text-amber-500">@Model.Serials.Count(x => x.Status == "QUARANTINE")</div>
+        <span class="kpi-sub">Kontrol bekleyen</span>
+    </div>
+</div>
+
+<!-- Arama Formu -->
+<form method="get" class="mb-4">
+    <div class="flex gap-2">
+        <input type="text" name="q" value="@Model.Filter"
+               placeholder="Seri no, ürün kodu veya ürün adı..."
+               class="flex-1 border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button type="submit" class="btn btn-primary">Ara</button>
+        @if (!string.IsNullOrEmpty(Model.Filter))
+        {
+            <a asp-page="./Index" class="btn btn-secondary">Temizle</a>
+        }
+    </div>
+</form>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Seri No</th>
+                <th>Ürün</th>
+                <th>Durum</th>
+                <th>Lot</th>
+                <th>Konum</th>
+                <th>Kayıt Tarihi</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Model.Serials)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600 tracking-tight">@s.SerialNo</td>
+                    <td>
+                        <div class="font-bold text-slate-800 text-sm">@s.ItemCode</div>
+                        <div class="text-[10px] text-slate-400">@s.ItemName</div>
+                    </td>
+                    <td>
+                        <span class="badge @(s.Status switch {
+                            "IN_STOCK"   => "b-green",
+                            "SHIPPED"    => "b-gray",
+                            "SCRAPPED"   => "b-red",
+                            "QUARANTINE" => "b-amber",
+                            _            => "b-gray"
+                        })">@(s.Status switch {
+                            "IN_STOCK"   => "Depoda",
+                            "SHIPPED"    => "Sevk Edildi",
+                            "SCRAPPED"   => "Hurda",
+                            "QUARANTINE" => "Karantina",
+                            _            => s.Status
+                        })</span>
+                    </td>
+                    <td class="font-mono text-slate-600 text-xs">@(s.LotNo ?? "—")</td>
+                    <td>
+                        @if (s.WhCode != null)
+                        {
+                            <span class="font-mono text-slate-500 text-xs">@s.WhCode</span>
+                            @if (s.BinCode != null)
+                            {
+                                <span class="text-slate-400 text-xs"> / </span>
+                                <span class="font-mono font-bold text-indigo-600 text-xs">@s.BinCode</span>
+                            }
+                        }
+                        else { <span class="text-slate-300 text-xs italic">Konum yok</span> }
+                    </td>
+                    <td class="text-slate-500 text-xs">@s.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@s.Id" class="btn btn-secondary btn-sm">Geçmiş</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Serials.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zm0 9.75c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zm9.75-9.75c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/>
+                            </svg>
+                            @if (!string.IsNullOrEmpty(Model.Filter))
+                            {
+                                <p>"@Model.Filter" için sonuç bulunamadı.</p>
+                            }
+                            else
+                            {
+                                <p>Henüz seri numara kaydı yok. Seri numaraları mal kabul sırasında oluşturulur.</p>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.Serials.Count() == 500)
+    {
+        <div class="px-4 py-2 bg-amber-50 border-t text-xs text-amber-700 font-medium">
+            ⚠ En fazla 500 kayıt gösteriliyor. Listeyi daraltmak için arama yapın.
+        </div>
+    }
+</div>

@@ -1,0 +1,128 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.SalesInvoices.CreateModel
+@{
+    ViewData["Title"] = "Sevkiyattan Fatura Oluştur";
+
+    var header = new PageHeaderVm(
+        Title: "Sevkiyattan Fatura Oluştur",
+        Crumbs: new[] { "Anasayfa", "Satış", "Faturalar", "Sevkiyattan" },
+        SubHtml: "Aynı cariye ait faturalanmamış sevkiyatları seçip tek faturada birleştirin (VUK 7 gün).",
+        ActionsHtml: "<a href=\"/SalesInvoices/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"
+    );
+}
+
+<div class="page" data-screen-label="Sevkiyattan Fatura">
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Error"] is string err)
+    {
+        <div class="alert-banner alert-danger">@err</div>
+    }
+
+    <div style="display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start;">
+
+        @* ── Sol: faturalanmamış sevkiyatı olan cariler ── *@
+        <div class="card">
+            <div class="card-hdr"><h3 class="card-title">Müşteriler</h3></div>
+            @if (Model.PartnerGroups.Count == 0)
+            {
+                <div class="empty-inline muted">Faturalanmamış sevkiyat yok.</div>
+            }
+            else
+            {
+                <div class="merge-partner-list">
+                    @foreach (var g in Model.PartnerGroups)
+                    {
+                        var active = Model.PartnerId == g.PartnerId ? "active" : "";
+                        <a class="merge-partner-item @active" href="/SalesInvoices/Create?partnerId=@g.PartnerId">
+                            <div class="merge-partner-main">
+                                <span class="row-strong">@g.PartnerName</span>
+                                <span class="muted merge-partner-meta">
+                                    @g.ShipmentCount sevkiyat · @g.LineCount kalem
+                                </span>
+                            </div>
+                            @if (g.MaxAgeDays > 7)
+                            {
+                                <span class="badge badge-danger" title="7 günü aşan sevkiyat var (VUK)">@g.MaxAgeDays g</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-neutral">@g.MaxAgeDays g</span>
+                            }
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Sağ: seçili carinin sevkiyatları ── *@
+        <div class="card">
+            @if (Model.PartnerId is null)
+            {
+                <div class="empty-inline empty-inline--center muted">
+                    Birleştirme için soldan bir müşteri seçin.
+                </div>
+            }
+            else if (Model.ShipmentLines.Count == 0)
+            {
+                <div class="empty-inline empty-inline--center muted">
+                    Bu müşteriye ait faturalanmamış sevkiyat kalmadı.
+                </div>
+            }
+            else
+            {
+                <div class="card-hdr">
+                    <h3 class="card-title">@Model.SelectedPartnerName — Sevkiyatlar</h3>
+                </div>
+
+                <form method="post" asp-page-handler="Merge">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="partnerId" value="@Model.PartnerId" />
+
+                    @* Sevkiyat bazlı gruplanır; checkbox sevkiyat başına (SP tüm kalan miktarı faturalar) *@
+                    @foreach (var grp in Model.ShipmentLines.GroupBy(l => new { l.ShippingId, l.ShippingNo, l.ShipDate, l.AgeDays }))
+                    {
+                        var over7 = grp.Key.AgeDays > 7;
+                        <div class="merge-ship-group">
+                            <label class="merge-ship-hdr">
+                                <input type="checkbox" name="shippingIds" value="@grp.Key.ShippingId" class="chk" checked />
+                                <span class="mono row-strong merge-shipno">@grp.Key.ShippingNo</span>
+                                <span class="muted">@UiHelpers.FmtDateShort(grp.Key.ShipDate)</span>
+                                @if (over7)
+                                {
+                                    <span class="badge badge-danger" title="VUK 7 gün aşıldı">@grp.Key.AgeDays gün</span>
+                                }
+                            </label>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ürün</th>
+                                        <th class="num">Sevk Miktar</th>
+                                        <th class="num">Faturalanan</th>
+                                        <th class="num">Kalan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var l in grp)
+                                    {
+                                        <tr>
+                                            <td>@l.ItemName</td>
+                                            <td class="num muted">@UiHelpers.FmtNum(l.QtyBase, 2)</td>
+                                            <td class="num muted">@UiHelpers.FmtNum(l.InvoicedQty, 2)</td>
+                                            <td class="num row-strong">@UiHelpers.FmtNum(l.RemainingQty, 2)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Seçilenleri Birleştir &amp; Fatura Oluştur</button>
+                    </div>
+                </form>
+            }
+        </div>
+    </div>
+</div>

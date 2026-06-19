@@ -1,0 +1,90 @@
+@page
+@model Operax.Web.Features.Manufacturing.WorkOrders.IndexModel
+@{
+    ViewData["Title"] = "Üretim Rotaları";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Üretim Rotaları</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Operasyonların hangi sırayla ve hangi iş merkezlerinde yapılacağını tanımlar</p>
+    </div>
+    <button onclick="document.getElementById('addForm').classList.toggle('hidden')" class="btn btn-primary">
+        + Yeni Rota
+    </button>
+</div>
+
+<!-- Ekle Formu (Gizli) -->
+<div id="addForm" class="card mb-6 p-5 hidden">
+    <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest mb-4">Yeni Rota</h3>
+    <form method="post">
+        <input asp-for="Form.Id" type="hidden" value="" />
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="label">Kod *</label>
+                <input asp-for="Form.Code" class="input w-full font-mono" placeholder="RT-AHSAP-01" required />
+            </div>
+            <div class="md:col-span-2">
+                <label class="label">Rota Adı *</label>
+                <input asp-for="Form.Name" class="input w-full" placeholder="Ahşap Ürün Standart Rota" required />
+            </div>
+        </div>
+        <div class="mt-4 flex items-center gap-4">
+            <label class="flex items-center gap-2 text-sm">
+                <input asp-for="Form.IsActive" type="checkbox" class="w-4 h-4 accent-indigo-600" />
+                Aktif
+            </label>
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <button type="button" onclick="document.getElementById('addForm').classList.add('hidden')" class="btn btn-secondary">İptal</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Rota Adı</th>
+                <th class="text-center">Adım Sayısı</th>
+                <th class="text-center">Durum</th>
+                <th class="text-center">İşlemler</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model.Routes)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600">@r.Code</td>
+                    <td class="font-medium text-slate-800">@r.Name</td>
+                    <td class="text-center">
+                        <span class="badge b-blue">@r.StepCount adım</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge @(r.IsActive ? "b-green" : "b-gray")">
+                            @(r.IsActive ? "Aktif" : "Pasif")
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <a asp-page="./Details" asp-route-id="@r.Id" class="btn btn-xs btn-secondary">
+                            Adımlar
+                        </a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Routes.Any())
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+                            </svg>
+                            <p>Henüz üretim rotası tanımlanmamış. İş emirleri için rota gerekmektedir.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

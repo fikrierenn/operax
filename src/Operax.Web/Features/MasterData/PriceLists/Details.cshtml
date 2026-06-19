@@ -1,0 +1,165 @@
+@page "{id:guid?}"
+@model Operax.Web.Features.MasterData.PriceLists.DetailsModel
+@{
+    var isNew = Model.IsNew;
+    ViewData["Title"] = isNew ? "Yeni Fiyat Listesi" : "Fiyat Listesi Düzenle";
+}
+
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item hover:text-indigo-600">Tanımlamalar</span>
+            <span class="breadcrumb-sep">/</span>
+            <a asp-page="./Index" class="breadcrumb-item hover:text-indigo-600">Fiyat Listeleri</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">@(isNew ? "Yeni" : Model.Header.Code)</span>
+        </div>
+        <h1>@(isNew ? "Yeni Fiyat Listesi" : Model.Header.Name)</h1>
+    </div>
+    <div class="page-hdr-r">
+        <a asp-page="./Index" class="btn btn-secondary">Geri</a>
+    </div>
+</div>
+
+<div class="card p-6 mb-6">
+    <form method="post" asp-page-handler="SaveHeader">
+        @Html.AntiForgeryToken()
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Kod <span class="req">*</span></label>
+                <input asp-for="Header.Code" class="form-ctrl" placeholder="Örn. SAT-2026-A" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ad <span class="req">*</span></label>
+                <input asp-for="Header.Name" class="form-ctrl" placeholder="Örn. 2026 Bayi Satış Listesi" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Yön <span class="req">*</span></label>
+                <select asp-for="Header.Direction" class="form-ctrl">
+                    <option value="@PriceDirection.Sales">Satış (müşteri)</option>
+                    <option value="@PriceDirection.Purchase">Alış (tedarikçi)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Cari</label>
+                <select asp-for="Header.PartnerId" class="form-ctrl">
+                    <option value="">Genel (tüm cariler)</option>
+                    @foreach (var p in Model.Partners)
+                    {
+                        <option value="@p.Id">@p.Code — @p.Name</option>
+                    }
+                </select>
+                <span class="form-hint">Boş = genel; cari-özel fiyat şube fiyatını ezer (cari baskın).</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Şube</label>
+                <select asp-for="Header.BranchId" class="form-ctrl">
+                    <option value="">Tüm Şubeler</option>
+                    @foreach (var b in Model.Branches)
+                    {
+                        <option value="@b.Id">@b.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Öncelik</label>
+                <input asp-for="Header.Priority" type="number" class="form-ctrl" min="0" />
+                <span class="form-hint">Eşitlikte yüksek öncelik kazanır.</span>
+            </div>
+        </div>
+
+        <div class="form-row-3">
+            <div class="form-group">
+                <label class="form-label">Para Birimi</label>
+                <select asp-for="Header.Currency" class="form-ctrl">
+                    <option value="TRY">₺ TRY</option>
+                    <option value="USD">$ USD</option>
+                    <option value="EUR">€ EUR</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Geçerlilik Başlangıç</label>
+                <input asp-for="Header.ValidFrom" type="date" class="form-ctrl" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Geçerlilik Bitiş</label>
+                <input asp-for="Header.ValidTo" type="date" class="form-ctrl" />
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-4">
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input asp-for="Header.IsActive" type="checkbox" class="chk" />
+                Aktif
+            </label>
+            <button type="submit" class="btn btn-primary px-8">@(isNew ? "Oluştur" : "Kaydet")</button>
+        </div>
+    </form>
+</div>
+
+@if (isNew)
+{
+    <div class="card p-8 text-center text-slate-400 italic">
+        Satır eklemek için önce listeyi kaydedin.
+    </div>
+}
+else
+{
+    <link rel="stylesheet" href="~/lib/tabulator/tabulator_simple.min.css" />
+    <link rel="stylesheet" href="~/lib/tabulator/operax-theme.css" asp-append-version="true" />
+
+    <div class="card p-4 mb-6">
+        <!-- Toplu giriş araç çubuğu -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <button type="button" id="pl-add-row" class="btn btn-secondary btn-sm">+ Satır Ekle</button>
+
+            <form method="post" asp-page-handler="AddAllItems" asp-route-id="@Model.Header.Id" class="inline"
+                  onsubmit="return confirm('Tüm aktif ürünler bu listeye eklenecek (mevcutlar korunur). Devam edilsin mi?');">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-secondary btn-sm">Tüm Ürünleri Ekle</button>
+            </form>
+
+            @if (Model.OtherLists.Any())
+            {
+                <form method="post" asp-page-handler="Clone" asp-route-id="@Model.Header.Id" class="flex items-center gap-1">
+                    @Html.AntiForgeryToken()
+                    <select name="sourceId" class="form-ctrl form-ctrl-sm w-52">
+                        <option value="">Listeden çoğalt…</option>
+                        @foreach (var o in Model.OtherLists)
+                        {
+                            <option value="@o.Id">@o.Code — @o.Name</option>
+                        }
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm">Çoğalt</button>
+                </form>
+            }
+
+            <a asp-page="./Import" asp-route-id="@Model.Header.Id" class="btn btn-secondary btn-sm">Excel İçe Aktar</a>
+
+            <button type="button" id="pl-save" class="btn btn-primary btn-sm ml-auto">Kaydet</button>
+        </div>
+
+        <div class="text-xs text-slate-400 mb-2">
+            İpucu: Hücreye tıklayıp düzenleyin. Excel'den hücre aralığı yapıştırabilir, Ctrl+D ile aşağı doldurabilirsiniz. 100lerce ürün için <strong>Excel İçe Aktar</strong> kullanın. Net efektif fiyat canlı hesaplanır.
+        </div>
+
+        <div id="pl-grid"></div>
+    </div>
+
+    @Html.AntiForgeryToken()
+    <script>
+        window.PL_ITEMS = @Html.Raw(Model.ItemsJson);
+        window.PL_LINES = @Html.Raw(Model.GridLinesJson);
+        window.PL_CFG = {
+            saveUrl: '@Url.Page("Details", "BulkSave", new { id = Model.Header.Id })',
+            token: document.querySelector('input[name="__RequestVerificationToken"]').value,
+            lineTypes: { '@PriceLineType.Fixed': 'Sabit', '@PriceLineType.Discount': 'İskonto' },
+            defaultLineType: '@PriceLineType.Fixed'
+        };
+    </script>
+    <script src="~/lib/tabulator/tabulator.min.js"></script>
+    <script src="~/js/pricelist-grid.js" asp-append-version="true"></script>
+}

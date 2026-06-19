@@ -1,0 +1,118 @@
+@page
+@model Operax.Web.Features.LPN.IndexModel
+@{
+    ViewData["Title"] = "Palet (LPN) Yönetimi";
+}
+
+<div class="page-hdr">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-800">Palet / Kap Yönetimi</h2>
+        <p class="text-sm text-slate-500 mt-0.5">LPN bazlı stok takibi ve konum izleme</p>
+    </div>
+</div>
+
+<!-- KPI Özet Kartları -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Toplam Palet</span>
+        <div class="kpi-val text-indigo-600">@Model.Lpns.Count()</div>
+        <span class="kpi-sub">Kayıtlı tüm paletler</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Kullanımda</span>
+        <div class="kpi-val text-green-600">@Model.Lpns.Count(x => x.Status == "IN_USE")</div>
+        <span class="kpi-sub">Stok taşıyan paletler</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Boş / Müsait</span>
+        <div class="kpi-val text-amber-500">@Model.Lpns.Count(x => x.Status == "AVAILABLE")</div>
+        <span class="kpi-sub">Kullanılabilir paletler</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Sevk Edildi</span>
+        <div class="kpi-val text-slate-400">@Model.Lpns.Count(x => x.Status == "SHIPPED")</div>
+        <span class="kpi-sub">Sevkiyat yapılan paletler</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Palet Kodu</th>
+                <th>Tip</th>
+                <th>Durum</th>
+                <th>Konum</th>
+                <th class="text-right">Ürün Çeşidi</th>
+                <th class="text-right">Toplam Adet</th>
+                <th>Oluşturulma</th>
+                <th class="text-right">İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var lpn in Model.Lpns)
+            {
+                <tr>
+                    <td class="font-mono font-bold text-indigo-600 tracking-tight">@lpn.Code</td>
+                    <td>
+                        <span class="badge b-gray">@(lpn.LpnType switch {
+                            "PALLET" => "Palet",
+                            "BOX"    => "Kutu",
+                            "CARTON" => "Koli",
+                            _        => lpn.LpnType
+                        })</span>
+                    </td>
+                    <td>
+                        <span class="badge @(lpn.Status switch {
+                            "IN_USE"    => "b-green",
+                            "AVAILABLE" => "b-indigo",
+                            "LOADED"    => "b-blue",
+                            "SHIPPED"   => "b-gray",
+                            _           => "b-gray"
+                        })">@(lpn.Status switch {
+                            "IN_USE"    => "Kullanımda",
+                            "AVAILABLE" => "Müsait",
+                            "LOADED"    => "Yüklendi",
+                            "SHIPPED"   => "Sevk Edildi",
+                            _           => lpn.Status
+                        })</span>
+                    </td>
+                    <td>
+                        @if (lpn.WhCode != null)
+                        {
+                            <span class="font-mono text-slate-700">@lpn.WhCode</span>
+                            @if (lpn.BinCode != null)
+                            {
+                                <span class="text-slate-400"> / </span>
+                                <span class="font-mono font-bold text-indigo-600">@lpn.BinCode</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-slate-300 italic text-xs">Konumsuz</span>
+                        }
+                    </td>
+                    <td class="text-right font-mono text-slate-700">@(lpn.ItemCount?.ToString() ?? "0")</td>
+                    <td class="text-right font-mono font-bold text-slate-900">@lpn.TotalQty.ToString("N2")</td>
+                    <td class="text-slate-500 text-xs">@lpn.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-code="@lpn.Code" class="btn btn-secondary btn-sm">Sorgula</a>
+                    </td>
+                </tr>
+            }
+            @if (!Model.Lpns.Any())
+            {
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <p>Henüz kayıtlı palet bulunmuyor. Paletler mal kabul sürecinde oluşturulur.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

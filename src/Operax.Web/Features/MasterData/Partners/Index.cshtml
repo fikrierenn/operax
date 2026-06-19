@@ -1,63 +1,93 @@
 @page
+@using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.IndexModel
 @{
-    ViewData["Title"] = "Business Partners";
+    ViewData["Title"] = "Cari Hesaplar";
+
+    var header = new PageHeaderVm(
+        Title: "Cari Hesap Yönetimi",
+        Crumbs: new[] { "Anasayfa", "Cari Kartlar" },
+        Sub: "Müşteri ve tedarikçilerinizin kartları ve mali kimlikleri",
+        ActionsHtml: "<a href=\"/MasterData/Partners/Details\" class=\"btn btn-primary\" data-shortcut=\"Alt+N\">+ Yeni Cari Hesap</a>"
+    );
 }
 
-<div class="flex justify-between items-center mb-6">
-    <div>
-        <h2 class="text-2xl font-bold">Partners</h2>
-        <p class="text-slate-500 text-sm">Customers and Vendors management</p>
-    </div>
-    <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
-        + New Partner
-    </button>
+<div class="page" data-screen-label="Cari Kartlar">
+<partial name="_PageHeader" model="header" />
+
+@* KPI — ortak _KpiCard (dashboard tipi) *@
+<div class="kpi-grid">
+    <partial name="_KpiCard" model="@(new KpiCardVm("TOPLAM İŞ ORTAĞI", Model.TotalPartners.ToString(), Unit: "cari", Glow: "brand", TrendText: "Kayıtlı tüm cari hesaplar"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("AKTİF MÜŞTERİLER", Model.CustomerCount.ToString(), Glow: "success", TrendText: "Alıcı iş ortakları"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("AKTİF TEDARİKÇİLER", Model.VendorCount.ToString(), Glow: "warn", TrendText: "Satıcı iş ortakları"))" />
 </div>
 
-<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 bg-slate-50 border-b flex gap-4">
-        <input type="text" placeholder="Search by name, tax no..." class="flex-1 bg-white border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-600 transition-all" />
-        <div class="flex border rounded-lg bg-white p-1">
-            <button class="px-3 py-1 rounded text-xs font-bold bg-indigo-600 text-white">All</button>
-            <button class="px-3 py-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-50">Vendors</button>
-            <button class="px-3 py-1 rounded text-xs font-bold text-slate-500 hover:bg-slate-50">Customers</button>
+<div class="card overflow-hidden mt-6">
+    <form method="get" class="filter-bar">
+        <div class="relative flex-1 max-w-[320px]">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" name="q" value="@Model.Q" placeholder="İsim, vergi dairesi veya no ile ara..." class="form-ctrl pl-9 w-full text-xs" />
         </div>
-    </div>
-    <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-50 border-b">
-            <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Partner</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tax No</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+        <select name="type" class="form-ctrl w-44 text-xs font-semibold" onchange="this.form.submit()">
+            <option value="">Tüm Cari Tipleri</option>
+            <option value="CUSTOMER" selected="@(Model.Type == "CUSTOMER")">Müşteri</option>
+            <option value="VENDOR" selected="@(Model.Type == "VENDOR" || Model.Type == "SUPPLIER")">Tedarikçi</option>
+            <option value="BOTH" selected="@(Model.Type == "BOTH")">Hem Alıcı Hem Satıcı</option>
+        </select>
+    </form>
+    <table class="data-table w-full">
+        <thead>
+            <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
+                <th class="px-6 py-4 text-left">Cari Hesap / Ünvan</th>
+                <th class="px-6 py-4 text-center">Cari Tipi</th>
+                <th class="px-6 py-4 text-center">Vergi No</th>
+                <th class="px-6 py-4 text-left">İletişim</th>
+                <th class="px-6 py-4 text-right">İşlemler</th>
             </tr>
         </thead>
-        <tbody class="divide-y text-sm">
+        <tbody class="divide-y divide-slate-100">
             @foreach (var p in Model.Partners)
             {
-                <tr class="hover:bg-slate-50 transition-colors group">
+                <tr class="hover:bg-slate-50/50 transition-colors group cursor-pointer" onclick="window.location='@Url.Page("./Details", new { id = p.Id })'">
                     <td class="px-6 py-4">
-                        <div class="font-mono text-[10px] text-indigo-600 font-bold">@p.Code</div>
-                        <div class="font-bold">@p.Name</div>
+                        <div class="font-mono text-xs text-indigo-600 font-bold mb-0.5">@p.Code</div>
+                        <div class="font-bold text-slate-800">@p.Name</div>
                     </td>
-                    <td class="px-6 py-4">
-                        <span class="bg-slate-100 px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 uppercase">@p.Type</span>
+                    <td class="px-6 py-4 text-center">
+                        @if (p.Type == "VENDOR" || p.Type == "SUPPLIER")
+                        {
+                            <span class="badge b-amber">Tedarikçi</span>
+                        }
+                        else if (p.Type == "CUSTOMER")
+                        {
+                            <span class="badge b-blue">Müşteri</span>
+                        }
+                        else
+                        {
+                            <span class="badge b-purple">Hem Alıcı Hem Satıcı</span>
+                        }
                     </td>
-                    <td class="px-6 py-4 font-mono text-slate-500">@p.TaxNumber</td>
-                    <td class="px-6 py-4 text-slate-500 text-xs">@p.Email</td>
-                    <td class="px-6 py-4 text-right">
-                        <button class="text-slate-400 hover:text-indigo-600 font-bold text-[10px] uppercase tracking-widest mr-4">Details</button>
-                        <button class="text-slate-400 hover:text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Edit</button>
+                    <td class="px-6 py-4 text-center font-mono text-xs text-slate-600">@p.TaxNumber</td>
+                    <td class="px-6 py-4 text-slate-600 text-xs font-semibold">@p.Email</td>
+                    <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-end gap-2">
+                            <a asp-page="./Details" asp-route-id="@p.Id" asp-route-edit="true" class="btn btn-secondary btn-sm">Düzenle</a>
+                        </div>
                     </td>
                 </tr>
             }
             @if (!Model.Partners.Any())
             {
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">No partners found. Add your first vendor or customer.</td>
+                    <td colspan="5" class="px-6 py-20 text-center">
+                        <div class="flex flex-col items-center">
+                            <svg class="w-12 h-12 text-slate-200 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <p class="text-slate-400 font-medium italic">Kayıtlı cari hesap bulunamadı. İlk müşteri veya tedarikçinizi ekleyin.</p>
+                        </div>
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
+</div>
 </div>

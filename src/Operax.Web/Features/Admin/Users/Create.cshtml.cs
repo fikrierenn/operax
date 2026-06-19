@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -5,7 +7,10 @@ using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Admin.Users;
 
-public class CreateModel(UserManager<IdentityUser> userManager) : PageModel
+[Authorize(Roles = "Administrator")]
+public class CreateModel(
+    UserManager<IdentityUser> userManager,
+    ICurrentCompany company) : PageModel
 {
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -16,25 +21,36 @@ public class CreateModel(UserManager<IdentityUser> userManager) : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
-        var user = new IdentityUser { UserName = Input.Email, Email = Input.Email, EmailConfirmed = true };
+        var user = new IdentityUser
+        {
+            UserName       = Input.Email,
+            Email          = Input.Email,
+            EmailConfirmed = true
+        };
+
         var result = await userManager.CreateAsync(user, Input.Password);
-
-        if (result.Succeeded)
+        if (!result.Succeeded)
         {
-            return RedirectToPage("./Index");
+            foreach (var e in result.Errors)
+                ModelState.AddModelError(string.Empty, e.Description);
+            return Page();
         }
 
-        foreach (var error in result.Errors)
-        {
-            ModelState.AddModelError(string.Empty, error.Description);
-        }
+        // Şirket claim'i — oluşturan admin'in şirketine otomatik bağla
+        await userManager.AddClaimAsync(user, new Claim("company", company.Id.ToString()));
 
-        return Page();
+        // Rol ataması (opsiyonel)
+        if (!string.IsNullOrEmpty(Input.Role))
+            await userManager.AddToRoleAsync(user, Input.Role);
+
+        return RedirectToPage("./Index");
     }
 
     public class InputModel
     {
-        public string Email { get; set; } = "";
+        public string Email    { get; set; } = "";
         public string Password { get; set; } = "";
+        /// <summary>"Administrator" veya "" (rol yok = normal kullanıcı)</summary>
+        public string Role     { get; set; } = "";
     }
 }

@@ -1,0 +1,63 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.MaterialIssue.IndexModel
+@{
+    ViewData["Title"] = "Sarf Fişleri";
+}
+
+<div class="page" data-screen-label="Sarf Fişleri">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">Stok</span>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">Sarf Fişleri</span>
+            </div>
+            <h1>Sarf Fişleri</h1>
+            <p class="page-hdr-sub">İç tüketim — depodan sarf edilen malzeme (kırtasiye, ambalaj, bakım)</p>
+        </div>
+        <div class="page-hdr-r">
+            <a asp-page="./Details" class="btn btn-primary px-6">+ Yeni Sarf Fişi</a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    <div class="kpi-grid">
+        <div class="kpi"><span class="kpi-label">Taslak</span><div class="kpi-val">@Model.DraftCount</div></div>
+        <div class="kpi"><div class="kpi-glow success"></div><span class="kpi-label">Onaylı</span><div class="kpi-val">@Model.PostedCount</div></div>
+    </div>
+
+    <div class="card overflow-hidden mt-6">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Belge No</th>
+                    <th>Tarih</th>
+                    <th>Depo</th>
+                    <th>Masraf Merkezi</th>
+                    <th class="text-center">Kalem</th>
+                    <th class="text-center">Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr class="cursor-pointer" onclick="window.location.href='/MaterialIssue/Details?id=@r.Id'">
+                        <td><span class="mono font-bold text-indigo-600">@r.DocNo</span></td>
+                        <td class="text-xs text-slate-500">@r.IssueDate.ToString("dd.MM.yyyy")</td>
+                        <td class="text-sm">@r.WarehouseName</td>
+                        <td class="text-sm text-slate-500">@(r.CostCenterName ?? "—")</td>
+                        <td class="text-center">@r.LineCount</td>
+                        <td class="text-center">@Html.Raw(UiHelpers.StatusBadge(r.Status))</td>
+                    </tr>
+                }
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="6"><div class="empty-state"><p>Henüz sarf fişi yok.</p></div></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,104 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    // Sayfaya özel KPI'lar — seçili tarih aralığındaki siparişlerden
+    var sipCount = Model.Orders.Count;
+    var sipTotal = Model.Orders.Sum(o => o.Total);
+    var sipOpen  = Model.Orders.Sum(o => o.OpenAmount);
+    var sipDeliv = sipTotal - sipOpen;
+}
+
+<div class="kpi-grid" style="margin-bottom:14px;">
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("SİPARİŞ SAYISI","ORDER COUNT"), sipCount.ToString(), Unit: L.T("adet","pcs"), Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TOPLAM TUTAR","TOTAL AMOUNT"), UiHelpers.FmtTL(sipTotal), Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("AÇIK SİPARİŞ","OPEN ORDERS"), UiHelpers.FmtTL(sipOpen), Glow: "warn"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm(L.T("TESLİM/FATURA","DELIVERED"), UiHelpers.FmtTL(sipDeliv), Glow: "success"))" />
+</div>
+
+<div class="card">
+    <div class="card-hdr">
+        <div class="card-title">Siparişler</div>
+        <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Orders.Count kayıt · satış + satınalma</div>
+    </div>
+    <div class="card-body">
+    <partial name="Tabs/_DateFilter" model="@(new Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm(Model.Partner.Id, "siparisler", Model.DateFrom!.Value, Model.DateTo!.Value))" />
+
+    @* Durum filtresi — df/dt korunur, sf seçilir *@
+    <form method="get" action="/MasterData/Partners/Details/@Model.Partner.Id" style="display:flex;gap:8px;align-items:center;margin:10px 0;">
+        <input type="hidden" name="tab" value="siparisler" />
+        <input type="hidden" name="df" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="dt" value="@Model.DateTo?.ToString("yyyy-MM-dd")" />
+        <label class="form-label" style="margin:0;">Durum</label>
+        <select name="sf" class="form-ctrl" onchange="this.form.submit()" style="width:180px;">
+            <option value="">Tüm Durumlar</option>
+            <option value="DRAFT" selected="@(Model.OrderStatus == "DRAFT")">Taslak</option>
+            <option value="APPROVED" selected="@(Model.OrderStatus == "APPROVED")">Onaylı</option>
+            <option value="POSTED" selected="@(Model.OrderStatus == "POSTED")">İşlendi</option>
+            <option value="PENDING" selected="@(Model.OrderStatus == "PENDING")">Bekliyor</option>
+            <option value="CANCELLED" selected="@(Model.OrderStatus == "CANCELLED")">İptal</option>
+        </select>
+    </form>
+
+    @if (Model.Orders.Count == 0)
+    {
+        var empty = new EmptyStateVm("Sipariş yok", "Seçili tarih aralığında bu cariye ait sipariş bulunamadı.");
+        <partial name="_EmptyState" model="empty" />
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tür</th>
+                    <th>Belge No</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th>Belge Durumu</th>
+                    <th class="num">Tutar</th>
+                    <th class="num">Açık Sipariş</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var o in Model.Orders)
+                {
+                    // Satış → SalesOrders, Alış → PurchaseOrders detay rotası
+                    var route = o.Kind == "Satış"
+                        ? $"/SalesOrders/Details/{o.Id}"
+                        : $"/PurchaseOrders/Details/{o.Id}";
+                    <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
+                        <td>
+                            @if (o.Kind == "Satış")
+                            {
+                                <span class="badge badge-success"><span class="badge-dot"></span>SATIŞ</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-info"><span class="badge-dot"></span>ALIŞ</span>
+                            }
+                        </td>
+                        <td class="mono row-strong">@o.OrderNo</td>
+                        <td class="mono muted">@UiHelpers.FmtDateShort(o.OrderDate)</td>
+                        <td>@Html.Raw(UiHelpers.StatusBadge(o.Status))</td>
+                        <td>
+                            @if (o.HasInvoice)
+                            {
+                                <span class="badge badge-success"><span class="badge-dot"></span>Faturalandı</span>
+                            }
+                            else if (o.HasDelivery)
+                            {
+                                <span class="badge badge-info"><span class="badge-dot"></span>@(o.Kind == "Satış" ? "Sevk Edildi" : "Mal Kabul")</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warn"><span class="badge-dot"></span>Açık</span>
+                            }
+                        </td>
+                        <td class="num">@UiHelpers.FmtTL(o.Total)</td>
+                        <td class="num muted">@UiHelpers.FmtTL(o.OpenAmount)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    </div>
+</div>

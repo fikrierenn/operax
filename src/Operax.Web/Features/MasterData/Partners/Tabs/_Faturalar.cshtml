@@ -1,0 +1,59 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    var fTotal = Model.Invoices.Sum(x => x.GrandTotal);
+    var fPaid  = Model.Invoices.Sum(x => x.PaidAmount);
+    var fOpen  = fTotal - fPaid;
+}
+
+<div class="kpi-grid" style="margin-bottom:14px;">
+    <partial name="_KpiCard" model="@(new KpiCardVm("FATURA SAYISI", Model.Invoices.Count.ToString(), Unit: "adet", Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("TOPLAM TUTAR", UiHelpers.FmtTL(fTotal), Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("ÖDENEN", UiHelpers.FmtTL(fPaid), Glow: "success"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("KALAN", UiHelpers.FmtTL(fOpen), Glow: "warn"))" />
+</div>
+
+<div class="card">
+    <div class="card-hdr">
+        <div class="card-title">Faturalar</div>
+        <div class="card-sub">@Model.Invoices.Count kayıt · satış + alış</div>
+    </div>
+    @if (Model.Invoices.Count == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateVm("Fatura yok", "Bu cariye ait satış veya alış faturası bulunamadı."))" />
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tür</th><th>Belge No</th><th>Tarih</th>
+                    <th class="num">Tutar</th><th class="num">Ödenen</th><th>Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in Model.Invoices)
+                {
+                    var route = f.Kind == "Satış" ? $"/SalesInvoices/Details?id={f.Id}" : $"/Expenses/Details/{f.Id}";
+                    <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
+                        <td>
+                            @if (f.Kind == "Satış")
+                            {
+                                <span class="badge badge-success"><span class="badge-dot"></span>SATIŞ</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-info"><span class="badge-dot"></span>ALIŞ</span>
+                            }
+                        </td>
+                        <td class="mono row-strong">@f.DocNo</td>
+                        <td class="mono muted">@(f.InvoiceDate.HasValue ? UiHelpers.FmtDateShort(f.InvoiceDate.Value) : "—")</td>
+                        <td class="num">@UiHelpers.FmtTL(f.GrandTotal)</td>
+                        <td class="num muted">@UiHelpers.FmtTL(f.PaidAmount)</td>
+                        <td>@Html.Raw(UiHelpers.StatusBadge(f.Status))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

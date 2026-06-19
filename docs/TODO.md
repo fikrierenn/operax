@@ -1,8 +1,284 @@
 # OPERAX Platform — Modül & Ekran Bazlı TODO
 
+---
+
+## 🔧 PLAN 33 — SQL/SP + MİMARİ BÜTÜNLÜK DÜZELTMELERİ (2026-06-04 — denetim çıktısı)
+
+Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/33-sql-arch-conformance-fixes.md`. **Onay bekliyor.**
+
+- [x] ✅ **Faz A — Ledger immutability (VUK-kritik, lokalize):** TAMAM 2026-06-04 commit b22db21. C3+H1 `sp_CorrectPurchaseInvoiceLine` UPDATE→ters REVERSAL+yeni satır (CompanyId+Currency) · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST (canlı VT: CancelledBy uniqueidentifier). migrate 0 fail · sql-sp-reviewer temiz (conf 93).
+- [x] ✅ **Faz B — Terminal/Putaway SP'ye taşı:** TAMAM 2026-06-04 commit ce9f318. AC1 `sp_PutawayPost` (negatif-stok guard+dönem kilidi) · AC2 `sp_PickConfirm` (durum-only, davranış birebir) · AH4 Transfer/Terminal catch+ILogger. CRIT-1 CreatedBy TRY_CAST + IMP-1 guard. build 0 · sql-sp+security temiz · putaway smoke (net-korundu + guard THROW).
+  - [ ] **DEBT · Pick smoke:** açık PickTask seed yok → sp_PickConfirm uçtan-uca test edilmedi. Seed eklenince doğrula.
+  - [ ] **DEBT · Pick-vs-shipping çift düşüm riski (sql-sp-reviewer):** `sp_PickLinePost` StockMovement ISSUE yazıyor, `sp_PickConfirm` yazmıyor — iki toplama yolu tutarsız. Doğru semantik: stok çıkışı yalnız sevkiyat POSTED (`sp_ShippingPost`). `sp_PickLinePost` ISSUE'sı çift-sayım kaynağı olabilir; ayrı denetle, tek-nokta stok-düşme kararı ver.
+- [ ] **Faz C — SP transaction normalizasyon + idempotency:** C1 8 SP TRY/CATCH+ROLLBACK+THROW · C2 status guard + StockMovement idempotent UNIQUE.
+- [ ] **Faz D — DocumentLock helper + edit guard:** `Lib/DocumentLock.cs` (rule §7, henüz YOK) · AH6/AH7 PO Details guard + SO/Shipping/CycleCount.
+- [ ] **Faz E — THROW kod hizalama + DEAD servis temizliği:** H3 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment) · AC3/AH8 ProductionReceiptService+ProductionActivityService sil (DI+caller yok DOĞRULANDI).
+- [ ] **Faz F — Dönem-tarih simetrisi (şema, en büyük):** H6s StockMovement.MovementDate kolonu + trigger INSERTED.MovementDate (AccountMovement ile simetrik) + backfill.
+- [ ] **DEBT · MEDIUM/LOW birikimi (kapsam-dışı):** `SELECT *` ~22, magic-string ~14 (DocStatus/MovementType sabiti var, kullanılmamış), timezone DateTime.Now ~3, immutability guard SO/Shipping/CycleCount. Ayrı temizlik turu.
+
+---
+
+## 📘 YARDIM BUTONU + KULLANICI KİTAPÇIĞI (2026-06-02 — büyük iş, ajan fan-out)
+
+- [x] ✅ **Ekran-içi yardım butonu + 92 ekran kullanıcı kitapçığı** — TAMAM (2026-06-02, commit b858cb0 infra + 2637ff3 içerik).
+  - `/Help` Razor sayfası (Markdig render) + yardım butonu: `_PageHeader` sayfalarında header'da, diğerlerinde `_Layout` global float (ViewData flag ile çift-engel) → %100 kapsama.
+  - İçerik: `src/Operax.Web/App_Data/manual/screens/<slug>.md` (92 ekran, ajan fan-out). /Help E2E doğrulandı.
+  - [ ] **KALAN (kozmetik)**: 65 sayfayı `_PageHeader`'a standardize et (şu an global float buton kapsıyor; auth/terminal hariç). Action button'ların ActionsHtml'e taşınması dikkat ister.
+  - [ ] **Opsiyonel**: yardım render'ı için `.help-content` CSS (h2/ul/table stili) — şu an tarayıcı default.
+
+## 🏭 PLAN 32 — TEDARİKÇİ-ÜRÜN KATALOĞU (2026-06-03)
+
+- [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–F):** `SupplierItem` tablosu (tedarikçi kodu/lead-time/MOQ/son-fiyat/tercih, UQ + filtered preferred UQ) + `sp_SupplierItemBulkUpsert`/`sp_SetPreferredSupplier` + `SupplierItemService` + Item kartı **Tedarikçiler tab** (Tabulator grid) + `tvf_ReplenishmentSuggestions` tercih edilen tedarikçi wire. security-reviewer temiz; sql-sp-reviewer IMP-1 (reaktivasyon orphan) + IMP-2 (tvf CompanyId) düzeltildi. Browser smoke + migrate 0 fail. Plan arşivde. Commit: 1dfb212/68bbcaf/b2fb0c9.
+- [ ] **DEBT · P32-7 PO satırında SupplierItemCode görünürlük (ERTELENDİ):** PO Details add-line'da tedarikçi seçiliyse ürünün SupplierItemCode'u gösterilsin. Hafif (JS + lookup). PO Details bir sonraki dokunuşta eklenir; gerçek ihtiyaç düşük.
+
+## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)
+
+- [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–E):** Şema (BranchId/Priority/zincir-iskonto child) + `tvf_PriceListEffective` + `sp_CheckPriceVariance` branch-aware (CARİ BASKIN, Partner×2+Branch×1) + PO caller wire + **PriceList CRUD UI** (Index+Details, "10+5+3" iskonto kısayolu). build+sql-sp-reviewer+code-reviewer+security-reviewer+browser smoke geçti. Plan arşivde.
+- [ ] **DEBT · Qty-break / MinQty kademeli fiyat (Plan 30 IMP-2 + Plan 31 kapsam-dışı birleşti):** Şu an model **ürün başına tek fiyat satırı** (`UX_PriceListLine_ListItem` unique index). Çok-kademeli fiyat (aynı ürün 0→10₺, 100→9₺) için: (1) PriceListLine ürün-tekil index kaldırılıp `(ItemId,MinQty)` tekilliğe geçilmeli, (2) `sp_CheckPriceVariance`/resolver'a `@OrderQty` + `WHERE MinQty<=@OrderQty` eklenmeli, (3) bulk upsert MERGE anahtarı `(PriceListId,ItemId,MinQty)` olmalı. Ayrı plan — qty-break gerçek ihtiyaç olunca.
+
+## 💲 PLAN 31 — FİYAT LİSTESİ TOPLU GİRİŞ (2026-06-03)
+- [x] **✅ TAMAMLANDI:** Tabulator grid (Excel paste/fill-down/net önizleme) + `sp_PriceListBulkUpsert` (TVP/MERGE idempotent/DryRun/SyncDelete) + `sp_PriceListClone` + Excel/CSV import (önizleme→onay) + Tüm-Ürün/Çoğalt. build+sql-sp-reviewer+security-reviewer+browser smoke geçti. `UX_PriceListLine_ListItem` (ürün-tekil) eklendi. Plan arşivde.
+
+---
+
+## 🔧 PLAN 27 / FATURA AÇIK İŞLER (2026-06-02)
+
+- [x] **Düzeltme revizyonu BUILD → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` AM yerinde UPDATE canlıda; build defalarca yeşil. (stale)
+- [x] **PO bağı YOKSA PriceList sapması → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost`'a PO-bağsız satırlar için PriceList variance (CROSS APPLY, tedarikçi-özel>genel). **TOLERANS YOK** (Plan 27 ilkesi — kullanıcı: "tolerans olamaz"): `sp_CheckPriceVariance` + invoice PriceList path tolerans kaldırıldı, `PriceTolerancePercent` param silindi (ölü). Her sapma variance.
+- [x] **Vade tarihi tedarikçi kartından → ✅ KAPALI 2026-06-02:** `sp_PurchaseInvoicePost` @DueDate NULL ise `Partner.PaymentTermDays` → yoksa `DEFAULT_PAYMENT_TERM_DAYS` (Plan 29) → fatura tarihi + gün. Hardcoded +30 kalktı.
+- [x] **Düzeltme sonrası variance yeniden hesapla → ✅ KAPALI 2026-06-02:** `sp_CorrectPurchaseInvoiceLine` fiyat değişince PriceVariance recompute (fark 0→soft-delete, sürüyor→güncelle, yeni fark→DRAFT). sql-sp-reviewer: IMP-1 (BULK→LINKED denetim boşluğu → COALESCE join) + IMP-2 (UX_PriceVariance_Source filtered unique) düzeltildi.
+
+---
+
+## 🧾 REVIEW BORÇLARI (2026-06-01 — /review-pr, plan 21/25 sonrası — pre-existing, kapsam-dışı)
+
+> 3 paralel agent. Plan 21 (N:1 fatura) + CONSUMABLE filtre kodu TEMİZ; aşağıdakiler dokunmadığım
+> pre-existing kod (drive-by yasağı → ayrı borç). 2 CRITICAL silent-failure bu oturumda kapatıldı (`8...`).
+
+- [x] **MED · SP catch üst-sınır → REDDEDİLDİ 2026-06-01:** silent-failure-hunter `>= 50000` üst-sınırsız 60000+ sızdırır dedi; **canlı kodda yanlış.** Tüm ≥60000 THROW (60001/60002/60004/60010 — 4 adet) temiz Türkçe finans iş mesajı (çek/ödeme bulunamadı), sistem hatası değil. `< 60000` eklemek meşru iş mesajını gizler. Sistem SqlException'ları (FK 547, PK 2627, login 18456) zaten <50000. Üst-sınırsız `>= 50000` DOĞRU. (Not: `SalesInvoices/Create.cshtml.cs:91` `< 60000` kullanıyor ama orada SP yalnız 50210-50213 fırlatıyor → zararsız, tutarlılık için ileride hizalanabilir.)
+- [x] **HIGH · hata yönetimi → ✅ STALE/KAPALI 2026-06-02:** canlı kodda `SalesOrders/Details.cshtml.cs` `OnPostAsync`(143/173/179) + `OnPostAddLineAsync`(193/222/227) zaten try/catch'li (SqlException 50000-59999 → kullanıcı mesajı + generic catch + logger). TODO yazıldığından beri kapanmış.
+- [x] **HIGH · audit izolasyonu → ✅ KAPALI 2026-06-02:** `AuditService.LogAsync` try/catch'li → caller PATLAMIYOR (tasarımca izole, audit hatası asıl işlemi durdurmaz). Endişe yanlıştı. Bonus: sessiz catch artık `logger.LogWarning` ile loglar (AuditService.cs:47).
+- [x] **HIGH · inline style → ✅ KAPALI 2026-06-02:** `SalesInvoices/Index.cshtml` dueColor `var(--danger-text)`/`var(--text-2)` → `text-danger`/`muted` class; satır 93 `var(--brand-500)` → `text-brand`. "CANCELLED" string → `DocStatus.Cancelled`.
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `Dtos.cs`'e `PartnerType` sabiti (Customer/Vendor/Both) eklendi; `SalesOrders/Details:43` `'CUSTOMER'/'BOTH'` → `@Customer/@Both` parametre. (Receiving vendor filtresi + Partners diğer kullanımlar dokunulmadı — touch ettikçe.)
+- [ ] **MED · CancellationToken:** handler'lar `ct` almıyor, `OperationCanceledException` rethrow yok (`error-handling.md §4-5`). Disiplin borcu.
+
+### Plan 28/29 faz-kapanış review (2026-06-02 — pre-existing, kapsam-dışı)
+> security-reviewer TEMİZ (≥80 yok). code-reviewer: oturumun YENİ kodu (ParameterStore, Receiving mod/GRNI, ReceivingMode sabiti) temiz. Aşağısı dokunmadığım Plan 27 kodu (drive-by yasağı). `'REJECTED'` magic string bu oturumda düzeltildi (1 satır, sıfır risk).
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `PurchaseInvoices/Details.cshtml.cs:69,100` rol string'leri → `Roles.Administrator/Finance/Purchasing` (Roles.Finance zaten vardı).
+- [x] **MED · magic string → ✅ KAPALI 2026-06-02:** `:74` `Status IN ('PAID','PARTIAL')` → `@Paid/@Partial`; `Dtos.cs`'e `DocStatus.Partial` eklendi.
+- [x] **MED · sessiz catch → ✅ KAPALI 2026-06-02:** `Items/Details.cshtml.cs` UDF JSON catch → `ILogger` inject + `LogWarning` (ham metin fallback korundu).
+
+---
+
+## 🚨 F0.1 CODE REVIEW SONUÇLARI (2026-05-30 — sprint öncesi, canlı koddan doğrulandı)
+
+> code-reviewer (sonnet) + security-reviewer (opus) paralel. file:line kanıtlı. Stale maddeler kapalı.
+
+### 🔴 YENİ KRİTİK — GÜVENLİK
+- [x] **SEC-1 · appsettings DB şifresi** ✅ KAPALI 2026-05-31 — appsettings.json artık `(localdb)` Trusted_Connection (plain şifre yok); gerçek bağlantı User Secrets'ta; git history scrub + force-push yapıldı. (sa rotate düşük-risk borç olarak duruyor — lokal+private)
+- [x] **SEC-2 · switch-company yetki** ✅ KAPALI 2026-05-31 — Program.cs UserCompany erişim kontrolü + `.RequireAuthorization()` + (F0.2) `.RequireRateLimiting`.
+- [x] **SEC-3 · Cookie flag** ✅ KAPALI 2026-05-31 — HttpOnly + SameSite=Strict + SecurePolicy ortam-koşullu (prod Always).
+
+### 🔴 AÇIK — CRIT/HIGH
+- [x] **HIGH-1 · SP THROW kod aralığı** ✅ KAPALI 2026-05-31 (canlı kod doğrulandı) — 12 SP-çağıran handler'ın hepsi `catch when (sex.Number >= 50000)` (üst sınır YOK) → 60001-72001 SP hataları kullanıcıya ULAŞIYOR. `< 60000` bounded catch app kodunda yok. Kalıntı: 3 Create handler (Accounts/Cheques/CreditCards Create) generic SqlException catch → SP Türkçe mesajını yutar ama basit INSERT, business-THROW yok, düşük etki.
+- [x] **HIGH-2 · SO Approve/Cancel direct UPDATE** ✅ KAPALI 2026-05-31 — Approve(171-175)+Cancel(206-210) UPDATE'ten ÖNCE `sp_ValidateStatusTransition` çağırıyor, `>= 50000` catch SP mesajını gösteriyor. Bypass yok.
+- [x] **CRIT-4 · ILogger kullanılmıyordu** ✅ KAPALI 2026-05-31 — 10 dosyada enjekte ama boşta olan logger, veri-yükleme metotları `try/catch(SqlException sqlEx)` ile sarılıp `logger.LogError` + TempData ile bağlandı (silent failure yok). SalesOrders/Index'te logger gerçekten yoktu, eklendi. Build 10→0 uyarı.
+- [x] **CRIT-3 · magic string** ✅ KAPALI 2026-05-31 — 38 SQL-gömülü status literali (14 dosya) DocStatus parametresine çevrildi (`@StDraft/@StPosted/@StCancelled/@StApproved`). Bonus: SalesOrders/Index + PurchaseOrders/Index `$"...{DocStatus.X}..."` string-concat'leri de parametrik yapıldı. Build yeşil, davranış korundu. KALAN (yeni borç): Picking/Terminal `'ASSIGNED'`/`'IN_PROGRESS'` — DocStatus'ta yok, ayrı `PickTaskStatus` sabit sınıfı gerek.
+- [x] **CRIT-3b · Picking status literalleri** ✅ KAPALI 2026-05-31 — DocStatus zaten `Assigned/InProgress/Completed/Draft` içeriyormuş (yeni sınıf gerekmedi). Picking/Terminal:27,94,103 `@StDraft/@StAssigned/@StInProgress/@StCompleted` parametreleştirildi.
+- [x] **IMP-2 · sync ExecuteScalar** ✅ KAPALI 2026-05-31 — Receiving/Details:87, Shipping/Details:87 zaten `ExecuteScalarAsync` (async).
+- [x] **Türkçe yorum eksiği** ✅ KAPALI 2026-05-31 — SalesOrders/Details(6 metot)+Index, Finance/Accounts/Aging/PaymentPlan Index, SalesInvoices Index+Details metot başlarına Türkçe açıklama eklendi.
+
+### ✅ KAPALI (stale)
+CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit blok) · IMP-3 (vade→PaymentTermDays) · AR-001 (CompanyId filtre var) · DataTable.Compute(0) · IDOR(filtreli) · mass assignment(override güvenli).
+
+### F0.1 ÖNCELİK: 1) SEC-1 şifre 2) HIGH-1 SP kod 3) HIGH-2 SO bypass 4) CRIT-4 ILogger 5) SEC-2/3 6) CRIT-3+IMP-2+yorum
+> ⚠️ code-reviewer agent PowerShell deny'i Bash'le aştı (harness uyarısı) — çıktı salt-okuma zararsız.
+
+> ✅ F0.1 DURUMU (2026-05-30): SEC-1 ✅ HIGH-1 ✅ HIGH-2 ✅ CRIT-4 ✅ SEC-2 ✅ SEC-3 ✅ CRIT-3 ✅ IMP-2 ✅
+
+## 🔒 PLAN 12 — MULTI-COMPANY İZOLASYON GUARD (2026-05-31 — uygulandı)
+- [x] **scan-isolation guard** — `operax-cli scan-isolation` (`src/Operax.Cli/IsolationScanner.cs`); 52 doğrudan + 27 dolaylı company-scoped tablo envanteri. CompanyId predikatsız ham sorgu → exit 1.
+- [x] **İhlal sweep** — 55 aday → 2 gerçek fix (AutoTraceability, Transfer/Replenishment) + 33 suppress (defense-in-depth, kendini-açıklayan yorum) + Production/Terminal gerçek fix (order firma guard).
+- [x] **Production/Terminal izolasyon açığı** ✅ KAPALI — OnPostStart firma-doğrulama guard'ı + ProductionOrder UPDATE CompanyId + bare-catch→logger.
+- [ ] **DEAD/WIP production servisleri** (ProductionReceiptService, ProductionActivityService, DynamicBomService) — caller/DI yok, kırık StockMovement INSERT'leri (canlı VT'de `Qty`/`ReferenceId` kolonu yok, NOT NULL CompanyId/UomId/QtyOriginal eksik). Şimdilik guard'da `isolation-guard:ignore` (dead/WIP gerekçesi) ile bastırıldı. **Karar ertelendi:** WIP atölye terminali feature'ı planlanırsa SP'ye taşınarak (`sp_ProductionConsume`/`sp_ProductionInspect`) yeniden yazılmalı; planlanmazsa silinmeli. Architecture §4: ham C# stok insert yasak, SP zorunlu.
+- [ ] **Sprint-kapanış (plan 12 §4):** dead servisler çözülünce guard 0 → blocking hook'a bağla (pre-commit/session-start).
+
+---
+
+## 🔐 F0.2 PRODUCTION GÜVENLİK SERTLEŞTİRMESİ (2026-05-30 — internet yayına hazırlık)
+
+> ✅ **TAMAMLANDI 2026-05-31** (plan 17) — RL-1, SH-1, RB-1/2/3 (DB-driven RoleModuleAccess + Admin/Roles UI), AP-1/2, TLS-1/3 uygulandı, build yeşil, migrate+seed DB'de doğrulandı.
+> ⚠️ **NOT — RBAC modeli değişti:** RB-3 hardcoded `[Authorize(Roles=)]` yerine **DB-driven** `RoleModuleAccess` tablosu + custom handler + AuthorizeFolder oldu (roller dinamik kalsın diye). TLS-2 (dev https) reddedildi — dev http korundu. Runtime smoke testi opsiyonel kaldı.
+> ✅ **DOĞRULANDI 2026-06-01** (canlı kod): RL-1 `Program.cs:83,193` · SH-1 `Program.cs:148-171` (NetEscapades kütüphanesi — custom `Lib/SecurityHeadersMiddleware.cs` DEĞİL; FrameDeny+NoSniff+XSS+ReferrerPolicy+tam CSP+PermissionsPolicy) · RB-1 `Lib/Roles.cs` · RBAC `Program.cs:139-140` AuthorizeFolder · AP `Program.cs:112,201` · TLS-1 `Program.cs:68-70`. Plan 17 arşivlendi.
+>
+> Sistem internet ortamında herkese açık hale gelecek. Aşağıdaki katmanlar eksik/yetersiz.
+> Kaynak: bu oturum güvenlik analizi (2026-05-30 22:19).
+
+### Öncelik Sırası
+
+**1. 🔴 Rate Limiting — Brute-Force Koruması**
+- [x] **RL-1** `Program.cs` — ASP.NET Core `RateLimiter` middleware ekle
+  - `/Auth/Login` POST: IP başına 10 istek/dakika (5 dk bekleme)
+  - `/api/switch-company`: Kullanıcı başına 10 istek/dakika
+  - Global fallback: IP başına 200 istek/dakika
+  - Identity'nin 5-deneme kilidi IP değiştirilince bypass ediliyor → bu onu kapatır
+
+**2. 🔴 HTTP Security Headers**
+- [x] **SH-1** `Lib/SecurityHeadersMiddleware.cs` — Yeni middleware oluştur, `app.Use()` ile ekle:
+  - `X-Content-Type-Options: nosniff` — MIME sniffing koruması
+  - `X-Frame-Options: SAMEORIGIN` — Clickjacking koruması
+  - `X-XSS-Protection: 1; mode=block` — Eski tarayıcı XSS filtresi
+  - `Referrer-Policy: strict-origin-when-cross-origin` — URL sızıntısı önleme
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()` — İzin kısıtlaması
+  - `Content-Security-Policy` — script/style kaynaklarını whitelist'le
+
+**3. 🟡 Rol Tabanlı Yetkilendirme**
+- [x] **RB-1** `Lib/Roles.cs` — Rol sabitleri static class (magic string yasak kuralı gereği)
+- [x] **RB-2** `Lib/SeedData.cs` — 7 rol seed et: Administrator, WarehouseManager, Finance, Purchasing, Sales, Manufacturing, Viewer
+- [x] **RB-3** Modül → Rol eşleştirmesi (tüm `[Authorize]` attr'ları güncelle):
+  - `Administrator` → Her şey
+  - `WarehouseManager` → Receiving, Shipping, Transfer, Inventory, CycleCount, LPN, Lot, Picking
+  - `Finance` → Payments, Loans, CreditCards, Cheques, Accounts, Aging, PaymentPlan, Snapshot
+  - `Purchasing` → PurchaseOrders, Expenses, Budget
+  - `Sales` → SalesOrders, SalesInvoices, Incentives, Sales
+  - `Manufacturing` → Manufacturing, Production, BOM, WorkOrders, WorkCenters
+  - `Viewer` → Dashboard + MasterData (Items, Partners) — salt okuma
+  - `Admin` modülü → sadece `Administrator`
+
+**4. 🟡 Admin Panel Sıkılaştırması**
+- [x] **AP-1** `Program.cs` — Hangfire dashboard `RequireAuthorization()` → `RequireAuthorization("AdministratorOnly")` policy ekle
+- [x] **AP-2** `Features/Admin/**` — `[Authorize]` → `[Authorize(Roles = Roles.Administrator)]`
+
+**5. 🟢 HTTPS & TLS**
+- [x] **TLS-1** `Program.cs` — `CookieSecurePolicy.SameAsRequest` → `CookieSecurePolicy.Always`
+- [~] **TLS-2** `Program.cs` — HTTPS redirection tüm ortamlarda aktif (dev dahil)
+- [x] **TLS-3** `appsettings.json` HSTS süresi 30 gün → 1 yıl (production)
+
+### Tasarım Kararları (onay bekliyor)
+- Rol eşleştirme tablosu yukarıdaki gibi mi? Değişiklik var mı?
+- Bir kullanıcı birden fazla rol alabilir (örn. hem Finance hem Purchasing)
+- CSP whitelist: Google Fonts + kendi JS/CSS → onaylı
+
+### Tahmini Süre
+RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
+
+---
+
+## 📌 KARARLAR & GELECEK-İŞ (2026-05-30 — defter/muhasebe stratejisi)
+
+> Kaynak: `docs/VISION.md` §7.7 + `docs/reference/REFERENCE_STUDY.md` §7 (K1–K7) + `docs/BUGS.md` AR-005/006/008/009.
+
+**Öncelik sırası (onaylı kararlar):**
+1. [ ] **B1 — plan 12** Multi-company izolasyon (TVF `@CompanyId`-sargı + analyzer guard). Existential, ucuz.
+2. [ ] **plan 14 paketi (aynı omurga):** immutability (B2: AccountMovement IsDeleted→reversal) + **dönem kontrolü (B12, K4: AccountingPeriod firma-bazlı + sp_GuardPeriodOpen + trigger + OPEN/CLOSED/LOCKED — sadece mekanizma)** + clustered PK (B4, R4). ⚠️ Ön koşul: sys.indexes ile clustered+NEWID + IX_StockMovement teyidi.
+3. [ ] **B3 — plan 16** Hafif cari besleme (onay SP'leri AccountMovement'a atomik borç/alacak). **KEBİR/COGS/SRBNB/GL YOK** (K3).
+4. [ ] **B5 — FIFO** "İleri"→**Gerekli** (K7). Snapshot'sız SP içi kuyruk (ERPNext stock_queue deseni); ayrı CostLayer tablosu yok. Roadmap.
+5. [ ] Dolgu: B6 (Available vs Allocated stok), B8 (lokasyon IsReceivable/IsPickable), B9 (slice audit).
+6. [ ] **Ertele:** B10 (ASN), B11 (Decision/routing katmanı), **B13 sayım freeze (K5 — M08/S7, satır bazlı; spec yazıldı `docs/MODULE_SPECS/M08_CycleCount_Freeze.md`)**, **Periyodik GL muhasebeleştirme modülü.**
+
+**GELECEK-İŞ (plan AÇILMADI — sadece kayıt):**
+- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/reference/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
+
+**EKSİK EVRAK TİPLERİ (B17 — Mikro karşılaştırma, `docs/reference/MIKRO_V16_ANALYSIS.md` §12):**
+- [ ] **En yüksek 4 (üretilmeli):** E1 irsaliye↔fatura ayrımı+dönüşüm (VUK) · E2 alış/satış iade (ayrı belge+ters-kayıt) · E4 fire/zayi/imha (maliyet+vergi) · E11 virman kasa↔kasa/cari↔cari (Plan 11 başlamadı).
+- [ ] **Orta:** E5 sayım fazla/eksik · E7 stok açılış/devir · E12 vade farkı/borç-alacak dekontu.
+- [ ] **Çek statü gap:** TEMİNAT (sck_sonpoz=3) + KISMİ ÖDEME (=9) → Cheque statü makinesine + document-immutability §2.4.
+- [ ] **Çözüm deseni (§0.5 uyumlu — yeni ledger tablosu AÇMA):** SourceDocType kataloğu genişlet (RETURN_IN/OUT, WASTE, OPENING_STOCK…) + ADJUST sebep kodu (AdjustReason) + belge zinciri (Header/Line: irsaliye/iade/dekont/virman).
+- [ ] Mikro tam enum (`sth_cins` 14/15, `cha_evrak_tip` 51-137) DOĞRULANMADI — gerekirse resmi DDL'den kesinleştir.
+
+**İPTAL (K6):** B7 SLE-snapshot kolonları (QtyAfterTransaction/ValuationRate/StockValue) — eklenmeyecek. `SUM(QtyBase) WHERE IsCancelled=0` kalıcı.
+
+**⚡ PERFORMANS BORCU (K6):** snapshot yok → bakiye SUM'unun tek dayanağı index. `IX_StockMovement_Company_Item_Date` basılı mı + `vw_InventoryBalance` bunu kullanıyor mu (exec plan) → plan 14 ön koşulunda teyit. Bu index'ler gevşetilemez/silinemez.
+
+---
+
+## 🚨 KOD REVIEW BULGULARI (2026-05-28 — 3 paralel agent: code-reviewer + security-reviewer + silent-failure-hunter)
+
+> ⛔ **SUPERSEDED 2026-05-31** — Bu blok F0.1 (2026-05-30, satır 5-30) + bu oturum çalışmasıyla MÜKERRER. Canlı kod doğrulandı: CRIT-1 (PO/Details:218,247 SP catch+sp_ValidateStatusTransition ✅), CRIT-2 (_PageHeader Raw yok ✅), CRIT-3 (38 literal→param ✅), CRIT-4 (logger bağlandı ✅), HIGH-1 (catch >=50000 açık ✅), HIGH-2 (SP validate var ✅), IMP-1 (Cheques interpolation yok ✅), IMP-2 (async ✅), IMP-3 (PaymentTermDays ✅). Aşağıdaki maddeler TARİHSEL — yeni iş için F0.1/üst bölümlere bak.
+
+Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verification.md` kuralı gereği fix öncesi canlı koddan doğrulanmalı.
+
+### CRITICAL — Plan 02 adayı (Fix Sprint)
+
+- [ ] **CRIT-1 · SP THROW handler catch eksik** — PO/Details.cshtml.cs:166-179 (Approve), Receiving/Details.cshtml.cs:142-151 (Post), Shipping/Details.cshtml.cs:175-194 (CreatePickTask + Post), PO/Details.cshtml.cs:181-190 (Cancel — SP bypass).
+  - **Etki:** SP Türkçe iş kuralı mesajları (stok yetersiz, durum geçişi, vade plan) user'a 500 sayfası olarak iletiliyor, mesaj kayboluyor.
+  - **Fix:** `catch (SqlException sex) when (sex.Number is >= 50000 and < 60000) { TempData["Error"] = sex.Message; return RedirectToPage(new { id }); }`
+  - **Kural:** `.claude/rules/error-handling.md` "SP'lerden Gelen THROW"
+
+- [ ] **CRIT-2 · XSS — `_PageHeader.Sub` `@Html.Raw` + ham PartnerName interpolation** — Shared/_PageHeader.cshtml:33,38 + SalesInvoices/Details.cshtml:13, PO/Details.cshtml:46, SO/Details.cshtml:44.
+  - **Etki:** Partner.Name'de `<script>` → stored XSS tüm detay sayfalarında.
+  - **Fix:** PageHeaderVm'e `SubHtml` (raw) ayrı property + `Sub` encode-safe; veya partial'da `Html.Encode(Model.Sub)` + `Html.Raw(Model.SubHtml)` ayrımı. PartnerName her zaman encode'lu.
+  - **Kural:** `.claude/rules/security-principles.md` §2 XSS
+
+- [ ] **CRIT-3 · Magic string `"APPROVED"` + SQL `IN ('POSTED','APPROVED')`** — SO/Details.cshtml.cs:164, PO/Index.cshtml.cs:41,80, SO/Index.cshtml.cs paralel.
+  - **Fix:** `DocStatus.Posted` sabit kullan; SQL'de IN listesi `Dtos.cs`'te `DocStatus.PostedAliases = ["POSTED","APPROVED"]` array'i + parametre.
+  - **Kural:** `.claude/rules/architecture.md` §3 Magic String Yasağı
+
+- [ ] **CRIT-4 · `ILogger<T>` DI eksik** — Tüm yeni PageModel'ler: Finance/Accounts/Index+Details, Finance/Aging/Index, Finance/Cheques/Index, Finance/CreditCards/Index, Finance/Loans/Index, Finance/PaymentPlan/Index, SalesInvoices/Index+Details, PurchaseOrders/Index+Details, SalesOrders/Index+Details.
+  - **Etki:** SqlException sızar, log yok, production debug imkansız.
+  - **Fix:** Primary ctor `(Db db, ICurrentCompany company, ILogger<XModel> log)` + catch'lerde `log.LogError(sex, "...")`.
+  - **Kural:** `.claude/rules/csharp-conventions.md` Exception Handling
+
+### HIGH — sonraki sprint
+
+- [ ] **HIGH-1 · SP THROW kod aralığı kural dışı** — db_objects_starter.sql 60001-72001 aralığı kullanmış; kural 50000-59999.
+  - **Fix:** Modül slot tahsisi: M02: 51000-51099, M03: 51100-51199, M04: 51200-51299, M11: 51300-51399. `Lib/Errors.cs`'e kayıt sözleşmesi tablo.
+
+- [ ] **HIGH-2 · PO/SO Cancel direct UPDATE — `sp_ValidateStatusTransition` bypass** — PO/Details.cshtml.cs:181-190, SO/Details Cancel.
+  - **Etki:** yetkisiz geçişe açık (POSTED → DRAFT vb.).
+  - **Fix:** `sp_PoCancel`, `sp_SoCancel` SP'leri yaz, içlerinde `sp_ValidateStatusTransition` çağır + ters stok hareketi.
+
+### IMPORTANT — biriktir
+
+- [ ] **IMP-1 · Tablo adı SQL string interpolation** — Cheques/Index.cshtml.cs:37-52 `$"... FROM {table} ..."`. Whitelist'li injection yok ama kural ihlali. İki ayrı sabit SQL bloğu yaz.
+
+- [ ] **IMP-2 · Sync `ExecuteScalar<int>` async handler** — PO/Details.cshtml.cs:119, SO/Details.cshtml.cs:113. → `ExecuteScalarAsync<int>`.
+
+- [ ] **IMP-3 · Hardcoded 14-gün vade** — PO/Index.cshtml.cs:66 `DATEADD(DAY, 14, h.OrderDate)`, PO/Details.cshtml:114 Razor sabit. `Partner.PaymentTermDays` kolonu mevcut (`schema_M01_M04_StarterFields.sql`) — SQL ve UI'da bunu kullan.
+
+- [x] ✅ KAPALI 2026-05-29 — **IMP-4 · `Guid.ToString()[..8]` substring** — `UiHelpers.ShortGuid(g)` eklendi, 4 kullanım birleşti (SalesInvoices/Details, Payments/Create). Commit 480e511.
+
+- [x] ✅ KAPALI 2026-05-29 — **IMP-5 · View'larda CompanyId filtresi eksik** — `v_AccountBalance`/`v_PaymentPlanAging` → `tvf_AccountBalance(@CompanyId)`/`tvf_PaymentPlanAging(@CompanyId)` inline TVF'e dönüştü. 4 çağıran güncellendi, migrate ok.
+
+- [x] ✅ KAPALI 2026-05-29 — **IMP-6 · `ActionLabel` switch DRY ihlali** — `UiHelpers.AuditActionLabel(string)` ortak helper'a taşındı, PO/SO Details kullanıyor.
+
+- [x] ✅ KAPALI 2026-05-29 — **IMP-7 · `'Sistem'` magic SQL içinde** — SQL `NULLIF(a.UserName,'')` NULL döndürüyor, view `?? L.T("Sistem","System")` fallback uyguluyor.
+
+### FEATURE — Cari Ekstre Raporu (Tier 3 — plan gerekli)
+
+- [ ] **FEAT-EKSTRE · Cari Ekstre raporu** — `Partners/Statement/{id}` yazdırılabilir + tarih filtreli ekran (Plan 02'de Faz 6 sayılmıştı ama plan dosyasında yok — ayrı Tier 3 plan yazılacak).
+  - **İçerik:** FinancialTransaction tabanlı hareket dökümü, açılış bakiye + yürüyen bakiye, tarih aralığı filtresi, yazdırma.
+  - **Toggle: "Açık siparişleri dahil et"** — varsayılan KAPALI. Sipariş ledger'da olmaz, bakiyeyi etkilemez ([[open-orders-not-in-ledger]]). Seçilirse rapora **bilgi amaçlı ayrı blok/satır** olarak açık SO/PO eklenir (yürüyen bakiyeye karışmaz, projeksiyon olarak ayrı gösterilir). Kapalıyken tamamen dışarıda.
+  - **Hesap kaynağı:** açık sipariş = `(QtyOrdered − QtySevk/Kabul) × Price`, Status IN (APPROVED, POSTED) — Aging/Partners ile aynı formül (tek yerden helper/TVF).
+
+### FEATURE — Cari Kart Tablı Yapı (Plan 08, onaylı 2026-05-29)
+
+- [ ] **TAB-0 · Tab kabuğu + Genel + sorumlu temsilci** — `?tab=` lazy-load, `ALTER Partner ADD SalesRepUserId/PurchaseRepUserId` (FK AspNetUsers), Genel form + Ekstre tabı partial'a taşı.
+- [ ] **TAB-1 · Okuma tabları** — Siparişler (SO/PO), Fiyatlar (PriceList), Faturalar (Sales/ExpenseInvoice), Çek/Senet — hepsi PartnerId.
+- [ ] **TAB-2 · Yeni tablo + CRUD** — PartnerContact, PartnerAddress, PartnerBankAccount, PartnerActivity (CRM notu) → İlgili Kişiler/Adresler/Banka/Görüşme tabları.
+- [ ] **TAB-3 · İstatistik** — aylık ciro grafiği (Chart.js), top alınan/satılan ürün, risk & limit doluluk barı.
+- [ ] **TAB-4 · Cleanup** — 500-satır split, journal/TODO, plan arşivle.
+- _İleride:_ temsilci bazlı satır-yetki (kendi carisi). _Kapsam dışı:_ Belgeler/Ekler (ayrı mini-plan).
+
+### POSITIVE — koruyalım
+
+- ✅ Tek CSS katmanı (`parts/` parçalı) — ui-standard.md uygulanmış
+- ✅ `L.T("tr","en")` tüm yeni sayfalarda tutarlı
+- ✅ `<div class="page" data-screen-label>` + `_PageHeader` her sayfa
+- ✅ SP `SET XACT_ABORT ON` + BEGIN TRY/CATCH + Türkçe THROW (db_objects_starter)
+- ✅ CompanyId filtresi Dapper sorgularında tutarlı
+- ✅ AntiForgery temiz (Razor Pages default), `ex.Message` user'a sızıntı YOK
+
+### Inline Style Refactor (ayrı kategori — Plan 03 adayı)
+
+- [x] **STYLE-1 · Inline style flood** ✅ KAPALI 2026-05-31 — `parts/_docdetail.css` açıldı (.doc-val/.doc-sub/.doc-total/.doc-grand/.doc-foot-note/.activity-*/.btn-danger-outline + uuid/empty/sub-item). PO/Details 44→23, SalesInvoices/Details 30→~8, Cheques/Index L93. Kalan inline'lar layout/size/data-driven (guard-izinli). Tüm görsel (color/font/border) inline kaldırıldı. Tailwind rebuild + preview'da PO + SalesInvoices görsel doğrulandı (regresyon yok). Bonus: 2 cshtml magic string (`"POSTED"/"APPROVED"`→DocStatus).
+  - **Not (gelecek):** proje geneli kalan ~330 inline (diğer ekranlar) — aynı `.doc-*` pattern ile aşamalı temizlenebilir.
+
+---
+
 > Kaynak: OPERAX_Platform_Master_Document_v2_2_TR.docx  
 > Sürüm: v2.2-TR | Güncelleme: Mart 2026  
-> Format: `[ ]` yapılacak · `[x]` devam ediyor · `[x]` tamamlandı
+> Format: `[ ]` yapılacak · `[/]` devam ediyor · `[x]` tamamlandı
 
 ---
 
@@ -1340,3 +1616,6 @@
 - [ ] E2E: Playwright (kritik akışlar: login, receiving-post, shipment-post)
 - [ ] Performans: k6 (EventQueue, StockMovement yükleme testi)
 
+
+## 🎨 UI BORÇ — Tailwind Utility Salatası → Semantic Class (sistemik)
+- [ ] **Fatura/rapor view'larında Tailwind utility salatası** (ui-standard.md §2 ihlali) — SalesInvoices, PurchaseInvoices, Expenses, Expenses/Report Index/Details: `text-slate-600`, `bg-slate-50`, `text-indigo-600` (token değil!) gibi utility'ler markup'ta. Semantic class'a (`_tables.css` türevi) toplu taşınmalı. `text-indigo-600` → `var(--brand-500)` bağlı class. Sistemik — tek view değil, toplu refactor planı gerek.

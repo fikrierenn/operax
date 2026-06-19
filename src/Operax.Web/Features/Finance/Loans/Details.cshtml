@@ -1,0 +1,126 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Loans.DetailsModel
+@{
+    ViewData["Title"] = $"Kredi {Model.Loan?.LoanNo}";
+    var l = Model.Loan!;
+
+    var header = new PageHeaderVm(
+        Title: $"Kredi {l.LoanNo}",
+        Crumbs: new[] { "Anasayfa", "Finans", "Krediler", l.LoanNo },
+        SubHtml: $"{l.BankName} · {UiHelpers.LoanMethodLabel(l.CalcMethod)} · Anapara <span class=\"mono text-strong\">{UiHelpers.FmtTL(l.Principal)}</span> · " +
+             $"Kalan <span class=\"mono text-strong\" style=\"color:var(--danger-text);\">{UiHelpers.FmtTL(l.OutstandingBalance)}</span>",
+        ActionsHtml: "<a href=\"/Finance/Loans/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"
+    );
+}
+
+<div class="page" data-screen-label="Kredi Detayı">
+
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info" style="margin-bottom:14px;">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger" style="margin-bottom:14px;">@err</div> }
+
+    @* ───── KPI özet ───── *@
+    <div class="kpi-grid">
+        <div class="kpi">
+            <div class="kpi-label">Ödenen Anapara</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.PaidPrincipal)</div>
+            <div class="kpi-foot"><span class="kpi-trend">@Model.PaidCount / @l.TermMonths taksit</span></div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Ödenen Faiz</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.PaidInterest)</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow danger"></div>
+            <div class="kpi-label">Kalan Toplam Borç</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.RemainingTotal)</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow @(Model.OverdueCount > 0 ? "danger" : "success")"></div>
+            <div class="kpi-label">Geciken Taksit</div>
+            <div class="kpi-value">@Model.OverdueCount</div>
+        </div>
+    </div>
+
+    @* ───── Taksit Takvimi ───── *@
+    <div class="card">
+        <div class="card-hdr">
+            <div>
+                <div class="card-title">Taksit Takvimi</div>
+                <div class="card-sub">@l.TermMonths taksit · Faiz %@l.InterestRate.ToString("0.0") · @l.StartDate.ToString("dd MMM yyyy") – @l.EndDate.ToString("dd MMM yyyy")</div>
+            </div>
+        </div>
+        <div class="card-body-flush">
+            @if (Model.Payments.Count == 0)
+            {
+                var empty = new EmptyStateVm("Taksit yok", "Bu kredi tipinde taksit tablosu üretilmez (rotatif/KMH/DBS).");
+                <partial name="_EmptyState" model="empty" />
+            }
+            else
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="num">#</th>
+                            <th>Vade</th>
+                            <th class="num">Anapara</th>
+                            <th class="num">Faiz</th>
+                            <th class="num">Toplam</th>
+                            <th>Durum</th>
+                            <th style="width:240px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pm in Model.Payments)
+                        {
+                            <tr>
+                                <td class="num muted mono">@pm.InstallmentNo</td>
+                                <td class="mono @(pm.IsOverdue ? "text-danger" : "")">@pm.DueDate.ToString("dd MMM yyyy")</td>
+                                <td class="num">@UiHelpers.FmtTL(pm.PrincipalAmount)</td>
+                                <td class="num muted">@UiHelpers.FmtTL(pm.InterestAmount)</td>
+                                <td class="num"><span class="row-strong">@UiHelpers.FmtTL(pm.TotalAmount)</span></td>
+                                <td>
+                                    @if (pm.IsPaid)
+                                    {
+                                        <span class="badge badge-success"><span class="badge-dot"></span>ÖDENDİ</span>
+                                    }
+                                    else if (pm.IsOverdue)
+                                    {
+                                        <span class="badge badge-danger"><span class="badge-dot"></span>GECİKMİŞ</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warn"><span class="badge-dot"></span>BEKLİYOR</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!pm.IsPaid)
+                                    {
+                                        <form method="post" asp-page-handler="Pay" class="row" style="gap:4px;">
+                                            <input type="hidden" name="paymentId" value="@pm.Id" />
+                                            <select name="fromAccountId" class="form-ctrl" style="height:28px;width:140px;" required>
+                                                <option value="">Hesap seç...</option>
+                                                @foreach (var acc in Model.BankAccounts)
+                                                {
+                                                    <option value="@acc.Id">@acc.Name</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-success btn-xs">Öde</button>
+                                        </form>
+                                    }
+                                    else if (pm.PaidAt.HasValue)
+                                    {
+                                        <span class="mono muted" style="font-size:11px;">@pm.PaidAt.Value.ToString("dd MMM yyyy")</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+</div>

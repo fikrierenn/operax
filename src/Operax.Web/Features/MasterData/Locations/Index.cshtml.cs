@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.MasterData.Locations;
 
+[Authorize]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<WarehouseDto> Warehouses { get; set; } = [];
@@ -15,28 +17,30 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         SelectedWhId = whId;
         using var conn = db.Open();
 
-        // Get Warehouses
+        // Depoları getir
         Warehouses = await conn.QueryAsync<WarehouseDto>(@"
             SELECT Id, Code, Name FROM Warehouse 
             WHERE CompanyId = @CompanyId AND IsDeleted = 0 
             ORDER BY Code", 
             new { CompanyId = company.Id });
 
-        // If no WH selected but there are warehouses, select the first one
+        // Depo seçilmediyse ilk depoyu varsayılan seç
         if (whId == null && Warehouses.Any())
         {
             SelectedWhId = Warehouses.First().Id;
         }
 
-        // Get Bins for selected WH
+        // Seçili depoya ait hücreleri getir
         if (SelectedWhId != null)
         {
+            // CompanyId JOIN: URL manipülasyonuyla yabancı depo rafları görülemesin
             Bins = await conn.QueryAsync<BinDto>(@"
-                SELECT Id, Code, Zone, IsPickingArea, IsReceivingArea 
-                FROM Bin 
-                WHERE WarehouseId = @WarehouseId AND IsDeleted = 0 
-                ORDER BY SortNo, Code", 
-                new { WarehouseId = SelectedWhId });
+                SELECT b.Id, b.Code, b.Zone, b.IsPickingArea, b.IsReceivingArea
+                FROM Bin b
+                JOIN Warehouse w ON w.Id = b.WarehouseId
+                WHERE b.WarehouseId = @WarehouseId AND w.CompanyId = @CompanyId AND b.IsDeleted = 0
+                ORDER BY b.SortNo, b.Code",
+                new { WarehouseId = SelectedWhId, CompanyId = company.Id });
         }
     }
 

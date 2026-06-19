@@ -1,0 +1,150 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Accounts.DetailsModel
+@{
+    var a = Model.Account!;
+    ViewData["Title"] = a.Name;
+
+    string typeLabel = a.AccountType switch
+    {
+        "CASH" => L.T("Kasa", "Cash"),
+        "BANK" => L.T("Banka Hesabı", "Bank Account"),
+        "CREDIT_CARD" => L.T("Kredi Kartı", "Credit Card"),
+        "LOAN" => L.T("Kredi Hesabı", "Loan Account"),
+        _ => a.AccountType
+    };
+
+    var header = new PageHeaderVm(
+        Title: a.Name,
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Hesaplar", "Accounts"), a.Code },
+        SubHtml: $"{typeLabel} · {L.T("Bakiye", "Balance")} <span class=\"mono text-strong\" style=\"color:{(Model.Balance < 0 ? "var(--danger-text)" : "var(--text)")}\">{UiHelpers.FmtTL(Model.Balance)}</span>",
+        ActionsHtml: $"<a href=\"/Finance/Accounts\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">{L.T("Hareket Ekle", "Add Tx")}</button>"
+    );
+}
+
+<div class="page" data-screen-label="Hesap Detayı">
+    <partial name="_PageHeader" model="header" />
+
+    @* Üst kart: hesap bilgileri *@
+    <div class="card" style="margin-bottom:14px;">
+        <div class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+            <div>
+                <div class="form-label">@L.T("Kod", "Code")</div>
+                <div class="mono row-strong" style="margin-top:4px;">@a.Code</div>
+            </div>
+            <div>
+                <div class="form-label">@L.T("Tip", "Type")</div>
+                <div class="row-strong" style="margin-top:4px;">@typeLabel</div>
+            </div>
+            <div>
+                <div class="form-label">@L.T("Para Birimi", "Currency")</div>
+                <div class="mono row-strong" style="margin-top:4px;">@a.Currency</div>
+            </div>
+            <div>
+                <div class="form-label">@L.T("Açılış Bakiyesi", "Opening Balance")</div>
+                <div class="mono row-strong" style="margin-top:4px;">@UiHelpers.FmtTL(a.OpeningBalance)</div>
+            </div>
+            @if (!string.IsNullOrEmpty(a.BankName))
+            {
+                <div>
+                    <div class="form-label">@L.T("Banka", "Bank")</div>
+                    <div class="row-strong" style="margin-top:4px;">@a.BankName</div>
+                </div>
+                <div>
+                    <div class="form-label">@L.T("Şube", "Branch")</div>
+                    <div class="row-strong" style="margin-top:4px;">@(a.BranchName ?? "—")</div>
+                </div>
+                <div>
+                    <div class="form-label">@L.T("Hesap No", "Account No")</div>
+                    <div class="mono" style="margin-top:4px;">@(a.AccountNumber ?? "—")</div>
+                </div>
+                <div>
+                    <div class="form-label">IBAN</div>
+                    <div class="mono" style="margin-top:4px;font-size:11px;">@(a.IBAN ?? "—")</div>
+                </div>
+            }
+            @if (a.CreditLimit.HasValue && a.CreditLimit.Value > 0)
+            {
+                <div>
+                    <div class="form-label">@L.T("Limit", "Limit")</div>
+                    <div class="mono row-strong" style="margin-top:4px;">@UiHelpers.FmtTL(a.CreditLimit.Value)</div>
+                </div>
+            }
+            @if (a.InterestRate.HasValue && a.InterestRate.Value > 0)
+            {
+                <div>
+                    <div class="form-label">@L.T("Faiz Oranı", "Interest Rate")</div>
+                    <div class="mono row-strong" style="margin-top:4px;">%@a.InterestRate.Value.ToString("0.00")</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Hareketler tablosu *@
+    <div class="card">
+        <div class="card-hdr">
+            <div>
+                <div class="card-title">@L.T("Hesap Hareketleri (Son 100)", "Account Transactions (Last 100)")</div>
+                <div class="card-sub">@Model.Transactions.Count @L.T("hareket", "tx")</div>
+            </div>
+        </div>
+
+        @if (Model.Transactions.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Hareket yok", "No transactions"),
+                Message: L.T("Bu hesapta henüz hareket kaydı yok.", "No transactions recorded yet."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Tarih", "Date")</th>
+                        <th>@L.T("Tip", "Type")</th>
+                        <th>@L.T("Araç", "Instrument")</th>
+                        <th>@L.T("Açıklama", "Description")</th>
+                        <th>@L.T("Cari", "Partner")</th>
+                        <th>@L.T("Kaynak Belge", "Source")</th>
+                        <th class="num">@L.T("Tutar", "Amount")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Transactions)
+                    {
+                        var isIncome = t.TransactionType == "INCOME" || t.TransactionType == "TRANSFER_IN";
+                        var sign = isIncome ? "+" : "−";
+                        var color = isIncome ? "var(--success-text)" : "var(--danger-text)";
+
+                        <tr>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(t.TransactionDate)</td>
+                            <td>
+                                @if (isIncome)
+                                {
+                                    <span class="badge badge-success"><span class="badge-dot"></span>GELİR</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-danger"><span class="badge-dot"></span>GİDER</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(t.InstrumentType))
+                                {
+                                    <span class="badge badge-neutral">@t.InstrumentType</span>
+                                }
+                            </td>
+                            <td>@(t.Description ?? "")</td>
+                            <td class="muted">@(t.PartnerName ?? "—")</td>
+                            <td class="mono muted">@(t.SourceDocNo ?? "—")</td>
+                            <td class="num">
+                                <span class="row-strong" style="color:@color;">@sign @UiHelpers.FmtTL(t.Amount)</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

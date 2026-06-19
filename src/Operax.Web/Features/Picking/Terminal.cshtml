@@ -1,0 +1,93 @@
+@page
+@model Operax.Web.Features.Picking.TerminalModel
+@{
+    Layout = "_TerminalLayout";
+    ViewData["Title"] = "Toplama Terminali";
+}
+
+<div class="h-full overflow-y-auto p-4 space-y-4">
+
+@if (Model.ActiveTask == null)
+{
+    <div class="bg-slate-800 rounded-2xl p-4">
+        <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest mb-3">Toplama Görevi Seç</h2>
+        <div class="space-y-2">
+            @foreach (var t in Model.PendingTasks)
+            {
+                var pct = t.TotalLines == 0 ? 0 : (int)((double)t.DoneLines / t.TotalLines * 100);
+                <a href="?taskId=@t.Id" class="block bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded-xl p-4 transition-colors">
+                    <div class="flex justify-between mb-2">
+                        <span class="font-black text-white">@t.DocNo</span>
+                        <span class="text-indigo-400 font-bold text-sm">@t.DoneLines/@t.TotalLines</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-600 rounded-full">
+                        <div class="h-full bg-indigo-500 rounded-full" style="width: @pct%"></div>
+                    </div>
+                </a>
+            }
+            @if (!Model.PendingTasks.Any())
+            {
+                <div class="text-center py-8 text-slate-500 italic text-sm">Bekleyen toplama görevi yok.</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    @if (TempData["Success"] != null) { <div class="bg-green-500 rounded-xl p-3 text-center font-bold text-white">✓ @TempData["Success"]</div> }
+    @if (TempData["Error"] != null) { <div class="bg-red-500 rounded-xl p-3 text-center font-bold text-white">✗ @TempData["Error"]</div> }
+
+    <!-- Başlık -->
+    <div class="bg-indigo-900 rounded-2xl p-4 border border-indigo-700 flex justify-between items-start">
+        <div>
+            <div class="text-[10px] text-indigo-300 uppercase font-bold">Toplama Görevi</div>
+            <div class="text-2xl font-black text-white">@Model.ActiveTask.DocNo</div>
+        </div>
+        <a href="?" class="bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg font-bold">← Geri</a>
+    </div>
+
+    @if (Model.CurrentLine != null)
+    {
+        var l = Model.CurrentLine;
+        <!-- Mevcut Satır -->
+        <div class="bg-slate-800 rounded-2xl p-5">
+            <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Git: Raf</div>
+            <div class="text-4xl font-black text-indigo-400 font-mono mb-1">@(l.BinCode ?? "—")</div>
+            <div class="text-slate-400 text-xs mb-4">@l.WhCode</div>
+
+            <div class="bg-slate-700 rounded-xl p-3 mb-4">
+                <div class="font-black text-white text-lg">@l.ItemCode</div>
+                <div class="text-slate-400 text-sm">@l.ItemName</div>
+                <div class="text-3xl font-black text-amber-400 mt-2">× @l.Remaining.ToString("N2")</div>
+            </div>
+
+            <form method="post" asp-page-handler="Confirm" asp-route-taskId="@Model.ActiveTask.Id">
+                <input type="hidden" name="lineId" value="@l.Id" />
+                <input name="barcode" type="text" autofocus autocomplete="off" required
+                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 mb-3"
+                       placeholder="Ürün barkodunu okut..." />
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 active:scale-95 text-white py-5 rounded-2xl text-xl font-black uppercase tracking-wide transition-all">
+                    Onayla ✓
+                </button>
+            </form>
+        </div>
+    }
+    else
+    {
+        <div class="bg-green-900 border border-green-700 rounded-2xl p-8 text-center">
+            <div class="text-5xl mb-3">🎉</div>
+            <div class="text-green-300 font-black text-xl uppercase tracking-widest">Tüm Satırlar Tamamlandı!</div>
+            <a href="?" class="mt-4 inline-block bg-slate-700 text-white px-6 py-3 rounded-xl font-bold text-sm">Yeni Görev Seç</a>
+        </div>
+    }
+}
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const bc = document.querySelector('input[name="barcode"]');
+        if (bc) bc.focus();
+    });
+</script>
+}

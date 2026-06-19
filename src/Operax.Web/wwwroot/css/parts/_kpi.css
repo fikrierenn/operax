@@ -1,0 +1,73 @@
+/* OPERAX — KPI cards (.kpi-grid, .kpi, .kpi-glow, .kpi-value, .kpi-delta) */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { .kpi-grid { grid-template-columns: 1fr; } }
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: box-shadow .18s, transform .18s;
+}
+.kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+.kpi-glow {
+  position: absolute;
+  top: -40px; right: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.18;
+  pointer-events: none;
+}
+.kpi-glow.brand   { background: var(--brand-500); }
+.kpi-glow.success { background: var(--success); }
+.kpi-glow.warn    { background: var(--warn); }
+.kpi-glow.danger  { background: var(--danger); }
+
+.kpi-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-4);
+  display: flex; align-items: center; gap: 6px;
+}
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-top: 6px;
+  line-height: 1.05;
+}
+.kpi-unit { font-size: 14px; font-weight: 600; color: var(--text-3); margin-left: 4px; }
+.kpi-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+
+.kpi-delta {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.kpi-delta.up   { background: var(--success-bg); color: var(--success-text); }
+.kpi-delta.down { background: var(--danger-bg);  color: var(--danger-text); }
+.kpi-delta.flat { background: var(--neutral-bg); color: var(--neutral-text); }
+.kpi-trend { font-size: 11px; color: var(--text-3); }
+
+/* Mini bar chart */
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 32px; }
+.bar { flex: 1; border-radius: 2px 2px 0 0; background: var(--brand-tint-15); min-width: 3px; }
+.bar.tall { background: var(--brand-500); }

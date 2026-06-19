@@ -1,168 +1,481 @@
 @using Operax.Web.Lib
+@using Dapper
 @inject ICurrentUser CurrentUser
 @inject ICurrentCompany CurrentCompany
+@inject Db Db
+@{
+    IEnumerable<dynamic> userCompanies = Array.Empty<dynamic>();
+    if (CurrentUser.IsAuthenticated)
+    {
+        using var conn = Db.Open();
+        // Plan 13: firma değiştirici yalnızca kullanıcının UserCompany'de aktif erişimi olan firmaları gösterir
+        // (eski "tüm firmalar" listesi yetkisiz firmayı da gösterip switch-company'ye yetkisiz POST'a davet ediyordu)
+        userCompanies = conn.Query(@"
+            SELECT c.Id, c.Name
+            FROM Company c
+            JOIN UserCompany uc ON uc.CompanyId = c.Id AND uc.UserId = @UserId AND uc.IsActive = 1
+            WHERE c.IsActive = 1 AND c.IsDeleted = 0
+            ORDER BY c.Name",
+            new { UserId = CurrentUser.Id.ToString() });
+    }
+
+    var displayCompanyName = string.IsNullOrEmpty(CurrentCompany.Name) || CurrentCompany.Name == "OPERAX"
+        ? "Aydın Endüstri A.Ş."
+        : CurrentCompany.Name;
+        
+    var displayCompanyLogo = string.IsNullOrEmpty(CurrentCompany.Name) || CurrentCompany.Name == "OPERAX"
+        ? "AY"
+        : (CurrentCompany.Name.Length >= 2 ? CurrentCompany.Name.Substring(0, 2).ToUpper() : CurrentCompany.Name[0].ToString().ToUpper());
+        
+    var displayCompanySub = string.IsNullOrEmpty(CurrentCompany.Name) || CurrentCompany.Name == "OPERAX"
+        ? "TR · İstanbul"
+        : L.T("Aktif Şirket", "Active Company");
+}
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] — OPERAX</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Premium Typography: Plus Jakarta Sans (modern, geometric, readable) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <style>
-        /* Inter font ailesi ve tam yükseklik zorunlu — Tailwind'e bırakılmıyor */
-        html, body { height: 100%; font-family: 'Inter', sans-serif; }
-    </style>
+
+    <!-- Alpine.js — server-rendered sayfalarda declarative etkileşim (vanilla yerine). Self-host, defer. -->
+    <script defer src="~/lib/alpine/alpine.min.js" asp-append-version="true"></script>
 </head>
-<body class="bg-slate-50 overflow-hidden h-full">
+<body style="height:100%;overflow:hidden;">
 
-    <div class="flex h-screen">
+<div class="app">
 
-        <!-- ===================== SIDEBAR ===================== -->
-        <aside class="w-60 bg-white border-r border-slate-200 flex flex-col shrink-0">
+    <!-- ════════════════════ SIDEBAR ════════════════════ -->
+    <aside class="side">
 
-            <!-- Logo -->
-            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
-                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center
-                            text-white font-black text-sm shadow-lg shadow-indigo-200 shrink-0">OX</div>
-                <div>
-                    <div class="font-black text-slate-800 tracking-tighter text-sm leading-none">OPERAX</div>
-                    <div class="text-[10px] text-slate-400 mt-0.5">v2.5 · Kurumsal ERP</div>
-                </div>
+        <!-- Logo & Brand Block -->
+        <div class="side-brand">
+            <!-- Brand mark: OX in indigo gradient -->
+            <div class="side-brand-mark">OX</div>
+            <div>
+                <div class="side-brand-name">OPERAX</div>
+                <div class="side-brand-sub">ERP & WMS Platform</div>
             </div>
-
-            <!-- Navigasyon -->
-            <nav class="flex-1 overflow-y-auto py-2 px-2">
-                <span class="nav-label">Ana Menü</span>
-                <a asp-page="/Dashboard/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-                        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-                        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-                        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-                    </svg>
-                    Panel
-                </a>
-
-                <span class="nav-label">Tanımlamalar</span>
-                <a asp-page="/MasterData/Items/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    </svg>
-                    Ürün Yönetimi
-                </a>
-                <a asp-page="/Warehouses/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                    Depolar & Raflar
-                </a>
-
-                <span class="nav-label">Stok & Operasyon</span>
-                <a asp-page="/Inventory/Balance/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-                        <line x1="8" y1="18" x2="21" y2="18"/>
-                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
-                        <line x1="3" y1="18" x2="3.01" y2="18"/>
-                    </svg>
-                    Stok Bakiyesi
-                </a>
-                <a asp-page="/Receiving/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    Mal Kabul
-                </a>
-                <a asp-page="/Shipping/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="1" y="3" width="15" height="13" rx="1"/>
-                        <path d="M16 8h4l3 5v3h-7V8z"/>
-                        <circle cx="5.5" cy="18.5" r="2.5"/>
-                        <circle cx="18.5" cy="18.5" r="2.5"/>
-                    </svg>
-                    Sevkiyat
-                </a>
-
-                <span class="nav-label">Sistem</span>
-                <a asp-page="/Admin/Settings/Index" class="nav-item">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                    Ayarlar
-                </a>
-            </nav>
-
-            <!-- Kullanıcı bilgisi -->
-            <div class="px-4 py-3 border-t border-slate-200 flex items-center gap-3">
-                @{
-                    // Kullanıcı adından en fazla 2 baş harf üretilir
-                    var parts = CurrentUser.UserName.Split(' ', '@').Where(p => p.Length > 0).ToArray();
-                    var initials = parts.Length >= 2
-                        ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
-                        : (parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant() : "?");
-                    // Admin rolü varsa "Yönetici", yoksa ilk rol gösterilir
-                    var adminRoles = new[] { "Admin", "Administrator" };
-                    var roleLabel = CurrentUser.Roles.Any(r => adminRoles.Contains(r)) ? "Yönetici"
-                        : CurrentUser.Roles.FirstOrDefault() ?? "Kullanıcı";
-                }
-                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center
-                            text-xs font-bold text-slate-600 shrink-0">@initials</div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-slate-800 truncate">@CurrentUser.UserName</div>
-                    <div class="text-[10px] text-slate-400">@roleLabel</div>
-                </div>
-            </div>
-
-        </aside>
-        <!-- ================== /SIDEBAR ================== -->
-
-        <!-- =================== ANA ALAN =================== -->
-        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-            <!-- Üst bar -->
-            <header class="h-14 bg-white border-b border-slate-200 flex items-center gap-3 px-5 shrink-0">
-                <div class="flex-1 font-bold text-slate-800 text-sm">@ViewData["Title"]</div>
-                <div class="flex items-center gap-2">
-                    <div class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-medium text-slate-500">
-                        @DateTime.Now.ToString("dd MMM yyyy")
-                    </div>
-                    @if (CurrentCompany.Id != Guid.Empty)
-                    {
-                        <!-- Aktif şirket adı cookie claim'inden gösterilir -->
-                        <div class="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-[11px] font-bold text-indigo-600">
-                            @CurrentCompany.Name
-                        </div>
-                    }
-                </div>
-            </header>
-
-            <!-- Sayfa içeriği -->
-            <main class="flex-1 overflow-y-auto p-6 bg-slate-50">
-                @RenderBody()
-            </main>
-
         </div>
-        <!-- ================= /ANA ALAN ================= -->
+
+        <!-- Active Company Block — firma değiştirme formu -->
+        @if (CurrentUser.IsAuthenticated && userCompanies.Count() > 1)
+        {
+            <form method="POST" action="/api/switch-company" style="margin:0;">
+                @Html.AntiForgeryToken()
+                <div class="side-company" style="cursor:pointer;" title="Firma değiştir">
+                    <div class="side-company-logo">@displayCompanyLogo</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="side-company-name">@displayCompanyName</div>
+                        <div class="side-company-sub">@displayCompanySub</div>
+                    </div>
+                    <select name="companyId" onchange="this.form.submit()"
+                            style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+                        @foreach (var comp in userCompanies)
+                        {
+                            bool isSel = comp.Id == CurrentCompany.Id;
+                            <option value="@comp.Id" selected="@(isSel ? "selected" : null)">@comp.Name</option>
+                        }
+                    </select>
+                    <svg class="side-company-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="side-company">
+                <div class="side-company-logo">@displayCompanyLogo</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="side-company-name">@displayCompanyName</div>
+                    <div class="side-company-sub">@displayCompanySub</div>
+                </div>
+            </div>
+        }
+
+        <!-- Navigation Menu -->
+        <nav class="side-nav">
+
+            <!-- ==================== GENEL ==================== -->
+            <span class="side-group-label">@L.T("Genel", "General")</span>
+            <a asp-page="/Dashboard/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                </svg>
+                @L.T("Anasayfa", "Dashboard")
+            </a>
+
+            <!-- ==================== OPERASYON ==================== -->
+            @* STARTER kapsamı: M00 Sistem · M01 Master · M02 Stok · M03 Satınalma · M04 Satış · M11 Finans
+               WMS Pro (Picking/Transfer/CycleCount/LPN/Lot/Serial), Üretim (M10), Muhasebe (Expenses) ve Bütçe modülleri başka pakettedir. *@
+            <span class="side-group-label">@L.T("Operasyon", "Operations")</span>
+
+            @* ───── Satınalma grubu (M03) ───── *@
+            <details class="side-group">
+                <summary class="side-item">
+                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    @L.T("Satınalma", "Purchasing")
+                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </summary>
+                <div class="side-sub-list">
+                    <a asp-page="/PurchaseOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
+                    <a asp-page="/Receiving/Index" class="side-sub-item">@L.T("Mal Kabul", "Receiving")</a>
+                    <a asp-page="/PurchaseInvoices/Index" class="side-sub-item">@L.T("Alış Faturaları", "Purchase Invoices")</a>
+                </div>
+            </details>
+
+            @* ───── Satış grubu (M04 + e-Fatura) ───── *@
+            <details class="side-group">
+                <summary class="side-item">
+                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    @L.T("Satış", "Sales")
+                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </summary>
+                <div class="side-sub-list">
+                    <a asp-page="/SalesOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
+                    <a asp-page="/Shipping/Index" class="side-sub-item">@L.T("Sevkiyat", "Shipping")</a>
+                    <a asp-page="/SalesInvoices/Index" class="side-sub-item">@L.T("Faturalar", "Invoices")</a>
+                </div>
+            </details>
+
+            @* ───── Stok grubu (M02) ───── *@
+            <details class="side-group">
+                <summary class="side-item">
+                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    @L.T("Stok", "Stock")
+                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </summary>
+                <div class="side-sub-list">
+                    <a asp-page="/Inventory/Balance/Index" class="side-sub-item">@L.T("Bakiye", "Balance")</a>
+                    <a asp-page="/Inventory/Movements/Index" class="side-sub-item">@L.T("Hareketler", "Movements")</a>
+                    <a asp-page="/MaterialIssue/Index" class="side-sub-item">@L.T("Sarf Fişleri", "Material Issue")</a>
+                </div>
+            </details>
+
+            @* ───── Ana Veri grubu (M01) ───── *@
+            <details class="side-group">
+                <summary class="side-item">
+                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                    @L.T("Ana Veri", "Master Data")
+                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </summary>
+                <div class="side-sub-list">
+                    <a asp-page="/MasterData/Items/Index" class="side-sub-item">@L.T("Ürünler", "Items")</a>
+                    <a asp-page="/MasterData/Partners/Index" class="side-sub-item">@L.T("Cari Kartlar", "Partners")</a>
+                    <a asp-page="/Warehouses/Index" class="side-sub-item">@L.T("Depolar", "Warehouses")</a>
+                    <a asp-page="/MasterData/Branches/Index" class="side-sub-item">@L.T("Şubeler", "Branches")</a>
+                    <a asp-page="/MasterData/PriceLists/Index" class="side-sub-item">@L.T("Fiyat Listeleri", "Price Lists")</a>
+                </div>
+            </details>
+
+            @* ==================== FİNANS (M11) ==================== *@
+            <span class="side-group-label">@L.T("Finans", "Finance")</span>
+
+            <a asp-page="/Finance/Accounts/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                    <line x1="2" y1="10" x2="22" y2="10"/>
+                </svg>
+                @L.T("Hesaplar", "Accounts")
+            </a>
+
+            <a asp-page="/Finance/Cheques/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                    <path d="M2 11h20"/><path d="M7 15h4"/>
+                </svg>
+                @L.T("Çek & Senet", "Cheques & Notes")
+            </a>
+
+            <a asp-page="/Finance/Loans/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+                </svg>
+                @L.T("Krediler", "Loans")
+            </a>
+
+            <a asp-page="/Finance/CreditCards/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                    <line x1="2" y1="10" x2="22" y2="10"/>
+                    <line x1="6" y1="14" x2="10" y2="14"/>
+                </svg>
+                @L.T("Kredi Kartları", "Credit Cards")
+            </a>
+
+            <a asp-page="/Finance/PaymentPlan/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>
+                </svg>
+                @L.T("Ödeme Planı", "Payment Plan")
+            </a>
+
+            <a href="/Finance/Payments/Create" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                @L.T("Ödeme / Tahsilat", "Payment / Receipt")
+            </a>
+
+            <a asp-page="/Finance/Aging/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Yaşlandırma
+            </a>
+
+            <a asp-page="/Finance/Snapshot/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M3 3v18h18"/>
+                    <path d="M7 17l4-4 3 3 5-5"/>
+                </svg>
+                Mali Durum
+            </a>
+
+            <!-- ==================== SİSTEM ==================== -->
+            <span class="side-group-label">@L.T("Sistem", "System")</span>
+            
+            <a asp-page="/Admin/Settings/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                @L.T("Ayarlar", "Settings")
+            </a>
+
+            <a asp-page="/Admin/NumberSeries/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M4 7h16M4 12h16M4 17h10"/>
+                    <path d="M18 15l2 2-2 2"/>
+                </svg>
+                @L.T("Belge Serileri", "Number Series")
+            </a>
+
+            <a asp-page="/Admin/UdfFields/Index" class="side-item">
+                <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16"/>
+                    <path d="M9 3v18"/>
+                </svg>
+                @L.T("Özel Alanlar", "Custom Fields")
+            </a>
+
+            <!-- Bottom padding for scroll safety -->
+            <div style="height:12px;"></div>
+        </nav>
+
+        <!-- User Footer Block -->
+        <div class="side-foot">
+            @{
+                var parts = CurrentUser.UserName.Split(' ', '@').Where(p => p.Length > 0).ToArray();
+                var initials = parts.Length >= 2
+                    ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                    : (parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant() : "?");
+                var adminRoles = new[] { "Admin", "Administrator" };
+                var roleLabel = CurrentUser.Roles.Any(r => adminRoles.Contains(r))
+                    ? L.T("Yönetici", "Admin")
+                    : CurrentUser.Roles.FirstOrDefault() ?? L.T("Kullanıcı", "User");
+            }
+            <!-- Avatar -->
+            <div class="side-foot-avatar">@initials</div>
+            <div style="flex:1;min-width:0;">
+                <div class="side-foot-name">@CurrentUser.UserName</div>
+                <div class="side-foot-role">@roleLabel</div>
+            </div>
+            <!-- Logout Action -->
+            <a asp-page="/Auth/Logout" title="@L.T("Çıkış", "Sign Out")" class="side-foot-action">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </a>
+        </div>
+
+    </aside>
+    <!-- ════════════════════ /SIDEBAR ════════════════════ -->
+
+
+    <!-- ════════════════════ MAIN CONTENT AREA ════════════════════ -->
+    <div class="main">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+            <!-- Search bar -->
+            <div class="topbar-search">
+                <span class="topbar-search-icon">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </span>
+                <input type="text" placeholder="@L.T("Evrak, ürün, tedarikçi, kullanıcı ara...", "Search document, item, partner...")" />
+                <span class="topbar-search-kbd">⌘ K</span>
+            </div>
+
+            <div class="topbar-actions" style="display:flex;align-items:center;gap:6px;">
+
+                <!-- Quick Action Plus Button -->
+                <button class="icon-btn" title="@L.T("Hızlı Ekle", "Quick Add")">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+
+                <!-- Notifications Bell -->
+                <button class="icon-btn" title="@L.T("Bildirimler", "Notifications")">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span class="icon-btn-dot"></span>
+                </button>
+
+                <!-- System Info Icon -->
+                <button class="icon-btn" title="@L.T("Sistem Bilgisi", "System Info")">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+
+                @* Dil değiştirici (TR/EN) kaldırıldı — arayüz tamamen Türkçe (turkish-ui.md kuralı) *@
+                @* Firma değiştirici sidebar'a taşındı *@
+
+                <!-- Date chip -->
+                <div style="
+                    font-size:11px;font-weight:600;
+                    color:hsl(215,16%,50%);
+                    background:hsl(220,14%,96%);
+                    border:1px solid hsl(220,14%,90%);
+                    border-radius:9px;
+                    padding:5px 10px;
+                    font-variant-numeric:tabular-nums;
+                    display:flex;align-items:center;gap:5px;
+                    height:32px;
+                ">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                    </svg>
+                    @DateTime.Now.ToString(L.T("dd MMM yyyy", "yyyy-MM-dd"))
+                </div>
+
+            </div>
+        </header>
+        <!-- /TOP BAR -->
+
+        <!-- PAGE CONTENT -->
+        <main class="fade-in" style="flex:1;overflow-y:auto;padding:24px;background:hsl(220,14%,97%);">
+            @* Global bildirim bandı — TempData mesajları (onay/iptal/hata) tüm sayfalarda görünür *@
+            @if (TempData["Error"] is string bannerErr)
+            {
+                <div class="alert-banner alert-danger">@bannerErr</div>
+            }
+            @if (TempData["Success"] is string bannerOk)
+            {
+                <div class="alert-banner alert-success">@bannerOk</div>
+            }
+            @RenderBody()
+        </main>
 
     </div>
+    <!-- ════════════════════ /MAIN CONTENT AREA ════════════════════ -->
 
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    <script src="~/js/Shortcuts.js" asp-append-version="true"></script>
+</div>
+
+@* _PageHeader kullanmayan sayfalar için global yüzen yardım butonu (çift gösterim flag ile engellenir) *@
+@if (ViewData["HasPageHeader"] == null && Context.Request.Path != "/Help")
+{
+    <button type="button" class="btn btn-primary btn-sm" title="Bu ekran için yardım"
+            style="position:fixed;right:18px;bottom:18px;z-index:60;"
+            onclick="OperaxHelp.open()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        Yardım
+    </button>
+}
+
+@* Ekran-içi yardım paneli (drawer) — tıklanan ekranın yardımı sayfadan ayrılmadan sağdan açılır *@
+@if (Context.Request.Path != "/Help")
+{
+    <div id="help-overlay" style="display:none">
+        <div class="scrim" onclick="OperaxHelp.close()"></div>
+        <aside class="drawer" role="dialog" aria-label="Yardım">
+            <div class="drawer-hdr">
+                <svg width="18" height="18" fill="none" stroke="var(--brand-500)" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span class="drawer-title" id="help-title">Yardım</span>
+                <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="OperaxHelp.close()">Kapat</button>
+            </div>
+            <div class="drawer-body help-content" id="help-body">Yükleniyor…</div>
+            <div class="drawer-foot">
+                <a class="btn btn-secondary btn-sm" id="help-fulllink" href="/Help" target="_blank">Tüm Kitapçık</a>
+            </div>
+        </aside>
+    </div>
     <script>
-        // URL path ile eşleşen nav item'a .active sınıfı eklenir
-        const p = window.location.pathname.toLowerCase();
-        document.querySelectorAll('a.nav-item').forEach(a => {
-            const h = (a.getAttribute('href') || '').toLowerCase();
-            if (h && (h === p || (h !== '/' && p.startsWith(h)))) a.classList.add('active');
-        });
+    window.OperaxHelp = {
+        open: function () {
+            var ov = document.getElementById('help-overlay');
+            var body = document.getElementById('help-body');
+            var ret = location.pathname + location.search;
+            ov.style.display = 'block';
+            body.innerHTML = 'Yükleniyor…';
+            document.getElementById('help-fulllink').href = '/Help?ret=' + encodeURIComponent(ret);
+            fetch('/Help?embed=true&ret=' + encodeURIComponent(ret), { credentials: 'same-origin' })
+                .then(function (r) { return r.text(); })
+                .then(function (html) { body.innerHTML = html; body.scrollTop = 0; })
+                .catch(function () { body.innerHTML = '<p>Yardım yüklenemedi.</p>'; });
+        },
+        close: function () { document.getElementById('help-overlay').style.display = 'none'; }
+    };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') OperaxHelp.close(); });
     </script>
-    @await RenderSectionAsync("Scripts", required: false)
+}
+
+<script src="~/js/combobox.js" asp-append-version="true"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+<script src="~/js/Shortcuts.js" asp-append-version="true"></script>
+<script>
+    // Aktif menü öğesi tespiti — URL path'ine göre
+    (function () {
+        const p = window.location.pathname.toLowerCase();
+        document.querySelectorAll('a.side-item, a.side-sub-item').forEach(function(a) {
+            const h = (a.getAttribute('href') || '').toLowerCase();
+            if (h && (h === p || (h !== '/' && p.startsWith(h)))) {
+                a.classList.add('active');
+                // Auto-expand parent details group
+                const group = a.closest('details.side-group');
+                if (group) {
+                    group.setAttribute('open', '');
+                }
+            }
+        });
+    })();
+</script>
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

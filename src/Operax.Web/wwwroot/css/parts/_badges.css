@@ -1,0 +1,35 @@
+/* OPERAX — Badges (durum etiketleri) */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.badge-success { background: var(--success-bg); color: var(--success-text); border-color: var(--success-border); }
+.badge-success .badge-dot { background: var(--success); box-shadow: 0 0 0 2px hsl(160 84% 39% / 0.15); }
+.badge-warn { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
+.badge-warn .badge-dot { background: var(--warn); box-shadow: 0 0 0 2px hsl(38 92% 50% / 0.15); }
+.badge-danger { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-border); }
+.badge-danger .badge-dot { background: var(--danger); box-shadow: 0 0 0 2px hsl(0 84% 60% / 0.15); }
+.badge-info { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); }
+.badge-info .badge-dot { background: hsl(217 80% 50%); }
+.badge-neutral { background: var(--neutral-bg); color: var(--neutral-text); border-color: var(--neutral-border); }
+.badge-neutral .badge-dot { background: hsl(215 16% 47%); }
+.badge-brand {
+  background: hsl(243 75% 59% / 0.10);
+  color: hsl(243 60% 42%);
+  border-color: hsl(243 75% 59% / 0.25);
+}
+.badge-brand .badge-dot { background: var(--brand-500); }

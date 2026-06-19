@@ -1,7 +1,7 @@
 @page
 @model Operax.Web.Features.Transfer.PutawayModel
 @{
-    ViewData["Title"] = "Putaway Wizard";
+    ViewData["Title"] = "Raf Yerleştirme";
 }
 
 <div class="mb-8">
@@ -29,14 +29,13 @@
                 <form method="post" asp-page-handler="Putaway">
                     <input type="hidden" name="itemId" value="@s.ItemId" />
                     <input type="hidden" name="fromBinId" value="@s.BinId" />
-                    <input type="hidden" name="lpnId" value="@s.LpnId" />
                     <input type="hidden" name="qty" value="@s.Qty" />
                     
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="px-6 py-4">
                             <div class="font-bold text-indigo-600">@s.ItemName</div>
                             <div class="text-[10px] text-slate-400 font-mono">
-                                @s.ItemCode @(string.IsNullOrEmpty(s.LpnCode) ? "" : $" | Palet: {s.LpnCode}")
+                                @s.ItemCode
                             </div>
                         </td>
                         <td class="px-6 py-4 font-mono text-slate-500 italic">@s.BinCode</td>

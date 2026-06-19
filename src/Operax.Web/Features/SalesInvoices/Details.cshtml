@@ -1,0 +1,189 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.SalesInvoices.DetailsModel
+@{
+    var h = Model.Header!;
+    ViewData["Title"] = h.InvoiceNo;
+
+    var statusBadgeHtml = UiHelpers.StatusBadge(h.Status);
+
+    var header = new PageHeaderVm(
+        Title: h.InvoiceNo,
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Faturalar", "Invoices"), h.InvoiceNo },
+        SubHtml: $"{System.Web.HttpUtility.HtmlEncode(h.PartnerName)} · {UiHelpers.FmtDateShort(h.InvoiceDate)} · {L.T("Vade", "Due")} <span class=\"mono\">{(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")}</span>",
+        ActionsHtml: $"<a href=\"/SalesInvoices\" class=\"btn btn-ghost btn-sm\">{L.T("Geri", "Back")}</a><button class=\"btn btn-secondary btn-sm\">PDF</button>" +
+                     (h.EBelgeStatus == null ? $"<button class=\"btn btn-primary btn-sm\">{L.T("e-Fatura'ya Çevir", "Convert to e-Invoice")}</button>" : "") +
+                     (h.Status == DocStatus.Posted ? $"<button form=\"reverse-form\" type=\"submit\" class=\"btn btn-danger btn-sm\" onclick=\"return confirm('Faturayı iptal etmek istediğinize emin misiniz?')\">{L.T("İptal Et", "Cancel")}</button>" : "")
+    );
+}
+
+@* Reversal form — buton dışarıda (ActionsHtml) form attribute ile bağlı *@
+<form id="reverse-form" method="post" asp-page-handler="Reverse" asp-route-id="@h.Id">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="page" data-screen-label="Satış Faturası Detayı" style="max-width:1400px;">
+    <partial name="_PageHeader" model="header" />
+
+    @if (Model.DocFlow is not null)
+    {
+        <partial name="_DocFlowButtons" model="Model.DocFlow" />
+    }
+
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+        @Html.Raw(statusBadgeHtml)
+        @if (!string.IsNullOrEmpty(h.EBelgeType))
+        {
+            <span class="badge badge-info">@h.EBelgeType</span>
+        }
+        @if (!string.IsNullOrEmpty(h.EBelgeStatus))
+        {
+            <span class="badge badge-neutral">e-Belge: @h.EBelgeStatus</span>
+        }
+        @if (h.EBelgeUuid.HasValue)
+        {
+            <span class="muted mono doc-uuid">UUID: @UiHelpers.ShortGuid(h.EBelgeUuid.Value)…</span>
+        }
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;">
+        <div class="stack">
+            @* Müşteri + fatura bilgisi *@
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">@L.T("Fatura Bilgileri", "Invoice Info")</div></div>
+                <div class="card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+                    <div>
+                        <div class="form-label">@L.T("Müşteri", "Customer")</div>
+                        <div class="row-strong text-brand" style="margin-top:4px;">@h.PartnerName</div>
+                        @if (!string.IsNullOrEmpty(h.TaxNumber))
+                        {
+                            <div class="row-sub mono">VKN @h.TaxNumber</div>
+                        }
+                        @if (!string.IsNullOrEmpty(h.TaxOffice))
+                        {
+                            <div class="row-sub">@h.TaxOffice</div>
+                        }
+                    </div>
+                    <div>
+                        <div class="form-label">@L.T("Fatura Tarihi", "Invoice Date")</div>
+                        <div class="mono row-strong" style="margin-top:4px;">@UiHelpers.FmtDateShort(h.InvoiceDate)</div>
+                    </div>
+                    <div>
+                        <div class="form-label">@L.T("Vade Tarihi", "Due Date")</div>
+                        <div class="mono row-strong" style="margin-top:4px;">@(h.DueDate.HasValue ? UiHelpers.FmtDateShort(h.DueDate.Value) : "—")</div>
+                    </div>
+                    <div>
+                        <div class="form-label">@L.T("Para Birimi", "Currency")</div>
+                        <div class="mono row-strong" style="margin-top:4px;">@h.Currency</div>
+                    </div>
+                    <div>
+                        <div class="form-label">@L.T("Ödenen", "Paid")</div>
+                        <div class="mono row-strong" style="margin-top:4px;">@UiHelpers.FmtTL(h.PaidAmount)</div>
+                    </div>
+                    <div>
+                        <div class="form-label">@L.T("Kalan", "Remaining")</div>
+                        <div class="mono row-strong" style="margin-top:4px;">@UiHelpers.FmtTL(h.GrandTotal - h.PaidAmount)</div>
+                    </div>
+                </div>
+            </div>
+
+            @* Kalemler *@
+            <div class="card">
+                <div class="card-hdr">
+                    <div>
+                        <div class="card-title">@L.T("Fatura Kalemleri", "Invoice Lines")</div>
+                        <div class="card-sub">@Model.Lines.Count @L.T("kalem", "lines")</div>
+                    </div>
+                </div>
+                <div class="card-body-flush">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>@L.T("Ürün Kodu", "SKU")</th>
+                                <th>@L.T("Ürün Adı", "Item")</th>
+                                <th>@L.T("Birim", "UOM")</th>
+                                <th class="num">@L.T("Miktar", "Qty")</th>
+                                <th class="num">@L.T("Birim Fiyat", "Price")</th>
+                                <th class="num">@L.T("Ara Toplam", "Subtotal")</th>
+                                <th class="num">@L.T("KDV %", "Tax %")</th>
+                                <th class="num">@L.T("KDV Tutarı", "Tax")</th>
+                                <th class="num">@L.T("Toplam", "Total")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in Model.Lines)
+                            {
+                                <tr>
+                                    <td><span class="mono row-strong text-brand">@l.ItemCode</span></td>
+                                    <td>@l.ItemName</td>
+                                    <td><span class="badge badge-neutral" style="height:18px;">@(l.UomCode ?? "")</span></td>
+                                    <td class="num">@UiHelpers.FmtNum(l.Qty, 2)</td>
+                                    <td class="num">@UiHelpers.FmtTL(l.UnitPrice)</td>
+                                    <td class="num">@UiHelpers.FmtTL(l.LineSubtotal)</td>
+                                    <td class="num muted">%@l.TaxRatePercent.ToString("0.0")</td>
+                                    <td class="num muted">@UiHelpers.FmtTL(l.TaxAmount)</td>
+                                    <td class="num row-strong">@UiHelpers.FmtTL(l.LineTotal)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-foot">
+                    <div class="doc-foot-note">@L.T("Tüm tutarlar", "All amounts") @h.Currency</div>
+                    <div class="row doc-totals">
+                        <div class="doc-total">
+                            <span class="text-mute">@L.T("Ara Toplam", "Subtotal")</span>
+                            <span class="mono text-strong">@UiHelpers.FmtTL(h.Subtotal)</span>
+                        </div>
+                        <div class="doc-total">
+                            <span class="text-mute">@L.T("KDV Toplamı", "Total Tax")</span>
+                            <span class="mono text-strong">@UiHelpers.FmtTL(h.TaxAmount)</span>
+                        </div>
+                        <div class="doc-total">
+                            <span class="doc-total-cap">@L.T("Genel Toplam", "Grand Total")</span>
+                            <span class="mono doc-grand">@UiHelpers.FmtTL(h.GrandTotal)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Sağ panel: e-Belge gönderim geçmişi *@
+        <div class="stack">
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">@L.T("e-Belge Gönderimleri", "e-Doc Submissions")</div></div>
+                <div class="card-body" style="padding:14px 18px;">
+                    @if (Model.Envelopes.Count == 0)
+                    {
+                        <div class="muted doc-empty">@L.T("Henüz gönderim yok", "No submissions yet")</div>
+                    }
+                    else
+                    {
+                        foreach (var e in Model.Envelopes)
+                        {
+                            <div class="doc-sub-item">
+                                <div class="row" style="justify-content:space-between;margin-bottom:4px;">
+                                    <span class="row-strong">@e.DocumentType</span>
+                                    <span class="badge badge-neutral">@e.Status</span>
+                                </div>
+                                <div class="mono row-sub">@UiHelpers.ShortGuid(e.Uuid)…</div>
+                                @if (e.SentAt.HasValue)
+                                {
+                                    <div class="row-sub">@L.T("Gönderim:", "Sent:") @UiHelpers.FmtDateShort(e.SentAt.Value)</div>
+                                }
+                                @if (e.AcceptedAt.HasValue)
+                                {
+                                    <div class="row-sub text-success">@L.T("Kabul:", "Accepted:") @UiHelpers.FmtDateShort(e.AcceptedAt.Value)</div>
+                                }
+                                @if (e.RejectedAt.HasValue)
+                                {
+                                    <div class="row-sub text-danger">@L.T("Red:", "Rejected:") @UiHelpers.FmtDateShort(e.RejectedAt.Value)</div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

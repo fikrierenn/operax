@@ -1,0 +1,70 @@
+@using Operax.Web.Lib
+@model CustomFieldsVm
+
+@* Dinamik kullanıcı tanımlı alanlar (UDF) — UserFieldDefinition tanımlarına göre render edilir.
+   Tanım yoksa hiç HTML üretilmez. *@
+@if (Model.Definitions.Count > 0)
+{
+    <div class="form-row-3">
+        @foreach (var f in Model.Definitions)
+        {
+            // Mevcut değer: kayıtlı JSON > yoksa tanımlı varsayılan
+            var val = Model.CurrentValues.TryGetValue(f.FieldName, out var v) ? v : (f.DefaultValue ?? "");
+            var name = "UDF_" + f.FieldName;
+
+            <div class="form-group">
+                <label class="form-label">
+                    @f.LabelText
+                    @if (f.IsRequired)
+                    {
+                        <span class="req">*</span>
+                    }
+                </label>
+
+                @if (f.FieldType == "NUMBER")
+                {
+                    <input type="number" step="any" name="@name" value="@val" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else if (f.FieldType == "SELECT")
+                {
+                    // Seçenekler PageModel'de çözülür (STATIC/DICTIONARY); yoksa STATIC fallback
+                    var opts = (Model.Options != null && Model.Options.TryGetValue(f.FieldName, out var o))
+                        ? o
+                        : UdfService.GetStaticOptions(f.DataSourceKey).Select(s => new UdfOption(s, s)).ToList();
+                    <select name="@name" class="form-ctrl" disabled="@Model.ReadOnly" required="@f.IsRequired">
+                        <option value="">Seçiniz...</option>
+                        @foreach (var opt in opts)
+                        {
+                            <option value="@opt.Value" selected="@(opt.Value == val)">@opt.Text</option>
+                        }
+                    </select>
+                }
+                else if (f.FieldType == "TEXT")
+                {
+                    <input type="text" name="@name" value="@val" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else if (f.FieldType == "DATE")
+                {
+                    // Varsayılan 'TODAY' → bugünün tarihi (invariant yyyy-MM-dd)
+                    var dateVal = val == "TODAY" ? DateTime.Today.ToString("yyyy-MM-dd") : val;
+                    <input type="date" name="@name" value="@dateVal" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else if (f.FieldType == "BOOLEAN")
+                {
+                    <label class="switch">
+                        <input type="checkbox" name="@name" value="true"
+                               checked="@(val == "true")" disabled="@Model.ReadOnly" />
+                        <span class="switch-track"></span>
+                    </label>
+                }
+                else
+                {
+                    @* DICTIONARY / TABLE veri kaynağı — Faz 3+ *@
+                }
+            </div>
+        }
+    </div>
+}

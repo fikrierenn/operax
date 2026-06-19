@@ -1,0 +1,1 @@
+DELETE FROM ExpenseInvoiceLine WHERE ExpenseInvoiceId IN (SELECT Id FROM ExpenseInvoice WHERE Status='POSTED' AND CompanyId='d1e1b1a5-0000-0000-0000-000000000001') AND ExpenseTypeId IN (SELECT Id FROM ExpenseType WHERE Code IN ('ELK','KIRA'));

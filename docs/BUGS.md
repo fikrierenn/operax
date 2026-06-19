@@ -1,7 +1,7 @@
 # OPERAX — Bug & Hata Takibi
 
 > Güncelleme: Mart 2026
-> Kaynak: build_log.txt (son build: 19 hata · 27 uyarı · BUILD FAIL)
+> Son build: **0 hata · 0 uyarı · BUILD SUCCESS** ✅ (commit: 694c2b4)
 > Format: `[ ]` açık · `[x]` çözüldü · Çözüldüğünde tarih + commit notu ekle
 
 ---
@@ -28,7 +28,7 @@ Sebep  : Microsoft.AspNetCore.Identity.UI paketi csproj'da var ama
 Çözüm  : using ekle veya AddIdentity<IdentityUser, IdentityRole>() kullan.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -44,7 +44,7 @@ Sebep  : Details.cshtml.cs satır 20'de IsNew tanımlı görünüyor ama
          Sorun muhtemelen ShippingHeaderDto.Id default değeri Guid.Empty değil.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -59,7 +59,7 @@ Sebep  : OnPostAsync metodu içinde IsNew doğrudan kullanılıyor,
 Çözüm  : if (IsNew) → if (Header.Id == Guid.Empty) ile değiştir
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -77,7 +77,7 @@ Sebep  : OnPostAddLineAsync metodunda anonim obje başlatılırken
          (explicit assignment kullan)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -92,7 +92,7 @@ Sebep  : ItemUOM veya ItemBarcode eklerken UomId değişkeni tanımlı değil
          DTO'dan oku.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -107,7 +107,7 @@ Sebep  : StockTransferLine DTO'sunda FromBinId ve ToBinId property'leri eksik
          veya metod parametresi olarak al.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -120,7 +120,7 @@ Sebep  : Putaway metodunda ItemId değişkeni scope dışında kalıyor.
 Çözüm  : Metod parametresi olarak Guid itemId ekle.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -135,7 +135,7 @@ Sebep  : ProductionLineDto record'unda ItemId property eksik.
          ve ilgili SQL SELECT'e l.ItemId sütununu ekle.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -150,7 +150,7 @@ Sebep  : 11.x sürümünde bilinen güvenlik açığı.
 Çözüm  : <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -163,7 +163,7 @@ Hata   : Şifre kaynak kodunda açık metin
 Çözüm  : appsettings.json veya environment variable'a taşı.
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -177,7 +177,7 @@ Hata   : Kullanıcı girdisi doğrudan DataTable.Compute()'a veriliyor.
          <PackageReference Include="NCalc" Version="2.1.0" />
 Sprint : S8 (Manufacturing sprint'inde)
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -189,7 +189,7 @@ Satırlar: 34 (CS8601), 91 (CS8602), 130 (CS8602), 146 (CS8602)
 Çözüm  : item?.Property ?? default  veya  Guard.NotNull(item, "item") kullan
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-002 · Shipping/Details.cshtml.cs
 ```
@@ -197,56 +197,56 @@ Satırlar: 32 (CS8601), 68 (CS8602), 172 (CS8602), 211 (CS8602)
 Çözüm  : header null ise erken dön; stock null ise 0 kullan
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-003 · SalesOrders/Details.cshtml.cs
 ```
 Satırlar: 30 (CS8601), 85 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-004 · PurchaseOrders/Details.cshtml.cs
 ```
 Satırlar: 30 (CS8601), 85 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-005 · MasterData/Items/Details.cshtml.cs
 ```
 Satır  : 27 (CS8601)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-006 · Picking/Details.cshtml.cs
 ```
 Satırlar: 73 (CS8602), 74 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-007 · Transfer/Details.cshtml.cs
 ```
 Satırlar: 79 (CS8602), 100 (CS8602)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-008 · Production/Details.cshtml.cs
 ```
 Satırlar: 49 (CS8602), 77 (CS8602), 121 (CS8602), 121 (CS8629)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### NULL-009 · CycleCount/Details.cshtml.cs
 ```
 Satır  : 100 (CS8602) — line.QtyDifference null olabilir
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -260,7 +260,7 @@ Uyarı  : CS9113 — 'company' parametresi okunmuyor
 Çözüm  : Kullanılacaksa kompanyıya göre filtrele; kullanılmayacaksa kaldır
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### UNUSED-002 · Users/Index.cshtml.cs
 ```
@@ -270,7 +270,7 @@ Uyarı  : CS9113 — 'roleManager' parametresi okunmuyor
 Çözüm  : RoleManager kullanılıyorsa implement et, değilse kaldır
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ### UNUSED-003 · AutoTraceabilityService.cs
 ```
@@ -280,7 +280,7 @@ Uyarı  : CS9113 — 'company' parametresi okunmuyor
 Çözüm  : Lot/Serial üretiminde CompanyId filtresi ekle (güvenlik için gerekli)
 Sprint : S0
 ```
-- [ ] Çözüldü: ___
+- [x] Çözüldü: Mart 2026 — commit 694c2b4 (Sprint 0+1)
 
 ---
 
@@ -390,4 +390,44 @@ Sprint : S1'den itibaren her sprint'te ilgili ekranlar → cross-cutting
 
 | Bug ID | Çözüm Tarihi | Çözen | Notlar |
 |---|---|---|---|
-| — | — | — | — |
+| BUG-001..009 + SEC-001..003 + NULL-001..009 + UNUSED-001..003 | Mart 2026 | Claude | Sprint 0 — commit 694c2b4 |
+| S1-ROL-001 | Mart 2026 | Claude | Users/Create+Edit rol dropdown + company claim ataması eklendi |
+| S1-ROL-002 | Mart 2026 | Claude | Roles/Create sayfası oluşturuldu (yeni dosyalar) |
+| S1-ROL-003 | Mart 2026 | Claude | Roles/Index Sil handler eklendi; Administrator rolü korumalı |
+
+---
+
+## 🏛️ MİMARİ REVIEW BULGULARI (2026-05-29 — dış göz review, doğrulandı)
+
+> Dış mimari/konumlandırma review'ı; her madde kod ile doğrulandı. Build: 0 hata ✅.
+> Severity: 🔴 KRİTİK · 🟠 YÜKSEK · 🟡 ORTA/SÜREÇ · 🔵 STRATEJİ
+
+### 🔴 AR-001 · Multi-company veri izolasyonu — global query filter yok
+- [ ] **Doğrulandı:** Dapper'da EF benzeri global filter yok; her sorgu elle `WHERE CompanyId = @CompanyId` yazıyor. Tek unutulan sorgu = firmalar arası sızıntı (BKM 5 firma / tek DB, ilişkili-taraf). Denetim riski.
+- **Aksiyon:** Company-kapsamlı tablolarda CompanyId predikatı zorunluluğunu tarayan grep/test kuralı + pre-commit/antipattern hook + `.claude/rules` kuralı. → **plan: 12**
+
+### 🔴 AR-002 · Firma bazlı numara serisi (VUK) — ✅ ZATEN KARŞILANMIŞ
+- [x] **Doğrulandı (sorun YOK):** `NumberSeries` tablosu `CompanyId` ile anahtarlı, `sp_NextNumber @CompanyId` ile firma-bazlı. Her tüzel kişilik kendi dizisini alır (UQ: CompanyId+DocType). VUK gereği karşılanıyor. Yeni bug değil; kayıt amaçlı.
+
+### 🟠 AR-003 · /api/switch-company — CSRF + yetki atlama
+- [ ] **Doğrulandı:** `Program.cs:116 DisableAntiforgery()` (CSRF açık) + endpoint hedef firmaya kullanıcının ERİŞİM YETKİSİNİ kontrol etmiyor; herhangi bir companyId claim olarak yazılıyor (firma atlama kapısı). → **plan: 13**
+
+### 🟠 AR-004 · Ledger PK = GUID NEWID() — fragmentasyon
+- [ ] **Doğrulandı:** `StockMovement` + `AccountMovement` clustered PK = `UNIQUEIDENTIFIER DEFAULT NEWID()` (rastgele). Büyüyen tablolarda page split/fragmentasyon → "Dapper+SARGable hız" iddiasını baltalar. → **plan: 14** (ADR: BIGINT identity clustered + GUID nonclustered, ya da NEWSEQUENTIALID).
+
+### 🟠 AR-005 · AccountMovement IsDeleted — immutability ihlali
+- [ ] **Doğrulandı:** `AccountMovement` `IsDeleted BIT` taşıyor (append-only ledger silinmemeli). VISION "ERP truth immutable" + VUK 359 bütünlük ile çelişir. `StockMovement` `IsCancelled` kullanıyor (daha doğru ama yine de düzeltme=ters kayıt olmalı). → **plan: 14** (IsDeleted kaldır + contra-entry/REVERSAL mekanizması).
+
+### 🟠 AR-006 · FIFO maliyet eksik — severity **GEREKLİ** (K7, 2026-05-29)
+- [ ] **Doğrulandı:** `ItemCost.AvgCost` yalnızca hareketli ortalama; FIFO cost layer yok. **KARAR K7:** severity "İleri" → **"Gerekli"** (TR enflasyon ortamında FIFO COGS/vergiyi maddi değiştirir). Çözüm: **snapshot'sız, SP içi anlık kuyruk** (ERPNext stock_queue deseni); ayrı CostLayer tablosu gerekmez, B7 snapshot'a bağımlı değil. → roadmap (B5).
+
+### 🟡 AR-007 · Audit öz-puanlama / confirmation bias (SÜREÇ)
+- [ ] Auditor skill kendi projesini denetliyor: Create formu olmayan modüller "Olgun" puanlanmış; 6.5/7 rakip skoru doğrulanamaz. → **Aksiyon:** auditor skill'ine "kanıt katmanı" disiplini (her 🟢 dosya kanıtına bağlı; eksik Create = en fazla 🟡). → `operax-erp-wms-auditor` skill güncellemesi.
+
+### 🔵 AR-008 · Konumlandırma vs gerçek (STRATEJİ — Fikri kararı bekliyor)
+- [ ] Kod = KOBİ operasyon katmanı (single-tenant on-prem, TR, WMS+üretim); VISION = enterprise "SAP üstü". Resmi muhasebe M16 ile Logo/Mikro'ya bağımlı (üstüne çıktığı rakibe bağımlılık). → VISION.md'ye "AÇIK STRATEJİK SORU" notu; **kendiliğinden yeniden yazma**.
+- [x] **KARAR (K1/K2/K5, 2026-05-29):** Resmi muhasebe **ileride** Operax'ta tutulacak ama **periyodik posting modeli** (subledger → GL aylık/seçimli muhasebeleştirme; gerçek-zamanlı GL değil). Ön koşul: **muhasebe-mevzuat skill'i** (VUK/e-Defter/hesap planı/berat/GİB) → modül o zaman açılır (K2 ertelendi). **e-Defter ÜRETİMİ kapsam dışı** (XML/imza/GİB gönderim — K5); Operax sadece kapalı/beratlı **döneme saygı gösterir** (K4 LOCKED). Detay: `docs/VISION.md` §Muhasebe ve Defter Stratejisi + `REFERENCE_STUDY.md` §7.
+
+### 🔵 AR-009 · Referans çalışması (2026-05-29) — R1–R4 doğrulandı + R0 yeni bulgu
+- [ ] **`docs/reference/REFERENCE_STUDY.md`** — ERPNext/Smartstore/nop/openwms/Slice/ModernWMS/RealAhmed incelemesi. R1(AR-005)/R2(AR-006)/R3(AR-001)/R4(AR-004) için somut çözüm deseni bulundu (ERPNext reversal+stock_queue, TVF-sargı). **YENİ R0:** hiçbir onay SP'si AccountMovement beslemiyor → backfill sonrası cari **drift** (R1–R4'ten büyük yapısal açık, review'da yoktu). Backlog B1–B11 belgede.
+- [x] **KARARLAR (2026-05-29 oturum 2 — K1–K7):** REFERENCE_STUDY.md §7'ye işlendi. **R0 → HAFİF cari besleme** zorunlu (onay SP'leri AccountMovement'a atomik borç/alacak); **GL/kebir/COGS/SRBNB HAYIR** (K3, plan 16). **B7 snapshot İPTAL** (K6). **Dönem kontrolü mekanizması** (K4) → plan 14 omurgasına eklendi (AccountingPeriod firma-bazlı + sp_GuardPeriodOpen + trigger + OPEN/CLOSED/LOCKED; sadece mekanizma, UI/otomasyon yok). Periyodik GL modülü = ertelenmiş gelecek-iş.

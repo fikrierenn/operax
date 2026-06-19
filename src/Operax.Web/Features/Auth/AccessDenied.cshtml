@@ -1,0 +1,24 @@
+@page "/Auth/AccessDenied"
+@model Operax.Web.Features.Auth.AccessDeniedModel
+@{
+    ViewData["Title"] = "Yetkiniz Yok";
+}
+
+<div class="page" data-screen-label="Erişim Reddedildi">
+    <div class="card empty-inline empty-inline--center">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-danger">
+            <circle cx="12" cy="12" r="9" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+        <h2 class="card-title">Bu sayfaya erişim yetkiniz yok</h2>
+        <p class="muted">
+            Görüntülemeye çalıştığınız modül için gerekli role sahip değilsiniz.
+            Erişim gerekiyorsa sistem yöneticinizle iletişime geçin.
+        </p>
+        @if (!string.IsNullOrEmpty(Model.RequestedUrl))
+        {
+            <p class="muted mono">İstenen yol: @Model.RequestedUrl</p>
+        }
+        <a href="/Dashboard" class="btn btn-primary">Panele Dön</a>
+    </div>
+</div>

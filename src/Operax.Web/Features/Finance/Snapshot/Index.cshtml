@@ -1,0 +1,237 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Snapshot.IndexModel
+@{
+    ViewData["Title"] = "Mali Durum Kapama Tablosu";
+
+    var header = new PageHeaderVm(
+        Title: "Mali Durum",
+        Crumbs: new[] { "Anasayfa", "Finans", "Mali Durum" },
+        SubHtml: $"Tarih: <span class=\"mono text-strong\">{Model.EffectiveDate:dd MMM yyyy}</span> · " +
+             $"Varlık <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.AssetTotal)}</span> · " +
+             $"Yükümlülük <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.LiabilityTotal)}</span> · " +
+             $"Net <span class=\"mono text-strong\" style=\"color:var(--{(Model.NetPosition >= 0 ? "success" : "danger")});\">{UiHelpers.FmtTL(Model.NetPosition)}</span>",
+        ActionsHtml: "<form method=\"get\" style=\"display:flex;gap:6px;align-items:center;\">" +
+                     "<label class=\"form-label\" style=\"margin:0;\">Tarih</label>" +
+                     $"<input type=\"date\" name=\"asof\" value=\"{Model.EffectiveDate:yyyy-MM-dd}\" class=\"form-ctrl\" style=\"width:170px;height:32px;\" />" +
+                     "<button class=\"btn btn-primary btn-sm\">Görüntüle</button>" +
+                     "</form>"
+    );
+}
+
+<div class="page" data-screen-label="Mali Durum">
+
+    <partial name="_PageHeader" model="header" />
+
+    @* ───── KPI özet 3 kart ───── *@
+    <div class="kpi-grid">
+        <div class="kpi">
+            <div class="kpi-glow success"></div>
+            <div class="kpi-label">Toplam Varlık</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.AssetTotal)</div>
+            <div class="kpi-foot">
+                <span class="kpi-trend">@Model.Assets.Count satır · @Model.AssetGroupTotals.Count grup</span>
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-glow danger"></div>
+            <div class="kpi-label">Toplam Yükümlülük</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.LiabilityTotal)</div>
+            <div class="kpi-foot">
+                <span class="kpi-trend">@Model.Liabilities.Count satır · @Model.LiabilityGroupTotals.Count grup</span>
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-glow @(Model.NetPosition >= 0 ? "brand" : "warn")"></div>
+            <div class="kpi-label">Net Pozisyon</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(Model.NetPosition)</div>
+            <div class="kpi-foot">
+                <span class="kpi-trend">@(Model.NetPosition >= 0 ? "Pozitif" : "Negatif") · @Model.EffectiveDate.ToString("dd MMM yyyy")</span>
+            </div>
+        </div>
+    </div>
+
+    @* ───── İki kolon: Varlıklar (sol) · Yükümlülükler (sağ) ───── *@
+    <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        @* VARLIKLAR *@
+        <div class="card">
+            <div class="card-hdr">
+                <div>
+                    <div class="card-title">Varlıklar</div>
+                    <div class="card-sub">@Model.Assets.Count kalem · @UiHelpers.FmtTL(Model.AssetTotal)</div>
+                </div>
+            </div>
+            <div class="card-body-flush">
+                @if (Model.Assets.Count == 0)
+                {
+                    var empty = new EmptyStateVm("Varlık kaydı yok", $"{Model.EffectiveDate:dd MMM yyyy} tarihinde hesap/çek/alacak bulunamadı.");
+                    <partial name="_EmptyState" model="empty" />
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Grup / Kalem</th><th class="num">Tutar</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grp in Model.Assets.GroupBy(r => r.GroupName).OrderBy(g => Model.Assets.First(r => r.GroupName == g.Key).SortOrder))
+                            {
+                                <tr class="selected">
+                                    <td><span class="row-strong">@grp.Key</span></td>
+                                    <td class="num"><span class="row-strong">@UiHelpers.FmtTL(grp.Sum(r => r.Amount))</span></td>
+                                </tr>
+                                @foreach (var row in grp)
+                                {
+                                    <tr>
+                                        <td style="padding-left:32px;">
+                                            <span class="mono muted">@row.ItemCode</span>
+                                            <span style="margin-left:8px;">@row.ItemName</span>
+                                        </td>
+                                        <td class="num">@UiHelpers.FmtTL(row.Amount)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        @* YÜKÜMLÜLÜKLER *@
+        <div class="card">
+            <div class="card-hdr">
+                <div>
+                    <div class="card-title">Yükümlülükler</div>
+                    <div class="card-sub">@Model.Liabilities.Count kalem · @UiHelpers.FmtTL(Model.LiabilityTotal)</div>
+                </div>
+            </div>
+            <div class="card-body-flush">
+                @if (Model.Liabilities.Count == 0)
+                {
+                    var empty = new EmptyStateVm("Yükümlülük yok", $"{Model.EffectiveDate:dd MMM yyyy} tarihinde kredi/borç/verilen çek bulunamadı.");
+                    <partial name="_EmptyState" model="empty" />
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Grup / Kalem</th><th class="num">Tutar</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grp in Model.Liabilities.GroupBy(r => r.GroupName).OrderBy(g => Model.Liabilities.First(r => r.GroupName == g.Key).SortOrder))
+                            {
+                                <tr class="selected">
+                                    <td><span class="row-strong" style="color:var(--danger-text);">@grp.Key</span></td>
+                                    <td class="num"><span class="row-strong" style="color:var(--danger-text);">@UiHelpers.FmtTL(grp.Sum(r => r.Amount))</span></td>
+                                </tr>
+                                @foreach (var row in grp)
+                                {
+                                    <tr>
+                                        <td style="padding-left:32px;">
+                                            <span class="mono muted">@row.ItemCode</span>
+                                            <span style="margin-left:8px;">@row.ItemName</span>
+                                        </td>
+                                        <td class="num">@UiHelpers.FmtTL(row.Amount)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ───── Kredi Detay Kapama Tablosu (kullanıcının asıl talebi) ───── *@
+    @if (Model.LoanSummary.Count > 0)
+    {
+        <div class="card" style="margin-top:14px;">
+            <div class="card-hdr">
+                <div>
+                    <div class="card-title">Kredi Detay Kapama Tablosu</div>
+                    <div class="card-sub">
+                        @Model.LoanSummary.Count kredi ·
+                        Aktif: <span class="mono text-strong">@Model.LoanSummary.Count(l => l.Status == "ACTIVE")</span> ·
+                        Toplam Kalan Borç: <span class="mono text-strong" style="color:var(--danger-text);">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == "ACTIVE").Sum(l => l.TotalRemainingDebt))</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body-flush">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Kredi No</th>
+                            <th>Banka</th>
+                            <th>Tip</th>
+                            <th>Durum</th>
+                            <th class="num">Anapara</th>
+                            <th class="num">Ödenen Anapara</th>
+                            <th class="num">Kalan Anapara</th>
+                            <th class="num">Kalan Faiz</th>
+                            <th class="num">Toplam Kalan Borç</th>
+                            <th class="num">Taksit</th>
+                            <th class="num">Geciken</th>
+                            <th>Sonraki Vade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model.LoanSummary)
+                        {
+                            <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Loans/Details?id=@l.LoanId'">
+                                <td><span class="mono row-strong" style="color:var(--brand-500);">@l.LoanNo</span></td>
+                                <td>@l.BankName</td>
+                                <td><span class="badge badge-neutral"><span class="badge-dot"></span>@UiHelpers.LoanMethodLabel(l.CalcMethod)</span></td>
+                                <td>
+                                    @if (l.Status == "ACTIVE") { <span class="badge badge-info"><span class="badge-dot"></span>AKTİF</span> }
+                                    else if (l.Status == "CLOSED") { <span class="badge badge-success"><span class="badge-dot"></span>KAPANDI</span> }
+                                    else { <span class="badge badge-warn"><span class="badge-dot"></span>@l.Status</span> }
+                                </td>
+                                <td class="num">@UiHelpers.FmtTL(l.Principal)</td>
+                                <td class="num muted">@UiHelpers.FmtTL(l.PaidPrincipal)</td>
+                                <td class="num"><span class="row-strong">@UiHelpers.FmtTL(l.OutstandingPrincipal)</span></td>
+                                <td class="num muted">@UiHelpers.FmtTL(l.RemainingInterest)</td>
+                                <td class="num"><span class="row-strong" style="color:var(--danger-text);">@UiHelpers.FmtTL(l.TotalRemainingDebt)</span></td>
+                                <td class="num"><span class="mono">@l.PaidInstallmentCount / @l.TotalInstallmentCount</span></td>
+                                <td class="num">
+                                    @if (l.OverdueInstallmentCount > 0)
+                                    {
+                                        <span class="badge badge-danger" style="height:18px;"><span class="badge-dot"></span>@l.OverdueInstallmentCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted mono">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (l.NextDueDate.HasValue)
+                                    {
+                                        <div class="mono">@l.NextDueDate.Value.ToString("dd MMM yyyy")</div>
+                                        <div class="row-sub mono">@UiHelpers.FmtTL(l.NextDueAmount ?? 0)</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-foot">
+                <div style="font-size:11.5px;color:var(--text-3);">
+                    Toplam ödenmiş anapara: <span class="mono text-strong">@UiHelpers.FmtTL(Model.LoanSummary.Sum(l => l.PaidPrincipal))</span> ·
+                    Toplam ödenmiş faiz: <span class="mono text-strong">@UiHelpers.FmtTL(Model.LoanSummary.Sum(l => l.PaidInterest))</span>
+                </div>
+                <div style="font-size:13px;font-weight:700;">
+                    Net Toplam Kalan Borç:
+                    <span class="mono" style="color:var(--danger-text);font-size:15px;margin-left:8px;">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == "ACTIVE").Sum(l => l.TotalRemainingDebt))</span>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>

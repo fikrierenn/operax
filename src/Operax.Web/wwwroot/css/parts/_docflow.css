@@ -1,0 +1,61 @@
+/* Belge zinciri akış butonları (_DocFlowButtons partial) */
+
+.doc-flow-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.doc-flow-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Sayaç badge — tıklanabilir (liste var) */
+.doc-flow-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.doc-flow-count:hover {
+    background: var(--brand-tint-15);
+    border-color: var(--brand-500);
+    color: var(--brand-500);
+}
+
+/* Sayaç — sıfır veya linksiz */
+.doc-flow-count--zero {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: default;
+}
+
+.doc-flow-num {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--brand-500);
+    min-width: 14px;
+    text-align: center;
+}
+
+.doc-flow-count--zero .doc-flow-num {
+    color: var(--text-4);
+}
+
+.doc-flow-lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}

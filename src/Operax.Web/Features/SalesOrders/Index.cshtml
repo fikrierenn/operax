@@ -1,75 +1,137 @@
 @page
+@using Operax.Web.Lib
 @model Operax.Web.Features.SalesOrders.IndexModel
 @{
-    ViewData["Title"] = "Satış Siparişleri";
+    ViewData["Title"] = L.T("Satış Siparişleri", "Sales Orders");
+
+    var header = new PageHeaderVm(
+        Title: L.T("Satış Siparişleri", "Sales Orders"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Satış", "Sales"), L.T("Siparişler", "Orders") },
+        SubHtml: $"{L.T("Toplam", "Total")} <span class=\"mono text-strong\">{Model.StatusCounts.Total}</span> {L.T("evrak", "docs")} · {L.T("Aktif tutar", "Active total")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalActive)}</span>",
+        ActionsHtml:
+            $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>{L.T("İçeri Aktar", "Import")}</button>" +
+            $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>{L.T("Dışa Aktar", "Export")}</button>" +
+            $"<a href=\"/SalesOrders/Details\" class=\"btn btn-primary btn-sm\" data-shortcut=\"Alt+N\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Sipariş", "New Order")}<span class=\"btn-kbd\">Alt+N</span></a>"
+    );
+
+    var tabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),       "all",                  Model.StatusCounts.Total),
+            new TabVm(L.T("Taslak", "Draft"),   DocStatus.Draft,        Model.StatusCounts.Draft),
+            new TabVm(L.T("Onaylı", "Posted"),  DocStatus.Posted,       Model.StatusCounts.Posted),
+            new TabVm(L.T("İptal", "Cancelled"),DocStatus.Cancelled,    Model.StatusCounts.Cancelled),
+        },
+        ActiveValue: Model.Tab,
+        QueryParamName: "tab"
+    );
 }
 
-<div class="page-hdr">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">Satış Siparişleri</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Müşteri siparişleri ve karşılama durumu</p>
-    </div>
-    <a asp-page="./Create" class="btn btn-primary" data-shortcut="Alt+N">+ Yeni Sipariş</a>
-</div>
+<div class="page" data-screen-label="Satış Siparişleri">
 
-<div class="card">
-    <div class="flex gap-3 p-4 bg-slate-50 border-b border-slate-200">
-        <input type="text" placeholder="Sipariş no veya müşteri ara..." class="form-ctrl flex-1 max-w-xs">
-        <select class="form-ctrl w-44">
-            <option>Tüm Durumlar</option>
-            <option>DRAFT</option>
-            <option>APPROVED</option>
-            <option>SHIPPED</option>
-        </select>
+    <partial name="_PageHeader" model="header" />
+
+    <div class="card">
+
+        <partial name="_Tabs" model="tabs" />
+
+        <div class="data-table-toolbar">
+            <form method="get" style="position:relative;flex:0 0 280px;display:flex;align-items:center;">
+                <input type="hidden" name="tab" value="@Model.Tab" />
+                <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-4);" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input name="q" value="@Model.Q" class="form-ctrl" style="padding-left:34px;height:34px;" placeholder="@L.T("Evrak no, müşteri ara…", "Doc no, customer…")" />
+            </form>
+            <button type="button" class="chip">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                @L.T("Tarih: Son 30 gün", "Date: Last 30d")
+            </button>
+            <button type="button" class="chip">
+                @L.T("Müşteri: Tümü", "Customer: All")
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button type="button" class="chip">
+                @L.T("Tutar: Tümü", "Amount: All")
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+                @L.T("Sütunlar", "Columns")
+            </button>
+        </div>
+
+        @if (Model.Orders.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: L.T("Eşleşen evrak bulunamadı", "No matching documents"),
+                Message: string.IsNullOrEmpty(Model.Q)
+                    ? L.T("Henüz hiç satış evrakı oluşturulmamış. İlk siparişinizi şimdi oluşturun.", "No sales order yet. Create your first order.")
+                    : L.T("Arama veya filtreleri değiştirin.", "Try a different search or filter."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Evrak No", "Doc No")</th>
+                        <th>@L.T("Müşteri", "Customer")</th>
+                        <th>@L.T("Tarih", "Date")</th>
+                        <th>@L.T("Teslim", "Delivery")</th>
+                        <th class="num">@L.T("Kalem", "Lines")</th>
+                        <th class="num">@L.T("Tutar", "Amount")</th>
+                        <th>@L.T("Durum", "Status")</th>
+                        <th style="width:36px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var o in Model.Orders)
+                    {
+                        <tr style="cursor:pointer;" onclick="window.location.href='/SalesOrders/Details?id=@o.Id'">
+                            <td><span class="mono row-strong" style="color:var(--brand-500);">@o.OrderNo</span></td>
+                            <td>
+                                <div class="row" style="gap:10px;">
+                                    <div class="avatar" style="width:26px;height:26px;font-size:10px;background:linear-gradient(135deg, hsl(160 84% 39%), hsl(170 84% 35%));">@UiHelpers.Initials(o.PartnerName)</div>
+                                    <div>
+                                        <div class="row-strong">@o.PartnerName</div>
+                                        <div class="row-sub">@o.PartnerCity@(string.IsNullOrEmpty(o.TaxNumber) ? "" : $" · VKN {o.TaxNumber}")</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="mono muted">@UiHelpers.FmtDateShort(o.OrderDate)</td>
+                            <td class="mono">@(o.DueDate.HasValue ? UiHelpers.FmtDateShort(o.DueDate.Value) : "—")</td>
+                            <td class="num">@o.LineCount</td>
+                            <td class="num"><span class="row-strong">@UiHelpers.FmtTL(o.TotalAmount)</span></td>
+                            <td>@Html.Raw(UiHelpers.StatusBadge(o.Status))</td>
+                            <td>
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="card-foot">
+                <div style="font-size:12px;color:var(--text-3);">
+                    <span class="mono text-strong">@Model.Orders.Count</span> / @Model.StatusCounts.Total @L.T("evrak gösteriliyor", "docs shown")
+                </div>
+                <div class="row" style="gap:4px;">
+                    <button class="btn btn-secondary btn-xs">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                        @L.T("Önceki", "Prev")
+                    </button>
+                    <button class="btn btn-secondary btn-xs">1</button>
+                    <button class="btn btn-ghost btn-xs">2</button>
+                    <button class="btn btn-ghost btn-xs">3</button>
+                    <button class="btn btn-secondary btn-xs">
+                        @L.T("Sonraki", "Next")
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+        }
+
     </div>
 
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Sipariş No</th>
-                <th>Tarih</th>
-                <th>Müşteri</th>
-                <th>Karşılama</th>
-                <th>Durum</th>
-                <th class="text-right">İşlem</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var o in Model.Orders)
-            {
-                <tr>
-                    <td class="font-mono font-bold text-indigo-600">@o.OrderNo</td>
-                    <td class="text-slate-500">@o.OrderDate.ToString("dd.MM.yyyy")</td>
-                    <td class="font-medium">@o.CustomerName</td>
-                    <td>
-                        <div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-indigo-500 rounded-full" style="width:@(o.FulfillmentRate)%"></div>
-                        </div>
-                        <span class="text-[10px] text-slate-400 mt-1 block">%@o.FulfillmentRate Gönderildi</span>
-                    </td>
-                    <td>
-                        <span class="badge @(o.Status == "SHIPPED" ? "b-green" : o.Status == "APPROVED" ? "b-blue" : "b-amber")">
-                            @o.Status
-                        </span>
-                    </td>
-                    <td class="text-right">
-                        <a asp-page="./Details" asp-route-id="@o.Id" class="btn btn-secondary btn-sm">Aç</a>
-                    </td>
-                </tr>
-            }
-            @if (!Model.Orders.Any())
-            {
-                <tr>
-                    <td colspan="6">
-                        <div class="empty-state">
-                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            <p>Henüz satış siparişi oluşturulmamış.</p>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
 </div>

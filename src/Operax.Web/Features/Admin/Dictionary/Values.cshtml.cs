@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Dictionary;
 
+[Authorize(Roles = "Administrator")]
 public class ValuesModel(Db db, ICurrentCompany company) : PageModel
 {
     public DictionaryTypeDto? Type { get; set; }

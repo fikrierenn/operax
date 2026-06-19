@@ -1,0 +1,123 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.Cheques.IndexModel
+@{
+    var noun = Model.Type == "note" ? L.T("Senet", "Note") : L.T("Çek", "Cheque");
+    ViewData["Title"] = noun + " " + L.T("Portföyü", "Portfolio");
+
+    var header = new PageHeaderVm(
+        Title: noun + " " + L.T("Portföyü", "Portfolio"),
+        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), noun },
+        SubHtml: $"{L.T("Portföyde", "In Portfolio")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalInPortfolio)}</span> · {L.T("Bankada", "In Bank")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalInBank)}</span>",
+        ActionsHtml: $"<a href=\"/Finance/Cheques/Create?type={Model.Type}\" class=\"btn btn-primary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni", "New")} {noun}</a>"
+    );
+
+    var statusTabs = new TabsVm(
+        Tabs: new[]
+        {
+            new TabVm(L.T("Tümü", "All"),               "all",       Model.Counts.Total),
+            new TabVm(L.T("Portföyde", "Portfolio"),   "PORTFOLIO", Model.Counts.Portfolio),
+            new TabVm(L.T("Bankada", "In Bank"),        "IN_BANK",   Model.Counts.InBank),
+            new TabVm(L.T("Tahsil", "Collected"),       "COLLECTED", Model.Counts.Collected),
+            new TabVm(L.T("Karşılıksız", "Returned"),   "RETURNED",  Model.Counts.Returned),
+        },
+        ActiveValue: Model.Status,
+        QueryParamName: "status"
+    );
+}
+
+<div class="page" data-screen-label="Çek ve Senetler">
+    <partial name="_PageHeader" model="header" />
+
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+        <a class="btn @(Model.Type == "cheque" ? "btn-primary" : "btn-secondary") btn-sm"
+           href="?type=cheque&direction=@Model.Direction">@L.T("Çekler", "Cheques")</a>
+        <a class="btn @(Model.Type == "note" ? "btn-primary" : "btn-secondary") btn-sm"
+           href="?type=note&direction=@Model.Direction">@L.T("Senetler", "Notes")</a>
+        <span class="spacer"></span>
+        <a class="btn @(Model.Direction == "all" ? "btn-primary" : "btn-ghost") btn-sm"
+           href="?type=@Model.Type&direction=all">@L.T("Tümü", "All")</a>
+        <a class="btn @(Model.Direction == "RECEIVED" ? "btn-primary" : "btn-ghost") btn-sm"
+           href="?type=@Model.Type&direction=RECEIVED">@L.T("Alınan", "Received")</a>
+        <a class="btn @(Model.Direction == "ISSUED" ? "btn-primary" : "btn-ghost") btn-sm"
+           href="?type=@Model.Type&direction=ISSUED">@L.T("Verilen", "Issued")</a>
+    </div>
+
+    <div class="card">
+        <partial name="_Tabs" model="statusTabs" />
+
+        @if (Model.Items.Count == 0)
+        {
+            var empty = new EmptyStateVm(
+                Title: $"{noun} {L.T("bulunamadı", "not found")}",
+                Message: L.T("Bu filtreyle eşleşen kayıt yok.", "No records match this filter."));
+            <partial name="_EmptyState" model="empty" />
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>@L.T("Yön", "Direction")</th>
+                        <th>@L.T("Belge No", "Doc No")</th>
+                        @if (Model.Type == "cheque") { <th>@L.T("Banka", "Bank")</th> }
+                        <th>@L.T("Keşideci", "Drawer")</th>
+                        <th>@L.T("Cari", "Partner")</th>
+                        <th>@L.T("Vade", "Due Date")</th>
+                        <th class="num">@L.T("Tutar", "Amount")</th>
+                        <th>@L.T("Durum", "Status")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model.Items)
+                    {
+                        var dirBadge = c.Direction == "RECEIVED"
+                            ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALINAN</span>"
+                            : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>VERİLEN</span>";
+
+                        string statusBadge = c.Status switch
+                        {
+                            "PORTFOLIO" => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖY</span>",
+                            "IN_BANK"   => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
+                            "COLLECTED" => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL</span>",
+                            "RETURNED"  => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
+                            "PAID"      => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+                            _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{c.Status}</span>"
+                        };
+
+                        string vadeColor = c.DaysToDue < 0 ? "var(--danger-text)"
+                            : (c.DaysToDue <= 7 ? "var(--warn-text)" : "var(--text-2)");
+
+                        <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Cheques/Details?id=@c.Id&type=@Model.Type'">
+                            <td>@Html.Raw(dirBadge)</td>
+                            <td><span class="mono row-strong text-brand">@c.DocNo</span></td>
+                            @if (Model.Type == "cheque")
+                            {
+                                <td>
+                                    <div class="row-strong">@c.BankName</div>
+                                    @if (!string.IsNullOrEmpty(c.BranchName))
+                                    {
+                                        <div class="row-sub">@c.BranchName</div>
+                                    }
+                                </td>
+                            }
+                            <td>@c.DrawerName</td>
+                            <td class="muted">@(c.PartnerName ?? "—")</td>
+                            <td class="mono" style="color:@vadeColor;">
+                                @UiHelpers.FmtDateShort(c.DueDate)
+                                @if (c.Status == "PORTFOLIO" || c.Status == "IN_BANK")
+                                {
+                                    <div class="row-sub" style="color:@vadeColor;">
+                                        @(c.DaysToDue >= 0 ? $"+{c.DaysToDue}" : c.DaysToDue.ToString()) @L.T("gün", "day")
+                                    </div>
+                                }
+                            </td>
+                            <td class="num row-strong">@UiHelpers.FmtTL(c.Amount)</td>
+                            <td>@Html.Raw(statusBadge)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

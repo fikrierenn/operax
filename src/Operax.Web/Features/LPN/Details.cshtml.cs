@@ -1,10 +1,12 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.LPN;
 
+[Authorize]
 public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 {
     public LpnDto Lpn { get; set; } = new();
@@ -24,13 +26,15 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         if (Lpn.Id != Guid.Empty)
         {
+            // CompanyId: LpnId zaten şirkete ait ama StockMovement'a açıkça ekle
             Contents = await conn.QueryAsync<LpnContentDto>(@"
                 SELECT ItemId, LotNo, SUM(QtyBase) as Qty, i.Code as ItemCode, i.Name as ItemName
                 FROM StockMovement sm
                 JOIN Item i ON i.Id = sm.ItemId
-                WHERE sm.LpnId = @LpnId AND sm.IsCancelled = 0
+                WHERE sm.LpnId = @LpnId AND sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
                 GROUP BY ItemId, LotNo, i.Code, i.Name
-                HAVING SUM(QtyBase) <> 0", new { LpnId = Lpn.Id });
+                HAVING SUM(QtyBase) <> 0",
+                new { LpnId = Lpn.Id, CompanyId = company.Id });
         }
     }
 

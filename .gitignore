@@ -3,6 +3,10 @@ bin/
 obj/
 *.user
 *.suo
+
+# Ölü/geçici build log artefaktları (Sprint 0 öncesi AddDefaultIdentity logları)
+build_log.txt
+*.log
 .vs/
 
 # Node / Tailwind
@@ -31,3 +35,15 @@ Thumbs.db
 
 # Output CSS (kaynak: input.css, build sırasında üretilir)
 # wwwroot/css/site.css  <- bunu commit ediyoruz (CD pipeline yok)
+
+# Local junk
+*.bak
+test_ps.txt
+tasarım/_extract*.js
+tasarım/_extracted_template.html
+
+
+# Kod toplama yardimcilari (gecici)
+TUM_PROJE_KODLARI.txt
+kod_toplayici.ps1
+kodlari_topla_v2.bat

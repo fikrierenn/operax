@@ -1,0 +1,58 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+
+<div class="card">
+    <div class="card-hdr">
+        <div class="card-title">Fiyat Listeleri</div>
+        <div class="card-sub">@Model.PriceLists.Count liste · cariye özel</div>
+    </div>
+    @if (Model.PriceLists.Count == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateVm("Fiyat listesi yok", "Bu cariye özel tanımlı fiyat listesi bulunamadı."))" />
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Kod</th><th>Ad</th><th>Yön</th><th>Para</th>
+                    <th>Geçerlilik</th><th class="num">Satır</th><th>Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var pl in Model.PriceLists)
+                {
+                    var gecerlilik = (pl.ValidFrom.HasValue ? UiHelpers.FmtDateShort(pl.ValidFrom.Value) : "—")
+                                   + " – " + (pl.ValidTo.HasValue ? UiHelpers.FmtDateShort(pl.ValidTo.Value) : "—");
+                    <tr>
+                        <td class="mono row-strong">@pl.Code</td>
+                        <td>@pl.Name</td>
+                        <td>
+                            @if (pl.Direction == "PURCHASE")
+                            {
+                                <span class="badge badge-info">Alış</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-success">Satış</span>
+                            }
+                        </td>
+                        <td class="mono">@pl.Currency</td>
+                        <td class="mono muted">@gecerlilik</td>
+                        <td class="num">@pl.LineCount</td>
+                        <td>
+                            @if (pl.IsActive)
+                            {
+                                <span class="badge badge-success"><span class="badge-dot"></span>AKTİF</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-neutral"><span class="badge-dot"></span>PASİF</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

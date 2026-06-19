@@ -1,0 +1,162 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Finance.CreditCards.DetailsModel
+@{
+    var c = Model.Card!;
+    ViewData["Title"] = $"Kart {c.CardNoMasked}";
+
+    var header = new PageHeaderVm(
+        Title: $"Kredi Kartı {c.CardNoMasked}",
+        Crumbs: new[] { "Anasayfa", "Finans", "Kredi Kartları", c.CardNoMasked },
+        SubHtml: $"{System.Net.WebUtility.HtmlEncode(c.BankName)} · {System.Net.WebUtility.HtmlEncode(c.HolderName)} · " +
+             $"Limit <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.CreditLimit)}</span> · " +
+             $"Kullanılabilir <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.AvailableLimit)}</span>",
+        ActionsHtml: "<a href=\"/Finance/CreditCards/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"
+    );
+}
+
+<div class="page" data-screen-label="Kredi Kartı Detayı">
+
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info" style="margin-bottom:14px;">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger" style="margin-bottom:14px;">@err</div> }
+
+    @* ───── KPI ───── *@
+    <div class="kpi-grid">
+        <div class="kpi">
+            <div class="kpi-label">Toplam Limit</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(c.CreditLimit)</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow danger"></div>
+            <div class="kpi-label">Kullanılan</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(c.UsedLimit)</div>
+            <div class="kpi-foot"><span class="kpi-trend">%@c.UsagePercent doluluk</span></div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-glow success"></div>
+            <div class="kpi-label">Kullanılabilir</div>
+            <div class="kpi-value">@UiHelpers.FmtTL(c.AvailableLimit)</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Ekstre / Son Ödeme</div>
+            <div class="kpi-value" style="font-size:18px;">@c.StatementDay / @c.DueDay</div>
+            <div class="kpi-foot"><span class="kpi-trend">ayın günleri</span></div>
+        </div>
+    </div>
+
+    <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        @* Ekstreler *@
+        <div class="card">
+            <div class="card-hdr">
+                <div class="card-title">Ekstreler</div>
+                @if (!string.IsNullOrEmpty(c.LinkedBankAccountName))
+                {
+                    <div class="card-sub">Bağlı hesap: @c.LinkedBankAccountName</div>
+                }
+            </div>
+            <div class="card-body-flush">
+                @if (Model.Statements.Count == 0)
+                {
+                    var empty = new EmptyStateVm("Ekstre yok", "Bu kart için henüz ekstre kesilmemiş.");
+                    <partial name="_EmptyState" model="empty" />
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Dönem</th><th>Son Ödeme</th><th class="num">Borç</th><th class="num">Asgari</th><th>Durum</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Model.Statements)
+                            {
+                                var remaining = s.ClosingBalance - s.PaidAmount;
+                                var isPaid    = remaining <= 0;
+                                <tr>
+                                    <td class="mono">@s.PeriodStart.ToString("dd MMM") – @s.PeriodEnd.ToString("dd MMM")</td>
+                                    <td class="mono">@s.DueDate.ToString("dd MMM yyyy")</td>
+                                    <td class="num"><span class="row-strong">@UiHelpers.FmtTL(s.ClosingBalance)</span></td>
+                                    <td class="num muted">@UiHelpers.FmtTL(s.MinPayment)</td>
+                                    <td>
+                                        @if (isPaid)
+                                        {
+                                            <span class="badge badge-success"><span class="badge-dot"></span>ÖDENDİ</span>
+                                        }
+                                        else if (s.IsClosed)
+                                        {
+                                            <span class="badge badge-warn"><span class="badge-dot"></span>BEKLİYOR</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-neutral"><span class="badge-dot"></span>AÇIK</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!isPaid && Model.BankAccounts.Count > 0)
+                                        {
+                                            <form method="post" asp-page-handler="PayStatement"
+                                                  style="display:flex;gap:6px;align-items:center;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="statementId" value="@s.Id" />
+                                                <select name="fromAccountId" class="form-ctrl" style="height:30px;font-size:12px;min-width:130px;">
+                                                    @foreach (var ba in Model.BankAccounts)
+                                                    {
+                                                        <option value="@ba.Id">@ba.Name</option>
+                                                    }
+                                                </select>
+                                                <input name="amount" type="number" step="0.01" min="0.01"
+                                                       value="@remaining.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)"
+                                                       class="form-ctrl" style="height:30px;font-size:12px;width:100px;" />
+                                                <button type="submit" class="btn btn-primary btn-xs">Öde</button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        @* Slip işlemleri *@
+        <div class="card">
+            <div class="card-hdr"><div class="card-title">Son Slip İşlemleri</div></div>
+            <div class="card-body-flush">
+                @if (Model.Transactions.Count == 0)
+                {
+                    var empty = new EmptyStateVm("İşlem yok", "Bu kartta henüz harcama kaydı yok.");
+                    <partial name="_EmptyState" model="empty" />
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Tarih</th><th>İşyeri</th><th>Kategori</th><th class="num">Tutar</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Model.Transactions)
+                            {
+                                <tr>
+                                    <td class="mono muted">@t.TransactionDate.ToString("dd MMM yyyy")</td>
+                                    <td>
+                                        @t.MerchantName
+                                        @if (t.InstallmentCount > 1)
+                                        {
+                                            <span class="badge badge-info" style="height:16px;margin-left:6px;"><span class="badge-dot"></span>@t.InstallmentNo/@t.InstallmentCount</span>
+                                        }
+                                    </td>
+                                    <td class="muted">@(t.Category ?? "—")</td>
+                                    <td class="num">@UiHelpers.FmtTL(t.Amount)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

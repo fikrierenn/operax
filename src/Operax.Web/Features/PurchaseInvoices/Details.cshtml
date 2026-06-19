@@ -1,0 +1,258 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.PurchaseInvoices.DetailsModel
+@{
+    var h = Model.Header!;
+    ViewData["Title"] = h.DocNo;
+    var isDraft = h.Status == DocStatus.Draft;
+}
+
+@* Reversal form — buton ActionsHtml'de form attribute ile bağlı *@
+<form id="reverse-form" method="post" asp-page-handler="Reverse" asp-route-id="@h.Id">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="page" data-screen-label="Alış Faturası Detayı" style="max-width:1400px;">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <a asp-page="./Index" class="breadcrumb-item">Alış Faturaları</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">@h.DocNo</span>
+            </div>
+            <h1>@h.DocNo</h1>
+            <p class="page-hdr-sub">@h.PartnerName</p>
+        </div>
+        <div class="page-hdr-r flex gap-2">
+            <a asp-page="./Index" class="btn btn-secondary btn-sm">Geri</a>
+            @if (isDraft)
+            {
+                <form method="post" asp-page-handler="Post" asp-route-id="@h.Id">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-success" onclick="return confirm('Faturayı onaylamak istiyor musunuz? Cari borç oluşacak.')">Onayla</button>
+                </form>
+            }
+            @if (h.Status == DocStatus.Posted)
+            {
+                <button form="reverse-form" type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Faturayı iptal etmek istediğinize emin misiniz?')">İptal Et</button>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+        @Html.Raw(UiHelpers.StatusBadge(h.Status))
+    </div>
+
+    @if (Model.DocFlow is not null)
+    {
+        <partial name="_DocFlowButtons" model="Model.DocFlow" />
+    }
+
+    <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px">
+        @* SOL: Tedarikçi belge bilgisi *@
+        <div class="card p-6">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Tedarikçi Belge Bilgisi</div>
+            <form method="post" asp-page-handler="Save" asp-route-id="@h.Id">
+                @Html.AntiForgeryToken()
+                <div class="space-y-4">
+                    <div class="form-group">
+                        <label class="form-label">Tedarikçi Fatura No <span class="req">*</span></label>
+                        <input asp-for="Edit.SupplierInvoiceNo" class="form-ctrl" readonly="@(!isDraft)" placeholder="Tedarikçinin fatura numarası" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tedarikçi Fatura Tarihi <span class="req">*</span></label>
+                        <input asp-for="Edit.SupplierInvoiceDate" type="date" class="form-ctrl" readonly="@(!isDraft)" />
+                        <span class="form-hint">VUK: faturanın üzerindeki gerçek tarih (bugün değil)</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">e-Fatura ETTN/UUID</label>
+                        <input asp-for="Edit.SupplierInvoiceUuid" class="form-ctrl" readonly="@(!isDraft)" placeholder="Opsiyonel" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vade Tarihi</label>
+                        <input asp-for="Edit.DueDate" type="date" class="form-ctrl" readonly="@(!isDraft)" />
+                    </div>
+                    @if (isDraft)
+                    {
+                        <button type="submit" class="btn btn-primary">Bilgileri Kaydet</button>
+                    }
+                </div>
+            </form>
+        </div>
+
+        @* SAĞ: Kalemler + toplamlar *@
+        <div class="card overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b">
+                <h3 class="text-sm font-bold text-slate-800">Fatura Kalemleri</h3>
+                <p class="text-[11px] text-slate-500">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
+            </div>
+            @* DRAFT'ta toplu fiyat düzenleme formu; POSTED'da düzeltme satır içi ayrı formla (iç içe form olmaz) *@
+            @if (isDraft) { @Html.Raw("<form method=\"post\" action=\"?handler=UpdatePrices&id=" + h.Id + "\">") }
+                @if (isDraft) { @Html.AntiForgeryToken() }
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ürün</th>
+                            <th>Sipariş</th>
+                            <th class="text-right">Miktar</th>
+                            <th class="text-right">Birim Fiyat</th>
+                            <th class="text-right">Tutar</th>
+                            <th class="text-right">KDV</th>
+                            <th class="text-right">Toplam</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model.Lines)
+                        {
+                            <tr class="@(l.UnitPrice <= 0 ? "bg-amber-50" : "")">
+                                <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                                <td>
+                                    @if (l.SourceLinkType == "UNLINKED")
+                                    {
+                                        <span class="badge badge-warn" title="Açık siparişe eşleşmedi — fiyat girip eşleştirin">Eşleşmedi</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(l.PoOrderNo))
+                                    {
+                                        <span class="mono text-xs text-slate-600">@l.PoOrderNo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-300">—</span>
+                                    }
+                                </td>
+                                <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
+                                <td class="text-right mono">
+                                    @if (isDraft)
+                                    {
+                                        <input type="hidden" name="lineId" value="@l.Id" />
+                                        <input type="number" name="unitPrice" value="@l.UnitPrice.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)"
+                                               step="any" min="0" class="form-ctrl text-right" style="max-width:120px;display:inline-block" required />
+                                    }
+                                    else
+                                    {
+                                        @l.UnitPrice.ToString("N4")
+                                    }
+                                </td>
+                                <td class="text-right mono">@l.LineSubtotal.ToString("N2")</td>
+                                <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
+                                <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
+                            </tr>
+                            @* POSTED kalemde gerekçeli düzeltme (veri-giriş hatası) — yetkili roller *@
+                            @if (!isDraft && Model.CanCorrect)
+                            {
+                                <tr class="bg-slate-50/40">
+                                    <td colspan="7" class="py-2">
+                                        <details>
+                                            <summary class="text-xs text-indigo-600 cursor-pointer">Bu kalemi düzelt (gerekçeli)</summary>
+                                            <form method="post" asp-page-handler="CorrectLine" asp-route-id="@h.Id" class="flex flex-wrap items-end gap-2 mt-2">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="lineId" value="@l.Id" />
+                                                <div class="form-group mb-0">
+                                                    <label class="form-label text-xs">Doğru Birim Fiyat</label>
+                                                    <input type="number" name="unitPrice" step="any" min="0" required
+                                                           value="@l.UnitPrice.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)"
+                                                           class="form-ctrl text-right" style="max-width:120px" />
+                                                </div>
+                                                <div class="form-group mb-0 flex-1" style="min-width:220px">
+                                                    <label class="form-label text-xs">Gerekçe</label>
+                                                    <input type="text" name="reason" required class="form-ctrl"
+                                                           placeholder="örn. fatura fiyatı yanlış girilmiş, doğrusu tedarikçi belgesindeki tutar" />
+                                                </div>
+                                                <button type="submit" class="btn btn-primary btn-sm"
+                                                        onclick="return confirm('Kalem düzeltilecek; cari defter satırı yeni tutara güncellenecek (iz denetim kaydında). Onaylıyor musunuz?');">Düzelt</button>
+                                            </form>
+                                        </details>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        @if (!Model.Lines.Any())
+                        {
+                            <tr><td colspan="7" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
+                        }
+                    </tbody>
+                </table>
+                @if (isDraft && Model.Lines.Any())
+                {
+                    <div class="px-6 py-3 border-t flex justify-end">
+                        <button type="submit" class="btn btn-primary btn-sm">Kalem Fiyatlarını Kaydet</button>
+                    </div>
+                }
+            @if (isDraft) { @Html.Raw("</form>") }
+            <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
+                <div><span class="text-slate-500">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
+                <div><span class="text-slate-500">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>
+                <div><span class="text-slate-700 font-bold">Genel Toplam:</span> <span class="mono font-black text-indigo-600">@h.GrandTotal.ToString("N2") ₺</span></div>
+            </div>
+        </div>
+    </div>
+
+    @* Plan 27: Fatura↔Sipariş fiyat farkları (tolerans yok — PO fiyatından her sapma) *@
+    @if (Model.Variances.Any())
+    {
+        <div class="card overflow-hidden mt-6">
+            <div class="px-6 py-4 bg-amber-50 border-b border-amber-200">
+                <h3 class="text-sm font-bold text-amber-800">Sipariş Fiyat Farkları</h3>
+                <p class="text-[11px] text-amber-700">Fatura fiyatı satınalma siparişindeki fiyattan farklı. Override için gerekçe zorunlu (yerel AI denetler).</p>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th class="text-right">Sipariş Fiyatı</th>
+                        <th class="text-right">Fatura Fiyatı</th>
+                        <th class="text-right">Fark</th>
+                        <th>Durum / Gerekçe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model.Variances)
+                    {
+                        <tr>
+                            <td class="font-medium text-slate-700">@v.ItemName <span class="text-slate-400 text-xs">@v.ItemCode</span></td>
+                            <td class="text-right mono">@v.ExpectedPrice.ToString("N2")</td>
+                            <td class="text-right mono font-bold">@v.ActualPrice.ToString("N2")</td>
+                            <td class="text-right mono @(v.Variance > 0 ? "text-red-600" : "text-emerald-600")">
+                                @(v.Variance > 0 ? "+" : "")@v.Variance.ToString("N2") (%@v.VariancePercent.ToString("N1"))
+                            </td>
+                            <td>
+                                @if (v.Status == DocStatus.Draft)
+                                {
+                                    <form method="post" asp-page-handler="ApproveVariance" asp-route-id="@h.Id" class="flex flex-col gap-2">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="varianceId" value="@v.Id" />
+                                        <textarea name="reason" class="form-ctrl" rows="2" required
+                                                  placeholder="Fark gerekçesi (örn. tedarikçi zammı, navlun dahil, kur farkı)..."></textarea>
+                                        <div class="flex gap-2">
+                                            <button type="submit" class="btn btn-primary btn-sm">Override (Gerekçeyle Onayla)</button>
+                                            <button type="submit" asp-page-handler="RejectVariance" asp-route-id="@h.Id"
+                                                    formnovalidate class="btn btn-secondary btn-sm">Reddet</button>
+                                        </div>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <div class="text-xs">
+                                        @Html.Raw(UiHelpers.StatusBadge(v.Status))
+                                        @if (!string.IsNullOrEmpty(v.OverrideReason))
+                                        {
+                                            <div class="mt-1 text-slate-600">@v.OverrideReason</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(v.AiVerdict))
+                                        {
+                                            var aiCls = v.AiVerdict == "IMPLAUSIBLE" ? "text-red-600" : (v.AiVerdict == "PLAUSIBLE" ? "text-emerald-600" : "text-slate-400");
+                                            <div class="mt-1 @aiCls">AI: @v.AiVerdict @(string.IsNullOrEmpty(v.AiComment) ? "" : "— " + v.AiComment)</div>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

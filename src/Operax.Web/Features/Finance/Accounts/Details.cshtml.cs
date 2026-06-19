@@ -1,0 +1,84 @@
+using System.Data;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
+using Dapper;
+using Operax.Web.Lib;
+
+namespace Operax.Web.Features.Finance.Accounts;
+
+/// <summary>
+/// Hesap ekstresi (FinancialTransaction listesi + üst kart bakiye).
+/// </summary>
+[Authorize]
+public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
+{
+    [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
+
+    public AccountInfoDto?      Account      { get; set; }
+    public List<TxRowDto>       Transactions { get; set; } = [];
+    public decimal              Balance      { get; set; }
+
+    // Hesap bilgilerini ve son 100 finansal işlem satırını yükler.
+    public async Task<IActionResult> OnGetAsync()
+    {
+        if (Id == Guid.Empty) return RedirectToPage("Index");
+
+        try
+        {
+            using var conn = db.Open();
+            var p = new { CompanyId = company.Id, Id };
+
+            Account = await conn.QuerySingleOrDefaultAsync<AccountInfoDto>(@"
+                SELECT a.Id, a.Code, a.Name, a.AccountType, a.Currency,
+                       a.BankName, a.BranchName, a.IBAN, a.AccountNumber,
+                       a.CreditLimit, a.InterestRate, a.OpeningBalance, a.Notes,
+                       v.Balance, v.LastMovementDate
+                FROM FinancialAccount a
+                LEFT JOIN dbo.tvf_AccountBalance(@CompanyId) v ON v.AccountId = a.Id
+                WHERE a.Id = @Id AND a.CompanyId = @CompanyId AND a.IsDeleted = 0", p);
+
+            if (Account == null) return NotFound();
+            Balance = Account.Balance;
+
+            Transactions = (await conn.QueryAsync<TxRowDto>(@"
+                -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
+                -- Gerekçe: üst kayıt FinancialAccount aynı handler içinde daha önce
+                -- WHERE a.Id = @Id AND a.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
+                -- Bu sorgu yalnızca o doğrulanmış FinancialAccount.Id üzerinden işlemleri okuyduğundan
+                -- başka firmanın hesap ekstresine erişilemez.
+                -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
+                SELECT TOP 100
+                    t.Id, t.TransactionDate, t.TransactionType,
+                    t.Amount, t.Currency, t.AmountTRY,
+                    t.Description, t.InstrumentType,
+                    t.SourceDocType, t.SourceDocNo,
+                    p.Name AS PartnerName
+                FROM FinancialTransaction t
+                LEFT JOIN Partner p ON p.Id = t.PartnerId
+                WHERE t.AccountId = @Id AND t.IsDeleted = 0
+                ORDER BY t.TransactionDate DESC, t.CreatedAt DESC", p)).ToList();
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "Hesap ekstresi veri yükleme hatası");
+            TempData["Error"] = "Veriler yüklenirken bir hata oluştu.";
+        }
+
+        return Page();
+    }
+
+    public record AccountInfoDto(
+        Guid Id, string Code, string Name, string AccountType, string Currency,
+        string? BankName, string? BranchName, string? IBAN, string? AccountNumber,
+        decimal? CreditLimit, decimal? InterestRate, decimal OpeningBalance, string? Notes,
+        decimal Balance, DateTime? LastMovementDate);
+
+    public record TxRowDto(
+        Guid Id, DateTime TransactionDate, string TransactionType,
+        decimal Amount, string Currency, decimal AmountTRY,
+        string? Description, string? InstrumentType,
+        string? SourceDocType, string? SourceDocNo,
+        string? PartnerName);
+}

@@ -1,74 +1,118 @@
 @page
 @model Operax.Web.Features.Lot.IndexModel
 @{
-    ViewData["Title"] = "Lot / Batch Management";
+    ViewData["Title"] = "Lot / Parti Yönetimi";
 }
 
-<div class="flex justify-between items-center mb-6">
+<div class="page-hdr">
     <div>
-        <h2 class="text-2xl font-bold italic tracking-tight uppercase text-indigo-900 leading-none">Lot & SKT Yönetimi</h2>
-        <p class="text-slate-500 text-sm">Track products by batch, expiry dates, and shelf life.</p>
+        <h2 class="text-2xl font-bold text-slate-800">Lot & SKT Yönetimi</h2>
+        <p class="text-sm text-slate-500 mt-0.5">Parti bazlı stok takibi, son kullanma tarihi ve FEFO yönetimi</p>
     </div>
 </div>
 
-<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <table class="w-full text-left border-collapse text-sm">
-        <thead class="bg-slate-50 border-b">
+<!-- KPI Özet Kartları -->
+<div class="kpi-row">
+    <div class="kpi">
+        <span class="kpi-label">Toplam Lot</span>
+        <div class="kpi-val text-indigo-600">@Model.Lots.Count()</div>
+        <span class="kpi-sub">Kayıtlı parti sayısı</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">SKT Geçmiş</span>
+        <div class="kpi-val text-red-500">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate < DateTime.Now)</div>
+        <span class="kpi-sub">Son kullanma tarihi geçen</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">30 Günde Bitecek</span>
+        <div class="kpi-val text-amber-500">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate >= DateTime.Now && x.ExpiryDate <= DateTime.Now.AddDays(30))</div>
+        <span class="kpi-sub">Yakında son kullanma tarihi dolacak</span>
+    </div>
+    <div class="kpi">
+        <span class="kpi-label">Bloke</span>
+        <div class="kpi-val text-slate-500">@Model.Lots.Count(x => x.Status == "BLOCKED" || x.Status == "QUARANTINE")</div>
+        <span class="kpi-sub">Karantina veya bloke</span>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
             <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Product</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Lot / Batch No</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Expiry Date</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Qty On Hand</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Status</th>
+                <th>Ürün</th>
+                <th>Lot / Parti No</th>
+                <th>Son Kullanma Tarihi</th>
+                <th class="text-right">Mevcut Miktar</th>
+                <th class="text-center">Durum</th>
+                <th class="text-right">İşlem</th>
             </tr>
         </thead>
-        <tbody class="divide-y">
+        <tbody>
             @foreach (var l in Model.Lots)
             {
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
+                var isExpired = l.ExpiryDate.HasValue && l.ExpiryDate < DateTime.Now;
+                var expiringSoon = !isExpired && l.ExpiryDate.HasValue && l.ExpiryDate <= DateTime.Now.AddDays(30);
+                <tr class="@(isExpired ? "bg-red-50" : expiringSoon ? "bg-amber-50" : "")">
+                    <td>
                         <div class="font-bold text-slate-800">@l.ItemName</div>
                         <div class="text-[10px] text-slate-400 font-mono">@l.ItemCode</div>
                     </td>
-                    <td class="px-6 py-4 font-mono font-bold text-indigo-600">@l.LotNo</td>
-                    <td class="px-6 py-4">
+                    <td class="font-mono font-bold text-indigo-600">@l.LotNo</td>
+                    <td>
                         @if (l.ExpiryDate.HasValue)
                         {
-                            <span class="@(l.ExpiryDate < DateTime.Now ? "text-red-600 font-bold" : "text-slate-600")">
+                            <span class="@(isExpired ? "text-red-600 font-bold" : expiringSoon ? "text-amber-600 font-bold" : "text-slate-600")">
                                 @l.ExpiryDate.Value.ToString("dd.MM.yyyy")
                             </span>
-                            @if (l.ExpiryDate < DateTime.Now) { <span class="ml-2 text-[10px] bg-red-100 text-red-700 px-1 rounded font-black italic uppercase">Expired</span> }
+                            @if (isExpired)
+                            {
+                                <span class="ml-2 badge b-red">SKT Geçti</span>
+                            }
+                            else if (expiringSoon)
+                            {
+                                var days = (int)(l.ExpiryDate!.Value - DateTime.Now).TotalDays;
+                                <span class="ml-2 badge b-amber">@days gün</span>
+                            }
                         }
-                        else { <span class="text-slate-300">-</span> }
+                        else
+                        {
+                            <span class="text-slate-300">—</span>
+                        }
                     </td>
-                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-900 underline decoration-indigo-100">
+                    <td class="text-right font-mono font-bold @(l.QtyOnHand == 0 ? "text-slate-300" : "text-slate-900")">
                         @l.QtyOnHand.ToString("N2")
                     </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase 
-                            @(l.Status == "AVAILABLE" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")">
-                            @l.Status
-                        </span>
+                    <td class="text-center">
+                        <span class="badge @(l.Status switch {
+                            "AVAILABLE"  => "b-green",
+                            "QUARANTINE" => "b-amber",
+                            "BLOCKED"    => "b-red",
+                            _            => "b-gray"
+                        })">@(l.Status switch {
+                            "AVAILABLE"  => "Müsait",
+                            "QUARANTINE" => "Karantina",
+                            "BLOCKED"    => "Bloke",
+                            _            => l.Status
+                        })</span>
+                    </td>
+                    <td class="text-right">
+                        <a asp-page="./Details" asp-route-id="@l.Id" class="btn btn-secondary btn-sm">Detay</a>
                     </td>
                 </tr>
             }
             @if (!Model.Lots.Any())
             {
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">No lot data found. Lots are created during receiving or production.</td>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/>
+                            </svg>
+                            <p>Henüz lot kaydı yok. Lotlar mal kabul veya üretim sırasında oluşturulur.</p>
+                        </div>
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
-</div>
-
-<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
-        <h4 class="font-bold text-indigo-900 text-sm mb-1 uppercase tracking-wider">FEFO Ready</h4>
-        <p class="text-[10px] text-indigo-600 leading-relaxed font-medium capitalize">Sistem toplama emirlerinde SKT'si en yakın olan ürünü otomatik önerecektir.</p>
-    </div>
-    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6">
-        <h4 class="font-bold text-slate-700 text-sm mb-1 uppercase tracking-wider">Karantina Yönetimi</h4>
-        <p class="text-[10px] text-slate-500 leading-relaxed">Şüpheli partiler 'BLOCKED' durumuna çekilerek sevkiyata kapatılabilir.</p>
-    </div>
 </div>

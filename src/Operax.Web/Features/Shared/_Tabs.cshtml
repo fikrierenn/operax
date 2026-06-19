@@ -1,0 +1,21 @@
+@*
+    Operax Ortak Tab Partial
+    Liste sayfalarında durum sekmeleri (Tümü/Taslak/Onaylı/İptal) için kullanılır.
+    Aktif sekme querystring değeri ile karşılaştırılarak işaretlenir.
+*@
+@model Operax.Web.Lib.TabsVm
+
+<div class="tabs">
+    @foreach (var t in Model.Tabs)
+    {
+        var isActive = string.Equals(t.Value, Model.ActiveValue, StringComparison.OrdinalIgnoreCase);
+        var href = $"?{Model.QueryParamName}={Uri.EscapeDataString(t.Value)}";
+        <a href="@href" class="tab @(isActive ? "active" : "")">
+            <span>@t.Label</span>
+            @if (t.Count.HasValue)
+            {
+                <span class="tab-count">@t.Count.Value</span>
+            }
+        </a>
+    }
+</div>

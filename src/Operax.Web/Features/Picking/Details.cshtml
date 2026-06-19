@@ -1,7 +1,7 @@
 @page "{id:guid}"
 @model Operax.Web.Features.Picking.DetailsModel
 @{
-    ViewData["Title"] = $"Picking {Model.Task.DocNo}";
+    ViewData["Title"] = $"Toplama Görevi — {Model.Task.DocNo}";
 }
 
 <div class="flex justify-between items-start mb-6">
@@ -17,17 +17,17 @@
                 @Model.Task.Status
             </span>
         </div>
-        <p class="text-slate-500 text-sm">Target Warehouse: <span class="font-bold text-slate-900 uppercase">Main Depo</span></p>
+        <p class="text-slate-500 text-sm">Hedef Depo: <span class="font-bold text-slate-900 uppercase">Main Depo</span></p>
     </div>
     <div class="flex gap-2">
         <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
-            Back
+            Geri
         </a>
         @if (Model.Task.Status == "DRAFT" || Model.Task.Status == "ASSIGNED")
         {
             <div class="relative group">
                 <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all text-sm flex items-center gap-2">
-                    @(Model.Task.AssignedUserId == null ? "Assign Task" : "Re-assign")
+                    @(Model.Task.AssignedUserId == null ? "Görevi Ata" : "Yeniden Ata")
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 <div class="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
@@ -47,18 +47,18 @@
 
 <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
     <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Items to Pick</h3>
-        <div class="text-[10px] font-bold text-slate-400">Total lines: @Model.Lines.Count()</div>
+        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Toplanacak Kalemler</h3>
+        <div class="text-[10px] font-bold text-slate-400">Toplam satır: @Model.Lines.Count()</div>
     </div>
     <table class="w-full text-left border-collapse">
         <thead class="bg-slate-50 border-b">
             <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Bin (Target)</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">SKU / Item</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Requested</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Picked</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Operator Log</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Action</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Hedef Raf</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Ürün / Kod</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">İstenen</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Toplanan</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Operatör</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">İşlem</th>
             </tr>
         </thead>
         <tbody class="divide-y text-sm">
@@ -89,7 +89,7 @@
                         }
                         else
                         {
-                            <span class="text-[10px] text-slate-300 italic">Waiting...</span>
+                            <span class="text-[10px] text-slate-300 italic">Bekliyor...</span>
                         }
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -100,13 +100,13 @@
                                 <input type="hidden" name="lineId" value="@line.Id" />
                                 <input type="hidden" name="qty" value="@line.QtyRequested" />
                                 <button type="submit" class="bg-green-500 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-green-600 transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-green-100">
-                                    Confirm Pick
+                                    Onayla
                                 </button>
                             </form>
                         }
                         else
                         {
-                             <div class="text-green-500 font-black text-xs">✓ DONE</div>
+                             <div class="text-green-500 font-black text-xs">✓ TAMAM</div>
                         }
                     </td>
                 </tr>
@@ -122,8 +122,8 @@
             <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
         </div>
         <div>
-            <h4 class="font-bold text-green-900 text-lg">Picking Completed!</h4>
-            <p class="text-sm text-green-700">All @Model.Lines.Count() items have been successfully picked and logged. The shipment is now ready for packaging.</p>
+            <h4 class="font-bold text-green-900 text-lg">Toplama Tamamlandı!</h4>
+            <p class="text-sm text-green-700">Tüm @Model.Lines.Count() kalem başarıyla toplandı ve kaydedildi. Sevkiyat paketlemeye hazır.</p>
         </div>
     </div>
 }

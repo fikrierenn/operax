@@ -1,0 +1,58 @@
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.DetailsModel
+@{
+    var iIn  = Model.Instruments.Where(x => x.Direction == "RECEIVED").Sum(x => x.Amount);
+    var iOut = Model.Instruments.Where(x => x.Direction == "ISSUED").Sum(x => x.Amount);
+}
+
+<div class="kpi-grid" style="margin-bottom:14px;">
+    <partial name="_KpiCard" model="@(new KpiCardVm("ADET", Model.Instruments.Count.ToString(), Unit: "adet", Glow: "brand"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("ALINAN", UiHelpers.FmtTL(iIn), Glow: "success"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("VERİLEN", UiHelpers.FmtTL(iOut), Glow: "danger"))" />
+    <partial name="_KpiCard" model="@(new KpiCardVm("NET", UiHelpers.FmtTL(iIn - iOut), Glow: (iIn - iOut) >= 0 ? "success" : "danger"))" />
+</div>
+
+<div class="card">
+    <div class="card-hdr">
+        <div class="card-title">Çek / Senet</div>
+        <div class="card-sub">@Model.Instruments.Count kayıt</div>
+    </div>
+    @if (Model.Instruments.Count == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateVm("Kayıt yok", "Bu cariye ait çek veya senet bulunamadı."))" />
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tür</th><th>Yön</th><th>No</th>
+                    <th class="num">Tutar</th><th>Vade</th><th>Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ins in Model.Instruments)
+                {
+                    var route = $"/Finance/Cheques/Details?id={ins.Id}&type={(ins.Kind == "Senet" ? "note" : "cheque")}";
+                    <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
+                        <td><span class="badge badge-neutral"><span class="badge-dot"></span>@ins.Kind.ToUpper()</span></td>
+                        <td>
+                            @if (ins.Direction == "RECEIVED")
+                            {
+                                <span class="badge badge-success">Alınan</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warn">Verilen</span>
+                            }
+                        </td>
+                        <td class="mono row-strong">@ins.No</td>
+                        <td class="num">@UiHelpers.FmtTL(ins.Amount)</td>
+                        <td class="mono muted">@(ins.DueDate.HasValue ? UiHelpers.FmtDateShort(ins.DueDate.Value) : "—")</td>
+                        <td>@Html.Raw(UiHelpers.FinanceStatusBadge(ins.Status))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

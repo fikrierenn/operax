@@ -1,0 +1,4 @@
+
+# Yerel LLM model dosyaları (büyük, git dışı)
+*.gguf
+src/Operax.Web/App_Data/models/

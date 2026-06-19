@@ -14,8 +14,8 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 {
     public List<UdfDefRow> Definitions { get; set; } = [];
 
-    // Faz 1: yalnız Item entity'si aktif (sonraki fazlarda genişler)
-    public string[] AllowedEntities { get; } = ["Item"];
+    // Aktif entity'ler (Faz 1: Item · Faz 2: Partner)
+    public string[] AllowedEntities { get; } = ["Item", "Partner"];
 
     // UDF tanımlarını listeler (şirket-kapsamlı)
     public async Task OnGetAsync()

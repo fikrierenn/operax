@@ -7,10 +7,13 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Partners;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ParameterStore parameters) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ParameterStore parameters, UdfService udfSvc) : PageModel
 {
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
+
+    // Dinamik kullanıcı tanımlı alanlar paneli (Plan 34 Faz 2 — Partner entity)
+    public CustomFieldsVm UdfPanel { get; set; } = new("Partner", [], new());
 
     // Aktif tab (?tab=genel|ekstre|...). Lazy yükleme: yalnızca aktif tab verisi çekilir.
     [BindProperty(SupportsGet = true)]
@@ -81,8 +84,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                          RiskScore, RiskCategory, MaxOverdueDays,
                          DefaultPaymentMethod,
                          EFaturaMukellef, EFaturaAlias, IbanForRefund,
-                         SalesRepUserId, PurchaseRepUserId
+                         SalesRepUserId, PurchaseRepUserId, AdditionalFields
                   FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId", p) ?? new();
+
+            // Dinamik UDF paneli: tanımları yükle + kayıtlı değerleri çöz (Plan 34 Faz 2)
+            var udfDefs = await udfSvc.LoadDefinitionsAsync("Partner");
+            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(Partner.AdditionalFields), ReadOnly: !IsEditable);
 
             // İş kuralı: eski/eksik veride null sayısal alanlar 0 olarak gelir; form min kısıtını
             // ihlal edip kaydetmeyi engeller (örn. RiskScore=0 < min 1). Geçerli varsayılana çek.
@@ -336,6 +343,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         ModelState.Remove("Partner.Code");
         if (!ModelState.IsValid) return Page();
 
+        // Dinamik UDF: form gönderimini tanımlara göre doğrula + güvenli JSON üret (Plan 34 Faz 2)
+        var udfDefs = await udfSvc.LoadDefinitionsAsync("Partner");
+        var udfJson = udfSvc.BuildValidatedJson(Request.Form, udfDefs, out var udfErrors);
+        if (udfErrors.Count > 0)
+        {
+            TempData["Error"] = string.Join(" ", udfErrors);
+            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(udfJson));
+            return Page();
+        }
+        Partner.AdditionalFields = udfJson;
+
         using var conn = db.Open();
 
         if (IsNew)
@@ -351,7 +369,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                      RiskScore, RiskCategory, MaxOverdueDays,
                      DefaultPaymentMethod,
                      EFaturaMukellef, EFaturaAlias, IbanForRefund,
-                     SalesRepUserId, PurchaseRepUserId)
+                     SalesRepUserId, PurchaseRepUserId, AdditionalFields)
                 VALUES
                     (@Id, @CompanyId, @Code, @Name, @Type, @TaxNumber, @Email, @Phone, @Address,
                      @IsActive, @Notes,
@@ -359,7 +377,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                      @RiskScore, @RiskCategory, @MaxOverdueDays,
                      @DefaultPaymentMethod,
                      @EFaturaMukellef, @EFaturaAlias, @IbanForRefund,
-                     @SalesRepUserId, @PurchaseRepUserId)";
+                     @SalesRepUserId, @PurchaseRepUserId, @AdditionalFields)";
             await conn.ExecuteAsync(sql, new
             {
                 Partner.Id, CompanyId = company.Id,
@@ -370,7 +388,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                 Partner.DefaultPaymentMethod,
                 Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
                 SalesRepUserId    = string.IsNullOrEmpty(Partner.SalesRepUserId)    ? null : Partner.SalesRepUserId,
-                PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId
+                PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId,
+                Partner.AdditionalFields
             });
         }
         else
@@ -388,6 +407,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                     EFaturaMukellef = @EFaturaMukellef, EFaturaAlias = @EFaturaAlias,
                     IbanForRefund = @IbanForRefund,
                     SalesRepUserId = @SalesRepUserId, PurchaseRepUserId = @PurchaseRepUserId,
+                    AdditionalFields = @AdditionalFields,
                     UpdatedAt = GETUTCDATE()
                 WHERE Id = @Id AND CompanyId = @CompanyId";
             await conn.ExecuteAsync(sql, new
@@ -401,6 +421,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                 Partner.EFaturaMukellef, Partner.EFaturaAlias, Partner.IbanForRefund,
                 SalesRepUserId    = string.IsNullOrEmpty(Partner.SalesRepUserId)    ? null : Partner.SalesRepUserId,
                 PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId,
+                Partner.AdditionalFields,
                 Partner.Id, CompanyId = company.Id
             });
         }
@@ -421,6 +442,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public string? Address               { get; set; }
         public bool    IsActive              { get; set; } = true;
         public string? Notes                 { get; set; }
+        public string? AdditionalFields      { get; set; }   // Dinamik UDF JSON çantası (servisle doldurulur)
         public int     PaymentTermDays       { get; set; } = 30;
         public string  PaymentTermPolicy     { get; set; } = "NET";
         public decimal CreditLimit           { get; set; }

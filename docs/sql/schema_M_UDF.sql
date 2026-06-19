@@ -69,3 +69,11 @@ BEGIN
     PRINT 'Item.UpdatedBy kolonu eklendi.';
 END
 GO
+
+-- ─── Partner: dinamik alan çantası (Faz 2 — UDF Partner entity desteği) ──────
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'AdditionalFields' AND Object_ID = OBJECT_ID('Partner'))
+BEGIN
+    ALTER TABLE Partner ADD AdditionalFields NVARCHAR(MAX) NULL;
+    PRINT 'Partner.AdditionalFields kolonu eklendi.';
+END
+GO

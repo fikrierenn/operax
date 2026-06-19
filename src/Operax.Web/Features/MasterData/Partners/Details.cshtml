@@ -100,6 +100,19 @@
                     </div>
                 </div>
 
+                @* Dinamik kullanıcı tanımlı alanlar (UDF) — Plan 34 Faz 2 *@
+                @if (Model.UdfPanel.Definitions.Count > 0)
+                {
+                    <div class="card">
+                        <div class="card-hdr">
+                            <div class="card-title">Özel Alanlar</div>
+                        </div>
+                        <div class="card-body">
+                            <partial name="_CustomFields" model="Model.UdfPanel" />
+                        </div>
+                    </div>
+                }
+
                 @* Mali Ayarlar *@
                 <div class="card">
                     <div class="card-hdr">

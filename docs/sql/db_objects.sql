@@ -817,22 +817,28 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    BEGIN TRANSACTION;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
     -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
     DECLARE @nowP DATETIME2 = GETUTCDATE();
     EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowP, @UserId;
 
     DECLARE @ItemId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
-            @WarehouseId UNIQUEIDENTIFIER, @BinId UNIQUEIDENTIFIER;
+            @WarehouseId UNIQUEIDENTIFIER, @BinId UNIQUEIDENTIFIER, @Status NVARCHAR(20);
 
+    -- UPDLOCK: eşzamanlı çift-bitirme çağrısını serialize eder (idempotency)
     SELECT @ItemId = ItemId, @DocNo = DocNo,
-           @WarehouseId = TargetWarehouseId, @BinId = TargetBinId
-    FROM ProductionOrder
+           @WarehouseId = TargetWarehouseId, @BinId = TargetBinId, @Status = Status
+    FROM ProductionOrder WITH (UPDLOCK, ROWLOCK)
     WHERE Id = @OrderId AND CompanyId = @CompanyId;
 
     IF @ItemId IS NULL
         THROW 50001, 'Üretim emri bulunamadı.', 1;
+
+    -- İş kuralı: zaten tamamlanmış üretim emri tekrar bitirilemez (çift mamul-giriş engeli)
+    IF @Status = 'COMPLETED'
+        THROW 50010, N'Üretim emri zaten tamamlanmış.', 1;
 
     -- Mamul stok girişi
     INSERT INTO StockMovement
@@ -848,7 +854,12 @@ BEGIN
     SET Status = 'COMPLETED', QtyProduced = @Qty, CompletedAt = GETUTCDATE(), UpdatedBy = @UserId
     WHERE Id = @OrderId;
 
-    COMMIT TRANSACTION;
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -880,7 +891,17 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    BEGIN TRANSACTION;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+    -- İş kuralı: zaten toplanmış satır tekrar toplanamaz (çift ISSUE-stok engeli).
+    -- UPDLOCK eşzamanlı çift çağrıyı serialize eder. (NOT: ISSUE-stok semantiği ayrı DEBT.)
+    DECLARE @AlreadyPicked DECIMAL(18,4);
+    SELECT @AlreadyPicked = QtyPicked FROM PickTaskLine WITH (UPDLOCK, ROWLOCK) WHERE Id = @LineId;
+    IF @AlreadyPicked IS NULL
+        THROW 50001, N'Toplama satırı bulunamadı.', 1;
+    IF @AlreadyPicked > 0
+        THROW 50010, N'Bu toplama satırı zaten toplanmış.', 1;
 
     -- Satırı güncelle
     UPDATE PickTaskLine
@@ -942,6 +963,11 @@ BEGIN
             CompletedAt = GETUTCDATE()
         WHERE Id = @TaskId;
 
-    COMMIT TRANSACTION;
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO

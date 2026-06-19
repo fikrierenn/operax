@@ -58,13 +58,24 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             TempData["Error"] = "Geçersiz alan tipi. (TEXT / NUMBER / SELECT / DATE / BOOLEAN)";
             return RedirectToPage();
         }
-        // SELECT veri kaynağı: STATIC (virgüllü liste) | DICTIONARY (sözlük tipi kodu)
-        var srcType = fieldType == "SELECT" ? (dataSourceType == "DICTIONARY" ? "DICTIONARY" : "STATIC") : null;
+        // SELECT veri kaynağı: STATIC (virgüllü) | DICTIONARY (sözlük tipi) | TABLE (beyaz-liste lookup)
+        var srcType = fieldType == "SELECT"
+            ? (dataSourceType is "DICTIONARY" or "TABLE" ? dataSourceType : "STATIC")
+            : null;
         if (fieldType == "SELECT" && string.IsNullOrWhiteSpace(dataSourceKey))
         {
-            TempData["Error"] = srcType == "DICTIONARY"
-                ? "Sözlük kaynağı için sözlük tipi kodu zorunludur (örn. BRAND)."
-                : "Sabit liste için virgülle ayrılmış değerler zorunludur.";
+            TempData["Error"] = srcType switch
+            {
+                "DICTIONARY" => "Sözlük kaynağı için sözlük tipi kodu zorunludur (örn. BRAND).",
+                "TABLE"      => "Tablo kaynağı için anahtar zorunludur (Partner / Warehouse / Item).",
+                _            => "Sabit liste için virgülle ayrılmış değerler zorunludur."
+            };
+            return RedirectToPage();
+        }
+        // TABLE anahtarı yalnız beyaz-listede olabilir (SQL injection koruması)
+        if (srcType == "TABLE" && UdfWhitelist.GetQuery(dataSourceKey) == null)
+        {
+            TempData["Error"] = $"Geçersiz tablo kaynağı. İzinli: {string.Join(", ", UdfWhitelist.Keys)}.";
             return RedirectToPage();
         }
 

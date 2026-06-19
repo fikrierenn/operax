@@ -159,6 +159,16 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
                     return rows.ToList();
                 }
 
+            case "TABLE":
+                // DataSourceKey = beyaz-liste anahtarı (Partner/Warehouse/Item); SQL injection'a karşı whitelist
+                var tableSql = UdfWhitelist.GetQuery(def.DataSourceKey);
+                if (tableSql == null) return [];
+                using (var conn = db.Open())
+                {
+                    var rows = await conn.QueryAsync<UdfOption>(tableSql, new { Cid = company.Id });
+                    return rows.ToList();
+                }
+
             default:
                 return [];
         }
@@ -172,4 +182,21 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
             map[d.FieldName] = await ResolveOptionsAsync(d);
         return map;
     }
+}
+
+/// <summary>
+/// TABLE veri kaynağı için güvenli sorgu beyaz-listesi (SQL injection koruması — DYNAMIC_CUSTOM_FIELDS §4C).
+/// DataSourceKey doğrudan SQL'e konmaz; yalnız buradaki sabit sorgular çalışır. Değer = Id, metin = Name.
+/// </summary>
+public static class UdfWhitelist
+{
+    private static readonly Dictionary<string, string> Allowed = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Partner"]   = "SELECT CAST(Id AS NVARCHAR(36)) AS Value, Name AS Text FROM Partner   WHERE CompanyId = @Cid AND IsActive = 1 AND IsDeleted = 0 ORDER BY Name",
+        ["Warehouse"] = "SELECT CAST(Id AS NVARCHAR(36)) AS Value, Name AS Text FROM Warehouse WHERE CompanyId = @Cid AND IsActive = 1 AND IsDeleted = 0 ORDER BY Name",
+        ["Item"]      = "SELECT CAST(Id AS NVARCHAR(36)) AS Value, Name AS Text FROM Item      WHERE CompanyId = @Cid AND IsActive = 1 AND IsDeleted = 0 ORDER BY Name",
+    };
+
+    public static string? GetQuery(string? key) => key != null && Allowed.TryGetValue(key, out var q) ? q : null;
+    public static IReadOnlyCollection<string> Keys => Allowed.Keys;
 }

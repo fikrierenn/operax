@@ -49,6 +49,10 @@ Her oturum sonunda (veya başlangıçta özet almak için), gün içinde olanlar
 - Madde 2
 - ...
 
+## İşe YARAMAYANLAR (denenen ama başarısız yaklaşımlar)
+> ECC save-session "What Did NOT Work" pattern'i. Aynı çıkmaz sokağa yarın tekrar girilmesin.
+- <yaklaşım> → <neden başarısız> (örn. "DataTable.Compute ile BOM formülü → injection riski, NCalc'a geçildi")
+
 ## Kararlar
 - <Bu oturumda alınan mimari/UX/teknik kararlar>
 - <Plan dosyasına işlendi mi? Hangi plan?>

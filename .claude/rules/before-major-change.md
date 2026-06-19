@@ -38,3 +38,15 @@ Büyük çaplı değişikliklerde tek bir devasa commit yerine **aşamalara böl
 3.  **Aşama 3 (PageModels & Lojik):** Backend lojikleri ve PageModel sınıfları adapte edilir.
 4.  **Aşama 4 (Views & Arayüz):** Arayüzler (`.cshtml`) ve JavaScript kodları yenilenir.
 5.  **Aşama 5 (Doğrulama):** `dotnet build` çalıştırılarak 0 hata ve 0 uyarı alındığı doğrulanır.
+
+---
+
+## 4. İlk Dokunuş Kuralı — Fact-Force Gate (ECC pattern)
+
+**Bir dosyayı bu oturumda İLK KEZ değiştirmeden önce** (Edit/Write):
+1. Dosyayı OKU (en azından değiştireceğin bölge + çevre 50 satır).
+2. Feature klasöründeki benzer dosyaya bak — pattern'i taklit et (kendi stilini dayatma).
+3. SP/SQL değişikliğiyse `docs/sql/db_objects.sql`'de mevcut tanımı oku.
+4. Emin olmadığın davranışı varsayma — Grep ile çağıranları tara.
+
+**Gerekçe:** Okumadan yapılan ilk edit, var olan pattern'i kırar ve sessiz regresyon üretir. "Dosya küçük, direkt yazarım" istisna değildir.

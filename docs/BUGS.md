@@ -13,7 +13,8 @@
 - [/] **FBUG-1 · migration_add_updatedby.sql `ItemUnit` stale ref** — `ItemUnit` tablosu yok (gerçek tablo `ItemUOM`); ALTER fresh DB'de abort ediyordu → sonraki ALTER'lar çalışmıyordu. KISMİ FIX (2026-06-19): satıra `OBJECT_ID('ItemUnit') IS NOT NULL` guard eklendi (no-op skip). + ReceivingHeader/ShippingHeader UpdatedBy/At eklendi (eksikti). + migration migrate listesine wire edildi.
 - [ ] **FBUG-2 · schema_M05_DocChain.sql "Invalid column ReceivingId"** — DocChain, ExpenseInvoice.ReceivingId'yi referans alıyor ama o kolon/sıra fresh DB'de henüz yok → ordering bug. Migrate sırası veya kolon-ekleme düzeltilmeli.
 - [ ] **FBUG-3 · Cascading UpdatedBy** — db_objects.sql SP'leri (Receiving/Shipping/Transfer/CycleCount/Production Post) UpdatedBy yazıyor; ilgili header tablolarında kolon fresh'te eksikse CREATE PROC "Invalid column" (deferred resolution eksik KOLON'u kapsamaz). FBUG-1 fix'i header'ları ekledi; tam fresh migrate temizlenene kadar başka eksikler çıkabilir.
-- **Durum:** Operax_Test (throwaway) drop edildi. Tam fresh-install migrate temizliği ertelendi; E2E akış-testi mevcut DB'de test-şirketiyle yapılıyor (şema doğru).
+- [x] **FBUG-1/2/3 ÇÖZÜLDÜ (2026-06-19):** İteratif fresh-DB testi ile fresh `operax-cli migrate` **0 fail** (100 tablo). Fix'ler: migration_add_updatedby wire+ItemUnit guard+header kolonları · schema_M05_DocChain ALTER sonrası GO · Item.Description StarterFields'e eklendi.
+- [ ] **FBUG-4 · Statik seed FK-kırık (fresh-install):** `seed_demo/seed_dashboard/seed_business_history` → FK_PurchaseOrderHeader_Warehouse (olmayan Warehouse Id); `seed_finance_starter` → FK_SalesInvoice_Partner. Bu seed'ler hardcoded GUID'lere bağlı, fresh DB'de master (Warehouse/Partner) yok. Ayrıca seed master infra (Warehouse/Bin) hiç kurulmuyor (fresh: Warehouse=0). Çözüm: ya seed'ler master-bağımsız yazılsın ya da dinamik generator (demo-veri-uret) kullanılsın. E2E bu turda dinamik generator ile yapılıyor.
 
 ---
 

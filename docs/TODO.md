@@ -1619,3 +1619,11 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 
 ## 🎨 UI BORÇ — Tailwind Utility Salatası → Semantic Class (sistemik)
 - [ ] **Fatura/rapor view'larında Tailwind utility salatası** (ui-standard.md §2 ihlali) — SalesInvoices, PurchaseInvoices, Expenses, Expenses/Report Index/Details: `text-slate-600`, `bg-slate-50`, `text-indigo-600` (token değil!) gibi utility'ler markup'ta. Semantic class'a (`_tables.css` türevi) toplu taşınmalı. `text-indigo-600` → `var(--brand-500)` bağlı class. Sistemik — tek view değil, toplu refactor planı gerek.
+
+## 🧠 ECC ENTEGRASYON BACKLOG (2026-06-10 — sqlserver-mcp-server oturumundaki ECC taramasından)
+
+> Kaynak: github.com/affaan-m/ECC analizi. Bugün eklendi: `planner` agent, `/learn` komutu, session-handoff "İşe YARAMAYANLAR" bölümü, before-major-change Fact-Force Gate.
+
+- [ ] **ECC-OP-01** context-budget: oturum başında MCP/rules token maliyeti görünürlüğü (ECC skills/context-budget uyarla).
+- [ ] **ECC-OP-02** continuous-learning-v2 gözlem hook'u değerlendir (PostToolUse → tekrarlayan hata yakalama; Node.js bağımlılığına dikkat).
+- [ ] **ECC-OP-03** checkpoint komutu (isimli git checkpoint + .claude/checkpoints.log) — uzun Tier 3 fazlarında ara nokta.

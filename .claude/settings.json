@@ -41,6 +41,15 @@
             "command": "bash .claude/hooks/post-commit-journal.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-edit-antipattern.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [

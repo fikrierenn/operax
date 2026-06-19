@@ -91,9 +91,9 @@ Her bulgu paralel `sql-sp-reviewer`/`code-reviewer` (opus) ile bulundu, 2 bağı
 - **Kapanış ✅:** code-reviewer (2 bulgu CRITICAL+HIGH düzeltildi) + smoke (faturalı receiving→guard true, build 0/0). commit.
 - **DEBT:** CycleCount guard (count-immutability ayrı, status-bazlı child değil) eklenmedi — gerçek child yok; Shipping OnPostAddLine 93-satır (pre-existing) split.
 
-### Faz E — THROW Kod Hizalama + DEAD Servis Temizliği
-- H3: 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment).
-- AC3 + AH8: `ProductionReceiptService.cs` + `ProductionActivityService.cs` sil (DynamicBomService de değerlendir).
+### Faz E — THROW Kod Hizalama + DEAD Servis Temizliği ✅ (2026-06-19)
+- H3 ✅: 60xxx→**55xxx** (60001/60002/60004/60010 → 55001/55002/55004/55010). 50xxx değil 55xxx (çakışma engeli, 55-bandı boştu). Neden kritikti: 60xxx iş-hatası bandı dışında → kullanıcıya generic mesaj.
+- AC3 + AH8 ✅: ProductionReceiptService + ProductionActivityService silindi (DI/caller yok doğrulandı, build 0/0). DynamicBomService değerlendirilmedi (gerçek kullanımda olabilir — dokunulmadı).
 - **Kapanış:** build-validator + grep (kalan 60xxx yok, dead servis referansı yok).
 
 ### Faz F — Dönem-Tarih Simetrisi (en büyük — şema değişikliği)

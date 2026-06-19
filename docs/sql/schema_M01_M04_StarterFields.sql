@@ -31,6 +31,14 @@ BEGIN
     PRINT 'Item.CostingMethod kolonu eklendi.';
 END
 GO
+-- Description: ürün açıklaması (fresh-install'da eksikti — schema_all/M01 Item'da yok;
+-- db_objects_udf.sql backfill + Items/Details buna bağlı). Plan 34 sonrası gerçek açıklama kolonu.
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'Description' AND Object_ID = OBJECT_ID('Item'))
+BEGIN
+    ALTER TABLE Item ADD Description NVARCHAR(MAX) NULL;
+    PRINT 'Item.Description kolonu eklendi.';
+END
+GO
 
 -- ─── Partner: ödeme vadesi, kredi limiti, vergi numarası ───────────
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'PaymentTermDays' AND Object_ID = OBJECT_ID('Partner'))

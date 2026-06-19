@@ -32,6 +32,7 @@ Bu kural, ana ajanın (ben) işleri alt-ajanlara (subagent) NASIL dağıtacağı
 | Test çalıştır + raporla | `test-runner` | haiku |
 | Şema dosyaları ↔ canlı DB farkı | `db-schema-checker` | haiku |
 | T-SQL → PostgreSQL port (SP/TVF/View/sorgu) | `pgsql-porter` | opus |
+| Demo/test verisi seed SQL üret (FK-tutarlı, ledger SP'den, demo CompanyId) | `demo-data-builder` | sonnet |
 | Hiçbiri uymuyor (genel çok-adımlı) | `general-purpose` | işe göre elle ata |
 
 ## 4. Paralellik ve Fan-out

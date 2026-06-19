@@ -40,7 +40,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
     // Yeni UDF tanımı ekler
     public async Task<IActionResult> OnPostCreateAsync(string entityName, string fieldName, string labelText,
-        string fieldType, string? dataSourceKey, int orderNo, bool isRequired)
+        string fieldType, string? dataSourceType, string? dataSourceKey, int orderNo, bool isRequired)
     {
         // Guard: zorunlu alanlar + entity beyaz listesi
         if (string.IsNullOrWhiteSpace(fieldName) || string.IsNullOrWhiteSpace(labelText))
@@ -58,10 +58,13 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             TempData["Error"] = "Geçersiz alan tipi. (TEXT / NUMBER / SELECT / DATE / BOOLEAN)";
             return RedirectToPage();
         }
-        // SELECT için statik seçenek listesi zorunlu (Faz 1: yalnız STATIC)
+        // SELECT veri kaynağı: STATIC (virgüllü liste) | DICTIONARY (sözlük tipi kodu)
+        var srcType = fieldType == "SELECT" ? (dataSourceType == "DICTIONARY" ? "DICTIONARY" : "STATIC") : null;
         if (fieldType == "SELECT" && string.IsNullOrWhiteSpace(dataSourceKey))
         {
-            TempData["Error"] = "Seçim listesi için virgülle ayrılmış değerler zorunludur.";
+            TempData["Error"] = srcType == "DICTIONARY"
+                ? "Sözlük kaynağı için sözlük tipi kodu zorunludur (örn. BRAND)."
+                : "Sabit liste için virgülle ayrılmış değerler zorunludur.";
             return RedirectToPage();
         }
 
@@ -91,7 +94,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 {
                     CompanyId = company.Id, EntityName = entityName, FieldName = fieldName,
                     LabelText = labelText, FieldType = fieldType,
-                    DataSourceType = fieldType == "SELECT" ? "STATIC" : (string?)null,
+                    DataSourceType = srcType,
                     DataSourceKey = fieldType == "SELECT" ? dataSourceKey : null,
                     OrderNo = orderNo, IsRequired = isRequired, UserId = User.Identity?.Name
                 });

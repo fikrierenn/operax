@@ -89,7 +89,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
 
             // Dinamik UDF paneli: tanımları yükle + kayıtlı değerleri çöz (Plan 34 Faz 2)
             var udfDefs = await udfSvc.LoadDefinitionsAsync("Partner");
-            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(Partner.AdditionalFields), ReadOnly: !IsEditable);
+            var udfOpts = await udfSvc.ResolveAllAsync(udfDefs);
+            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(Partner.AdditionalFields), ReadOnly: !IsEditable, Options: udfOpts);
 
             // İş kuralı: eski/eksik veride null sayısal alanlar 0 olarak gelir; form min kısıtını
             // ihlal edip kaydetmeyi engeller (örn. RiskScore=0 < min 1). Geçerli varsayılana çek.
@@ -345,11 +346,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
 
         // Dinamik UDF: form gönderimini tanımlara göre doğrula + güvenli JSON üret (Plan 34 Faz 2)
         var udfDefs = await udfSvc.LoadDefinitionsAsync("Partner");
-        var udfJson = udfSvc.BuildValidatedJson(Request.Form, udfDefs, out var udfErrors);
+        var (udfJson, udfErrors) = await udfSvc.BuildValidatedJsonAsync(Request.Form, udfDefs);
         if (udfErrors.Count > 0)
         {
             TempData["Error"] = string.Join(" ", udfErrors);
-            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(udfJson));
+            UdfPanel = new CustomFieldsVm("Partner", udfDefs, udfSvc.ReadValues(udfJson), Options: await udfSvc.ResolveAllAsync(udfDefs));
             return Page();
         }
         Partner.AdditionalFields = udfJson;

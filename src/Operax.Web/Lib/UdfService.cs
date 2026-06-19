@@ -49,9 +49,9 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
 
     // Form gönderimini tanımlara göre doğrular ve yalnız geçerli alanlardan JSON üretir.
     // Açık 2 (sunucu validasyon) + Açık 3 (anahtar enjeksiyonu) + Açık 5 (kültür) burada kapanır.
-    public string BuildValidatedJson(IFormCollection form, IReadOnlyList<UdfFieldDef> defs, out List<string> errors)
+    public async Task<(string Json, List<string> Errors)> BuildValidatedJsonAsync(IFormCollection form, IReadOnlyList<UdfFieldDef> defs)
     {
-        errors = new();
+        var errors = new List<string>();
         var result = new Dictionary<string, string>();
 
         // İş kuralı: yalnızca tanımlı alanlar işlenir — form'daki başka UDF_ anahtarı yok sayılır
@@ -91,13 +91,14 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
                     break;
 
                 case "SELECT":
-                    // Faz 1: yalnız STATIC kaynak desteklenir (Açık 4: DICTIONARY/TABLE ertelendi)
-                    if (def.DataSourceType != "STATIC")
+                    // STATIC + DICTIONARY desteklenir (TABLE → sonraki faz). Seçim çözülmüş seçeneklerde olmalı.
+                    var selOpts = await ResolveOptionsAsync(def);
+                    if (selOpts.Count == 0)
                     {
-                        errors.Add($"'{def.LabelText}' için desteklenmeyen veri kaynağı.");
+                        errors.Add($"'{def.LabelText}' için desteklenmeyen/boş veri kaynağı.");
                         break;
                     }
-                    if (!GetStaticOptions(def.DataSourceKey).Contains(raw))
+                    if (!selOpts.Any(o => o.Value == raw))
                     {
                         errors.Add($"'{def.LabelText}' geçersiz seçim.");
                         break;
@@ -122,7 +123,7 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
             }
         }
 
-        return JsonSerializer.Serialize(result);
+        return (JsonSerializer.Serialize(result), errors);
     }
 
     // STATIC kaynak anahtarını (virgüllü liste) seçeneklere ayırır.
@@ -130,5 +131,45 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
     {
         if (string.IsNullOrWhiteSpace(dataSourceKey)) return [];
         return dataSourceKey.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    // SELECT alanının seçeneklerini kaynağa göre çözer: STATIC (virgüllü) | DICTIONARY (sözlük tipi).
+    // TABLE veri kaynağı → sonraki faz (boş döner).
+    public async Task<IReadOnlyList<UdfOption>> ResolveOptionsAsync(UdfFieldDef def)
+    {
+        if (def.FieldType != "SELECT") return [];
+        switch (def.DataSourceType)
+        {
+            case "STATIC":
+                return GetStaticOptions(def.DataSourceKey).Select(s => new UdfOption(s, s)).ToList();
+
+            case "DICTIONARY":
+                // DataSourceKey = DictionaryType.Code (örn. 'BRAND'); değer = DictionaryValue.Code, metin = NameTr
+                if (string.IsNullOrWhiteSpace(def.DataSourceKey)) return [];
+                using (var conn = db.Open())
+                {
+                    var rows = await conn.QueryAsync<UdfOption>(@"
+                        SELECT dv.Code AS Value, dv.NameTr AS Text
+                        FROM DictionaryValue dv
+                        JOIN DictionaryType dt ON dt.Id = dv.TypeId
+                        WHERE dt.Code = @Key AND dt.CompanyId = @Cid
+                          AND dv.IsActive = 1 AND dv.IsDeleted = 0
+                        ORDER BY dv.OrderNo, dv.NameTr",
+                        new { Key = def.DataSourceKey, Cid = company.Id });
+                    return rows.ToList();
+                }
+
+            default:
+                return [];
+        }
+    }
+
+    // Bir tanım listesindeki tüm SELECT alanları için seçenekleri çözer (render map'i).
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<UdfOption>>> ResolveAllAsync(IReadOnlyList<UdfFieldDef> defs)
+    {
+        var map = new Dictionary<string, IReadOnlyList<UdfOption>>();
+        foreach (var d in defs.Where(d => d.FieldType == "SELECT"))
+            map[d.FieldName] = await ResolveOptionsAsync(d);
+        return map;
     }
 }

@@ -96,7 +96,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             await LoadSupplierTabAsync(conn, id.Value);
 
             var udfDefs = await udfSvc.LoadDefinitionsAsync("Item");
-            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(Item.AdditionalFields));
+            var udfOpts = await udfSvc.ResolveAllAsync(udfDefs);
+            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(Item.AdditionalFields), Options: udfOpts);
         }
         else
         {
@@ -129,13 +130,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
         // Dinamik UDF: form gönderimini tanımlara göre doğrula + güvenli JSON üret (Plan 34)
         var udfDefs = await udfSvc.LoadDefinitionsAsync("Item");
-        var udfJson = udfSvc.BuildValidatedJson(Request.Form, udfDefs, out var udfErrors);
+        var (udfJson, udfErrors) = await udfSvc.BuildValidatedJsonAsync(Request.Form, udfDefs);
         if (udfErrors.Count > 0)
         {
             // İş kuralı: zorunlu/geçersiz UDF varsa kayıt yapılmaz, kullanıcı uyarılır
             TempData["Error"] = string.Join(" ", udfErrors);
             // UDF panelini tekrar kur (form yeniden gösterilecek)
-            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(udfJson));
+            UdfPanel = new CustomFieldsVm("Item", udfDefs, udfSvc.ReadValues(udfJson), Options: await udfSvc.ResolveAllAsync(udfDefs));
             return Page();
         }
         Item.AdditionalFields = udfJson;

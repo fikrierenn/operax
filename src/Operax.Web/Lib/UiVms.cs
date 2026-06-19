@@ -105,12 +105,17 @@ public record UdfFieldDef(
     int OrderNo,
     bool IsRequired);
 
+/// <summary>SELECT alanı için çözülmüş bir seçenek (depolanan değer + gösterilen metin).</summary>
+public record UdfOption(string Value, string Text);
+
 /// <summary>
 /// _CustomFields.cshtml partial'ına geçilen model — bir entity'nin UDF paneli.
 /// CurrentValues: AdditionalFields JSON'ından çözülmüş anahtar-değer.
+/// Options: SELECT alanları için FieldName → çözülmüş seçenekler (STATIC/DICTIONARY).
 /// </summary>
 public record CustomFieldsVm(
     string EntityName,
     IReadOnlyList<UdfFieldDef> Definitions,
     Dictionary<string, string> CurrentValues,
-    bool ReadOnly = false);
+    bool ReadOnly = false,
+    IReadOnlyDictionary<string, IReadOnlyList<UdfOption>>? Options = null);

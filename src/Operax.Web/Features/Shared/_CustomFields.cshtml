@@ -26,13 +26,17 @@
                     <input type="number" step="any" name="@name" value="@val" class="form-ctrl"
                            readonly="@Model.ReadOnly" required="@f.IsRequired" />
                 }
-                else if (f.FieldType == "SELECT" && f.DataSourceType == "STATIC")
+                else if (f.FieldType == "SELECT")
                 {
+                    // Seçenekler PageModel'de çözülür (STATIC/DICTIONARY); yoksa STATIC fallback
+                    var opts = (Model.Options != null && Model.Options.TryGetValue(f.FieldName, out var o))
+                        ? o
+                        : UdfService.GetStaticOptions(f.DataSourceKey).Select(s => new UdfOption(s, s)).ToList();
                     <select name="@name" class="form-ctrl" disabled="@Model.ReadOnly" required="@f.IsRequired">
                         <option value="">Seçiniz...</option>
-                        @foreach (var opt in UdfService.GetStaticOptions(f.DataSourceKey))
+                        @foreach (var opt in opts)
                         {
-                            <option value="@opt" selected="@(opt == val)">@opt</option>
+                            <option value="@opt.Value" selected="@(opt.Value == val)">@opt.Text</option>
                         }
                     </select>
                 }

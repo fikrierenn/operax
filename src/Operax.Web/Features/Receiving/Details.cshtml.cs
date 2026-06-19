@@ -163,6 +163,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         else
         {
+            // Evrak bütünlüğü: bu mal kabule alış faturası kesilmişse düzenlenemez (document-immutability §3)
+            if (await DocumentLock.ReceivingHasInvoiceAsync(conn, Header.Id, company.Id))
+            {
+                TempData["Error"] = "Belge kilitli: bu mal kabule bağlı alış faturası mevcut, düzenlenemez.";
+                return RedirectToPage(new { id = Header.Id });
+            }
             await conn.ExecuteAsync(@"
                 UPDATE ReceivingHeader
                 SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, PurchaseOrderId=@PurchaseOrderId,
@@ -181,6 +187,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     {
         // Satır ekler; UOM dönüşümünü fn_GetConversionRate ile hesaplar
         using var conn = db.Open();
+
+        // Evrak bütünlüğü: bu mal kabule alış faturası bağlanmışsa satır eklenemez (document-immutability §3)
+        if (await DocumentLock.ReceivingHasInvoiceAsync(conn, id, company.Id))
+        {
+            TempData["Error"] = "Belge kilitli: bu mal kabule bağlı alış faturası mevcut, satır eklenemez.";
+            return RedirectToPage(new { id });
+        }
 
         // Ürün kontrolü — CompanyId dahil
         var exists = await conn.ExecuteScalarAsync<int>(

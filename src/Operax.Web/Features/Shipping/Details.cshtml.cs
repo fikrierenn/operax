@@ -106,6 +106,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             }
             else
             {
+                // Evrak bütünlüğü: bu sevkiyata satış faturası kesilmişse düzenlenemez (document-immutability §3)
+                if (await DocumentLock.ShippingHasInvoiceAsync(conn, Header.Id, company.Id))
+                {
+                    TempData["Error"] = "Belge kilitli: bu sevkiyata bağlı satış faturası mevcut, düzenlenemez.";
+                    return RedirectToPage(new { id = Header.Id });
+                }
                 await conn.ExecuteAsync(
                     "UPDATE ShippingHeader SET WarehouseId=@WarehouseId, CarrierName=@CarrierName, VehiclePlate=@VehiclePlate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
                     new { Header.WarehouseId, Header.CarrierName, Header.VehiclePlate, Header.Notes, Header.Id, CompanyId = company.Id });

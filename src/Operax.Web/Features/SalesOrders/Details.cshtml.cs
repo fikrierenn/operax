@@ -164,6 +164,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             }
             else
             {
+                // Evrak bütünlüğü: bu siparişe sevkiyat yapılmışsa düzenlenemez (document-immutability §3)
+                if (await DocumentLock.SoHasShippingAsync(conn, Header.Id, company.Id))
+                {
+                    TempData["Error"] = "Belge kilitli: bu siparişe bağlı sevkiyat mevcut, düzenlenemez.";
+                    return RedirectToPage(new { id = Header.Id });
+                }
                 await conn.ExecuteAsync(
                     "UPDATE SalesOrderHeader SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, RequestedDeliveryDate=@RequestedDeliveryDate, Notes=@Notes WHERE Id=@Id AND CompanyId=@CompanyId",
                     new { Header.WarehouseId, Header.PartnerId, Header.RequestedDeliveryDate, Header.Notes, Header.Id, CompanyId = company.Id });
@@ -191,6 +197,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, decimal qty, decimal? price)
     {
         using var conn = db.Open();
+        // Evrak bütünlüğü: bu siparişe sevkiyat yapılmışsa satır eklenemez (document-immutability §3)
+        if (await DocumentLock.SoHasShippingAsync(conn, id, company.Id))
+        {
+            TempData["Error"] = "Belge kilitli: bu siparişe bağlı sevkiyat mevcut, satır eklenemez.";
+            return RedirectToPage(new { id });
+        }
         try
         {
             // İş kuralı: CONSUMABLE satılamaz; sorgu sarf maddesini eler, BaseUomId null dönerse satır eklenmez

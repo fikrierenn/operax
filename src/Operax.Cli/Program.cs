@@ -313,14 +313,16 @@ class Program
             }
             catch (SqlException ex) when (tolerant)
             {
+                // Fail-closed (audit P0-3): yalnız "zaten var" (WarnOnly) kodları toleranslı.
+                // Diğer her SQL hatası migration'ı DURDURUR — yarım kurulu DB "başarılı" sanılmasın.
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"  [ERR  {ex.Number}] {ex.Message.Split('\n')[0]}");
+                Console.WriteLine($"  [FATAL {ex.Number}] {Path.GetFileName(path)}: {ex.Message.Split('\n')[0]}");
                 Console.ResetColor();
-                fail++;
+                throw;  // Main catch'e propagate → Environment.Exit(1)
             }
         }
 
-        Console.ForegroundColor = fail > 0 ? ConsoleColor.Yellow : ConsoleColor.Green;
+        Console.ForegroundColor = warn > 0 ? ConsoleColor.Yellow : ConsoleColor.Green;
         Console.WriteLine($"\nTamamlandi — ok:{ok} warn:{warn} fail:{fail}");
         Console.ResetColor();
     }

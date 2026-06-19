@@ -53,9 +53,9 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             TempData["Error"] = "Geçersiz varlık (entity).";
             return RedirectToPage();
         }
-        if (fieldType is not ("TEXT" or "NUMBER" or "SELECT"))
+        if (fieldType is not ("TEXT" or "NUMBER" or "SELECT" or "DATE" or "BOOLEAN"))
         {
-            TempData["Error"] = "Geçersiz alan tipi. (Faz 1: TEXT / NUMBER / SELECT)";
+            TempData["Error"] = "Geçersiz alan tipi. (TEXT / NUMBER / SELECT / DATE / BOOLEAN)";
             return RedirectToPage();
         }
         // SELECT için statik seçenek listesi zorunlu (Faz 1: yalnız STATIC)

@@ -59,6 +59,13 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
         {
             var raw = form["UDF_" + def.FieldName].ToString()?.Trim() ?? "";
 
+            // BOOLEAN: işaretsiz checkbox form'da hiç gelmez → "false" kabul (zorunluluk muaf)
+            if (def.FieldType == "BOOLEAN")
+            {
+                result[def.FieldName] = (raw is "true" or "on" or "1") ? "true" : "false";
+                continue;
+            }
+
             // Zorunlu alan boş geçilemez (HTML5 required bypass edilse de durur)
             if (string.IsNullOrEmpty(raw))
             {
@@ -98,8 +105,18 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
                     result[def.FieldName] = raw;
                     break;
 
+                case "DATE":
+                    // Kültür: invariant yyyy-MM-dd (tarayıcı date input bu formatı gönderir)
+                    if (!DateTime.TryParseExact(raw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                    {
+                        errors.Add($"'{def.LabelText}' geçerli tarih olmalı (yyyy-AA-gg).");
+                        break;
+                    }
+                    result[def.FieldName] = raw;
+                    break;
+
                 default:
-                    // DATE/BOOLEAN Faz 2 — Faz 1'de reddedilir
+                    // DICTIONARY/TABLE veri kaynağı → Faz 3+
                     errors.Add($"'{def.LabelText}' alan tipi henüz desteklenmiyor.");
                     break;
             }

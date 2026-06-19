@@ -41,9 +41,24 @@
                     <input type="text" name="@name" value="@val" class="form-ctrl"
                            readonly="@Model.ReadOnly" required="@f.IsRequired" />
                 }
+                else if (f.FieldType == "DATE")
+                {
+                    // Varsayılan 'TODAY' → bugünün tarihi (invariant yyyy-MM-dd)
+                    var dateVal = val == "TODAY" ? DateTime.Today.ToString("yyyy-MM-dd") : val;
+                    <input type="date" name="@name" value="@dateVal" class="form-ctrl"
+                           readonly="@Model.ReadOnly" required="@f.IsRequired" />
+                }
+                else if (f.FieldType == "BOOLEAN")
+                {
+                    <label class="switch">
+                        <input type="checkbox" name="@name" value="true"
+                               checked="@(val == "true")" disabled="@Model.ReadOnly" />
+                        <span class="switch-track"></span>
+                    </label>
+                }
                 else
                 {
-                    @* DATE / BOOLEAN / DICTIONARY / TABLE — Faz 2'de desteklenecek *@
+                    @* DICTIONARY / TABLE veri kaynağı — Faz 3+ *@
                 }
             </div>
         }

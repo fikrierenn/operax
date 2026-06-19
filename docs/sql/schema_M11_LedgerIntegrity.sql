@@ -150,10 +150,34 @@ END
 GO
 
 -- -----------------------------------------------------------------------------
+-- StockMovement.MovementDate (Plan 33 Faz F): AccountMovement ile dönem-tarih simetrisi.
+-- Dönem kontrolü hareket tarihine göre yapılsın (onay-anı GETUTCDATE değil). Mevcut SP
+-- INSERT'leri MovementDate vermez → DEFAULT GETUTCDATE() = onay anı (mevcut davranış korunur);
+-- ileride SP'ler belge tarihini set ederse geç-belge dönem denetimi otomatik doğru çalışır.
+-- -----------------------------------------------------------------------------
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'MovementDate' AND Object_ID = OBJECT_ID('StockMovement'))
+BEGIN
+    ALTER TABLE StockMovement ADD MovementDate DATETIME2 NULL;
+END
+GO
+-- Backfill: mevcut satırları CreatedAt'tan doldur (idempotent — yalnız NULL'lar)
+UPDATE StockMovement SET MovementDate = CreatedAt WHERE MovementDate IS NULL;
+GO
+-- Backfill sonrası NOT NULL + DEFAULT (yeni INSERT'lerde MovementDate verilmezse onay anı)
+IF EXISTS (SELECT 1 FROM sys.columns WHERE Name = 'MovementDate' AND Object_ID = OBJECT_ID('StockMovement') AND is_nullable = 1)
+BEGIN
+    ALTER TABLE StockMovement ALTER COLUMN MovementDate DATETIME2 NOT NULL;
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_StockMovement_MovementDate')
+    ALTER TABLE StockMovement ADD CONSTRAINT DF_StockMovement_MovementDate DEFAULT GETUTCDATE() FOR MovementDate;
+GO
+
+-- -----------------------------------------------------------------------------
 -- 5. tr_GuardPeriod_StockMovement — Emniyet ağı trigger (Plan 14)
 --    sp_GuardPeriodOpen doğrudan çağrılmadan yapılan INSERT/UPDATE'i engeller.
 --    SESSION_CONTEXT='1' → override onaylı, tek-kullanımlık bypass + reset.
---    StockMovement.MovementDate kolonu yok → onay anı (GETUTCDATE()) dönemi kontrol edilir.
+--    INSERTED.MovementDate ile dönem kontrolü (AccountMovement ile simetrik — Plan 33 Faz F).
 -- THROW aralığı: 51210 (plan kuralı: 50000-59999).
 -- -----------------------------------------------------------------------------
 CREATE OR ALTER TRIGGER dbo.tr_GuardPeriod_StockMovement
@@ -171,15 +195,14 @@ BEGIN
         RETURN;
     END
 
-    -- İş kuralı: onay anı dönemini kontrol et (StockMovement'ta ayrı MovementDate kolonu yok)
-    DECLARE @y SMALLINT = YEAR(GETUTCDATE());
-    DECLARE @m TINYINT  = MONTH(GETUTCDATE());
-
+    -- İş kuralı: hareketin ait olduğu dönem (MovementDate) kontrol edilir — onay anı değil
+    -- (AccountMovement trigger'ı ile simetrik; geç-belge senaryosunda doğru dönem denetimi)
     IF EXISTS (
         SELECT 1
         FROM dbo.AccountingPeriod ap
         JOIN INSERTED i ON ap.CompanyId = i.CompanyId
-        WHERE ap.PeriodYear = @y AND ap.PeriodMonth = @m
+        WHERE ap.PeriodYear  = YEAR(i.MovementDate)
+          AND ap.PeriodMonth = MONTH(i.MovementDate)
           AND ap.Status IN ('CLOSED', 'LOCKED')
     )
         THROW 51210, N'Dönem kapalı veya kilitli. StockMovement yazılamaz; onay SP üzerinden giriniz.', 1;

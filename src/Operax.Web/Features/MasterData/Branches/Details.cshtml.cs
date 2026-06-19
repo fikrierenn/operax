@@ -36,10 +36,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 "SELECT * FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
-            // Şubeye bağlı depolar
+            // Şubeye bağlı depolar — CompanyId zorunlu (izolasyon: başka şirket deposu sızmaz)
             Warehouses = await conn.QueryAsync<WarehouseDto>(
-                "SELECT Id, Code, Name, IsActive FROM Warehouse WHERE BranchId = @BranchId AND IsDeleted = 0 ORDER BY Code",
-                new { BranchId = id });
+                "SELECT Id, Code, Name, IsActive FROM Warehouse WHERE BranchId = @BranchId AND CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
+                new { BranchId = id, CompanyId = company.Id });
         }
         else
         {

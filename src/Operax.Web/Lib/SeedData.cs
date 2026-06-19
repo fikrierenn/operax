@@ -55,15 +55,16 @@ public static class SeedData
                 var resetToken  = await userManager.GeneratePasswordResetTokenAsync(admin);
                 var resetResult = await userManager.ResetPasswordAsync(admin, resetToken, DefaultAdminPassword);
                 if (resetResult.Succeeded)
-                    logger.LogInformation("Seed: Admin şifresi Development modunda sıfırlandı → {Pwd}", DefaultAdminPassword);
+                    logger.LogInformation("Seed: Admin şifresi Development modunda sıfırlandı.");
                 else
                     logger.LogWarning("Seed: Admin şifre sıfırlama başarısız — {Errs}",
                         string.Join(", ", resetResult.Errors.Select(e => e.Description)));
             }
 
-            // Kullanıcı zaten var — company claim eksik mi kontrol et, gerekirse ekle
+            // Kullanıcı zaten var — company claim + UserCompany erişim kaydı eksikse tamamla
             var claims = await userManager.GetClaimsAsync(admin);
-            if (!claims.Any(c => c.Type == "company"))
+            var companyClaim = claims.FirstOrDefault(c => c.Type == "company");
+            if (companyClaim == null)
             {
                 // Mevcut kullanıcının company claim'i yoksa ilk aktif şirkete bağla
                 using var connFix = db.Open();
@@ -72,12 +73,16 @@ public static class SeedData
                 if (existingCompanyId.HasValue)
                 {
                     await userManager.AddClaimAsync(admin, new Claim("company", existingCompanyId.Value.ToString()));
-                    logger.LogInformation("Seed: Mevcut admin kullanıcısına company claim eklendi.");
+                    await EnsureUserCompanyAdminAsync(db, admin.Id, existingCompanyId.Value);
+                    logger.LogInformation("Seed: Mevcut admin kullanıcısına company claim + UserCompany erişimi eklendi.");
                 }
             }
-            else
+            else if (Guid.TryParse(companyClaim.Value, out var claimedCompanyId))
             {
-                logger.LogInformation("Seed: Admin kullanıcısı zaten tam — atlanıyor.");
+                // İş kuralı (P0-2): claim var ama UserCompany erişim kaydı yoksa ekle — aksi halde
+                // CompanyAwareClaimsPrincipalFactory rolü bulamaz, admin modüllerden kilitlenir
+                await EnsureUserCompanyAdminAsync(db, admin.Id, claimedCompanyId);
+                logger.LogInformation("Seed: Admin UserCompany erişimi doğrulandı.");
             }
             return;
         }
@@ -93,12 +98,17 @@ public static class SeedData
             EmailConfirmed = true
         };
 
-        var result = await userManager.CreateAsync(admin, DefaultAdminPassword);
+        // İş kuralı (P0-1): Parola ADMIN_PASSWORD env'den okunur; üretimde yoksa fail-fast (aşağıda THROW)
+        var adminPassword = ResolveAdminPassword(env);
+        var result = await userManager.CreateAsync(admin, adminPassword);
         if (!result.Succeeded)
         {
             // Kullanıcı oluşturulamazsa hata loglanır (şifre politikası ihlali vb.)
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
             logger.LogError("Seed: Admin kullanıcısı oluşturulamadı — {Errors}", errors);
+            // İş kuralı: Üretimde admin oluşmazsa sistem yetkisiz kalır → fail-fast
+            if (!env.IsDevelopment())
+                throw new InvalidOperationException($"Admin kullanıcısı oluşturulamadı: {errors}");
             return;
         }
 
@@ -128,7 +138,42 @@ public static class SeedData
         // Bu claim cookie'ye yazılarak CurrentCompany.Id'nin doğru çalışmasını sağlar
         await userManager.AddClaimAsync(admin, new Claim("company", companyId.Value.ToString()));
 
-        logger.LogInformation("Seed: Tamamlandı — admin@operax.com / Admin123! / şirket: {CompanyName}", DefaultCompanyName);
+        // İş kuralı (P0-2): company claim ile ATOMİK Administrator UserCompany erişimi
+        await EnsureUserCompanyAdminAsync(db, admin.Id, companyId.Value);
+
+        logger.LogInformation("Seed: Tamamlandı — admin@operax.com / şirket: {CompanyName}", DefaultCompanyName);
+    }
+
+    /// <summary>
+    /// Admin parolasını çözer: ADMIN_PASSWORD env önceliklidir; Development'ta sabit fallback'e izin verilir,
+    /// üretimde env yoksa fail-fast (varsayılan parola ile başlatma engellenir — audit P0-1).
+    /// </summary>
+    private static string ResolveAdminPassword(IWebHostEnvironment env)
+    {
+        var envPwd = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+        if (!string.IsNullOrWhiteSpace(envPwd)) return envPwd;
+
+        // İş kuralı: Üretimde varsayılan parola ile başlatma güvenlik açığıdır → fail-fast
+        if (!env.IsDevelopment())
+            throw new InvalidOperationException(
+                "ADMIN_PASSWORD ortam değişkeni tanımlı değil — üretimde varsayılan parola ile başlatma engellendi.");
+
+        return DefaultAdminPassword;
+    }
+
+    /// <summary>
+    /// Admin'e firma-bağlamlı Administrator erişimini idempotent yazar (audit P0-2).
+    /// company claim tek başına yetmez; CompanyAwareClaimsPrincipalFactory rolü UserCompany'den okur.
+    /// </summary>
+    private static async Task EnsureUserCompanyAdminAsync(Db db, string userId, Guid companyId)
+    {
+        using var conn = db.Open();
+        // İş kuralı: Mevcut erişim varsa dokunma (idempotent) — admin'in sonradan değişen rolünü ezme
+        await conn.ExecuteAsync(@"
+            IF NOT EXISTS (SELECT 1 FROM UserCompany WHERE UserId = @UserId AND CompanyId = @CompanyId)
+                INSERT INTO UserCompany (UserId, CompanyId, Role, IsActive, CreatedAt)
+                VALUES (@UserId, @CompanyId, @Role, 1, GETUTCDATE());",
+            new { UserId = userId, CompanyId = companyId, Role = Roles.Administrator });
     }
 
     /// <summary>

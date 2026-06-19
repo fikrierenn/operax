@@ -71,8 +71,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             var paid = await conn.ExecuteScalarAsync<int>(@"
                 SELECT COUNT(*) FROM PaymentPlan
                 WHERE SourceDocType='PURCHASE_INVOICE' AND SourceDocId=@Id
+                  AND CompanyId=@CompanyId
                   AND Status IN (@Paid, @Partial) AND FinancialTransactionId IS NOT NULL",
-                new { Id, Paid = DocStatus.Paid, Partial = DocStatus.Partial });
+                new { Id, CompanyId = company.Id, Paid = DocStatus.Paid, Partial = DocStatus.Partial });
             CanCorrect = paid == 0;
         }
 

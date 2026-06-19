@@ -41,10 +41,11 @@ builder.Services.AddMemoryCache(); // F0.2: rol-modül erişim haritası cache'i
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
+    // Parola politikası sertleştirildi (audit P0-1): büyük harf + özel karakter + min 8
     options.Password.RequireDigit = true;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
     // Yanlış şifre: 5 denemede 5 dakika kilitle
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
@@ -114,7 +115,11 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<IAuthorizationHandler, ModuleAccessHandler>();
 
 // Yetki politikaları: Admin sabit; modül policy'leri ince sarmalayıcı (allow/deny DB'den handler ile)
+// Güvenlik (H-1): global fallback — auth metadata'sı olmayan tüm sayfalar authenticated ister.
+// Yeni feature klasörü ModuleKeys'e eklenmese bile anonim açılmaz (fail-closed). Açık sayfalar [AllowAnonymous] taşır.
 var authz = builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser().Build())
     .AddPolicy("AdministratorOnly", p => p.RequireRole(Roles.Administrator));
 foreach (var key in ModuleKeys.All)
     authz.AddPolicy($"mod:{key}", p => p.AddRequirements(new ModuleAccessRequirement(key)));
@@ -235,10 +240,11 @@ RecurringJob.AddOrUpdate<Operax.Web.Lib.Jobs.ReconciliationExpiryJob>(
     "reconciliation-expiry", j => j.RunAsync(), "0 2 * * *");
 
 // Root URL: giriş yapılmışsa Dashboard'a, yapılmamışsa Login'e yönlendir
+// Güvenlik (H-1): global fallback'ten muaf — anonim kullanıcı buradan /login'e yönlenir
 app.MapGet("/", (HttpContext ctx) =>
     ctx.User.Identity?.IsAuthenticated == true
         ? Results.Redirect("/Dashboard")
-        : Results.Redirect("/login"));
+        : Results.Redirect("/login")).AllowAnonymous();
 
 // Aktif Şirket Değiştirme (Company Switcher) API Endpoint
 // SEC-2: Kullanıcının hedef şirkete erişim yetkisi UserCompany tablosundan doğrulanır

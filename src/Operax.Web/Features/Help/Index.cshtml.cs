@@ -98,7 +98,10 @@ public class IndexModel(IWebHostEnvironment env, ILogger<IndexModel> logger) : P
             .Where(s => !string.IsNullOrEmpty(s) && !IsIdSegment(s))
             .Select(s => s.ToLowerInvariant());
         var slug = string.Join('-', segments);
-        return string.IsNullOrEmpty(slug) ? null : slug;
+        if (string.IsNullOrEmpty(slug)) return null;
+        // Güvenlik (P0-6): yalnız güvenli slug karakterleri kabul — path traversal ('..', '\', ':', '/') reddedilir
+        if (!System.Text.RegularExpressions.Regex.IsMatch(slug, "^[a-z0-9-]+$")) return null;
+        return slug;
     }
 
     // Guid veya sayı segmenti (kayıt id'si) yardım slug'ına dahil edilmez

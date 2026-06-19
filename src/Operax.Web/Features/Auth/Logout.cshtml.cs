@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Operax.Web.Features.Auth;
 
+// Güvenlik (H-1): süresi dolmuş oturum da çıkış yapabilmeli → global fallback'ten muaf
+[AllowAnonymous]
 public class LogoutModel(SignInManager<IdentityUser> signInManager) : PageModel
 {
     // GET: doğrudan çıkış yap ve Login'e yönlendir

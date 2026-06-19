@@ -100,7 +100,8 @@ class Program
                         "schema_M02_MaterialIssue.sql",       // Plan 25: Sarf Fişi (MaterialIssueHeader/Line)
                         "schema_M04_ShipmentInvoiceMerge.sql", // Plan 21: İrsaliye↔Fatura N:1 (InvoicedQty + SourceShipmentLineId + IssueDate)
                         "schema_M01_SupplierItem.sql",        // Plan 32: Tedarikçi-Ürün Kataloğu (SupplierItem)
-                        "schema_M_UDF.sql"                    // Plan 34: UserFieldDefinition + Item.AdditionalFields/MinStockLevel/MaxStockLevel
+                        "schema_M_UDF.sql",                   // Plan 34: UserFieldDefinition + Item.AdditionalFields/MinStockLevel/MaxStockLevel
+                        "migration_add_updatedby.sql"         // Zorunlu audit kolonu UpdatedBy/At — fresh-install'da SP CREATE bağımlılığı (db_objects.sql ÖNCE çalışmalı)
 
                     })
                     {

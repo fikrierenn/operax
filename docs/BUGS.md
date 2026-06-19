@@ -6,6 +6,17 @@
 
 ---
 
+## 🔵 FRESH-INSTALL MIGRATE BUG'LARI (2026-06-19 — Operax_Test E2E ile yakalandı)
+
+> Mevcut dev DB'de GİZLİ (şema zamanla birikti); sıfırdan `operax-cli migrate` ile yeni DB'de patlıyor. Ayrı düzeltme turu (Tier 3 — migration ordering overhaul).
+
+- [/] **FBUG-1 · migration_add_updatedby.sql `ItemUnit` stale ref** — `ItemUnit` tablosu yok (gerçek tablo `ItemUOM`); ALTER fresh DB'de abort ediyordu → sonraki ALTER'lar çalışmıyordu. KISMİ FIX (2026-06-19): satıra `OBJECT_ID('ItemUnit') IS NOT NULL` guard eklendi (no-op skip). + ReceivingHeader/ShippingHeader UpdatedBy/At eklendi (eksikti). + migration migrate listesine wire edildi.
+- [ ] **FBUG-2 · schema_M05_DocChain.sql "Invalid column ReceivingId"** — DocChain, ExpenseInvoice.ReceivingId'yi referans alıyor ama o kolon/sıra fresh DB'de henüz yok → ordering bug. Migrate sırası veya kolon-ekleme düzeltilmeli.
+- [ ] **FBUG-3 · Cascading UpdatedBy** — db_objects.sql SP'leri (Receiving/Shipping/Transfer/CycleCount/Production Post) UpdatedBy yazıyor; ilgili header tablolarında kolon fresh'te eksikse CREATE PROC "Invalid column" (deferred resolution eksik KOLON'u kapsamaz). FBUG-1 fix'i header'ları ekledi; tam fresh migrate temizlenene kadar başka eksikler çıkabilir.
+- **Durum:** Operax_Test (throwaway) drop edildi. Tam fresh-install migrate temizliği ertelendi; E2E akış-testi mevcut DB'de test-şirketiyle yapılıyor (şema doğru).
+
+---
+
 ## HATA SEVİYELERİ
 
 - 🔴 **ERROR** — Build fail, düzeltilmeden devam edilemez

@@ -96,10 +96,11 @@ Her bulgu paralel `sql-sp-reviewer`/`code-reviewer` (opus) ile bulundu, 2 bağı
 - AC3 + AH8 ✅: ProductionReceiptService + ProductionActivityService silindi (DI/caller yok doğrulandı, build 0/0). DynamicBomService değerlendirilmedi (gerçek kullanımda olabilir — dokunulmadı).
 - **Kapanış:** build-validator + grep (kalan 60xxx yok, dead servis referansı yok).
 
-### Faz F — Dönem-Tarih Simetrisi (en büyük — şema değişikliği)
-- H6s: StockMovement.MovementDate kolonu + trigger INSERTED.MovementDate.
-- **Risk:** Mevcut StockMovement satırlarına MovementDate backfill (CreatedAt'tan).
-- **Kapanış:** sql-sp-reviewer + smoke (kapalı döneme geriye-dönük stok → THROW).
+### Faz F — Dönem-Tarih Simetrisi (en büyük — şema değişikliği) ✅ (2026-06-19)
+- H6s ✅: StockMovement.MovementDate kolonu (idempotent ADD→backfill CreatedAt→NOT NULL→DEFAULT) + trigger INSERTED.MovementDate (AccountMovement simetrik).
+- Backfill ✅: 189 satır = CreatedAt, 0 NULL.
+- **Kapanış ✅:** sql-sp-reviewer (CRITICAL yok, 6 kontrol canlı-doğrulandı) + smoke (kapalı 2020/3 + MovementDate'li SM → THROW 51210). Davranış korunumu: SP'ler MovementDate vermiyor→DEFAULT=onay-anı.
+- **NOT:** SP'lerin belge tarihini MovementDate'e yazması ileride (şimdilik onay-anı; simetri yapısal olarak kuruldu).
 
 ---
 

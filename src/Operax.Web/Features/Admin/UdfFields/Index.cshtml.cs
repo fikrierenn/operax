@@ -105,19 +105,24 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         return RedirectToPage();
     }
 
-    // Etiket / sıra / zorunluluk / aktiflik günceller
-    public async Task<IActionResult> OnPostSaveAsync(Guid id, string labelText, int orderNo, bool isRequired, bool isActive)
+    // Etiket / sıra / zorunluluk / aktiflik + SELECT seçenek listesi (DataSourceKey) günceller.
+    // FieldName ve FieldType DEĞİŞTİRİLEMEZ (JSON anahtarı + tip uyumu — veri bütünlüğü).
+    public async Task<IActionResult> OnPostSaveAsync(Guid id, string labelText, int orderNo, bool isRequired, bool isActive, string? dataSourceKey)
     {
         try
         {
             using var conn = db.Open();
+            // İş kuralı: boş dataSourceKey mevcut seçenekleri SİLMEZ (SELECT alanın listesi korunur) —
+            // yalnız dolu değer geldiğinde güncellenir. Non-SELECT alanlarda zaten NULL kalır.
             await conn.ExecuteAsync(@"
                 UPDATE UserFieldDefinition
                 SET LabelText = @LabelText, OrderNo = @OrderNo, IsRequired = @IsRequired,
-                    IsActive = @IsActive, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+                    IsActive = @IsActive,
+                    DataSourceKey = CASE WHEN NULLIF(@DataSourceKey, N'') IS NULL THEN DataSourceKey ELSE @DataSourceKey END,
+                    UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
                 WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, LabelText = labelText, OrderNo = orderNo, IsRequired = isRequired,
-                      IsActive = isActive, CompanyId = company.Id, UserId = User.Identity?.Name });
+                      IsActive = isActive, DataSourceKey = dataSourceKey, CompanyId = company.Id, UserId = User.Identity?.Name });
             TempData["Success"] = "Özel alan güncellendi.";
         }
         catch (SqlException sqlEx)

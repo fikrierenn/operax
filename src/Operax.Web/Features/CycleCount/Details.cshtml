@@ -5,6 +5,8 @@
 }
 
 <form method="post" class="fade-in">
+    @* Mevcut belgede Id round-trip etmeli; yoksa POST'ta IsNew=true → yeni Guid ile sessiz duplicate draft. *@
+    <input type="hidden" asp-for="Header.Id" />
     <div class="page-hdr">
         <div>
             <div class="flex items-center gap-2 mb-2 text-xs">

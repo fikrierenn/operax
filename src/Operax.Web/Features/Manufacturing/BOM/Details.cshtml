@@ -18,6 +18,8 @@
 <div class="card mb-6 p-5">
     <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest mb-4">Model Bilgileri</h3>
     <form method="post">
+        @* Mevcut modeli düzenlerken Id round-trip etmeli; yoksa POST'ta IsNew=true → INSERT → Code dup-key. *@
+        <input type="hidden" asp-for="Model.Id" />
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs font-bold text-slate-600 mb-1">Model Kodu *</label>

@@ -22,6 +22,10 @@ public sealed class ModuleAccessHandler(Db db, IHttpContextAccessor http, IMemor
         // İş kuralı: kimlik doğrulanmamışsa yetki verilmez (challenge → login'e yönlenir)
         if (context.User.Identity?.IsAuthenticated != true) return;
 
+        // İş kuralı (H-2): aktif firma üyeliği iptal edildiyse (UserCompany.IsActive=0) erişim verilmez.
+        // Cookie'deki eski rol claim'ine güvenilmez — Administrator dahil. İptal en geç ~1dk içinde yansır.
+        if (await IsMembershipRevokedAsync(context.User)) return;
+
         // İş kuralı: Administrator tüm modüllere tam erişir
         if (context.User.IsInRole(Roles.Administrator))
         {
@@ -48,6 +52,26 @@ public sealed class ModuleAccessHandler(Db db, IHttpContextAccessor http, IMemor
                 return;
             }
         }
+    }
+
+    // İş kuralı (H-2): Aktif firma üyeliği AÇIKÇA iptal edilmiş mi? (UserCompany.IsActive=0)
+    // Yalnız var-olan-ama-pasif satırı blokla; satır yoksa diğer guard'lara bırak (lockout regresyonu önlenir).
+    private async Task<bool> IsMembershipRevokedAsync(ClaimsPrincipal user)
+    {
+        var userId    = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var companyId = user.FindFirstValue("company");
+        // Firma bağlamı yoksa bu kontrol uygulanmaz (rol claim mekanizması zaten kısıtlar)
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(companyId)) return false;
+
+        return await cache.GetOrCreateAsync($"ucr:{userId}:{companyId}", async entry =>
+        {
+            // Güvenlik gecikmesini sınırlı tut: iptal en geç ~1dk içinde yansısın
+            entry.SlidingExpiration = TimeSpan.FromMinutes(1);
+            using var conn = db.Open();
+            return await conn.ExecuteScalarAsync<bool>(
+                "SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM UserCompany WHERE UserId=@u AND CompanyId=@c AND IsActive=0) THEN 1 ELSE 0 END AS BIT)",
+                new { u = userId, c = companyId });
+        });
     }
 
     // Tek rolün modül erişim haritasını (ModuleKey → AccessLevel) cache'li getirir

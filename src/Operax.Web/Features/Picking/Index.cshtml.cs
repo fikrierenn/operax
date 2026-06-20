@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc.RazorPages;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
 using Microsoft.AspNetCore.Authorization;
@@ -10,19 +11,32 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<PickTaskDto> Tasks { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;
+
         const string sql = @"
-            SELECT t.*, u.UserName as AssignedUserName, 
+            SELECT t.*, u.UserName as AssignedUserName,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id) as LineCount,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase > 0) as PickedLineCount
             FROM PickTask t
             LEFT JOIN AspNetUsers u ON u.Id = t.AssignedUserId
             WHERE t.CompanyId = @CompanyId
-            ORDER BY t.CreatedAt DESC";
+            ORDER BY t.CreatedAt DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        Tasks = await conn.QueryAsync<PickTaskDto>(sql, new { CompanyId = company.Id });
+            SELECT COUNT(1) FROM PickTask WHERE CompanyId = @CompanyId;";
+
+        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        Tasks = (await grid.ReadAsync<PickTaskDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public record PickTaskDto { 

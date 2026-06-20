@@ -21,15 +21,20 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public decimal InflowVolume { get; set; }
     public decimal OutflowVolume { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i (eski TOP 500 yerine gerçek sayfalama)
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;
 
-        // TOP 500 + filtre: büyük tablolarda performans koruması
-        // Tarih karşılaştırması SARGable: aralık kullanılır, YEAR()/MONTH() fonksiyon yasak
+        // Tarih karşılaştırması SARGable (aralık); sayfa satırları + filtreli toplam tek round-trip (PF-1)
         const string sql = @"
-            SELECT TOP 500
-                   sm.CreatedAt, sm.MovementType, i.Name as ItemName, i.Code as ItemCode,
+            SELECT sm.CreatedAt, sm.MovementType, i.Name as ItemName, i.Code as ItemCode,
                    wh.Code as WarehouseCode, b.Code as BinCode, sm.QtyBase,
                    sm.SourceDocType, sm.SourceDocNo, u.UserName as OperatorName
             FROM StockMovement sm
@@ -45,10 +50,25 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                    OR i.Code LIKE '%' + @Q + '%'
                    OR i.Name LIKE '%' + @Q + '%'
                    OR sm.SourceDocNo LIKE '%' + @Q + '%')
-            ORDER BY sm.CreatedAt DESC";
+            ORDER BY sm.CreatedAt DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        Movements = await conn.QueryAsync<MovementDto>(sql,
-            new { CompanyId = company.Id, Type, From, To, Q });
+            SELECT COUNT(*)
+            FROM StockMovement sm
+            JOIN Item i ON i.Id = sm.ItemId
+            WHERE sm.CompanyId = @CompanyId
+              AND (@Type IS NULL OR sm.MovementType = @Type)
+              AND (@From IS NULL OR sm.CreatedAt >= @From)
+              AND (@To   IS NULL OR sm.CreatedAt <  DATEADD(day, 1, @To))
+              AND (@Q    IS NULL
+                   OR i.Code LIKE '%' + @Q + '%'
+                   OR i.Name LIKE '%' + @Q + '%'
+                   OR sm.SourceDocNo LIKE '%' + @Q + '%');";
+
+        using var grid = await conn.QueryMultipleAsync(sql,
+            new { CompanyId = company.Id, Type, From, To, Q, Page = page, PageSize });
+        Movements = (await grid.ReadAsync<MovementDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
 
         Last24hMovements = await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM StockMovement WHERE CompanyId = @CompanyId AND CreatedAt >= DATEADD(hour, -24, GETDATE())",

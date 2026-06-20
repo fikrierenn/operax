@@ -376,6 +376,8 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRANSACTION;
 
     -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
@@ -422,6 +424,11 @@ BEGIN
     WHERE Id = @HeaderId;
 
     COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -448,6 +455,8 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRANSACTION;
 
     -- Dönem kilidi: onay anının dönemi açık olmalı (Plan 14)
@@ -488,6 +497,11 @@ BEGIN
     WHERE Id = @HeaderId;
 
     COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 

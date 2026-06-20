@@ -50,48 +50,43 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         await LoadMonthlyPerformanceAsync(conn, p);
     }
 
-    // KPI metriklerini tek seferde okur. 80-satır eşiğine uymak için ayrı metot.
+    // KPI metriklerini TEK round-trip'te okur (PF-2: 6 ayrı scalar sorgu → 1 sorgu, alt-SELECT'ler).
     private async Task LoadKpisAsync(System.Data.IDbConnection conn, object p)
     {
-        // İş kuralı: İptal edilmeyen tüm satınalma satırlarının toplam tutarı
-        TotalPoAmount = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(SUM(l.QtyOrdered * l.Price), 0)
-            FROM PurchaseOrderLine l
-            JOIN PurchaseOrderHeader h ON h.Id = l.HeaderId
-            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0 AND h.Status <> @StCancelled", p);
+        var k = await conn.QuerySingleAsync<KpiRow>(@"
+            SELECT
+                -- İptal edilmeyen tüm satınalma satırlarının toplam tutarı
+                (SELECT ISNULL(SUM(l.QtyOrdered * l.Price), 0)
+                 FROM PurchaseOrderLine l JOIN PurchaseOrderHeader h ON h.Id = l.HeaderId
+                 WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0 AND h.Status <> @StCancelled) AS TotalPoAmount,
+                (SELECT COUNT(*) FROM PurchaseOrderHeader
+                 WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN (@StPosted, @StApproved)) AS ApprovedPoCount,
+                (SELECT COUNT(*) FROM PurchaseOrderHeader
+                 WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status = @StDraft) AS DraftPoCount,
+                -- Stoklu hücre sayısının toplam aktif hücreye oranı (yüzde)
+                ISNULL(CAST((SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE QtyBalance > 0) AS FLOAT) * 100
+                    / NULLIF((SELECT COUNT(*) FROM Bin b JOIN Warehouse w ON w.Id = b.WarehouseId
+                              WHERE w.CompanyId = @CompanyId AND b.IsDeleted = 0), 0), 0) AS WarehouseFillRate,
+                (SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE BinId IS NOT NULL) AS StockLocations,
+                -- Toplam stoğu kendi minimum seviyesinin (Item.MinStockLevel) altına düşen ürün sayısı
+                (SELECT COUNT(*) FROM (
+                    SELECT b.ItemId, SUM(b.QtyBalance) AS Bal, MAX(i.MinStockLevel) AS MinLvl
+                    FROM tvf_InventoryBalance(@CompanyId) b
+                    JOIN Item i ON i.Id = b.ItemId AND i.IsDeleted = 0
+                    GROUP BY b.ItemId
+                 ) t WHERE t.MinLvl > 0 AND t.Bal < t.MinLvl) AS LowStockSkuCount", p);
 
-        ApprovedPoCount = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(*) FROM PurchaseOrderHeader
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN (@StPosted, @StApproved)", p);
-
-        DraftPoCount = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(*) FROM PurchaseOrderHeader
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status = @StDraft", p);
-
-        // İş kuralı: Stoklu hücre sayısının toplam aktif hücreye oranı yüzde olarak
-        WarehouseFillRate = await conn.ExecuteScalarAsync<decimal>(@"
-            SELECT ISNULL(CAST(COUNT(DISTINCT BinId) AS FLOAT) * 100
-                / NULLIF((SELECT COUNT(*) FROM Bin b JOIN Warehouse w ON w.Id = b.WarehouseId
-                          WHERE w.CompanyId = @CompanyId AND b.IsDeleted = 0), 0), 0)
-            FROM tvf_InventoryBalance(@CompanyId)
-            WHERE QtyBalance > 0", p);
-        WarehouseFillRate = System.Math.Round(WarehouseFillRate, 1);
-
-        StockLocations = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE BinId IS NOT NULL", p);
-
-        // İş kuralı: Toplam stoğu kendi minimum seviyesinin (Item.MinStockLevel) altına düşen ürün sayısı.
-        // Hardcoded eşik yerine ürün-bazlı tanımlı eşik kullanılır (eşik tanımsız ürün sayıma girmez).
-        LowStockSkuCount = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(*)
-            FROM (
-                SELECT b.ItemId, SUM(b.QtyBalance) AS Bal, MAX(i.MinStockLevel) AS MinLvl
-                FROM tvf_InventoryBalance(@CompanyId) b
-                JOIN Item i ON i.Id = b.ItemId AND i.IsDeleted = 0
-                GROUP BY b.ItemId
-            ) t
-            WHERE t.MinLvl > 0 AND t.Bal < t.MinLvl", p);
+        TotalPoAmount     = k.TotalPoAmount;
+        ApprovedPoCount   = k.ApprovedPoCount;
+        DraftPoCount      = k.DraftPoCount;
+        WarehouseFillRate = System.Math.Round(k.WarehouseFillRate, 1);
+        StockLocations    = k.StockLocations;
+        LowStockSkuCount  = k.LowStockSkuCount;
     }
+
+    // KPI tek-satır taşıyıcısı (PF-2 konsolide sorgu)
+    private sealed record KpiRow(decimal TotalPoAmount, int ApprovedPoCount, int DraftPoCount,
+        decimal WarehouseFillRate, int StockLocations, int LowStockSkuCount);
 
     // Yaklaşan sevkiyatlar (DRAFT durumundaki mal kabul satırları, son 5)
     private async Task LoadIncomingShipmentsAsync(System.Data.IDbConnection conn, object p)

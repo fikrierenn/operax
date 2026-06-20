@@ -148,7 +148,8 @@ public static class SeedData
     /// Admin parolasını çözer: ADMIN_PASSWORD env önceliklidir; Development'ta sabit fallback'e izin verilir,
     /// üretimde env yoksa fail-fast (varsayılan parola ile başlatma engellenir — audit P0-1).
     /// </summary>
-    private static string ResolveAdminPassword(IWebHostEnvironment env)
+    // internal: Operax.Tests P0-1 fail-fast/env regresyon testi erişebilsin (InternalsVisibleTo)
+    internal static string ResolveAdminPassword(IWebHostEnvironment env)
     {
         var envPwd = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
         if (!string.IsNullOrWhiteSpace(envPwd)) return envPwd;

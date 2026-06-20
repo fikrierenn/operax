@@ -98,6 +98,37 @@ public static class PriceLineType
     public const string Discount = "DISCOUNT";  // Sadece iskonto kademesi taşıyan satır
 }
 
+/// <summary>Finansal hesap tipi (Plan 35) — schema_M11_Finance.AccountType + DB ACCOUNT_TYPE dict ile birebir.</summary>
+public static class AccountType
+{
+    public const string Cash       = "CASH";         // Kasa
+    public const string Bank       = "BANK";         // Banka hesabı
+    public const string CreditCard = "CREDIT_CARD";  // Kredi kartı
+    public const string Loan       = "LOAN";         // Kredi hesabı
+    public const string Pos        = "POS";          // POS cihazı
+}
+
+/// <summary>Finansal hareket tipi (Plan 35) — schema_M11_Finance.TransactionType + DB TRANSACTION_TYPE dict ile birebir.</summary>
+public static class TransactionType
+{
+    public const string Income      = "INCOME";        // Tahsilat / gelir
+    public const string Expense     = "EXPENSE";       // Ödeme / gider
+    public const string TransferIn  = "TRANSFER_IN";   // Virman giriş
+    public const string TransferOut = "TRANSFER_OUT";  // Virman çıkış
+}
+
+/// <summary>Ödeme yöntemi (Plan 35) — DB PAYMENT_METHOD dict ile birebir.</summary>
+public static class PaymentMethod
+{
+    public const string Cash           = "CASH";             // Nakit
+    public const string BankTransfer   = "BANK_TRANSFER";    // Havale / EFT
+    public const string CreditCard     = "CREDIT_CARD";      // Kredi kartı
+    public const string Cheque         = "CHEQUE";           // Çek
+    public const string PromissoryNote = "PROMISSORY_NOTE";  // Senet
+    public const string Offset         = "OFFSET";           // Mahsup
+    public const string Other          = "OTHER";            // Diğer
+}
+
 /// <summary>Mal Kabulü (Receiving) detay DTO</summary>
 public class ReceivingLineDto
 {

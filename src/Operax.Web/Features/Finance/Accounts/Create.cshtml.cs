@@ -16,7 +16,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
 
     public void OnGet()
     {
-        Form.AccountType = "BANK";
+        Form.AccountType = AccountType.Bank;
         Form.Currency    = "TRY";
     }
 
@@ -69,7 +69,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
     {
         public string   Code           { get; set; } = "";
         public string   Name           { get; set; } = "";
-        public string   AccountType    { get; set; } = "BANK";  // CASH/BANK/CREDIT_CARD/POS
+        // Sabit sınıf adı property adıyla çakıştığı için tam-nitelikli referans
+        public string   AccountType    { get; set; } = Operax.Web.Lib.AccountType.Bank;  // CASH/BANK/CREDIT_CARD/LOAN/POS
         public string   Currency       { get; set; } = "TRY";
         public string?  BankName       { get; set; }
         public string?  BranchName     { get; set; }

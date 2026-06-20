@@ -25,7 +25,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
     {
         // Ödeme formunu yükler; belge zinciri ön-doldurma parametrelerini destekler
         await LoadDropdownsAsync();
-        Form.TxType         = txType ?? "INCOME";
+        Form.TxType         = txType ?? TransactionType.Income;
         Form.InstrumentType = "EFT";
         Form.Currency       = "TRY";
         if (partnerId.HasValue)  Form.PartnerId = partnerId.Value;
@@ -67,7 +67,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
             var newId = prm.Get<Guid>("NewTxId");
             // Audit izi (A-4): kasa/banka tahsilat-ödeme hareketi — finansal mutasyon
             await audit.LogAsync("PAYMENT", "FinancialTransaction", newId, $"{Form.TxType} · {Form.Amount} {Form.Currency}");
-            TempData["Success"] = Form.TxType == "INCOME"
+            TempData["Success"] = Form.TxType == TransactionType.Income
                 ? $"Tahsilat kaydedildi. TX: {UiHelpers.ShortGuid(newId)}"
                 : $"Ödeme kaydedildi. TX: {UiHelpers.ShortGuid(newId)}";
 
@@ -90,11 +90,12 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
     private async Task LoadDropdownsAsync()
     {
         using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
+        // Yalnız nakit hareketi yapılabilen hesaplar (kasa + banka) — sabit ile parametreli
+        var p = new { CompanyId = company.Id, CashType = AccountType.Cash, BankType = AccountType.Bank };
 
         using var multi = await conn.QueryMultipleAsync(@"
             SELECT Id, Code, Name FROM FinancialAccount
-            WHERE CompanyId = @CompanyId AND AccountType IN ('CASH','BANK') AND IsDeleted = 0
+            WHERE CompanyId = @CompanyId AND AccountType IN (@CashType, @BankType) AND IsDeleted = 0
             ORDER BY AccountType, Name;
 
             SELECT Id, Code, Name FROM Partner
@@ -109,7 +110,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
     {
         public Guid    AccountId      { get; set; }
         public Guid    PartnerId      { get; set; }
-        public string  TxType         { get; set; } = "INCOME";
+        public string  TxType         { get; set; } = TransactionType.Income;
         public decimal Amount         { get; set; }
         public string  Currency       { get; set; } = "TRY";
         public string  InstrumentType { get; set; } = "EFT";

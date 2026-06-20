@@ -6,6 +6,34 @@
 
 ---
 
+## 🎯 KALAN İŞ ÖNCELİK SIRASI (2026-06-21 — bu sırayla ilerlenir)
+
+> Eksen: go-live değeri × maliyet × bağımlılık. Bittikçe `[x]` + tarih + commit.
+
+### Tier 0 — Hemen (ucuz, gürültü temizler)
+- [ ] **T0.1 Push** — bekleyen commit'ler → PR #1 güncel (Codex re-review)
+- [ ] **T0.2 Stale plan arşivle** — 15 plan 3 hafta dokunulmamış; çoğu Plan 33/35 gibi done-ama-arşivlenmedi. Doğrula → `plans/archive/`. Gerçek durum netleşir.
+
+### Tier 1 — In-flight bitir + yüksek-değer/düşük-maliyet
+- [ ] **T1.1 Plan 37 test Faz 3e + 4** — UOM/fiyat (fn_GetConversionRate, sp_CheckPriceVariance) + auth/role/company-switch. Harness hazır.
+- [ ] **T1.2 B3 Satınalma öneri-sipariş** — tvf_ReplenishmentSuggestions verisi hazır (NeededQty+tedarikçi+leadtime+MOQ); eksik: ekran + tedarikçiye gruplu draft-PO action. Ticari için yüksek değer, düşük footprint.
+- [ ] **T1.3 ILogger DI** — ~12 PageModel catch'inde logger bağlı değil (TODO.md F0 CRIT-4). Mekanik, silent-failure kapatır.
+
+### Tier 2 — Kalite / refactor
+- [ ] **T2.1 Partners/Details split** — 550 satır (kırmızı çizgi), Service Layer'a böl.
+- [ ] **T2.2 UI Portu semantic-class migration** — ~75 view (U-1/U-2), görsel tutarlılık.
+- [ ] **T2.3 MEDIUM/LOW birikim** — SELECT* ~22, magic-string ~14, CancellationToken.
+
+### Tier 3 — Greenfield modüller (her biri ayrı Tier-3 plan; sıra hedef müşteriye bağlı)
+- [ ] **T3.1 Integration / M16** — kargo webhook + e-Belge köprü (boş modül, ticari için kritik altyapı).
+- [ ] **T3.2 B1 MRP + B2 üretim planlama** — talep netleme + BOM patlatma + planlı sipariş / MPS-kapasite.
+- [ ] **T3.3 B4 Forecast** — talep tahmini (MRP ön koşulu).
+- [ ] **T3.4 Service · Project · Incentives** — boş modüller, niş; talep gelince.
+
+**KARAR BEKLİYOR:** Tier 3 iç sırası (Integration mı MRP mi önce) = ağırlık ticari mi üretim mi? Netleşince güncellenir.
+
+---
+
 ## Çalışma Kuralları
 
 ```

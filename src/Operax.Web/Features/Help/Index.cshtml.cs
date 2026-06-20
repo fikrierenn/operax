@@ -89,7 +89,8 @@ public class IndexModel(IWebHostEnvironment env, ILogger<IndexModel> logger) : P
     }
 
     // Route → dosya slug: küçük harf, segment'leri '-' ile birleştir, guid/sayı segmentleri at
-    private static string? RouteToSlug(string? ret)
+    // internal: Operax.Tests path-traversal güvenlik regresyon testi erişebilsin (InternalsVisibleTo)
+    internal static string? RouteToSlug(string? ret)
     {
         if (string.IsNullOrWhiteSpace(ret)) return null;
         var pathOnly = ret.Split('?')[0].Trim('/');

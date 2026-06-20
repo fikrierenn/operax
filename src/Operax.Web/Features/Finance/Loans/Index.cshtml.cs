@@ -21,6 +21,12 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal          TotalOutstanding { get; set; }
     public decimal          NextMonthDue { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     // Kredi listesini ve özet sayaçlarını yükler
     public async Task OnGetAsync()
     {
@@ -49,7 +55,19 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                   AND lp.IsPaid = 0
                   AND lp.DueDate BETWEEN GETUTCDATE() AND DATEADD(DAY, 30, GETUTCDATE())", p);
 
-            var sql = @"
+            var page = Page < 1 ? 1 : Page;
+            const string fromWhere = "FROM Loan l WHERE l.CompanyId = @CompanyId AND l.IsDeleted = 0";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+            parms.Add("Page", page);
+            parms.Add("PageSize", PageSize);
+
+            var filter = "";
+            if (Status != "all") { filter += " AND l.Status = @Status"; parms.Add("Status", Status); }
+
+            // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+            var sql = $@"
                 SELECT
                     l.Id, l.LoanNo, l.BankName, l.Principal, l.InterestRate,
                     l.TermMonths, l.StartDate, l.EndDate, l.MonthlyPayment,
@@ -57,20 +75,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     (SELECT COUNT(*) FROM LoanPayment WHERE LoanId = l.Id AND IsPaid = 0)        AS RemainingInstallments,
                     (SELECT MIN(DueDate) FROM LoanPayment WHERE LoanId = l.Id AND IsPaid = 0)    AS NextDueDate,
                     (SELECT TOP 1 TotalAmount FROM LoanPayment WHERE LoanId = l.Id AND IsPaid = 0 ORDER BY DueDate) AS NextDueAmount
-                FROM Loan l
-                WHERE l.CompanyId = @CompanyId AND l.IsDeleted = 0";
+                {fromWhere}{filter}
+                ORDER BY l.Status, l.EndDate
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-            var parms = new DynamicParameters();
-            parms.Add("CompanyId", company.Id);
+                SELECT COUNT(*) {fromWhere}{filter};";
 
-            if (Status != "all")
-            {
-                sql += " AND l.Status = @Status";
-                parms.Add("Status", Status);
-            }
-            sql += " ORDER BY l.Status, l.EndDate";
-
-            Loans = (await conn.QueryAsync<LoanRowDto>(sql, parms)).ToList();
+            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            Loans = (await grid.ReadAsync<LoanRowDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
         }
         catch (SqlException sqlEx)
         {

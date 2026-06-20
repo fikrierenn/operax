@@ -16,9 +16,8 @@ Solution'da test projesi YOK. `dotnet test` 0 testle "başarılı" döner. ERP/W
   - **Reversal:** sp_ReceivingReverse → net bakiye 0 (flag-only IsCancelled, ters satır yok → çift-sayım yok) ✅.
   - **CompanyId izolasyon:** SYSTEM'de post edilen kalem DEMO şirketinin tvf_InventoryBalance'ında görünmüyor ✅.
   - **28/28 test yeşil.**
-- **Faz 3d — Dönem/UOM (KALAN):**
-  - **Dönem kilidi:** LOCKED AccountingPeriod → ledger SP THROW (önce sp_ReceivingPost'un sp_GuardPeriodOpen çağırıp çağırmadığı doğrulanmalı).
-  - **UOM dönüşüm / fiyat-vergi:** fn_GetConversionRate + variance.
+- **Faz 3d — Dönem kilidi ✅ (2026-06-21):** Bulgu giderildi — 7 ledger SP'sine `sp_GuardPeriodOpen` eklendi (sp_ReceivingPost/ShippingPost/PickLinePost + finans sp_PayCreditCardStatement/CreateLoan/PayLoanInstallment + sp_PurchaseInvoiceReverse). Regresyon testi: LOCKED döneme sp_ReceivingPost → THROW 51201 ✅. sql-sp-reviewer IMP-1 fix (PurchaseInvoiceReverse guard belge tarihiyle). **29/29 test yeşil.**
+- **Faz 3e — UOM/fiyat (KALAN):** fn_GetConversionRate dönüşüm + sp_CheckPriceVariance. INFO: finans SP'lerinde @UserId UNIQUEIDENTIFIER→NVARCHAR implicit conversion CLOSED-dönem override'da smoke ile doğrulanmalı (güvenli taraf: uyuşmazlıkta reddeder).
 - **Faz 4 — Auth/role/company-switch:** DapperUserStore concurrency (H-4 regresyon), UserCompany IsActive guard (H-2), fallback authz (H-1).
 
 ## Alternatifler (reddedilen)

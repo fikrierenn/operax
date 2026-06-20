@@ -720,6 +720,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Dönem kilidi (Plan 14): toplama-ISSUE hareketi kilitli döneme yazılamaz; LOCKED/CLOSED → THROW
+        DECLARE @nowGuard DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowGuard, @UserId;
+
     -- İş kuralı: zaten toplanmış satır tekrar toplanamaz (çift ISSUE-stok engeli).
     -- UPDLOCK eşzamanlı çift çağrıyı serialize eder. (NOT: ISSUE-stok semantiği ayrı DEBT.)
     DECLARE @AlreadyPicked DECIMAL(18,4);

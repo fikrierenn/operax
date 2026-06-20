@@ -105,6 +105,35 @@ public sealed class ReceivingPostingTests(DatabaseFixture fixture)
         Assert.True(leaked is null or 0m, $"Başka şirkette bakiye görünmemeli, gelen {leaked}");
     }
 
+    [Fact]
+    public void ReceivingPost_Into_Locked_Period_Is_Rejected()
+    {
+        using var conn = Open();
+        var s = SetupDraftReceiving(conn, qty: 10m);
+
+        // İçinde bulunulan dönemi LOCKED yap (post GETUTCDATE ile guard'lar) — try/finally ile temizlenir
+        conn.Execute(@"
+            INSERT INTO AccountingPeriod (CompanyId, PeriodYear, PeriodMonth, Status)
+            VALUES (@C, YEAR(GETUTCDATE()), MONTH(GETUTCDATE()), 'LOCKED')",
+            new { C = SystemCompany });
+        try
+        {
+            // İş kuralı: kilitli döneme yeni stok hareketi POST edilemez (sp_GuardPeriodOpen → THROW 51201)
+            var ex = Assert.Throws<SqlException>(() =>
+                conn.Execute("dbo.sp_ReceivingPost",
+                    new { HeaderId = s.HeaderId, CompanyId = SystemCompany, UserId = s.UserId },
+                    commandType: System.Data.CommandType.StoredProcedure));
+            Assert.Equal(51201, ex.Number);
+        }
+        finally
+        {
+            conn.Execute(@"
+                DELETE FROM AccountingPeriod
+                WHERE CompanyId = @C AND PeriodYear = YEAR(GETUTCDATE()) AND PeriodMonth = MONTH(GETUTCDATE())",
+                new { C = SystemCompany });
+        }
+    }
+
     /// <summary>SYSTEM şirketinde izole (taze GUID) bir DRAFT mal kabul senaryosu kurar.</summary>
     private static Scenario SetupDraftReceiving(SqlConnection conn, decimal qty)
     {

@@ -540,6 +540,10 @@ BEGIN
 
         DECLARE @nowDt DATETIME2 = CAST(@SupInvDate AS DATETIME2);
 
+        -- Dönem kilidi (Plan 14): ters AccountMovement belge tarihine (@SupInvDate) yazıldığından guard da o
+        -- dönemi denetler — onay-anı değil hareket dönemi (kardeş sp_CorrectPurchaseInvoiceLine ile simetri).
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowDt, @UserId;
+
         UPDATE PurchaseInvoice
         SET Status = 'CANCELLED', UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER), UpdatedAt = GETUTCDATE()
         WHERE Id = @InvoiceId;

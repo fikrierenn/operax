@@ -891,6 +891,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Dönem kilidi (Plan 14): ödeme tarihinin dönemi açık olmalı; LOCKED/CLOSED → THROW
+        DECLARE @guardDate DATETIME2 = ISNULL(@PayDate, GETUTCDATE());
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @guardDate, @UserId;
+
         -- CompanyId zorunlu — başka firmanın ekstresini ödeyemez (IDOR koruması)
         DECLARE @CardId UNIQUEIDENTIFIER, @Closing DECIMAL(18,2), @Paid DECIMAL(18,2),
                 @CardName NVARCHAR(200);
@@ -1129,6 +1133,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Dönem kilidi (Plan 14): kredi başlangıç tarihinin dönemi açık olmalı; LOCKED/CLOSED → THROW
+        DECLARE @guardDate DATETIME2 = @StartDate;
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @guardDate, @UserId;
+
         -- Guard'lar
         IF @Principal <= 0
             THROW 51301, N'Anapara tutarı pozitif olmalıdır.', 1;
@@ -1336,6 +1344,10 @@ BEGIN
 
     BEGIN TRY
         BEGIN TRANSACTION;
+
+        -- Dönem kilidi (Plan 14): taksit ödeme tarihinin dönemi açık olmalı; LOCKED/CLOSED → THROW
+        DECLARE @guardDate DATETIME2 = ISNULL(@PayDate, GETUTCDATE());
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @guardDate, @UserId;
 
         DECLARE @LoanId UNIQUEIDENTIFIER, @Total DECIMAL(18,2),
                 @InstNo INT, @LoanNo NVARCHAR(50), @PrincipalPaid DECIMAL(18,2);
@@ -1573,6 +1585,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- Dönem kilidi (Plan 14): onay anının dönemi açık olmalı; LOCKED/CLOSED → THROW (post↔reverse simetrisi)
+        DECLARE @nowGuard DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowGuard, @UserId;
+
         DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50),
                 @Status NVARCHAR(20), @POId UNIQUEIDENTIFIER;
 
@@ -1712,6 +1728,10 @@ BEGIN
 
     BEGIN TRY
         BEGIN TRANSACTION;
+
+        -- Dönem kilidi (Plan 14): onay anının dönemi açık olmalı; LOCKED/CLOSED → THROW (post↔reverse simetrisi)
+        DECLARE @nowGuard DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowGuard, @UserId;
 
         DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
         SELECT @WarehouseId = WarehouseId, @DocNo = DocNo, @Status = Status

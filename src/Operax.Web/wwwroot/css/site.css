@@ -18,6 +18,7 @@
     --color-orange-500: oklch(70.5% 0.213 47.604);
     --color-amber-50: oklch(98.7% 0.022 95.277);
     --color-amber-100: oklch(96.2% 0.059 95.617);
+    --color-amber-200: oklch(92.4% 0.12 95.746);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-amber-500: oklch(76.9% 0.188 70.08);
     --color-amber-600: oklch(66.6% 0.179 58.318);
@@ -480,6 +481,24 @@
       max-width: 96rem;
     }
   }
+  .container\! {
+    width: 100% !important;
+    @media (width >= 40rem) {
+      max-width: 40rem !important;
+    }
+    @media (width >= 48rem) {
+      max-width: 48rem !important;
+    }
+    @media (width >= 64rem) {
+      max-width: 64rem !important;
+    }
+    @media (width >= 80rem) {
+      max-width: 80rem !important;
+    }
+    @media (width >= 96rem) {
+      max-width: 96rem !important;
+    }
+  }
   .m-0 {
     margin: calc(var(--spacing) * 0);
   }
@@ -696,6 +715,9 @@
   .table {
     display: table;
   }
+  .table\! {
+    display: table !important;
+  }
   .table-caption {
     display: table-caption;
   }
@@ -840,6 +862,9 @@
   .w-50 {
     width: calc(var(--spacing) * 50);
   }
+  .w-52 {
+    width: calc(var(--spacing) * 52);
+  }
   .w-75 {
     width: calc(var(--spacing) * 75);
   }
@@ -854,6 +879,9 @@
   }
   .max-w-24 {
     max-width: calc(var(--spacing) * 24);
+  }
+  .max-w-80 {
+    max-width: calc(var(--spacing) * 80);
   }
   .max-w-\[280px\] {
     max-width: 280px;
@@ -969,6 +997,9 @@
   }
   .flex-wrap-reverse {
     flex-wrap: wrap-reverse;
+  }
+  .items-baseline {
+    align-items: baseline;
   }
   .items-center {
     align-items: center;
@@ -1198,6 +1229,9 @@
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
+  .border-amber-200 {
+    border-color: var(--color-amber-200);
+  }
   .border-amber-500 {
     border-color: var(--color-amber-500);
   }
@@ -1386,6 +1420,12 @@
   }
   .bg-slate-50 {
     background-color: var(--color-slate-50);
+  }
+  .bg-slate-50\/40 {
+    background-color: color-mix(in srgb, oklch(98.4% 0.003 247.858) 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-slate-50) 40%, transparent);
+    }
   }
   .bg-slate-50\/50 {
     background-color: color-mix(in srgb, oklch(98.4% 0.003 247.858) 50%, transparent);
@@ -4396,6 +4436,17 @@ select.form-ctrl {
 }
 .elevated {
   box-shadow: var(--shadow-md);
+}
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 .doc-flow-bar {
   display: flex;

@@ -80,11 +80,17 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         StockLocations = await conn.ExecuteScalarAsync<int>(@"
             SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE BinId IS NOT NULL", p);
 
-        // İş kuralı: Stok bakiyesi 10 birimden az olan ürün sayısı (kritik eşik)
+        // İş kuralı: Toplam stoğu kendi minimum seviyesinin (Item.MinStockLevel) altına düşen ürün sayısı.
+        // Hardcoded eşik yerine ürün-bazlı tanımlı eşik kullanılır (eşik tanımsız ürün sayıma girmez).
         LowStockSkuCount = await conn.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(DISTINCT ItemId)
-            FROM tvf_InventoryBalance(@CompanyId)
-            WHERE QtyBalance < 10", p);
+            SELECT COUNT(*)
+            FROM (
+                SELECT b.ItemId, SUM(b.QtyBalance) AS Bal, MAX(i.MinStockLevel) AS MinLvl
+                FROM tvf_InventoryBalance(@CompanyId) b
+                JOIN Item i ON i.Id = b.ItemId AND i.IsDeleted = 0
+                GROUP BY b.ItemId
+            ) t
+            WHERE t.MinLvl > 0 AND t.Bal < t.MinLvl", p);
     }
 
     // Yaklaşan sevkiyatlar (DRAFT durumundaki mal kabul satırları, son 5)

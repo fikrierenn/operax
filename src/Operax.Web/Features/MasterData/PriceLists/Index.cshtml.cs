@@ -18,11 +18,18 @@ public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user) : Pag
     [BindProperty(SupportsGet = true)] public string? DirectionFilter { get; set; }
     [BindProperty(SupportsGet = true)] public string? StatusFilter { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;
 
-        // Fiyat listeleri — arama (Q), yön ve aktiflik filtreleriyle.
+        // Fiyat listeleri — arama (Q), yön ve aktiflik filtreleriyle + sayfalama.
         // Cari/Şube NULL ise "Genel"/"Tüm Şubeler" olarak gösterilir; satır sayısı LEFT JOIN ile.
         const string sql = @"
             SELECT pl.Id, pl.Code, pl.Name, pl.Direction, pl.Priority,
@@ -39,12 +46,25 @@ public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user) : Pag
               AND (@StatusFilter IS NULL OR @StatusFilter = ''
                    OR (@StatusFilter = 'active'  AND pl.IsActive = 1)
                    OR (@StatusFilter = 'passive' AND pl.IsActive = 0))
-            ORDER BY pl.Direction, pl.Priority DESC, pl.Code";
+            ORDER BY pl.Direction, pl.Priority DESC, pl.Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        Rows = await conn.QueryAsync<PriceListRow>(sql, new
+            SELECT COUNT(1) FROM PriceList pl
+            WHERE pl.CompanyId = @CompanyId AND pl.IsDeleted = 0
+              AND (@Q IS NULL OR @Q = '' OR pl.Code LIKE '%' + @Q + '%' OR pl.Name LIKE '%' + @Q + '%')
+              AND (@DirectionFilter IS NULL OR @DirectionFilter = '' OR pl.Direction = @DirectionFilter)
+              AND (@StatusFilter IS NULL OR @StatusFilter = ''
+                   OR (@StatusFilter = 'active'  AND pl.IsActive = 1)
+                   OR (@StatusFilter = 'passive' AND pl.IsActive = 0));";
+
+        using (var grid = await conn.QueryMultipleAsync(sql, new
         {
-            CompanyId = company.Id, Q, DirectionFilter, StatusFilter
-        });
+            CompanyId = company.Id, Q, DirectionFilter, StatusFilter, Page = page, PageSize
+        }))
+        {
+            Rows = (await grid.ReadAsync<PriceListRow>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         // Yön bazlı sayaçlar (filtreden bağımsız toplamlar)
         var counts = await conn.QueryAsync<(string Direction, int Cnt)>(

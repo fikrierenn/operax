@@ -23,6 +23,12 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int TotalBins { get; set; }
     public decimal AverageCapacity { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         // İş kuralı: arama terimi varsa başına/sonuna % eklenerek LIKE filtresi uygulanır
@@ -32,15 +38,28 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         bool? activeFilter = IsActive switch { "1" => true, "0" => false, _ => null };
 
         using var conn = db.Open();
-        Warehouses = await conn.QueryAsync<WarehouseDto>(@"
+        var page = Page < 1 ? 1 : Page;
+
+        const string sql = @"
             SELECT Id, Code, Name, IsActive
             FROM Warehouse
-            WHERE CompanyId = @CompanyId
-              AND IsDeleted = 0
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0
               AND (@Search IS NULL OR Code LIKE @Search OR Name LIKE @Search)
               AND (@ActiveFilter IS NULL OR IsActive = @ActiveFilter)
-            ORDER BY Code",
-            new { CompanyId = company.Id, Search = search, ActiveFilter = activeFilter });
+            ORDER BY Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM Warehouse
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0
+              AND (@Search IS NULL OR Code LIKE @Search OR Name LIKE @Search)
+              AND (@ActiveFilter IS NULL OR IsActive = @ActiveFilter);";
+
+        using (var grid = await conn.QueryMultipleAsync(sql,
+            new { CompanyId = company.Id, Search = search, ActiveFilter = activeFilter, Page = page, PageSize }))
+        {
+            Warehouses = (await grid.ReadAsync<WarehouseDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         ActiveWarehouses = await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM Warehouse WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
@@ -12,20 +13,35 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int ActiveCount { get; set; }
     public int TotalWarehouseCount { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;
 
-        // Şube listesi — depo sayısıyla birlikte
-        Branches = await conn.QueryAsync<BranchDto>(@"
+        // Şube listesi (depo sayısıyla) + sayfalama; toplam şube sayısı tek round-trip
+        const string sql = @"
             SELECT b.Id, b.Code, b.Name, b.City, b.BranchType, b.IsActive,
                    COUNT(w.Id) AS WarehouseCount
             FROM Branch b
             LEFT JOIN Warehouse w ON w.BranchId = b.Id AND w.IsDeleted = 0
             WHERE b.CompanyId = @CompanyId AND b.IsDeleted = 0
             GROUP BY b.Id, b.Code, b.Name, b.City, b.BranchType, b.IsActive
-            ORDER BY b.Code",
-            new { CompanyId = company.Id });
+            ORDER BY b.Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM Branch WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
+
+        using (var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize }))
+        {
+            Branches = (await grid.ReadAsync<BranchDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         ActiveCount = await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM Branch WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",

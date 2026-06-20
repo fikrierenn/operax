@@ -525,6 +525,8 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRANSACTION;
 
     DECLARE @ItemId UNIQUEIDENTIFIER, @QtyTarget DECIMAL(18,4);
@@ -546,6 +548,11 @@ BEGIN
     WHERE ParentItemId = @ItemId AND IsActive = 1;
 
     COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -570,6 +577,8 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRANSACTION;
 
     DECLARE @ItemId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @WarehouseId UNIQUEIDENTIFIER;
@@ -603,6 +612,11 @@ BEGIN
     COMMIT TRANSACTION;
 
     SELECT @TaskId AS TaskId;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 

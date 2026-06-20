@@ -98,6 +98,8 @@ BEGIN
     ) x
     WHERE x.rn = 1;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRAN;
         -- 1) Satır upsert — (PriceListId, ItemId) idempotent
         MERGE PriceListLine AS tgt
@@ -146,6 +148,11 @@ BEGIN
     COMMIT;
 
     SELECT (SELECT COUNT(*) FROM #final) AS Yazilan;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -175,6 +182,8 @@ BEGIN
        OR NOT EXISTS (SELECT 1 FROM PriceList WHERE Id = @TargetId AND CompanyId = @CompanyId AND IsDeleted = 0)
         THROW 51312, N'Kaynak veya hedef fiyat listesi bulunamadı.', 1;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRAN;
         -- Yeni satır kimliklerini eşleme tablosuna al (yeni LineId ↔ ItemId)
         DECLARE @map TABLE (NewLineId UNIQUEIDENTIFIER, ItemId UNIQUEIDENTIFIER);
@@ -201,5 +210,10 @@ BEGIN
     COMMIT;
 
     SELECT (SELECT COUNT(*) FROM @map) AS Kopyalanan;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END
 GO

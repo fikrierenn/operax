@@ -55,6 +55,8 @@ BEGIN
     ) x
     WHERE x.rn = 1;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRAN;
         -- 1) Eski tercihi sıfırla (filtered preferred UQ çakışmasını önle)
         UPDATE SupplierItem
@@ -93,6 +95,11 @@ BEGIN
     COMMIT;
 
     SELECT (SELECT COUNT(*) FROM #final) AS Yazilan;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -119,6 +126,8 @@ BEGIN
                      AND PartnerId = @PartnerId AND IsDeleted = 0)
         THROW 51413, N'Tedarikçi-ürün eşlemesi bulunamadı.', 1;
 
+    -- İş kuralı (H-6): TRY/CATCH + ROLLBACK + THROW standardı (sql-conventions §3)
+    BEGIN TRY
     BEGIN TRAN;
         -- Önce hepsini sıfırla (filtered UQ çakışması olmasın), sonra hedefi işaretle
         UPDATE SupplierItem
@@ -130,5 +139,10 @@ BEGIN
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId
           AND PartnerId = @PartnerId AND IsDeleted = 0;
     COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END
 GO

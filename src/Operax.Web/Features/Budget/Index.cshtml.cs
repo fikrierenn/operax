@@ -13,19 +13,33 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public IEnumerable<CashFlowDto>  CashFlow30  { get; set; } = [];
     public decimal NetCashFlow30                  { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i (bütçe listesi)
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
-        // Butce listesini ve 30 gunluk nakit akisi ozetini yukler
+        // Butce listesini (sayfalanmis) ve 30 gunluk nakit akisi ozetini yukler
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;
 
-        Budgets = await conn.QueryAsync<BudgetListDto>(@"
+        const string budgetSql = @"
             SELECT b.Id, b.Year, b.Code, b.Name, b.Type, b.Status,
                    (SELECT ISNULL(SUM(bl.AmountPlanned), 0) FROM BudgetLine bl WHERE bl.BudgetId = b.Id AND bl.Direction = 'OUT') AS TotalPlannedOut,
                    (SELECT ISNULL(SUM(bl.AmountActual), 0) FROM BudgetLine bl WHERE bl.BudgetId = b.Id AND bl.Direction = 'OUT') AS TotalActualOut
             FROM Budget b
             WHERE b.CompanyId = @CompanyId
-            ORDER BY b.Year DESC, b.Code",
-            new { CompanyId = company.Id });
+            ORDER BY b.Year DESC, b.Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM Budget WHERE CompanyId = @CompanyId;";
+        using (var grid = await conn.QueryMultipleAsync(budgetSql, new { CompanyId = company.Id, Page = page, PageSize }))
+        {
+            Budgets = (await grid.ReadAsync<BudgetListDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         // 30 gunluk nakit akisi takvimi (gun bazli ozet)
         CashFlow30 = await conn.QueryAsync<CashFlowDto>(@"

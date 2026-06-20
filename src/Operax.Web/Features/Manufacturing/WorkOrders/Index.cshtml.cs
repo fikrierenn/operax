@@ -14,18 +14,30 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty]
     public RouteFormDto Form { get; set; } = new();
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         // Şirkete ait üretim rotalarını ve adım sayılarını listeler
         using var conn = db.Open();
-        Routes = await conn.QueryAsync<RouteDto>(@"
+        var page = Page < 1 ? 1 : Page;
+        const string sql = @"
             SELECT
                 r.Id, r.Code, r.Name, r.IsActive,
                 (SELECT COUNT(*) FROM ProductRouteStep WHERE ProductRouteId = r.Id) AS StepCount
             FROM ProductRoute r
             WHERE r.CompanyId = @CompanyId
-            ORDER BY r.Code",
-            new { CompanyId = company.Id });
+            ORDER BY r.Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM ProductRoute WHERE CompanyId = @CompanyId;";
+        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        Routes = (await grid.ReadAsync<RouteDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public async Task<IActionResult> OnPostAsync()

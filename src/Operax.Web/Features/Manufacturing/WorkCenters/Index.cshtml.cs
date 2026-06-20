@@ -14,11 +14,18 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     [BindProperty]
     public WorkCenterFormDto Form { get; set; } = new();
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         // Şirkete ait iş merkezlerini / makineleri listeler
         using var conn = db.Open();
-        WorkCenters = await conn.QueryAsync<WorkCenterDto>(@"
+        var page = Page < 1 ? 1 : Page;
+        const string sql = @"
             SELECT Id, Code, Name,
                    LaborRatePerSec * 3600 AS LaborRatePerHour,
                    MachineRatePerSec * 3600 AS MachineRatePerHour,
@@ -26,8 +33,13 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                    IsActive
             FROM WorkCenter
             WHERE CompanyId = @CompanyId
-            ORDER BY Code",
-            new { CompanyId = company.Id });
+            ORDER BY Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM WorkCenter WHERE CompanyId = @CompanyId;";
+        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        WorkCenters = (await grid.ReadAsync<WorkCenterDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public async Task<IActionResult> OnPostAsync()

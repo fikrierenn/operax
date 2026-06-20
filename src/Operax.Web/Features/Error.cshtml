@@ -1,0 +1,36 @@
+@page "/Error"
+@model Operax.Web.Features.ErrorModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Hata";
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bir hata oluştu</title>
+    <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+    <div class="page" data-screen-label="Hata">
+        <div class="card empty-inline empty-inline--center">
+            <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-danger">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="12" y1="8" x2="12" y2="13" />
+                <line x1="12" y1="16" x2="12" y2="16" />
+            </svg>
+            <h2 class="card-title">Beklenmeyen bir hata oluştu</h2>
+            <p class="muted">
+                İşleminiz tamamlanamadı. Lütfen tekrar deneyin; sorun sürerse
+                sistem yöneticinize aşağıdaki hata referansıyla bildirin.
+            </p>
+            @if (Model.ShowRequestId)
+            {
+                <p class="muted mono">Hata referansı: @Model.RequestId</p>
+            }
+            <a href="/Dashboard" class="btn btn-primary">Panele Dön</a>
+        </div>
+    </div>
+</body>
+</html>

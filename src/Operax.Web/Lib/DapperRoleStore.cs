@@ -23,10 +23,19 @@ public class DapperRoleStore(Db db) : IRoleStore<IdentityRole>
     public async Task<IdentityResult> UpdateAsync(IdentityRole role, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        // İş kuralı (H-4): optimistic concurrency — eski damga WHERE'de doğrulanır, yeni damga yazılır.
+        var oldStamp = role.ConcurrencyStamp;
+        role.ConcurrencyStamp = Guid.NewGuid().ToString();
+        var parms = new DynamicParameters(role);
+        parms.Add("OldStamp", oldStamp);
+        var affected = await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE AspNetRoles
             SET Name = @Name, NormalizedName = @NormalizedName, ConcurrencyStamp = @ConcurrencyStamp
-            WHERE Id = @Id", role);
+            WHERE Id = @Id AND (ConcurrencyStamp = @OldStamp OR @OldStamp IS NULL)",
+            parms, cancellationToken: ct));
+        // Etkilenen satır yoksa damga eskidi → eşzamanlı düzenleme çakışması
+        if (affected == 0)
+            return IdentityResult.Failed(new IdentityErrorDescriber().ConcurrencyFailure());
         return IdentityResult.Success;
     }
 

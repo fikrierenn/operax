@@ -59,7 +59,13 @@ public class DapperUserStore(Db db) :
     public async Task<IdentityResult> UpdateAsync(IdentityUser user, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        // İş kuralı (H-4): optimistic concurrency — eski damga WHERE'de doğrulanır, yeni damga yazılır.
+        // Başka oturum aradan güncellediyse 0 satır etkilenir → ConcurrencyFailure (kayıp güncelleme engellenir).
+        var oldStamp = user.ConcurrencyStamp;
+        user.ConcurrencyStamp = Guid.NewGuid().ToString();
+        var parms = new DynamicParameters(user);
+        parms.Add("OldStamp", oldStamp);
+        var affected = await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE AspNetUsers SET
                 UserName           = @UserName,
                 NormalizedUserName = @NormalizedUserName,
@@ -73,7 +79,11 @@ public class DapperUserStore(Db db) :
                 LockoutEnabled     = @LockoutEnabled,
                 AccessFailedCount  = @AccessFailedCount,
                 TwoFactorEnabled   = @TwoFactorEnabled
-            WHERE Id = @Id", user);
+            WHERE Id = @Id AND (ConcurrencyStamp = @OldStamp OR @OldStamp IS NULL)",
+            parms, cancellationToken: ct));
+        // Etkilenen satır yoksa damga eskidi → eşzamanlı düzenleme çakışması
+        if (affected == 0)
+            return IdentityResult.Failed(new IdentityErrorDescriber().ConcurrencyFailure());
         return IdentityResult.Success;
     }
 

@@ -11,10 +11,9 @@ Solution'da test projesi YOK. `dotnet test` 0 testle "başarılı" döner. ERP/W
 - **Faz 1 — Harness + ilk birim test (BU DİLİM):** `src/Operax.Tests/` xUnit projesi (net10.0), sln'e ekle, `InternalsVisibleTo` ile Web iç sembollerine eriş. İlk **regresyon testi**: P0-6 Help `RouteToSlug` path-traversal whitelist (yaptığım güvenlik fix'ini kilitler). `dotnet test` yeşil.
 - **Faz 2 — Saf birim testleri:** UiHelpers.StatusBadge (DocStatus eşleme) · ResolveAdminPassword (env/fail-fast logic, env-bağımsız kısım) · L localization · Guard clause'lar. DB gerektirmez.
 - **Faz 3a — DB integration harness ✅ (2026-06-21):** `DatabaseFixture` (ICollectionFixture) — env/Web-config'ten bağlantı çözer, katalog'u `Operax_Test`'e swap eder (aynı sunucu, izole katalog, gerçek DB'ye dokunmaz), drop+create → operax-cli migrate+seed (tek-kaynak sıra, drift yok). İlk 4 test yeşil: tablo varlığı + Plan 35 baseline regresyon (her şirket UOM≥12, Adet=C62) + tvf_InventoryBalance çağrılabilir. **24/24 test yeşil.**
-- **Faz 3b — Posting/reversal/izolasyon/dönem (KALAN):** Harness hazır, üzerine yazılacak:
-  - **Belge posting:** sp_ReceivingPost → StockMovement bakiyesi (tvf_InventoryBalance) doğru.
-  - **Çift-post/idempotency:** aynı belge 2× post → THROW veya tek hareket.
-  - **Reversal:** cancel → net bakiye 0 (flag-only, çift-sayım yok).
+- **Faz 3b — Posting/çift-post ✅ (2026-06-21):** `ReceivingPostingTests` — SYSTEM şirketinde izole (taze GUID) DRAFT mal kabul senaryosu (inline master) → sp_ReceivingPost → tvf_InventoryBalance bakiye=100 ✅; çift-post → SqlException 50000-59999 bandı + bakiye 50'de sabit ✅. **26/26 test yeşil.**
+- **Faz 3c — Reversal/izolasyon/dönem (KALAN):** Harness + posting helper hazır:
+  - **Reversal:** sp_ReceivingReverse → net bakiye 0 (flag-only IsCancelled, çift-sayım yok). Not: POSTED→CANCELLED StatusTransition seed'i doğrulanmalı.
   - **CompanyId izolasyon:** başka şirket verisi sızmıyor.
   - **Dönem kilidi:** LOCKED dönem → THROW.
   - **UOM dönüşüm / fiyat-vergi:** fn_GetConversionRate + variance.

@@ -24,13 +24,14 @@
 - [ ] **T2.2 UI Portu semantic-class migration** — ~75 view (U-1/U-2), görsel tutarlılık.
 - [ ] **T2.3 MEDIUM/LOW birikim** — SELECT* ~22, magic-string ~14, CancellationToken.
 
-### Tier 3 — Greenfield modüller (her biri ayrı Tier-3 plan; sıra hedef müşteriye bağlı)
-- [ ] **T3.1 Integration / M16** — kargo webhook + e-Belge köprü (boş modül, ticari için kritik altyapı).
-- [ ] **T3.2 B1 MRP + B2 üretim planlama** — talep netleme + BOM patlatma + planlı sipariş / MPS-kapasite.
-- [ ] **T3.3 B4 Forecast** — talep tahmini (MRP ön koşulu).
-- [ ] **T3.4 Service · Project · Incentives** — boş modüller, niş; talep gelince.
+### Tier 3 — Greenfield modüller (her biri ayrı Tier-3 plan)
+> **KARAR (2026-06-21): TİCARİ öncelikli** — ticari ürün daha kolay/hızlı çıkar; üretim planlama (MRP) sonraya.
 
-**KARAR BEKLİYOR:** Tier 3 iç sırası (Integration mı MRP mi önce) = ağırlık ticari mi üretim mi? Netleşince güncellenir.
+- [ ] **T3.1 Integration / M16** — kargo webhook + e-Belge köprü (ticari için kritik altyapı).
+- [ ] **T3.2 Ticari tamamlama** — e-Belge (e-Fatura/e-Arşiv/e-İrsaliye) akışı + B3 öneri-sipariş genişletme + ticari raporlar. Önce ticari paket "satılabilir" olsun.
+- [ ] **T3.3 B1 MRP + B2 üretim planlama** — üretim müşterisi gelince (talep netleme + BOM patlatma + MPS/kapasite). **Ertelendi.**
+- [ ] **T3.4 B4 Forecast** — talep tahmini (MRP ön koşulu). MRP ile birlikte.
+- [ ] **T3.5 Service · Project · Incentives** — niş boş modüller; talep gelince.
 
 ---
 

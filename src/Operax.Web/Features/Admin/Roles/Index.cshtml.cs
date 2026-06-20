@@ -12,11 +12,24 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
 {
     public IEnumerable<IdentityRole> Roles { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
-        Roles = await conn.QueryAsync<IdentityRole>(
-            "SELECT Id, Name, NormalizedName, ConcurrencyStamp FROM AspNetRoles ORDER BY Name");
+        var page = Page < 1 ? 1 : Page;
+        const string sql = @"
+            SELECT Id, Name, NormalizedName, ConcurrencyStamp FROM AspNetRoles ORDER BY Name
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM AspNetRoles;";
+        using var grid = await conn.QueryMultipleAsync(sql, new { Page = page, PageSize });
+        Roles = (await grid.ReadAsync<IdentityRole>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(string id)

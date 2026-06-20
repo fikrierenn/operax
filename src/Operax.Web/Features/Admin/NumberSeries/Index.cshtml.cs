@@ -15,15 +15,27 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 {
     public List<SeriesRowDto> Series { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
-        Series = (await conn.QueryAsync<SeriesRowDto>(@"
+        var page = Page < 1 ? 1 : Page;
+        const string sql = @"
             SELECT Id, DocType, Prefix, NextNo, Padding, Separator, IsActive
             FROM NumberSeries
             WHERE CompanyId = @CompanyId AND IsDeleted = 0
-            ORDER BY DocType",
-            new { CompanyId = company.Id })).ToList();
+            ORDER BY DocType
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM NumberSeries WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
+        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        Series = (await grid.ReadAsync<SeriesRowDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     // Seri ayarını güncelle (prefix / sonraki no / dolgu / ayraç / aktiflik)

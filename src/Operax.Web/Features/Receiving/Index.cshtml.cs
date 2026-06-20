@@ -21,6 +21,12 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
 
     public IEnumerable<ReceivingDto> Documents { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public int DraftCount { get; set; } = 0;
     public int PostedCount { get; set; } = 0;
     public int CancelledCount { get; set; } = 0;
@@ -87,16 +93,32 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
               AND (@Billing <> 'AWAITING' OR (r.Status = @Posted
                    AND EXISTS (SELECT 1 FROM ReceivingLine l2
                                WHERE l2.HeaderId = r.Id AND (l2.QtyBase - l2.InvoicedQty) > 0.000001)))
-            ORDER BY r.DocDate DESC, r.DocNo DESC";
+            ORDER BY r.DocDate DESC, r.DocNo DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        Documents = await conn.QueryAsync<ReceivingDto>(sql, new
+            SELECT COUNT(*)
+            FROM ReceivingHeader r
+            JOIN Partner p ON p.Id = r.PartnerId
+            WHERE r.CompanyId = @CompanyId AND r.IsDeleted = 0
+              AND (@Q      IS NULL OR @Q      = '' OR r.DocNo LIKE '%' + @Q + '%' OR p.Name LIKE '%' + @Q + '%')
+              AND (@Status IS NULL OR @Status = '' OR r.Status = @Status)
+              AND (@Billing <> 'AWAITING' OR (r.Status = @Posted
+                   AND EXISTS (SELECT 1 FROM ReceivingLine l2
+                               WHERE l2.HeaderId = r.Id AND (l2.QtyBase - l2.InvoicedQty) > 0.000001)));";
+
+        var page = Page < 1 ? 1 : Page;
+        using var grid = await conn.QueryMultipleAsync(sql, new
         {
             CompanyId = company.Id,
             Q         = Q,
             Status    = Status,
             Billing   = Billing ?? "",
-            Posted    = DocStatus.Posted
+            Posted    = DocStatus.Posted,
+            Page      = page,
+            PageSize
         });
+        Documents = (await grid.ReadAsync<ReceivingDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public record ReceivingDto(Guid Id, string DocNo, DateTime DocDate, string Status,

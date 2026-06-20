@@ -10,14 +10,15 @@ Solution'da test projesi YOK. `dotnet test` 0 testle "başarılı" döner. ERP/W
 
 - **Faz 1 — Harness + ilk birim test (BU DİLİM):** `src/Operax.Tests/` xUnit projesi (net10.0), sln'e ekle, `InternalsVisibleTo` ile Web iç sembollerine eriş. İlk **regresyon testi**: P0-6 Help `RouteToSlug` path-traversal whitelist (yaptığım güvenlik fix'ini kilitler). `dotnet test` yeşil.
 - **Faz 2 — Saf birim testleri:** UiHelpers.StatusBadge (DocStatus eşleme) · ResolveAdminPassword (env/fail-fast logic, env-bağımsız kısım) · L localization · Guard clause'lar. DB gerektirmez.
-- **Faz 3 — DB integration harness:** `Operax_Test` DB'ye fresh migrate (Operax.Cli çağır veya ICollectionFixture), seed, sonra:
-  - **Fresh migration:** migrate → beklenen tablo sayısı + fail-closed (P0-3) doğrula.
+- **Faz 3a — DB integration harness ✅ (2026-06-21):** `DatabaseFixture` (ICollectionFixture) — env/Web-config'ten bağlantı çözer, katalog'u `Operax_Test`'e swap eder (aynı sunucu, izole katalog, gerçek DB'ye dokunmaz), drop+create → operax-cli migrate+seed (tek-kaynak sıra, drift yok). İlk 4 test yeşil: tablo varlığı + Plan 35 baseline regresyon (her şirket UOM≥12, Adet=C62) + tvf_InventoryBalance çağrılabilir. **24/24 test yeşil.**
+- **Faz 3b — Posting/reversal/izolasyon/dönem (KALAN):** Harness hazır, üzerine yazılacak:
   - **Belge posting:** sp_ReceivingPost → StockMovement bakiyesi (tvf_InventoryBalance) doğru.
   - **Çift-post/idempotency:** aynı belge 2× post → THROW veya tek hareket.
   - **Reversal:** cancel → net bakiye 0 (flag-only, çift-sayım yok).
   - **CompanyId izolasyon:** başka şirket verisi sızmıyor.
   - **Dönem kilidi:** LOCKED dönem → THROW.
   - **UOM dönüşüm / fiyat-vergi:** fn_GetConversionRate + variance.
+  - Not: posting testleri master veri ister → `seed-demo` fixture'a eklenebilir veya test-içi minimal master.
 - **Faz 4 — Auth/role/company-switch:** DapperUserStore concurrency (H-4 regresyon), UserCompany IsActive guard (H-2), fallback authz (H-1).
 
 ## Alternatifler (reddedilen)

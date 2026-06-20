@@ -149,7 +149,7 @@ class Program
 
                 case "seed":
                     var seedDir = FindDir("docs/sql") ?? ".";
-                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql", "seed_finance_starter.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
+                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql", "seed_finance_starter.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
                     {
                         var p = Path.Combine(seedDir, seedFile);
                         if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);

@@ -12,12 +12,13 @@ Solution'da test projesi YOK. `dotnet test` 0 testle "başarılı" döner. ERP/W
 - **Faz 2 — Saf birim testleri:** UiHelpers.StatusBadge (DocStatus eşleme) · ResolveAdminPassword (env/fail-fast logic, env-bağımsız kısım) · L localization · Guard clause'lar. DB gerektirmez.
 - **Faz 3a — DB integration harness ✅ (2026-06-21):** `DatabaseFixture` (ICollectionFixture) — env/Web-config'ten bağlantı çözer, katalog'u `Operax_Test`'e swap eder (aynı sunucu, izole katalog, gerçek DB'ye dokunmaz), drop+create → operax-cli migrate+seed (tek-kaynak sıra, drift yok). İlk 4 test yeşil: tablo varlığı + Plan 35 baseline regresyon (her şirket UOM≥12, Adet=C62) + tvf_InventoryBalance çağrılabilir. **24/24 test yeşil.**
 - **Faz 3b — Posting/çift-post ✅ (2026-06-21):** `ReceivingPostingTests` — SYSTEM şirketinde izole (taze GUID) DRAFT mal kabul senaryosu (inline master) → sp_ReceivingPost → tvf_InventoryBalance bakiye=100 ✅; çift-post → SqlException 50000-59999 bandı + bakiye 50'de sabit ✅. **26/26 test yeşil.**
-- **Faz 3c — Reversal/izolasyon/dönem (KALAN):** Harness + posting helper hazır:
-  - **Reversal:** sp_ReceivingReverse → net bakiye 0 (flag-only IsCancelled, çift-sayım yok). Not: POSTED→CANCELLED StatusTransition seed'i doğrulanmalı.
-  - **CompanyId izolasyon:** başka şirket verisi sızmıyor.
-  - **Dönem kilidi:** LOCKED dönem → THROW.
+- **Faz 3c — Reversal + izolasyon ✅ (2026-06-21):** `ReceivingPostingTests` genişletildi:
+  - **Reversal:** sp_ReceivingReverse → net bakiye 0 (flag-only IsCancelled, ters satır yok → çift-sayım yok) ✅.
+  - **CompanyId izolasyon:** SYSTEM'de post edilen kalem DEMO şirketinin tvf_InventoryBalance'ında görünmüyor ✅.
+  - **28/28 test yeşil.**
+- **Faz 3d — Dönem/UOM (KALAN):**
+  - **Dönem kilidi:** LOCKED AccountingPeriod → ledger SP THROW (önce sp_ReceivingPost'un sp_GuardPeriodOpen çağırıp çağırmadığı doğrulanmalı).
   - **UOM dönüşüm / fiyat-vergi:** fn_GetConversionRate + variance.
-  - Not: posting testleri master veri ister → `seed-demo` fixture'a eklenebilir veya test-içi minimal master.
 - **Faz 4 — Auth/role/company-switch:** DapperUserStore concurrency (H-4 regresyon), UserCompany IsActive guard (H-2), fallback authz (H-1).
 
 ## Alternatifler (reddedilen)

@@ -64,6 +64,47 @@ public sealed class ReceivingPostingTests(DatabaseFixture fixture)
         Assert.Equal(50m, balance);
     }
 
+    [Fact]
+    public void ReceivingReverse_Nets_Balance_To_Zero()
+    {
+        using var conn = Open();
+        var s = SetupDraftReceiving(conn, qty: 75m);
+
+        conn.Execute("dbo.sp_ReceivingPost",
+            new { HeaderId = s.HeaderId, CompanyId = SystemCompany, UserId = s.UserId },
+            commandType: System.Data.CommandType.StoredProcedure);
+
+        conn.Execute("dbo.sp_ReceivingReverse",
+            new { HeaderId = s.HeaderId, CompanyId = SystemCompany, UserId = s.UserId },
+            commandType: System.Data.CommandType.StoredProcedure);
+
+        // İş kuralı: iptal sonrası net bakiye 0 (IsCancelled=1 flag, ters satır yok → çift-sayım yok)
+        var balance = conn.ExecuteScalar<decimal?>(
+            @"SELECT SUM(QtyBalance) FROM dbo.tvf_InventoryBalance(@CompanyId) WHERE ItemId = @ItemId",
+            new { CompanyId = SystemCompany, s.ItemId });
+
+        Assert.True(balance is null or 0m, $"İptal sonrası net 0 beklenir, gelen {balance}");
+    }
+
+    [Fact]
+    public void InventoryBalance_Is_Company_Isolated()
+    {
+        using var conn = Open();
+        var s = SetupDraftReceiving(conn, qty: 30m);
+
+        conn.Execute("dbo.sp_ReceivingPost",
+            new { HeaderId = s.HeaderId, CompanyId = SystemCompany, UserId = s.UserId },
+            commandType: System.Data.CommandType.StoredProcedure);
+
+        // İş kuralı: tvf_InventoryBalance(@CompanyId) yalnız o şirketin hareketini görür — başka şirket sızmaz
+        var demoCompany = new Guid("d1e1b1a5-0000-0000-0000-000000000001");
+        var leaked = conn.ExecuteScalar<decimal?>(
+            @"SELECT SUM(QtyBalance) FROM dbo.tvf_InventoryBalance(@CompanyId) WHERE ItemId = @ItemId",
+            new { CompanyId = demoCompany, s.ItemId });
+
+        Assert.True(leaked is null or 0m, $"Başka şirkette bakiye görünmemeli, gelen {leaked}");
+    }
+
     /// <summary>SYSTEM şirketinde izole (taze GUID) bir DRAFT mal kabul senaryosu kurar.</summary>
     private static Scenario SetupDraftReceiving(SqlConnection conn, decimal qty)
     {

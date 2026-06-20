@@ -1,0 +1,33 @@
+@using Operax.Web.Lib
+@model PagerVm
+@{
+    // Tek sayfa varsa pager gösterilmez
+    if (Model.TotalPages <= 1) { return; }
+
+    // Mevcut query string'i koru, yalnız page'i değiştir (filtreler kaybolmasın)
+    string PageLink(int p)
+    {
+        var parts = Context.Request.Query
+            .Where(k => k.Key != "page")
+            .Select(k => $"{Uri.EscapeDataString(k.Key)}={Uri.EscapeDataString(k.Value.ToString())}")
+            .Append($"page={p}");
+        return "?" + string.Join("&", parts);
+    }
+
+    var from = (Model.Page - 1) * Model.PageSize + 1;
+    var to = System.Math.Min(Model.Page * Model.PageSize, Model.TotalCount);
+}
+<nav class="pager" aria-label="Sayfalama">
+    <span class="pager-info">@from–@to / @Model.TotalCount @L.T("kayıt", "records")</span>
+    <div class="pager-nav">
+        @if (Model.Page > 1)
+        {
+            <a href="@PageLink(Model.Page - 1)" class="btn btn-secondary btn-sm">@L.T("Önceki", "Prev")</a>
+        }
+        <span class="pager-page">@Model.Page / @Model.TotalPages</span>
+        @if (Model.Page < Model.TotalPages)
+        {
+            <a href="@PageLink(Model.Page + 1)" class="btn btn-secondary btn-sm">@L.T("Sonraki", "Next")</a>
+        }
+    </div>
+</nav>

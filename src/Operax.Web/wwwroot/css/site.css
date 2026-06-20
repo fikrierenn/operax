@@ -4448,6 +4448,28 @@ select.form-ctrl {
 .animate-pulse-slow {
   animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 0 4px;
+}
+.pager-info {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.pager-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pager-page {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
 .doc-flow-bar {
   display: flex;
   flex-wrap: wrap;

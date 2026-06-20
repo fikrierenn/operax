@@ -119,3 +119,9 @@ public record CustomFieldsVm(
     Dictionary<string, string> CurrentValues,
     bool ReadOnly = false,
     IReadOnlyDictionary<string, IReadOnlyList<UdfOption>>? Options = null);
+
+/// <summary>
+/// Sayfalama partial'ı (_Pager.cshtml) modeli — liste ekranlarında OFFSET/FETCH pager'ı (PF-1).
+/// Partial mevcut query string'i korur, yalnız page parametresini değiştirir (filtreler kaybolmaz).
+/// </summary>
+public record PagerVm(int Page, int TotalPages, int TotalCount, int PageSize);

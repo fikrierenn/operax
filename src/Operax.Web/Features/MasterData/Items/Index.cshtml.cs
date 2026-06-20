@@ -20,11 +20,19 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)] public string? CategoryFilter { get; set; }
     [BindProperty(SupportsGet = true)] public string? StatusFilter { get; set; }
 
+    // Sayfalama (PF-1) — GET'ten bind, varsayılan 1; sabit sayfa boyutu
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
+        var page = Page < 1 ? 1 : Page;   // negatif/0 sayfa koruması
 
-        // Ürün listesi — arama (Q), kategori ve durum filtreleriyle
+        // Ürün listesi — arama (Q), kategori, durum filtreleri + sayfalama (OFFSET/FETCH).
+        // Tek round-trip: sayfa satırları + aynı filtrenin toplam sayısı (QueryMultiple).
         const string sql = @"
             SELECT i.Id, i.Code, i.Name, i.Barcode, i.TaxRate,
                    dv.NameTr as BaseUom, c.Name as CategoryName,
@@ -38,15 +46,27 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
               AND (@StatusFilter IS NULL OR @StatusFilter = ''
                    OR (@StatusFilter = 'active'  AND i.IsActive = 1)
                    OR (@StatusFilter = 'passive' AND i.IsActive = 0))
-            ORDER BY i.Code";
+            ORDER BY i.Code
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        Items = await conn.QueryAsync<ItemDto>(sql, new
+            SELECT COUNT(1)
+            FROM Item i
+            LEFT JOIN Category c ON c.Id = i.CategoryId
+            WHERE i.CompanyId = @CompanyId AND i.IsDeleted = 0
+              AND (@Q IS NULL OR @Q = '' OR i.Code LIKE '%' + @Q + '%' OR i.Name LIKE '%' + @Q + '%')
+              AND (@CategoryFilter IS NULL OR @CategoryFilter = '' OR c.Name = @CategoryFilter)
+              AND (@StatusFilter IS NULL OR @StatusFilter = ''
+                   OR (@StatusFilter = 'active'  AND i.IsActive = 1)
+                   OR (@StatusFilter = 'passive' AND i.IsActive = 0));";
+
+        using (var grid = await conn.QueryMultipleAsync(sql, new
         {
-            CompanyId = company.Id,
-            Q,
-            CategoryFilter,
-            StatusFilter
-        });
+            CompanyId = company.Id, Q, CategoryFilter, StatusFilter, Page = page, PageSize
+        }))
+        {
+            Items = (await grid.ReadAsync<ItemDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         TotalSkuCount = await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM Item WHERE CompanyId = @CompanyId AND IsDeleted = 0",

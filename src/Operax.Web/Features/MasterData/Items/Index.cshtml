@@ -67,7 +67,7 @@
         <option value="active" selected="@(Model.StatusFilter == "active")">@L.T("Aktif", "Active")</option>
         <option value="passive" selected="@(Model.StatusFilter == "passive")">@L.T("Pasif", "Passive")</option>
     </select>
-    <div class="ml-auto text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">@Model.Items.Count() @L.T("kayıt", "records")</div>
+    <div class="ml-auto text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">@Model.FilteredCount @L.T("kayıt", "records")</div>
 </form>
 
 <div class="card overflow-hidden">
@@ -145,3 +145,5 @@
         </tbody>
     </table>
 </div>
+
+<partial name="_Pager" model="new Operax.Web.Lib.PagerVm(Model.Page, Model.TotalPages, Model.FilteredCount, Model.PageSize)" />

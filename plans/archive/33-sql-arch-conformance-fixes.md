@@ -121,12 +121,12 @@ Her bulgu paralel `sql-sp-reviewer`/`code-reviewer` (opus) ile bulundu, 2 bağı
 
 ## 7. Done Criteria
 
-- [ ] 3 CRITICAL SP + 3 CRITICAL C# bulgusu kapalı (kanıt: file:line + smoke).
-- [ ] 6 HIGH SP + 8 HIGH C# bulgusu kapalı veya bilinçli ertelendi (TODO debt).
-- [ ] `DocumentLock.cs` mevcut + en az PO edit/addline guard'lı.
-- [ ] DEAD üretim servisleri silindi, build 0/0.
-- [ ] Kalan 60xxx THROW yok.
-- [ ] Her faz: build-validator + ilgili reviewer + smoke geçti.
+- [x] ✅ 3 CRITICAL SP + 3 CRITICAL C# bulgusu kapalı (kanıt: file:line + smoke). — Faz A/B/C
+- [x] ✅ 6 HIGH SP + 8 HIGH C# bulgusu kapalı veya bilinçli ertelendi (TODO debt). — C1-5 polish DEBT
+- [x] ✅ `DocumentLock.cs` mevcut + en az PO edit/addline guard'lı. — Faz D (commit 3e15dd2)
+- [x] ✅ DEAD üretim servisleri silindi, build 0/0. — Faz E (commit 57c8877)
+- [x] ✅ Kalan 60xxx THROW yok. — Faz E (60xxx→55xxx)
+- [x] ✅ Her faz: build-validator + ilgili reviewer + smoke geçti.
 
 ## 8. Rollback
 

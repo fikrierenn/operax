@@ -17,19 +17,31 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     // Aktif entity'ler (Faz 1: Item · Faz 2: Partner)
     public string[] AllowedEntities { get; } = ["Item", "Partner"];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     // UDF tanımlarını listeler (şirket-kapsamlı)
     public async Task OnGetAsync()
     {
         try
         {
             using var conn = db.Open();
-            Definitions = (await conn.QueryAsync<UdfDefRow>(@"
+            var page = Page < 1 ? 1 : Page;
+            const string sql = @"
                 SELECT Id, EntityName, FieldName, LabelText, FieldType,
                        DataSourceType, DataSourceKey, IsRequired, IsActive, OrderNo
                 FROM UserFieldDefinition
                 WHERE CompanyId = @CompanyId AND IsDeleted = 0
-                ORDER BY EntityName, OrderNo, LabelText",
-                new { CompanyId = company.Id })).ToList();
+                ORDER BY EntityName, OrderNo, LabelText
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+                SELECT COUNT(1) FROM UserFieldDefinition WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
+            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            Definitions = (await grid.ReadAsync<UdfDefRow>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
         }
         catch (SqlException sqlEx)
         {

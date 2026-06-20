@@ -13,18 +13,30 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 {
     public List<ParameterDto> Parameters { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     // Parametre listesini veritabanından yükler
     public async Task OnGetAsync()
     {
         try
         {
             using var conn = db.Open();
-            Parameters = (await conn.QueryAsync<ParameterDto>(@"
+            var page = Page < 1 ? 1 : Page;
+            const string sql = @"
                 SELECT Id, ModuleCode, Code, Value, Description
                 FROM Parameter
                 WHERE CompanyId = @CompanyId AND IsDeleted = 0
-                ORDER BY ModuleCode, Code",
-                new { CompanyId = company.Id })).ToList();
+                ORDER BY ModuleCode, Code
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+                SELECT COUNT(1) FROM Parameter WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
+            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            Parameters = (await grid.ReadAsync<ParameterDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
         }
         catch (SqlException sqlEx)
         {

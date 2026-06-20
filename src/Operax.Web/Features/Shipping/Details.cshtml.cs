@@ -146,42 +146,25 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             // Eğer itemId boşsa ve soLineId (Satış Sipariş Başlık ID'si) verilmişse, siparişteki tüm açık satırları aktar
             if (itemId == Guid.Empty && soLineId != Guid.Empty)
             {
-                var soLines = await conn.QueryAsync<(Guid Id, Guid ItemId, Guid UomId, decimal QtyRemaining)>(@"
-                    SELECT sol.Id, sol.ItemId, sol.UomId, (sol.QtyOrdered - sol.QtyShipped) as QtyRemaining
+                // Performans (PF-4): tek set-based INSERT...SELECT — eski N+1 (her satır için ayrı
+                // fn_GetConversionRate + INSERT) kaldırıldı. UOM dönüşümü CROSS APPLY ile satır başına
+                // bir kez hesaplanır; rate=0 ise 1'e düşülür (COALESCE/NULLIF).
+                // İzolasyon: kaynak satırlar soh.CompanyId = @CompanyId ile firma-filtreli (güvenli).
+                // isolation-guard:ignore  (CompanyId predikatı JOIN'de mevcut)
+                var inserted = await conn.ExecuteAsync(@"
+                    INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
+                    SELECT @HeaderId, sol.Id, sol.ItemId, sol.UomId,
+                           rem.Qty, rem.Qty * COALESCE(NULLIF(cr.Rate, 0), 1), NULL
                     FROM SalesOrderLine sol
                     JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId
-                    WHERE sol.HeaderId = @SalesOrderHeaderId AND soh.CompanyId = @CompanyId AND (sol.QtyOrdered - sol.QtyShipped) > 0",
-                    new { SalesOrderHeaderId = soLineId, CompanyId = company.Id });
+                    CROSS APPLY (SELECT (sol.QtyOrdered - sol.QtyShipped) AS Qty) rem
+                    CROSS APPLY (SELECT dbo.fn_GetConversionRate(sol.ItemId, sol.UomId) AS Rate) cr
+                    WHERE sol.HeaderId = @SalesOrderHeaderId AND soh.CompanyId = @CompanyId AND rem.Qty > 0",
+                    new { HeaderId = id, SalesOrderHeaderId = soLineId, CompanyId = company.Id });
 
-                foreach (var sol in soLines)
-                {
-                    var rate = await conn.ExecuteScalarAsync<decimal>(
-                        "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
-                        new { ItemId = sol.ItemId, UomId = sol.UomId });
-
-                    if (rate == 0) rate = 1;
-
-                    await conn.ExecuteAsync(@"
-                        -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
-                        -- Gerekçe: kaynak SalesOrderLine'lar bu handler'da
-                        -- JOIN SalesOrderHeader soh ON soh.Id = sol.HeaderId ... AND soh.CompanyId = @CompanyId
-                        -- filtresiyle çekildi; yalnızca aynı firmanın açık sipariş satırları döndü.
-                        -- Döngüdeki her sol kaydı o doğrulanmış sorgudan geldiğinden farklı firmaya satır eklenemez.
-                        -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-                        INSERT INTO ShippingLine (HeaderId, SalesOrderLineId, ItemId, UomId, QtyOriginal, QtyBase, LotNo)
-                        VALUES (@HeaderId, @SOLineId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo)",
-                        new {
-                            HeaderId = id,
-                            SOLineId = sol.Id,
-                            ItemId = sol.ItemId,
-                            UomId = sol.UomId,
-                            Qty = sol.QtyRemaining,
-                            QtyBase = sol.QtyRemaining * rate,
-                            LotNo = (string?)null
-                        });
-                }
-
-                TempData["Success"] = "Sipariş satırları sevkiyata aktarıldı.";
+                TempData["Success"] = inserted > 0
+                    ? "Sipariş satırları sevkiyata aktarıldı."
+                    : "Aktarılacak açık sipariş satırı bulunamadı.";
                 return RedirectToPage(new { id });
             }
 

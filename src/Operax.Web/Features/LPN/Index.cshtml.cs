@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
@@ -10,11 +11,19 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<LpnListDto> Lpns { get; set; } = [];
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
-        // Şirkete ait tüm palet/kapları konum ve içerik özeti ile listeler
+        // Şirkete ait tüm palet/kapları konum ve içerik özeti ile listeler + sayfalama
         using var conn = db.Open();
-        Lpns = await conn.QueryAsync<LpnListDto>(@"
+        var page = Page < 1 ? 1 : Page;
+
+        const string sql = @"
             SELECT
                 l.Id, l.Code, l.Status, l.LpnType,
                 w.Code AS WhCode, b.Code AS BinCode,
@@ -31,8 +40,14 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             LEFT JOIN Warehouse w ON w.Id = l.CurrentWarehouseId
             LEFT JOIN Bin b ON b.Id = l.CurrentBinId
             WHERE l.CompanyId = @CompanyId
-            ORDER BY l.CreatedAt DESC",
-            new { CompanyId = company.Id });
+            ORDER BY l.CreatedAt DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(1) FROM LPN WHERE CompanyId = @CompanyId;";
+
+        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        Lpns = (await grid.ReadAsync<LpnListDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public record LpnListDto

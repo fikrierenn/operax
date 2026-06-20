@@ -18,6 +18,12 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)] public string Status    { get; set; } = "all";   // all/PORTFOLIO/IN_BANK/COLLECTED/RETURNED
     [BindProperty(SupportsGet = true)] public string Type      { get; set; } = "cheque"; // cheque/note
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public List<ChequeRowDto> Items   { get; set; } = [];
     public StatusCounts       Counts  { get; set; } = new(0, 0, 0, 0, 0);
     public decimal            TotalInPortfolio { get; set; }
@@ -67,48 +73,43 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
     private async Task LoadItemsAsync(System.Data.IDbConnection conn)
     {
+        var page = Page < 1 ? 1 : Page;
         var parms = new DynamicParameters();
         parms.Add("CompanyId", company.Id);
+        parms.Add("Page", page);
+        parms.Add("PageSize", PageSize);
 
-        string sql;
+        // Type'a göre sabit FROM/WHERE (tablo adı kullanıcıdan gelmiyor → injection yok)
+        string cols, fromWhere;
         if (Type == "note")
         {
-            sql = @"
-                SELECT
-                    n.Id, n.Direction, n.NoteNo AS DocNo, NULL AS BankName, NULL AS BranchName,
-                    n.DrawerName, n.Amount, n.Currency,
-                    n.IssueDate AS DocDate, n.DueDate, n.Status, n.PartnerId,
-                    p.Name AS PartnerName,
-                    DATEDIFF(DAY, GETUTCDATE(), n.DueDate) AS DaysToDue
-                FROM PromissoryNote n
-                LEFT JOIN Partner p ON p.Id = n.PartnerId
-                WHERE n.CompanyId = @CompanyId AND n.IsDeleted = 0";
+            cols = @"n.Id, n.Direction, n.NoteNo AS DocNo, NULL AS BankName, NULL AS BranchName,
+                     n.DrawerName, n.Amount, n.Currency, n.IssueDate AS DocDate, n.DueDate, n.Status,
+                     n.PartnerId, p.Name AS PartnerName, DATEDIFF(DAY, GETUTCDATE(), n.DueDate) AS DaysToDue";
+            fromWhere = "FROM PromissoryNote n LEFT JOIN Partner p ON p.Id = n.PartnerId WHERE n.CompanyId = @CompanyId AND n.IsDeleted = 0";
         }
         else
         {
-            sql = @"
-                SELECT
-                    Id, Direction, ChequeNo AS DocNo, BankName, BranchName,
-                    DrawerName, Amount, Currency,
-                    ChequeDate AS DocDate, DueDate, Status, PartnerId,
-                    PartnerName, DaysToDue
-                FROM v_ChequePortfolio
-                WHERE CompanyId = @CompanyId";
+            cols = @"Id, Direction, ChequeNo AS DocNo, BankName, BranchName, DrawerName, Amount, Currency,
+                     ChequeDate AS DocDate, DueDate, Status, PartnerId, PartnerName, DaysToDue";
+            fromWhere = "FROM v_ChequePortfolio WHERE CompanyId = @CompanyId";
         }
 
-        if (Direction != "all")
-        {
-            sql += " AND Direction = @Direction";
-            parms.Add("Direction", Direction);
-        }
-        if (Status != "all")
-        {
-            sql += " AND Status = @Status";
-            parms.Add("Status", Status);
-        }
-        sql += " ORDER BY DueDate ASC";
+        var filter = "";
+        if (Direction != "all") { filter += " AND Direction = @Direction"; parms.Add("Direction", Direction); }
+        if (Status != "all")    { filter += " AND Status = @Status";       parms.Add("Status", Status); }
 
-        Items = (await conn.QueryAsync<ChequeRowDto>(sql, parms)).ToList();
+        // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+        var sql = $@"
+            SELECT {cols} {fromWhere}{filter}
+            ORDER BY DueDate ASC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(*) {fromWhere}{filter};";
+
+        using var grid = await conn.QueryMultipleAsync(sql, parms);
+        Items = (await grid.ReadAsync<ChequeRowDto>()).ToList();
+        FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     public record ChequeRowDto(

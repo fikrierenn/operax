@@ -40,12 +40,16 @@ Fresh `migrate`+`seed` sonrası sistem **operable değil**. Canlı DB kanıtı (
 - 🟡 `setup_tax_dictionary.sql` ile çakışma — seed_reference idempotent `WHERE NOT EXISTS`, TAX'ı ezmez; ama TAX_RATE dup (8 satır) temizlenmeli.
 - 🟡 ALTER ADD COLUMN sonrası `GO` (batch — DocChain dersi).
 
-## Done Criteria
+## Done Criteria ✅ (2026-06-20 — tüm fazlar tamam)
 
-- Fresh `Operax_Test` migrate+seed → her şirkette: UOM≥12 (UnEce dolu, Adet=C62), TAX_RATE=4, CURRENCY≥5, PAYMENT_METHOD≥7, WITHHOLDING≥25.
-- Build Web+Cli 0/0.
-- `seed` re-run idempotent (değer artmaz).
-- Dtos sabitleri kullanımda, magic-string Finance'te kalmadı (grep temiz).
+- [x] ✅ Fresh `Operax_Test` migrate+seed → her şirkette: UOM≥12 (UnEce dolu, Adet=C62), TAX_RATE=4, CURRENCY=6, PAYMENT_METHOD=7, WITHHOLDING=25. (Demo Ltd + SYSTEM doğrulandı)
+- [x] ✅ Build Web 0 hata (Cli 0/0). seed_reference fresh DB'de ok:12 0 fail.
+- [x] ✅ `seed` re-run idempotent (re-run sonrası değer artmadı).
+- [x] ✅ Dtos sabitleri (AccountType/TransactionType/PaymentMethod) kullanımda; Finance C# magic-string kaldı: yok. code-reviewer DB eşleşme %100.
+
+**Faz özeti:** Faz 1 schema_M00_DictRefCols (UnEce+IsWholeNumber) · Faz 2 seed_reference.sql 9 tip per-company (sql-sp-reviewer CRIT-1 FK-repoint + XACT_ABORT fix) · Faz 3 Dtos 3 sabit + Finance refactor · Faz 4 fresh Operax_Test doğrulama.
+
+**Kapsam dışı bulgu (ayrı task task_c6b83089):** fresh-install migrate'te 2 pre-existing bug — db_objects_pricelist_bulk STRING_SPLIT ordinal (compat<160) + seed_demo Warehouse FK sırası.
 
 ## Rollback
 

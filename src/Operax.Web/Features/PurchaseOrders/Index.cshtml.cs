@@ -22,6 +22,12 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public StatusCountsDto  StatusCounts  { get; set; } = new(0, 0, 0, 0);
     public decimal          TotalActive   { get; set; }
 
+    // Sayfalama (PF-1) — transactional liste varyantı (liste + count + aktif toplam)
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
@@ -56,59 +62,62 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     // Sekme + arama filtresine göre evrak listesi (header total = sum of QtyOrdered * Price)
     private async Task LoadOrdersAsync(System.Data.IDbConnection conn)
     {
-        // İş kuralı: Filtreler SARGable kalsın diye Status WHERE'de parametre ile karşılaştırılır
-        var sql = @"
-            ;WITH HeaderTotals AS (
-                SELECT HeaderId, SUM(QtyOrdered * Price) AS LineTotal, COUNT(*) AS LineCount
-                FROM PurchaseOrderLine
-                GROUP BY HeaderId
-            )
-            SELECT TOP 200
-                h.Id, h.OrderNo, h.OrderDate, h.Status,
-                p.Name AS PartnerName,
-                p.Code AS PartnerCode,
-                c.Name AS PartnerCity,
-                p.TaxNumber,
-                ISNULL(ht.LineTotal, 0) AS TotalAmount,
-                ISNULL(ht.LineCount, 0) AS LineCount,
-                DATEADD(DAY, ISNULL(h.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)), h.OrderDate) AS DueDate
-            FROM PurchaseOrderHeader h
-            JOIN Partner p ON p.Id = h.PartnerId
-            LEFT JOIN City c ON c.Id = p.CityId
-            LEFT JOIN HeaderTotals ht ON ht.HeaderId = h.Id
-            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0";
-
+        var page = Page < 1 ? 1 : Page;
         var parms = new DynamicParameters();
         parms.Add("CompanyId", company.Id);
-
+        parms.Add("Page", page);
+        parms.Add("PageSize", PageSize);
         // İş kuralı: durum filtreleri DocStatus sabitleriyle parametrik olarak eklenir
         parms.Add("StDraft",     DocStatus.Draft);
         parms.Add("StPosted",    DocStatus.Posted);
         parms.Add("StApproved",  DocStatus.Approved);
         parms.Add("StCancelled", DocStatus.Cancelled);
 
-        // Sekme filtresi: Tab değeri DocStatus sabitleri ile eşlenir
-        if (Tab == DocStatus.Draft)
-            sql += " AND h.Status = @StDraft";
-        else if (Tab == DocStatus.Posted)
-            sql += " AND h.Status IN (@StPosted, @StApproved)";
-        else if (Tab == DocStatus.Cancelled)
-            sql += " AND h.Status = @StCancelled";
-
-        // Serbest metin arama: evrak no veya tedarikçi adı
+        // Sekme + arama filtresi tek yerde — hem listede hem count/aktif-toplam aggregate'inde kullanılır
+        var filter = "";
+        if (Tab == DocStatus.Draft)          filter += " AND h.Status = @StDraft";
+        else if (Tab == DocStatus.Posted)    filter += " AND h.Status IN (@StPosted, @StApproved)";
+        else if (Tab == DocStatus.Cancelled) filter += " AND h.Status = @StCancelled";
         if (!string.IsNullOrWhiteSpace(Q))
         {
-            sql += " AND (h.OrderNo LIKE @Q OR p.Name LIKE @Q)";
+            filter += " AND (h.OrderNo LIKE @Q OR p.Name LIKE @Q)";
             parms.Add("Q", $"%{Q.Trim()}%");
         }
 
-        sql += " ORDER BY h.OrderDate DESC, h.OrderNo DESC";
+        // İş kuralı: SARGable filtre; sayfa satırları + (toplam adet + iptal-hariç aktif tutar) tek round-trip
+        var sql = $@"
+            ;WITH HeaderTotals AS (
+                SELECT HeaderId, SUM(QtyOrdered * Price) AS LineTotal, COUNT(*) AS LineCount
+                FROM PurchaseOrderLine GROUP BY HeaderId
+            )
+            SELECT
+                h.Id, h.OrderNo, h.OrderDate, h.Status,
+                p.Name AS PartnerName, p.Code AS PartnerCode, c.Name AS PartnerCity, p.TaxNumber,
+                ISNULL(ht.LineTotal, 0) AS TotalAmount, ISNULL(ht.LineCount, 0) AS LineCount,
+                DATEADD(DAY, ISNULL(h.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)), h.OrderDate) AS DueDate
+            FROM PurchaseOrderHeader h
+            JOIN Partner p ON p.Id = h.PartnerId
+            LEFT JOIN City c ON c.Id = p.CityId
+            LEFT JOIN HeaderTotals ht ON ht.HeaderId = h.Id
+            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0{filter}
+            ORDER BY h.OrderDate DESC, h.OrderNo DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-        var rows = (await conn.QueryAsync<OrderDto>(sql, parms)).ToList();
-        Orders = rows;
+            ;WITH HeaderTotals AS (
+                SELECT HeaderId, SUM(QtyOrdered * Price) AS LineTotal FROM PurchaseOrderLine GROUP BY HeaderId
+            )
+            SELECT COUNT(*) AS Cnt,
+                   ISNULL(SUM(CASE WHEN h.Status <> @StCancelled THEN ISNULL(ht.LineTotal, 0) ELSE 0 END), 0) AS ActiveTotal
+            FROM PurchaseOrderHeader h
+            JOIN Partner p ON p.Id = h.PartnerId
+            LEFT JOIN HeaderTotals ht ON ht.HeaderId = h.Id
+            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0{filter};";
 
-        // İş kuralı: İptal hariç toplam aktif tutar
-        TotalActive = rows.Where(r => r.Status != DocStatus.Cancelled).Sum(r => r.TotalAmount);
+        using var grid = await conn.QueryMultipleAsync(sql, parms);
+        Orders = (await grid.ReadAsync<OrderDto>()).ToList();
+        var agg = await grid.ReadSingleAsync<AggDto>();
+        FilteredCount = agg.Cnt;
+        TotalActive = agg.ActiveTotal;
     }
 
     // ─── DTO'lar ────────────────────────────────────────────────
@@ -126,4 +135,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         DateTime DueDate);
 
     public record StatusCountsDto(int Total, int Draft, int Posted, int Cancelled);
+
+    // Sayfalama aggregate: filtreli toplam adet + iptal-hariç aktif tutar
+    private record AggDto(int Cnt, decimal ActiveTotal);
 }

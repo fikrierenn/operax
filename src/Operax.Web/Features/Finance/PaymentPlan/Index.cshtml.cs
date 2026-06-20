@@ -17,6 +17,12 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "all";  // all/RECEIVABLE/PAYABLE
     [BindProperty(SupportsGet = true)] public string Status    { get; set; } = "OPEN"; // OPEN/PARTIAL/PAID/OVERDUE/all
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public List<PlanRowDto> Plans       { get; set; } = [];
     public DirCountsDto     DirCounts   { get; set; } = new(0, 0, 0);
     public decimal          TotalReceivable { get; set; }
@@ -49,7 +55,23 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 WHERE CompanyId = @CompanyId AND Direction = 'PAYABLE'
                   AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
 
-            var sql = @"
+            var page = Page < 1 ? 1 : Page;
+            const string fromWhere = @"
+                FROM PaymentPlan pp
+                LEFT JOIN Partner p ON p.Id = pp.PartnerId
+                WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+            parms.Add("Page", page);
+            parms.Add("PageSize", PageSize);
+
+            var filter = "";
+            if (Direction != "all") { filter += " AND pp.Direction = @Direction"; parms.Add("Direction", Direction); }
+            if (Status != "all")    { filter += " AND pp.Status = @Status";       parms.Add("Status", Status); }
+
+            // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+            var sql = $@"
                 SELECT
                     pp.Id, pp.SourceDocType, pp.SourceDocNo,
                     pp.PartnerId, p.Name AS PartnerName,
@@ -57,26 +79,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     pp.DueDate, pp.Amount, pp.PaidAmount, pp.Status,
                     pp.PaidAt,
                     DATEDIFF(DAY, pp.DueDate, GETUTCDATE()) AS DaysOverdue
-                FROM PaymentPlan pp
-                LEFT JOIN Partner p ON p.Id = pp.PartnerId
-                WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0";
+                {fromWhere}{filter}
+                ORDER BY pp.DueDate ASC
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-            var parms = new DynamicParameters();
-            parms.Add("CompanyId", company.Id);
+                SELECT COUNT(*) {fromWhere}{filter};";
 
-            if (Direction != "all")
-            {
-                sql += " AND pp.Direction = @Direction";
-                parms.Add("Direction", Direction);
-            }
-            if (Status != "all")
-            {
-                sql += " AND pp.Status = @Status";
-                parms.Add("Status", Status);
-            }
-            sql += " ORDER BY pp.DueDate ASC";
-
-            Plans = (await conn.QueryAsync<PlanRowDto>(sql, parms)).ToList();
+            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            Plans = (await grid.ReadAsync<PlanRowDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
         }
         catch (SqlException sqlEx)
         {

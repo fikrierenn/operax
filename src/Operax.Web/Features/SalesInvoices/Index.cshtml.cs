@@ -23,6 +23,12 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal              TotalAmount { get; set; }
     public decimal              TotalPaid   { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     // Fatura listesi verilerini ve sekme sayaçlarını veritabanından yükler
     public async Task OnGetAsync()
     {
@@ -56,7 +62,23 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 FROM SalesInvoice
                 WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p);
 
-            var sql = @"
+            var page = Page < 1 ? 1 : Page;
+            const string fromWhere = @"
+                FROM SalesInvoice si
+                JOIN Partner p ON p.Id = si.PartnerId
+                WHERE si.CompanyId = @CompanyId AND si.IsDeleted = 0";
+
+            var parms = new DynamicParameters();
+            parms.Add("CompanyId", company.Id);
+            parms.Add("Page", page);
+            parms.Add("PageSize", PageSize);
+
+            var filter = "";
+            if (Status != "all") { filter += " AND si.Status = @Status"; parms.Add("Status", Status); }
+            if (!string.IsNullOrWhiteSpace(Q)) { filter += " AND (si.InvoiceNo LIKE @Q OR p.Name LIKE @Q)"; parms.Add("Q", $"%{Q.Trim()}%"); }
+
+            // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+            var sql = $@"
                 SELECT
                     si.Id, si.InvoiceNo, si.InvoiceDate, si.DueDate,
                     si.PartnerId, p.Name AS PartnerName,
@@ -64,27 +86,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     si.Status, si.EBelgeType, si.EBelgeStatus,
                     (SELECT COUNT(*) FROM SalesInvoiceLine WHERE InvoiceId = si.Id) AS LineCount,
                     DATEDIFF(DAY, si.DueDate, GETUTCDATE()) AS DaysOverdue
-                FROM SalesInvoice si
-                JOIN Partner p ON p.Id = si.PartnerId
-                WHERE si.CompanyId = @CompanyId AND si.IsDeleted = 0";
+                {fromWhere}{filter}
+                ORDER BY si.InvoiceDate DESC, si.InvoiceNo DESC
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-            var parms = new DynamicParameters();
-            parms.Add("CompanyId", company.Id);
+                SELECT COUNT(*) {fromWhere}{filter};";
 
-            if (Status != "all")
-            {
-                sql += " AND si.Status = @Status";
-                parms.Add("Status", Status);
-            }
-            if (!string.IsNullOrWhiteSpace(Q))
-            {
-                sql += " AND (si.InvoiceNo LIKE @Q OR p.Name LIKE @Q)";
-                parms.Add("Q", $"%{Q.Trim()}%");
-            }
-
-            sql += " ORDER BY si.InvoiceDate DESC, si.InvoiceNo DESC";
-
-            Invoices = (await conn.QueryAsync<InvoiceRowDto>(sql, parms)).ToList();
+            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            Invoices = (await grid.ReadAsync<InvoiceRowDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {

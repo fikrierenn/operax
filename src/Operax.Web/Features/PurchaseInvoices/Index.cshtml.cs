@@ -19,13 +19,21 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int DraftCount { get; set; }
     public int PostedCount { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     // Mal alım faturalarını durum/arama filtresiyle ve sekme sayaçlarıyla yükler
     public async Task OnGetAsync()
     {
         using var conn = db.Open();
         try
         {
-            var sql = @"
+            var page = Page < 1 ? 1 : Page;
+            // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+            const string sql = @"
                 SELECT pi.Id, pi.DocNo, pi.SupplierInvoiceNo, pi.SupplierInvoiceDate,
                        pi.InvoiceDate, pi.PartnerId, p.Name AS PartnerName,
                        pi.GrandTotal, pi.PaidAmount, pi.Status,
@@ -35,14 +43,22 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 WHERE pi.CompanyId = @CompanyId
                   AND (@Status = 'all' OR pi.Status = @Status)
                   AND (@Q IS NULL OR pi.SupplierInvoiceNo LIKE @Like OR p.Name LIKE @Like)
-                ORDER BY pi.CreatedAt DESC";
-            Invoices = (await conn.QueryAsync<InvoiceRowDto>(sql, new
+                ORDER BY pi.CreatedAt DESC
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+                SELECT COUNT(1)
+                FROM PurchaseInvoice pi
+                JOIN Partner p ON p.Id = pi.PartnerId
+                WHERE pi.CompanyId = @CompanyId
+                  AND (@Status = 'all' OR pi.Status = @Status)
+                  AND (@Q IS NULL OR pi.SupplierInvoiceNo LIKE @Like OR p.Name LIKE @Like);";
+
+            using var grid = await conn.QueryMultipleAsync(sql, new
             {
-                CompanyId = company.Id,
-                Status,
-                Q,
-                Like = $"%{Q}%"
-            })).ToList();
+                CompanyId = company.Id, Status, Q, Like = $"%{Q}%", Page = page, PageSize
+            });
+            Invoices = (await grid.ReadAsync<InvoiceRowDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
 
             DraftCount = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(1) FROM PurchaseInvoice WHERE CompanyId = @CompanyId AND Status = @St",

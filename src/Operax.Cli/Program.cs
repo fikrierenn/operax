@@ -72,6 +72,8 @@ class Program
             {
                 case "migrate":
                     var sqlDir = FindDir("docs/sql") ?? ".";
+                    // 0. DB uyumluluk seviyesi 160 (SQL 2022) sigortası — sürüm-korumalı, tolerant (eski SQL'de atlar)
+                    await ExecuteScriptAsync(Path.Combine(sqlDir, "migration_set_compat.sql"), tolerant: true);
                     // 1. Çekirdek şema (tablolar, index'ler, seed)
                     await ExecuteScriptAsync(Path.Combine(sqlDir, "schema_all.sql"), tolerant: true);
                     // 2. Ek modül şemaları (alt parçalar — idempotent IF NOT EXISTS koruması var)
@@ -148,10 +150,23 @@ class Program
                     break;
 
                 case "seed":
+                    // Baseline (operable kurulum) — sahte/demo veri YOK. Demo için: seed-demo.
                     var seedDir = FindDir("docs/sql") ?? ".";
-                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql", "seed_finance_starter.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
+                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
                     {
                         var p = Path.Combine(seedDir, seedFile);
+                        if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);
+                        else Console.WriteLine($"  [SKIP] {seedFile} bulunamadi");
+                    }
+                    break;
+
+                case "seed-demo":
+                    // Opt-in DEMO verisi (Operax Demo LTD): master + işlem zincirleri. Üretim kurulumunda çağrılmaz.
+                    // seed_demo_master ÖNCE — diğerleri sabit-GUID master'a (Warehouse/Item/Partner/Bin/UOM) bağımlı.
+                    var demoDir = FindDir("docs/sql") ?? ".";
+                    foreach (var seedFile in new[] { "seed_demo_master.sql", "seed_demo.sql", "seed_dashboard.sql", "seed_business_history.sql", "seed_finance_starter.sql" })
+                    {
+                        var p = Path.Combine(demoDir, seedFile);
                         if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);
                         else Console.WriteLine($"  [SKIP] {seedFile} bulunamadi");
                     }
@@ -228,7 +243,8 @@ class Program
     {
         Console.WriteLine("\nKullanim:");
         Console.WriteLine("  operax-cli migrate              -> schema_all.sql uygular (idempotent)");
-        Console.WriteLine("  operax-cli seed                 -> seed_core + company_claims + tax_dictionary");
+        Console.WriteLine("  operax-cli seed                 -> baseline (core + reference + tax) — operable, demo YOK");
+        Console.WriteLine("  operax-cli seed-demo            -> opt-in DEMO verisi (Operax Demo LTD: master + islem zincirleri)");
         Console.WriteLine("  operax-cli script <dosya>       -> SQL dosyasi calistirir");
         Console.WriteLine("  operax-cli query \"SELECT ...\"   -> SQL sorgusu calistirir");
         Console.WriteLine("  operax-cli status               -> DB durumunu goster");

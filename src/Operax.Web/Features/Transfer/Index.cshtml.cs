@@ -28,6 +28,12 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int PostedCount { get; set; }
     public decimal TotalTransferQty { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+
     public async Task OnGetAsync()
     {
         // İş kuralı: arama terimi varsa DocNo LIKE filtresi uygulanır
@@ -39,7 +45,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
         using var conn = db.Open();
 
-        Transfers = await conn.QueryAsync<TransferDto>(@"
+        var page = Page < 1 ? 1 : Page;
+        // Sayfa satırları + aynı filtrenin toplam sayısı tek round-trip (PF-1)
+        const string sql = @"
             SELECT t.Id, t.DocNo, t.Status, t.TransferType, t.CreatedAt,
                    fw.Code AS FromWhCode, fw.BranchId AS FromBranchId, fb.Name AS FromBranchName,
                    tw.Code AS ToWhCode,   tw.BranchId AS ToBranchId,   tb.Name AS ToBranchName,
@@ -53,8 +61,24 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
               AND (@Search     IS NULL OR t.DocNo LIKE @Search)
               AND (@Status     IS NULL OR t.Status = @Status)
               AND (@BranchId   IS NULL OR fw.BranchId = @BranchId OR tw.BranchId = @BranchId)
-            ORDER BY t.CreatedAt DESC",
-            new { CompanyId = company.Id, Search = search, Status = statusParam, BranchId = BranchFilter });
+            ORDER BY t.CreatedAt DESC
+            OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(*)
+            FROM StockTransfer t
+            JOIN Warehouse fw ON fw.Id = t.FromWarehouseId
+            JOIN Warehouse tw ON tw.Id = t.ToWarehouseId
+            WHERE t.CompanyId = @CompanyId
+              AND (@Search     IS NULL OR t.DocNo LIKE @Search)
+              AND (@Status     IS NULL OR t.Status = @Status)
+              AND (@BranchId   IS NULL OR fw.BranchId = @BranchId OR tw.BranchId = @BranchId);";
+
+        using (var grid = await conn.QueryMultipleAsync(sql,
+            new { CompanyId = company.Id, Search = search, Status = statusParam, BranchId = BranchFilter, Page = page, PageSize }))
+        {
+            Transfers = (await grid.ReadAsync<TransferDto>()).ToList();
+            FilteredCount = await grid.ReadSingleAsync<int>();
+        }
 
         // Şube filtresi dropdown için
         Branches = await conn.QueryAsync<DdlDto>(

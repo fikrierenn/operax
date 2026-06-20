@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
@@ -17,15 +18,22 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal TotalLimit { get; set; }
     public decimal TotalUsed  { get; set; }
 
+    // Sayfalama (PF-1) — Items/Index template'i
+    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    public int PageSize { get; } = 50;
+    public int FilteredCount { get; set; }
+    public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
+    private record AggRow(int Cnt, decimal TotalLimit, decimal TotalAvailable);
+
     // Kredi kartı listesini ve limit özetini yükler
     public async Task OnGetAsync()
     {
         try
         {
             using var conn = db.Open();
-            var p = new { CompanyId = company.Id };
+            var page = Page < 1 ? 1 : Page;
 
-            var sql = @"
+            const string sql = @"
                 SELECT
                     c.Id, c.CardNoMasked, c.HolderName, c.BankName, c.CardType,
                     c.CreditLimit, c.AvailableLimit, c.StatementDay, c.DueDay,
@@ -35,11 +43,19 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     (SELECT TOP 1 DueDate FROM CreditCardStatement WHERE CardId = c.Id AND IsClosed = 0 ORDER BY PeriodEnd DESC) AS NextStatementDue
                 FROM CreditCard c
                 WHERE c.CompanyId = @CompanyId AND c.IsDeleted = 0
-                ORDER BY c.BankName, c.HolderName";
+                ORDER BY c.BankName, c.HolderName
+                OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
-            Cards = (await conn.QueryAsync<CardRowDto>(sql, p)).ToList();
-            TotalLimit = Cards.Sum(c => c.CreditLimit);
-            TotalUsed  = TotalLimit - Cards.Sum(c => c.AvailableLimit);
+                SELECT COUNT(*) AS Cnt, ISNULL(SUM(CreditLimit), 0) AS TotalLimit,
+                       ISNULL(SUM(AvailableLimit), 0) AS TotalAvailable
+                FROM CreditCard WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
+
+            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            Cards = (await grid.ReadAsync<CardRowDto>()).ToList();
+            var agg = await grid.ReadSingleAsync<AggRow>();
+            FilteredCount = agg.Cnt;
+            TotalLimit = agg.TotalLimit;
+            TotalUsed  = agg.TotalLimit - agg.TotalAvailable;
         }
         catch (SqlException sqlEx)
         {

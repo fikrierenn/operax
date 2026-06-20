@@ -11,7 +11,7 @@ namespace Operax.Web.Features.Finance.CreditCards;
 /// Kredi kartı detayı — kart bilgileri + ekstre listesi + son slip işlemleri + ekstre ödeme.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
 
@@ -84,6 +84,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                       FromAccountId = fromAccountId, Amount = amount,
                       PayDate = (DateTime?)null, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
+            // Audit izi (A-4): kredi kartı ekstre ödemesi — finansal mutasyon
+            await audit.LogAsync("STATEMENT_PAID", "CreditCardStatement", statementId, $"Tutar: {amount}");
             TempData["Success"] = "Ekstre ödemesi yapıldı.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)

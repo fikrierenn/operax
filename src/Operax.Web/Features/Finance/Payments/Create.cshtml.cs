@@ -12,7 +12,7 @@ namespace Operax.Web.Features.Finance.Payments;
 /// TxType=INCOME → tahsilat (müşteriden para geldi), EXPENSE → ödeme (tedarikçiye para gitti).
 /// </summary>
 [Authorize]
-public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<CreateModel> logger) : PageModel
+public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<CreateModel> logger) : PageModel
 {
     [BindProperty] public FormDto Form { get; set; } = new();
 
@@ -65,6 +65,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                 commandType: CommandType.StoredProcedure);
 
             var newId = prm.Get<Guid>("NewTxId");
+            // Audit izi (A-4): kasa/banka tahsilat-ödeme hareketi — finansal mutasyon
+            await audit.LogAsync("PAYMENT", "FinancialTransaction", newId, $"{Form.TxType} · {Form.Amount} {Form.Currency}");
             TempData["Success"] = Form.TxType == "INCOME"
                 ? $"Tahsilat kaydedildi. TX: {UiHelpers.ShortGuid(newId)}"
                 : $"Ödeme kaydedildi. TX: {UiHelpers.ShortGuid(newId)}";

@@ -29,7 +29,8 @@ public static class UiHelpers
             "PENDING"           => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BEKLİYOR</span>",
             "CLOSED"            => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>KAPANDI</span>",
             "CLOSED_PARTIAL"    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>KISMİ KAPANDI</span>",
-            _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{statusCode}</span>",
+            // Güvenlik (A-8): bilinmeyen kod doğrudan HTML'e gömülür → XSS'e karşı encode
+            _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{System.Net.WebUtility.HtmlEncode(statusCode)}</span>",
         };
     }
 

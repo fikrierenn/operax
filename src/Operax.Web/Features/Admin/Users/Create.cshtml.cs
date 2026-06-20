@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace Operax.Web.Features.Admin.Users;
 [Authorize(Roles = "Administrator")]
 public class CreateModel(
     UserManager<IdentityUser> userManager,
-    ICurrentCompany company) : PageModel
+    ICurrentCompany company,
+    Db db) : PageModel
 {
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -43,7 +45,27 @@ public class CreateModel(
         if (!string.IsNullOrEmpty(Input.Role))
             await userManager.AddToRoleAsync(user, Input.Role);
 
+        // İş kuralı (Plan 13): login'de rol AspNetUserRoles'tan değil firma-bağlamlı UserCompany'den
+        // çözülür (CompanyAwareClaimsPrincipalFactory). UserCompany'ye yazılmazsa yeni kullanıcı
+        // (Administrator dahil) rolsüz kalır ve tüm yetki politikalarınca reddedilir. Boş rol → Viewer.
+        await UpsertUserCompanyAsync(user.Id, string.IsNullOrEmpty(Input.Role) ? Operax.Web.Lib.Roles.Viewer : Input.Role);
+
         return RedirectToPage("./Index");
+    }
+
+    /// <summary>Kullanıcının aktif firmadaki rolünü UserCompany'ye idempotent yazar (firma-bağlamlı rol).</summary>
+    private async Task UpsertUserCompanyAsync(string userId, string role)
+    {
+        using var conn = db.Open();
+        await conn.ExecuteAsync(@"
+            MERGE UserCompany AS t
+            USING (SELECT @UserId AS UserId, @CompanyId AS CompanyId) AS s
+              ON t.UserId = s.UserId AND t.CompanyId = s.CompanyId
+            WHEN MATCHED THEN UPDATE SET Role = @Role, IsActive = 1
+            WHEN NOT MATCHED THEN
+              INSERT (UserId, CompanyId, Role, IsActive, CreatedAt)
+              VALUES (@UserId, @CompanyId, @Role, 1, GETUTCDATE());",
+            new { UserId = userId, CompanyId = company.Id, Role = role });
     }
 
     public class InputModel

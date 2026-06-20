@@ -204,13 +204,19 @@ app.UseRequestLocalization(localizationOptions);
 // Reverse proxy (Nginx / Hostinger VPS) arkasında gerçek şema (https) ve istemci IP'sini al.
 // X-Forwarded-Proto olmadan Kestrel isteği http görür → UseHttpsRedirection sonsuz döngü +
 // CookieSecurePolicy.Always nedeniyle giriş cookie'si set edilemez (login kırılır).
-// KnownProxies/Networks temizlenir: önümüzdeki tek ters-proxy (aynı host Nginx) güvenilir kabul edilir.
+// Güvenlik: yalnız AYNI HOST loopback'ten gelen (önümüzdeki Nginx) X-Forwarded-* başlıkları kabul edilir.
+// Tüm proxy'lere güvenmek (KnownProxies.Clear) → doğrudan Kestrel'e erişen veya başlığı ekleyen bir
+// istemci X-Forwarded-For'u döndürüp RemoteIpAddress'i değiştirebilir; rate limiter IP ile anahtarladığı
+// için login/global IP limitleri atlatılır. Loopback'e kısıtla + ForwardLimit=1 (tek hop).
 var forwardedOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit     = 1
 };
 forwardedOptions.KnownNetworks.Clear();
 forwardedOptions.KnownProxies.Clear();
+forwardedOptions.KnownProxies.Add(System.Net.IPAddress.Loopback);      // 127.0.0.1 (aynı-host Nginx)
+forwardedOptions.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);  // ::1
 app.UseForwardedHeaders(forwardedOptions);
 
 // HTTP pipeline yapılandırması

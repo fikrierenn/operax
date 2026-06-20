@@ -64,10 +64,16 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
                 return Forbid();
             }
 
-            // Varsa operatörün mevcut açık aktivitesini kapat (yalnızca kendi kayıtları)
-            await conn.ExecuteAsync(
-                "UPDATE ProductionActivity SET EndTime = GETUTCDATE() WHERE UserId = @UserId AND EndTime IS NULL",
-                new { UserId = user.Id }, trans);
+            // Varsa operatörün mevcut açık aktivitesini kapat — yalnızca AKTİF FİRMAYA ait kayıtlar.
+            // ProductionActivity'de CompanyId kolonu yok; izolasyon üst belge ProductionOrder üzerinden.
+            // Sadece UserId ile kapatmak, operatörün başka firmadaki açık aktivitesini de sessizce
+            // bitirir (firma değiştirince çapraz mutasyon) — JOIN ile firmaya kısıtla.
+            await conn.ExecuteAsync(@"
+                UPDATE pa SET pa.EndTime = GETUTCDATE()
+                FROM ProductionActivity pa
+                JOIN ProductionOrder po ON po.Id = pa.ProductionOrderId
+                WHERE pa.UserId = @UserId AND pa.EndTime IS NULL AND po.CompanyId = @CompanyId",
+                new { UserId = user.Id, CompanyId = company.Id }, trans);
 
             // Rota adımından iş merkezini al
             var workCenterId = await conn.ExecuteScalarAsync<Guid?>(

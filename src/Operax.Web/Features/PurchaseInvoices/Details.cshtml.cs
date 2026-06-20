@@ -234,7 +234,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         var context = $"Ürün: {ctx.Item}. Sipariş fiyatı {ctx.Expected:N2}, fatura fiyatı {ctx.Actual:N2}.";
         var aiTimeout = await parameters.GetIntAsync("AI_INFERENCE_TIMEOUT_SECONDS", 120);
         using var aiCts = new CancellationTokenSource(TimeSpan.FromSeconds(aiTimeout));
-        var verdict = await ai.CheckJustificationAsync(context, reason, aiCts.Token);
+        // Soft-fail: aiCts yalnız AI timeout'unu temsil eder (istek-abort'a bağlı değil). Süre aşılırsa
+        // client OperationCanceledException fırlatır; onayı bloke etmemek için UNCHECKED'e düşürülür.
+        AiReasonVerdict verdict;
+        try
+        {
+            verdict = await ai.CheckJustificationAsync(context, reason, aiCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            verdict = AiReasonVerdict.NotChecked("AI zaman aşımı");
+        }
 
         await conn.ExecuteAsync(@"
             UPDATE PriceVariance

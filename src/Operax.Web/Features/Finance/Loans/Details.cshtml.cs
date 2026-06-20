@@ -12,7 +12,7 @@ namespace Operax.Web.Features.Finance.Loans;
 /// Ödeme sp_PayLoanInstallment ile banka hesabından gider hareketi yazar.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
 
@@ -73,6 +73,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             await conn.ExecuteAsync("sp_PayLoanInstallment",
                 new { PaymentId = paymentId, CompanyId = company.Id, PayDate = (DateTime?)null, FromAccountId = fromAccountId, UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
+            // Audit izi (A-4): kredi taksit ödemesi — security-principles zorunlu kıldığı kayıt
+            await audit.LogAsync("LOAN_INSTALLMENT_PAID", "LoanPayment", paymentId, $"Loan: {Id}");
             TempData["Success"] = "Taksit ödendi.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)

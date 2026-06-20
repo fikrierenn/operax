@@ -13,7 +13,7 @@ namespace Operax.Web.Features.Finance.Cheques;
 /// İşlemler sp_DepositCheque / sp_CollectCheque / sp_ReturnCheque ile yapılır.
 /// </summary>
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<DetailsModel> logger) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
     [BindProperty(SupportsGet = true)] public string Type { get; set; } = "cheque";
@@ -67,36 +67,38 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         => IsNote
             ? await RunSpAsync("sp_DepositNote",
                 new { NoteId = Id, AccountId = accountId, CompanyId = company.Id, DepositDate = (DateTime?)null, UserId = user.Id },
-                "Senet bankaya tahsile verildi.")
+                "Senet bankaya tahsile verildi.", "DEPOSITED")
             : await RunSpAsync("sp_DepositCheque",
                 new { ChequeId = Id, AccountId = accountId, CompanyId = company.Id, DepositDate = (DateTime?)null, UserId = user.Id },
-                "Çek bankaya tahsile verildi.");
+                "Çek bankaya tahsile verildi.", "DEPOSITED");
 
     public async Task<IActionResult> OnPostCollectAsync()
         => IsNote
             ? await RunSpAsync("sp_CollectNote",
                 new { NoteId = Id, CompanyId = company.Id, CollectDate = (DateTime?)null, UserId = user.Id },
-                "Senet tahsil edildi, banka hesabına gelir işlendi.")
+                "Senet tahsil edildi, banka hesabına gelir işlendi.", "COLLECTED")
             : await RunSpAsync("sp_CollectCheque",
                 new { ChequeId = Id, CompanyId = company.Id, CollectDate = (DateTime?)null, UserId = user.Id },
-                "Çek tahsil edildi, banka hesabına gelir işlendi.");
+                "Çek tahsil edildi, banka hesabına gelir işlendi.", "COLLECTED");
 
     public async Task<IActionResult> OnPostReturnAsync(string reason)
         => IsNote
             ? await RunSpAsync("sp_ReturnNote",
                 new { NoteId = Id, CompanyId = company.Id, Reason = reason ?? "Karşılıksız", UserId = user.Id },
-                "Senet karşılıksız olarak işaretlendi.")
+                "Senet karşılıksız olarak işaretlendi.", "RETURNED")
             : await RunSpAsync("sp_ReturnCheque",
                 new { ChequeId = Id, CompanyId = company.Id, Reason = reason ?? "Karşılıksız", UserId = user.Id },
-                "Çek karşılıksız olarak işaretlendi.");
+                "Çek karşılıksız olarak işaretlendi.", "RETURNED");
 
-    // Ortak SP çağrı + hata yakalama helper'ı
-    private async Task<IActionResult> RunSpAsync(string sp, object args, string successMsg)
+    // Ortak SP çağrı + hata yakalama + audit izi helper'ı
+    private async Task<IActionResult> RunSpAsync(string sp, object args, string successMsg, string auditAction)
     {
         using var conn = db.Open();
         try
         {
             await conn.ExecuteAsync(sp, args, commandType: CommandType.StoredProcedure);
+            // Audit izi (A-4): finansal kıymet statü değişimi — security-principles zorunlu kıldığı kayıt
+            await audit.LogAsync(auditAction, IsNote ? "PromissoryNote" : "Cheque", Id, $"{sp} · {Type}");
             TempData["Success"] = successMsg;
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)

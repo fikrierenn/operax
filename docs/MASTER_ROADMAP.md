@@ -159,6 +159,28 @@ Her kalem tamamlandığında `[x]` ile işaretlenir.
 
 ---
 
+## Backlog — Planlama Modülleri (kontrol 2026-06-21, koddan; geliştirilecekte planlanacak)
+
+Mevcut durum koddan doğrulandı. Bunlar **henüz yok**, ileride Tier 3 plan açılacak.
+
+### B1. MRP — Malzeme İhtiyaç Planlama (YOK)
+- **Var (icra):** BOM (`Features/Manufacturing/BOM`), WorkCenters, WorkOrders/rota, Production Terminal (WIP/aktivite), `DynamicBomService`.
+- **Yok (planlama):** talep ↔ stok/açık-PO netleme, BOM patlatma (gross/net requirement), planlı sipariş (planned order), MRP run.
+- **Not:** Üretim **icrası** var, **planlaması** yok. Gerçek yeni modül — talep netleme + BOM açılım + planlı sipariş motoru.
+
+### B2. Üretim Planlama / Çizelgeleme (YOK)
+- MPS (master production schedule), kapasite planlama, iş merkezi çizelge yok. WorkOrder sadece icra.
+
+### B3. Satınalma Öneri Sipariş (YARI — yapı taşları hazır)
+- **Var:** `tvf_ReplenishmentSuggestions` (`db_objects.sql:160`) → NeededQty (MaxQty−CurrentQty) + PreferredSupplier + LeadTimeDays + MinOrderQty (Plan 32). Item.MinStockLevel + Dashboard "min altı ürün" KPI.
+- **Eksik:** öneri **bin-to-bin transfer** üretiyor (`Features/Transfer/Replenishment.cshtml.cs` → StockTransfer), **satınalma PO değil**. Reorder-point bazlı, **talep-güdümlü değil** (açık SO/forecast netlenmemiş).
+- **Düşük footprint dönüşüm:** tvf verisi hazır → "Satınalma Öneri" ekranı + tedarikçiye göre gruplu **draft-PO üret** action. Yeni modül değil, mevcut tvf üstüne ekran+action. (Roadmap 2D auto-replenishment Hangfire job ile örtüşür.)
+
+### B4. Talep Tahmini / Forecast (YOK)
+- Geçmiş satıştan talep projeksiyonu yok. B1/B3'ün talep-güdümlü olması için ön koşul.
+
+---
+
 ## İlerleme Takibi
 
 Her kalem `[x]` işaretlenirken commit mesajına eklenir.

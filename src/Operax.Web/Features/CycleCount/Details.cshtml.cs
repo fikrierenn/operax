@@ -31,7 +31,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (id.HasValue)
         {
             Header = await conn.QueryFirstOrDefaultAsync<CountHeaderDto>(
-                "SELECT * FROM CycleCount WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, DocNo, Status, WarehouseId FROM CycleCount WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             Lines = await conn.QueryAsync<CountLineDto>(@"

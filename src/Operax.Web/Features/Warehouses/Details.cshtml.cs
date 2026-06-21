@@ -29,7 +29,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         {
             // CompanyId zorunlu — başka şirket deposu görüntülenemez
             Warehouse = await conn.QueryFirstOrDefaultAsync<WarehouseDto>(
-                "SELECT * FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, Code, Name, IsActive, BranchId FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             Bins = await conn.QueryAsync<BinDto>(@"
@@ -39,7 +39,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 -- Bu sorgu yalnızca o doğrulanmış Warehouse.Id üzerinden Bin kayıtlarını okuyduğundan
                 -- başka firmanın deposuna ait raf verisi dönemez.
                 -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-                SELECT * FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
+                SELECT Id, Code, Zone, IsPickingArea, IsReceivingArea FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
                 new { Id = id });
         }
         else

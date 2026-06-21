@@ -33,7 +33,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         {
             // CompanyId zorunlu — başka şirket şubesi görüntülenemez
             Branch = await conn.QueryFirstOrDefaultAsync<BranchDto>(
-                "SELECT * FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, Code, Name, City, Address, Phone, BranchType, ReturnWarehouseId, IsActive FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }) ?? new();
 
             // Şubeye bağlı depolar — CompanyId zorunlu (izolasyon: başka şirket deposu sızmaz)

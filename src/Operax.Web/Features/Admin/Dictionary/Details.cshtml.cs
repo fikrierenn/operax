@@ -22,7 +22,7 @@ public class DetailsModel(Db db) : PageModel
             -- (birim, para birimi, ülke kodları vb.). Şirkete özel kayıt içermez.
             -- Bu sayfa yalnızca Administrator rolüne açıktır; veri sızıntısı riski yoktur.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            SELECT * FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
+            SELECT Id, Code, NameTr, NameEn FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
 
         Values = await conn.QueryAsync<DictionaryValueDto>(
             @"-- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
@@ -30,7 +30,7 @@ public class DetailsModel(Db db) : PageModel
             -- (ölçü birimi kodları, ülke adları, kategori değerleri vb.).
             -- DictionaryTypeId filtresi tür kapsamını sınırlar; şirkete özel veri içermez.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            SELECT * FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
+            SELECT Id, Code, NameTr, NameEn, SortNo FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
             new { Id = id });
     }
 

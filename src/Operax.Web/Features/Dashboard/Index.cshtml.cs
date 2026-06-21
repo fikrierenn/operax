@@ -198,7 +198,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         {
             get
             {
-                var diff = DateTime.Now - CreatedAt;
+                // CreatedAt UTC saklanır (GETUTCDATE) → UtcNow ile karşılaştır (lokal Now timezone kayması üretir)
+                var diff = DateTime.UtcNow - CreatedAt;
                 if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} dakika önce";
                 if (diff.TotalHours   < 24) return $"{(int)diff.TotalHours} saat önce";
                 return $"{(int)diff.TotalDays} gün önce";

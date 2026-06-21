@@ -32,7 +32,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         if (!id.HasValue) { Form.Year = DateTime.UtcNow.Year; Form.Type = "OPERATIONAL"; return; }
 
         Form = await conn.QueryFirstOrDefaultAsync<BudgetFormDto>(
-            "SELECT * FROM Budget WHERE Id = @Id AND CompanyId = @CompanyId",
+            "SELECT Id, Year, Code, Name, Type, Status FROM Budget WHERE Id = @Id AND CompanyId = @CompanyId",
             new { Id = id, CompanyId = company.Id }) ?? new();
 
         if (Form.Id == Guid.Empty) return;

@@ -46,7 +46,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             -- Bu sorgu yalnızca o doğrulanmış ProductModel.Id üzerinden parametreleri okuyduğundan
             -- başka firmanın model verisine erişilemez.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            SELECT * FROM ProductModelParameter
+            SELECT Id, Code, Name, DataType, DefaultValue, Unit FROM ProductModelParameter
             WHERE ProductModelId = @ModelId
             ORDER BY Code",
             new { ModelId = Model.Id });

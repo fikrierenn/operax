@@ -89,6 +89,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Sistem bakiyesini snapshot alır ve sayım satırı ekler
         using var conn = db.Open();
 
+        // Evrak bütünlüğü: tamamlanmış (COMPLETED) sayıma satır eklenemez (status-immutability — child yok, statü bazlı)
+        var st = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT Status FROM CycleCount WHERE Id = @Id AND CompanyId = @CompanyId",
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
+        if (st is null) { TempData["Error"] = "Sayım belgesi bulunamadı."; return RedirectToPage("./Index"); }
+        if (st == DocStatus.Completed)
+        {
+            TempData["Error"] = "Tamamlanmış sayıma satır eklenemez.";
+            return RedirectToPage(new { id });
+        }
+
         // İş kuralı: sistem stok bakiyesi sayım anındaki snapshot — CompanyId zorunlu!
         var qtySystem = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
             SELECT ISNULL(SUM(QtyBase), 0)

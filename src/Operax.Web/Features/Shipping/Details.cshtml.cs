@@ -143,6 +143,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         // Satır ekler; UOM dönüşümünü fn_GetConversionRate ile hesaplar
         using var conn = db.Open();
 
+        // Evrak bütünlüğü: faturalanmış sevkiyata satır eklenemez (document-immutability §3)
+        if (await DocumentLock.ShippingHasInvoiceAsync(conn, id, company.Id))
+        {
+            TempData["Error"] = "Belge kilitli: bu sevkiyata bağlı satış faturası mevcut, satır eklenemez.";
+            return RedirectToPage(new { id });
+        }
+
         try
         {
             // Eğer itemId boşsa ve soLineId (Satış Sipariş Başlık ID'si) verilmişse, siparişteki tüm açık satırları aktar

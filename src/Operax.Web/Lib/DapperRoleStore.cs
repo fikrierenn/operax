@@ -13,9 +13,9 @@ public class DapperRoleStore(Db db) : IRoleStore<IdentityRole>
     public async Task<IdentityResult> CreateAsync(IdentityRole role, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO AspNetRoles (Id, Name, NormalizedName, ConcurrencyStamp)
-            VALUES (@Id, @Name, @NormalizedName, @ConcurrencyStamp)", role);
+            VALUES (@Id, @Name, @NormalizedName, @ConcurrencyStamp)", role, cancellationToken: ct));
         return IdentityResult.Success;
     }
 
@@ -43,7 +43,7 @@ public class DapperRoleStore(Db db) : IRoleStore<IdentityRole>
     public async Task<IdentityResult> DeleteAsync(IdentityRole role, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync("DELETE FROM AspNetRoles WHERE Id = @Id", new { role.Id });
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM AspNetRoles WHERE Id = @Id", new { role.Id }, cancellationToken: ct));
         return IdentityResult.Success;
     }
 
@@ -66,16 +66,16 @@ public class DapperRoleStore(Db db) : IRoleStore<IdentityRole>
     public async Task<IdentityRole?> FindByIdAsync(string roleId, CancellationToken ct)
     {
         using var conn = db.Open();
-        return await conn.QueryFirstOrDefaultAsync<IdentityRole>(
-            "SELECT * FROM AspNetRoles WHERE Id = @Id", new { Id = roleId });
+        return await conn.QueryFirstOrDefaultAsync<IdentityRole>(new CommandDefinition(
+            "SELECT * FROM AspNetRoles WHERE Id = @Id", new { Id = roleId }, cancellationToken: ct));
     }
 
     /// <summary>Normalize edilmiş isimle rol bulur.</summary>
     public async Task<IdentityRole?> FindByNameAsync(string normalizedRoleName, CancellationToken ct)
     {
         using var conn = db.Open();
-        return await conn.QueryFirstOrDefaultAsync<IdentityRole>(
-            "SELECT * FROM AspNetRoles WHERE NormalizedName = @Name", new { Name = normalizedRoleName });
+        return await conn.QueryFirstOrDefaultAsync<IdentityRole>(new CommandDefinition(
+            "SELECT * FROM AspNetRoles WHERE NormalizedName = @Name", new { Name = normalizedRoleName }, cancellationToken: ct));
     }
 
     public void Dispose() { }

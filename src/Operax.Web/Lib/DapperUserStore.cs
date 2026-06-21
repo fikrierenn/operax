@@ -43,7 +43,7 @@ public class DapperUserStore(Db db) :
     public async Task<IdentityResult> CreateAsync(IdentityUser user, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO AspNetUsers (
                 Id, UserName, NormalizedUserName, Email, NormalizedEmail,
                 EmailConfirmed, PasswordHash, SecurityStamp, ConcurrencyStamp,
@@ -51,7 +51,7 @@ public class DapperUserStore(Db db) :
             VALUES (
                 @Id, @UserName, @NormalizedUserName, @Email, @NormalizedEmail,
                 @EmailConfirmed, @PasswordHash, @SecurityStamp, @ConcurrencyStamp,
-                0, 0, 1, 0)", user);
+                0, 0, 1, 0)", user, cancellationToken: ct));
         return IdentityResult.Success;
     }
 
@@ -91,7 +91,8 @@ public class DapperUserStore(Db db) :
     public async Task<IdentityResult> DeleteAsync(IdentityUser user, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync("DELETE FROM AspNetUsers WHERE Id = @Id", new { user.Id });
+        await conn.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM AspNetUsers WHERE Id = @Id", new { user.Id }, cancellationToken: ct));
         return IdentityResult.Success;
     }
 
@@ -99,16 +100,16 @@ public class DapperUserStore(Db db) :
     public async Task<IdentityUser?> FindByIdAsync(string userId, CancellationToken ct)
     {
         using var conn = db.Open();
-        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(
-            "SELECT * FROM AspNetUsers WHERE Id = @Id", new { Id = userId });
+        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(new CommandDefinition(
+            "SELECT * FROM AspNetUsers WHERE Id = @Id", new { Id = userId }, cancellationToken: ct));
     }
 
     /// <summary>Normalize edilmiş kullanıcı adına göre bulur (oturum açma için).</summary>
     public async Task<IdentityUser?> FindByNameAsync(string normalizedUserName, CancellationToken ct)
     {
         using var conn = db.Open();
-        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(
-            "SELECT * FROM AspNetUsers WHERE NormalizedUserName = @Name", new { Name = normalizedUserName });
+        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(new CommandDefinition(
+            "SELECT * FROM AspNetUsers WHERE NormalizedUserName = @Name", new { Name = normalizedUserName }, cancellationToken: ct));
     }
 
     // --- IUserPasswordStore ---
@@ -140,8 +141,8 @@ public class DapperUserStore(Db db) :
     public async Task<IdentityUser?> FindByEmailAsync(string normalizedEmail, CancellationToken ct)
     {
         using var conn = db.Open();
-        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(
-            "SELECT * FROM AspNetUsers WHERE NormalizedEmail = @Email", new { Email = normalizedEmail });
+        return await conn.QueryFirstOrDefaultAsync<IdentityUser>(new CommandDefinition(
+            "SELECT * FROM AspNetUsers WHERE NormalizedEmail = @Email", new { Email = normalizedEmail }, cancellationToken: ct));
     }
 
     public Task<string?> GetNormalizedEmailAsync(IdentityUser user, CancellationToken ct) =>
@@ -200,38 +201,38 @@ public class DapperUserStore(Db db) :
     {
         using var conn = db.Open();
         // Rol Id'sini bul
-        var roleId = await conn.QueryFirstOrDefaultAsync<string>(
+        var roleId = await conn.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
             "SELECT Id FROM AspNetRoles WHERE NormalizedName = @Name",
-            new { Name = roleName.ToUpperInvariant() });
+            new { Name = roleName.ToUpperInvariant() }, cancellationToken: ct));
 
         if (roleId is null) return;
 
         // Mükerrer kayıt kontrolü yaparak ekle
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             IF NOT EXISTS (SELECT 1 FROM AspNetUserRoles WHERE UserId = @UserId AND RoleId = @RoleId)
                 INSERT INTO AspNetUserRoles (UserId, RoleId) VALUES (@UserId, @RoleId)",
-            new { UserId = user.Id, RoleId = roleId });
+            new { UserId = user.Id, RoleId = roleId }, cancellationToken: ct));
     }
 
     /// <summary>Kullanıcıyı rolden çıkarır.</summary>
     public async Task RemoveFromRoleAsync(IdentityUser user, string roleName, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             DELETE ur FROM AspNetUserRoles ur
             JOIN AspNetRoles r ON r.Id = ur.RoleId
             WHERE ur.UserId = @UserId AND r.NormalizedName = @Name",
-            new { UserId = user.Id, Name = roleName.ToUpperInvariant() });
+            new { UserId = user.Id, Name = roleName.ToUpperInvariant() }, cancellationToken: ct));
     }
 
     /// <summary>Kullanıcının tüm rollerini listeler.</summary>
     public async Task<IList<string>> GetRolesAsync(IdentityUser user, CancellationToken ct)
     {
         using var conn = db.Open();
-        var roles = await conn.QueryAsync<string>(@"
+        var roles = await conn.QueryAsync<string>(new CommandDefinition(@"
             SELECT r.Name FROM AspNetRoles r
             JOIN AspNetUserRoles ur ON ur.RoleId = r.Id
-            WHERE ur.UserId = @UserId", new { UserId = user.Id });
+            WHERE ur.UserId = @UserId", new { UserId = user.Id }, cancellationToken: ct));
         return roles.ToList();
     }
 
@@ -239,11 +240,11 @@ public class DapperUserStore(Db db) :
     public async Task<bool> IsInRoleAsync(IdentityUser user, string roleName, CancellationToken ct)
     {
         using var conn = db.Open();
-        var count = await conn.ExecuteScalarAsync<int>(@"
+        var count = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
             SELECT COUNT(1) FROM AspNetUserRoles ur
             JOIN AspNetRoles r ON r.Id = ur.RoleId
             WHERE ur.UserId = @UserId AND r.NormalizedName = @Name",
-            new { UserId = user.Id, Name = roleName.ToUpperInvariant() });
+            new { UserId = user.Id, Name = roleName.ToUpperInvariant() }, cancellationToken: ct));
         return count > 0;
     }
 
@@ -251,12 +252,12 @@ public class DapperUserStore(Db db) :
     public async Task<IList<IdentityUser>> GetUsersInRoleAsync(string roleName, CancellationToken ct)
     {
         using var conn = db.Open();
-        var users = await conn.QueryAsync<IdentityUser>(@"
+        var users = await conn.QueryAsync<IdentityUser>(new CommandDefinition(@"
             SELECT u.* FROM AspNetUsers u
             JOIN AspNetUserRoles ur ON ur.UserId = u.Id
             JOIN AspNetRoles r ON r.Id = ur.RoleId
             WHERE r.NormalizedName = @Name",
-            new { Name = roleName.ToUpperInvariant() });
+            new { Name = roleName.ToUpperInvariant() }, cancellationToken: ct));
         return users.ToList();
     }
 
@@ -269,9 +270,9 @@ public class DapperUserStore(Db db) :
     {
         using var conn = db.Open();
         // AspNetUserClaims tablosundan kullanıcının tüm ek claim'leri çekilir
-        var rows = await conn.QueryAsync<(string Type, string Value)>(
+        var rows = await conn.QueryAsync<(string Type, string Value)>(new CommandDefinition(
             "SELECT ClaimType, ClaimValue FROM AspNetUserClaims WHERE UserId = @UserId",
-            new { UserId = user.Id });
+            new { UserId = user.Id }, cancellationToken: ct));
         return rows.Select(r => new Claim(r.Type, r.Value)).ToList();
     }
 
@@ -282,9 +283,9 @@ public class DapperUserStore(Db db) :
         // Her claim için yeni bir AspNetUserClaims satırı oluşturulur
         foreach (var claim in claims)
         {
-            await conn.ExecuteAsync(
+            await conn.ExecuteAsync(new CommandDefinition(
                 "INSERT INTO AspNetUserClaims (UserId, ClaimType, ClaimValue) VALUES (@UserId, @Type, @Value)",
-                new { UserId = user.Id, Type = claim.Type, Value = claim.Value });
+                new { UserId = user.Id, Type = claim.Type, Value = claim.Value }, cancellationToken: ct));
         }
     }
 
@@ -293,11 +294,12 @@ public class DapperUserStore(Db db) :
     {
         using var conn = db.Open();
         // Eski claim bulunarak yeni değerle güncellenir
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE AspNetUserClaims
             SET ClaimType = @NewType, ClaimValue = @NewValue
             WHERE UserId = @UserId AND ClaimType = @OldType AND ClaimValue = @OldValue",
-            new { UserId = user.Id, OldType = claim.Type, OldValue = claim.Value, NewType = newClaim.Type, NewValue = newClaim.Value });
+            new { UserId = user.Id, OldType = claim.Type, OldValue = claim.Value, NewType = newClaim.Type, NewValue = newClaim.Value },
+            cancellationToken: ct));
     }
 
     /// <summary>Kullanıcıdan belirtilen claim'leri kaldırır.</summary>
@@ -307,9 +309,9 @@ public class DapperUserStore(Db db) :
         // Her claim için eşleşen satır silinir
         foreach (var claim in claims)
         {
-            await conn.ExecuteAsync(
+            await conn.ExecuteAsync(new CommandDefinition(
                 "DELETE FROM AspNetUserClaims WHERE UserId = @UserId AND ClaimType = @Type AND ClaimValue = @Value",
-                new { UserId = user.Id, Type = claim.Type, Value = claim.Value });
+                new { UserId = user.Id, Type = claim.Type, Value = claim.Value }, cancellationToken: ct));
         }
     }
 
@@ -318,11 +320,11 @@ public class DapperUserStore(Db db) :
     {
         using var conn = db.Open();
         // Claim değerine göre kullanıcılar çekilir (örneğin belirli bir şirketteki tüm kullanıcılar)
-        var users = await conn.QueryAsync<IdentityUser>(@"
+        var users = await conn.QueryAsync<IdentityUser>(new CommandDefinition(@"
             SELECT u.* FROM AspNetUsers u
             JOIN AspNetUserClaims c ON c.UserId = u.Id
             WHERE c.ClaimType = @Type AND c.ClaimValue = @Value",
-            new { Type = claim.Type, Value = claim.Value });
+            new { Type = claim.Type, Value = claim.Value }, cancellationToken: ct));
         return users.ToList();
     }
 

@@ -2,6 +2,25 @@
 
 ---
 
+## ⭐ SONRAKİ OTURUM — ÖNCELİK SIRASI (2026-06-22 notu)
+
+> Bu oturumda kapandı: Plan 37 (test altyapısı, 45 test) · Plan 38 (CancellationToken handler+servis) · 2 ledger bug (toplama-sevkiyat çift-düşüm + üretim-iptal hayalet-sarfiyat) · DEBT (SELECT*/timezone/magic-string/immutability guard SO-Shipping-CycleCount).
+
+1. **🔴 P1 — Pre-existing CRIT/HIGH borcu (Plan 28/29 review, 2026-06-02).** ÖNCE `todo-verification`: her birini file:line ile doğrula (bu oturum birçok dosyaya dokundu → bazıları stale/kapalı olabilir, ÖZELLİKLE CRIT-4 ILogger DI). Gerçekten açık olanları kapat. Sıra:
+   - CRIT-2 XSS `_PageHeader.Sub @Html.Raw` + ham PartnerName (Shared/_PageHeader.cshtml:33,38 + SalesInvoices/PO/SO Details) — en yüksek risk.
+   - CRIT-1 SP THROW handler catch eksik (PO Approve, Receiving Post, Shipping CreatePickTask+Post, PO Cancel).
+   - CRIT-3 magic-string `"APPROVED"` + `IN ('POSTED','APPROVED')` (SO/PO Index+Details) — DocStatus sabiti kullan.
+   - CRIT-4 ILogger DI eksik (Finance/Sales/PO PageModel'leri) — DOĞRULA, muhtemelen kısmen kapandı.
+   - HIGH-1 THROW kod aralığı 60001-72001→50000-59999 · HIGH-2 PO/SO Cancel sp_ValidateStatusTransition bypass.
+   - IMP-1 Cheques tablo-adı SQL interpolation · IMP-2 sync ExecuteScalar→async · IMP-3 hardcoded 14-gün vade→Partner.PaymentTermDays.
+2. **🟡 P2 — Cari Ekstre raporu** (`Partners/Statement/{id}`, yazdırılabilir+tarih filtreli) — ayrı Tier 3 plan. Yüksek kullanıcı değeri.
+3. **🟡 P2 — Mali evrak eksikleri (mali-evrak-mevzuat skill ön koşul):** E2 alış/satış iade · E4 fire/zayi/imha · E11 virman · çek TEMİNAT/kısmi statü.
+4. **🟢 P3 — Partner detay tab'ları (TAB-0..4):** contact/address/bank/CRM + istatistik. Büyük, ayrı plan.
+5. **🟢 P3 — Periyodik GL muhasebeleştirme modülü** — muhasebe-mevzuat skill ön koşul, en büyük.
+6. **⚪ P4 — DEAD production servisleri kararı** (ProductionReceiptService vb. sil-vs-SP) · _PageHeader standardizasyon (65 sayfa, kozmetik) · servis-katmanı ct kalıntısı (varsa).
+
+---
+
 ## 🔧 PLAN 33 — SQL/SP + MİMARİ BÜTÜNLÜK DÜZELTMELERİ (2026-06-04 — denetim çıktısı)
 
 Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/archive/33-sql-arch-conformance-fixes.md`. **✅ TAMAMLANDI 2026-06-19 (Faz A-F) — arşivde.** Kalan: sadece DEBT satırları (aşağıda).

@@ -14,17 +14,18 @@ namespace Operax.Web.Lib;
 public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfService> logger)
 {
     // Bir entity için aktif UDF tanımlarını sıralı getirir (şirket-kapsamlı).
-    public async Task<IReadOnlyList<UdfFieldDef>> LoadDefinitionsAsync(string entityName)
+    public async Task<IReadOnlyList<UdfFieldDef>> LoadDefinitionsAsync(string entityName, CancellationToken ct = default)
     {
         using var conn = db.Open();
-        var rows = await conn.QueryAsync<UdfFieldDef>(@"
+        var rows = await conn.QueryAsync<UdfFieldDef>(new CommandDefinition(@"
             SELECT Id, FieldName, LabelText, FieldType, DataSourceType, DataSourceKey,
                    DefaultValue, OrderNo, IsRequired
             FROM UserFieldDefinition
             WHERE CompanyId = @CompanyId AND EntityName = @EntityName
               AND IsActive = 1 AND IsDeleted = 0
             ORDER BY OrderNo, LabelText",
-            new { CompanyId = company.Id, EntityName = entityName });
+            new { CompanyId = company.Id, EntityName = entityName },
+            cancellationToken: ct));
         return rows.ToList();
     }
 
@@ -49,7 +50,7 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
 
     // Form gönderimini tanımlara göre doğrular ve yalnız geçerli alanlardan JSON üretir.
     // Açık 2 (sunucu validasyon) + Açık 3 (anahtar enjeksiyonu) + Açık 5 (kültür) burada kapanır.
-    public async Task<(string Json, List<string> Errors)> BuildValidatedJsonAsync(IFormCollection form, IReadOnlyList<UdfFieldDef> defs)
+    public async Task<(string Json, List<string> Errors)> BuildValidatedJsonAsync(IFormCollection form, IReadOnlyList<UdfFieldDef> defs, CancellationToken ct = default)
     {
         var errors = new List<string>();
         var result = new Dictionary<string, string>();
@@ -92,7 +93,7 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
 
                 case "SELECT":
                     // STATIC + DICTIONARY desteklenir (TABLE → sonraki faz). Seçim çözülmüş seçeneklerde olmalı.
-                    var selOpts = await ResolveOptionsAsync(def);
+                    var selOpts = await ResolveOptionsAsync(def, ct);
                     if (selOpts.Count == 0)
                     {
                         errors.Add($"'{def.LabelText}' için desteklenmeyen/boş veri kaynağı.");
@@ -135,7 +136,7 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
 
     // SELECT alanının seçeneklerini kaynağa göre çözer: STATIC (virgüllü) | DICTIONARY (sözlük tipi).
     // TABLE veri kaynağı → sonraki faz (boş döner).
-    public async Task<IReadOnlyList<UdfOption>> ResolveOptionsAsync(UdfFieldDef def)
+    public async Task<IReadOnlyList<UdfOption>> ResolveOptionsAsync(UdfFieldDef def, CancellationToken ct = default)
     {
         if (def.FieldType != "SELECT") return [];
         switch (def.DataSourceType)
@@ -148,14 +149,15 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
                 if (string.IsNullOrWhiteSpace(def.DataSourceKey)) return [];
                 using (var conn = db.Open())
                 {
-                    var rows = await conn.QueryAsync<UdfOption>(@"
+                    var rows = await conn.QueryAsync<UdfOption>(new CommandDefinition(@"
                         SELECT dv.Code AS Value, dv.NameTr AS Text
                         FROM DictionaryValue dv
                         JOIN DictionaryType dt ON dt.Id = dv.TypeId
                         WHERE dt.Code = @Key AND dt.CompanyId = @Cid
                           AND dv.IsActive = 1 AND dv.IsDeleted = 0
                         ORDER BY dv.OrderNo, dv.NameTr",
-                        new { Key = def.DataSourceKey, Cid = company.Id });
+                        new { Key = def.DataSourceKey, Cid = company.Id },
+                        cancellationToken: ct));
                     return rows.ToList();
                 }
 
@@ -165,7 +167,10 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
                 if (tableSql == null) return [];
                 using (var conn = db.Open())
                 {
-                    var rows = await conn.QueryAsync<UdfOption>(tableSql, new { Cid = company.Id });
+                    var rows = await conn.QueryAsync<UdfOption>(new CommandDefinition(
+                        tableSql,
+                        new { Cid = company.Id },
+                        cancellationToken: ct));
                     return rows.ToList();
                 }
 
@@ -175,11 +180,11 @@ public sealed class UdfService(Db db, ICurrentCompany company, ILogger<UdfServic
     }
 
     // Bir tanım listesindeki tüm SELECT alanları için seçenekleri çözer (render map'i).
-    public async Task<IReadOnlyDictionary<string, IReadOnlyList<UdfOption>>> ResolveAllAsync(IReadOnlyList<UdfFieldDef> defs)
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<UdfOption>>> ResolveAllAsync(IReadOnlyList<UdfFieldDef> defs, CancellationToken ct = default)
     {
         var map = new Dictionary<string, IReadOnlyList<UdfOption>>();
         foreach (var d in defs.Where(d => d.FieldType == "SELECT"))
-            map[d.FieldName] = await ResolveOptionsAsync(d);
+            map[d.FieldName] = await ResolveOptionsAsync(d, ct);
         return map;
     }
 }

@@ -9,7 +9,7 @@ namespace Operax.Web.Lib;
 /// <summary>Kullanıcı işlemlerini AuditLog tablosuna kaydeder.</summary>
 public interface IAuditService
 {
-    Task LogAsync(string action, string entityType, Guid? entityId = null, string? details = null);
+    Task LogAsync(string action, string entityType, Guid? entityId = null, string? details = null, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -23,12 +23,12 @@ public class AuditService(
     IHttpContextAccessor http,
     ILogger<AuditService> logger) : IAuditService
 {
-    public async Task LogAsync(string action, string entityType, Guid? entityId = null, string? details = null)
+    public async Task LogAsync(string action, string entityType, Guid? entityId = null, string? details = null, CancellationToken ct = default)
     {
         try
         {
             using var conn = db.Open();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO AuditLog
                     (Id, CompanyId, UserId, UserName, Action, EntityType, EntityId, Details, IpAddress, CreatedAt)
                 VALUES
@@ -43,7 +43,8 @@ public class AuditService(
                     EntityId   = entityId,
                     Details    = details,
                     Ip         = http.HttpContext?.Connection.RemoteIpAddress?.ToString()
-                });
+                },
+                cancellationToken: ct));
         }
         catch (Exception ex)
         {

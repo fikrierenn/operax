@@ -19,34 +19,34 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
 
     public bool IsNew => Form.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         // Gider faturası formunu ve satırlarını yükler
         using var conn = db.Open();
 
-        Partners = await conn.QueryAsync<DdlDto>(
+        Partners = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
-            new { CompanyId = company.Id });
-        ExpenseTypes = await conn.QueryAsync<DdlDto>(
+            new { CompanyId = company.Id }, cancellationToken: ct));
+        ExpenseTypes = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM ExpenseType WHERE CompanyId = @CompanyId ORDER BY Code",
-            new { CompanyId = company.Id });
-        CostCenters = await conn.QueryAsync<DdlDto>(
+            new { CompanyId = company.Id }, cancellationToken: ct));
+        CostCenters = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM CostCenter WHERE CompanyId = @CompanyId AND IsActive = 1 ORDER BY Code",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         if (!id.HasValue) { Form.InvoiceDate = DateTime.Today; Form.Currency = "TRY"; return; }
 
-        Form = await conn.QueryFirstOrDefaultAsync<InvoiceFormDto>(@"
+        Form = await conn.QueryFirstOrDefaultAsync<InvoiceFormDto>(new CommandDefinition(@"
             SELECT e.Id, e.PartnerId, e.DocNo, e.RegistryNo, e.InvoiceDate, e.DueDate,
                    e.TotalAmount, e.Currency, e.Status, p.Name AS PartnerName
             FROM ExpenseInvoice e LEFT JOIN Partner p ON p.Id = e.PartnerId
             WHERE e.Id = @Id AND e.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Form.Id == Guid.Empty) return;
 
         // Fatura satırları — gider tipi ve maliyet merkezi bilgileriyle
-        Lines = await conn.QueryAsync<InvoiceLineDto>(@"
+        Lines = await conn.QueryAsync<InvoiceLineDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst belge ExpenseInvoice aynı handler içinde daha önce
             -- WHERE e.Id = @Id AND e.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
@@ -58,7 +58,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             JOIN ExpenseType et ON et.Id = l.ExpenseTypeId
             JOIN CostCenter cc ON cc.Id = l.CostCenterId
             WHERE l.ExpenseInvoiceId = @InvoiceId",
-            new { InvoiceId = Form.Id });
+            new { InvoiceId = Form.Id }, cancellationToken: ct));
 
         // Ödeme smart button — POSTED faturalarda tedarikçi + tutar ön-dolu
         if (Form.Status == DocStatus.Posted)
@@ -75,7 +75,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Gider faturası başlığını kaydeder
         using var conn = db.Open();
@@ -84,29 +84,31 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             Form.Id = Guid.NewGuid();
             // İş kuralı: DocNo tedarikçi fatura no (kullanıcı); RegistryNo bizim iç kayıt no (seriden)
             var registryNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.PurchaseInvoice);
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO ExpenseInvoice (Id, CompanyId, PartnerId, DocNo, RegistryNo, InvoiceDate, DueDate, TotalAmount, Currency, Status)
                 VALUES (@Id, @CompanyId, @PartnerId, @DocNo, @RegistryNo, @InvoiceDate, @DueDate, 0, @Currency, @StDraft)",
-                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, RegistryNo = registryNo, Form.InvoiceDate, Form.DueDate, Form.Currency, StDraft = DocStatus.Draft });
+                new { Form.Id, CompanyId = company.Id, Form.PartnerId, Form.DocNo, RegistryNo = registryNo, Form.InvoiceDate, Form.DueDate, Form.Currency, StDraft = DocStatus.Draft },
+                cancellationToken: ct));
         }
         else
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE ExpenseInvoice SET PartnerId = @PartnerId, DocNo = @DocNo,
                     InvoiceDate = @InvoiceDate, DueDate = @DueDate, Currency = @Currency
                 WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
-                new { Form.PartnerId, Form.DocNo, Form.InvoiceDate, Form.DueDate, Form.Currency, Form.Id, CompanyId = company.Id, StDraft = DocStatus.Draft });
+                new { Form.PartnerId, Form.DocNo, Form.InvoiceDate, Form.DueDate, Form.Currency, Form.Id, CompanyId = company.Id, StDraft = DocStatus.Draft },
+                cancellationToken: ct));
         }
         return RedirectToPage(new { id = Form.Id });
     }
 
-    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid expenseTypeId, Guid costCenterId, decimal qty, decimal unitPrice, decimal taxRate)
+    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid expenseTypeId, Guid costCenterId, decimal qty, decimal unitPrice, decimal taxRate, CancellationToken ct)
     {
         // Fatura satırı ekler, başlık toplamını günceller
         using var conn = db.Open();
 
         // Evrak bütünlüğü: yalnızca DRAFT faturaya satır eklenebilir (document-immutability.md §3)
-        if (!await IsDraftAsync(conn, id))
+        if (!await IsDraftAsync(conn, id, ct))
         {
             TempData["Error"] = "Onaylanmış faturaya satır eklenemez.";
             return RedirectToPage(new { id });
@@ -116,7 +118,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         try
         {
             var amount = qty * unitPrice;
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                 -- Gerekçe: üst belge ExpenseInvoice OnGetAsync'te WHERE e.Id = @Id AND e.CompanyId = @CompanyId
                 -- ile doğrulandı; @InvoiceId o doğrulanmış ExpenseInvoice.Id değeridir.
@@ -125,18 +127,21 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                 -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ExpenseInvoiceLine (Id, ExpenseInvoiceId, ExpenseTypeId, CostCenterId, Quantity, UnitPrice, Amount, TaxRate)
                 VALUES (NEWID(), @InvoiceId, @ExpenseTypeId, @CostCenterId, @Qty, @UnitPrice, @Amount, @TaxRate)",
-                new { InvoiceId = id, ExpenseTypeId = expenseTypeId, CostCenterId = costCenterId, Qty = qty, UnitPrice = unitPrice, Amount = amount, TaxRate = taxRate }, trans);
+                new { InvoiceId = id, ExpenseTypeId = expenseTypeId, CostCenterId = costCenterId, Qty = qty, UnitPrice = unitPrice, Amount = amount, TaxRate = taxRate },
+                transaction: trans, cancellationToken: ct));
 
             // Başlık toplamını yeniden hesapla
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE e SET e.TotalAmount = (
                     SELECT ISNULL(SUM(l.Amount + l.Amount * l.TaxRate / 100), 0)
                     FROM ExpenseInvoiceLine l WHERE l.ExpenseInvoiceId = e.Id)
                 FROM ExpenseInvoice e WHERE e.Id = @Id AND e.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }, trans);
+                new { Id = id, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
             trans.Commit();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { trans.Rollback(); throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Fatura satırı ekleme DB hatası: {InvoiceId}", id);
@@ -152,13 +157,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteLineAsync(Guid id, Guid lineId)
+    public async Task<IActionResult> OnPostDeleteLineAsync(Guid id, Guid lineId, CancellationToken ct)
     {
         // Satırı siler ve toplamı günceller
         using var conn = db.Open();
 
         // Evrak bütünlüğü: yalnızca DRAFT faturadan satır silinebilir (document-immutability.md §3)
-        if (!await IsDraftAsync(conn, id))
+        if (!await IsDraftAsync(conn, id, ct))
         {
             TempData["Error"] = "Onaylanmış faturadan satır silinemez.";
             return RedirectToPage(new { id });
@@ -167,21 +172,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         using var trans = conn.BeginTransaction();
         try
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 DELETE l FROM ExpenseInvoiceLine l
                 JOIN ExpenseInvoice e ON e.Id = l.ExpenseInvoiceId
                 WHERE l.Id = @LineId AND e.CompanyId = @CompanyId",
-                new { LineId = lineId, CompanyId = company.Id }, trans);
+                new { LineId = lineId, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE e SET e.TotalAmount = ISNULL((
                     SELECT SUM(l.Amount + l.Amount * l.TaxRate / 100)
                     FROM ExpenseInvoiceLine l WHERE l.ExpenseInvoiceId = e.Id), 0)
                 FROM ExpenseInvoice e WHERE e.Id = @Id AND e.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }, trans);
+                new { Id = id, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
             trans.Commit();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { trans.Rollback(); throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Fatura satırı silme DB hatası: {LineId}", lineId);
@@ -198,23 +206,23 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     }
 
     // Evrak bütünlüğü guard'ı: fatura DRAFT mı? (POSTED/CANCELLED satır değişimi engellenir)
-    private async Task<bool> IsDraftAsync(System.Data.IDbConnection conn, Guid invoiceId)
+    private async Task<bool> IsDraftAsync(System.Data.IDbConnection conn, Guid invoiceId, CancellationToken ct)
     {
-        var status = await conn.ExecuteScalarAsync<string?>(
+        var status = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
             "SELECT Status FROM ExpenseInvoice WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = invoiceId, CompanyId = company.Id });
+            new { Id = invoiceId, CompanyId = company.Id }, cancellationToken: ct));
         return status == DocStatus.Draft;
     }
 
-    public async Task<IActionResult> OnPostPostAsync(Guid id)
+    public async Task<IActionResult> OnPostPostAsync(Guid id, CancellationToken ct)
     {
         // Faturayı onaylar: sp_ExpenseInvoicePost atomik olarak POSTED yapar + cari deftere Credit yazar
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("dbo.sp_ExpenseInvoicePost",
+            await conn.ExecuteAsync(new CommandDefinition("dbo.sp_ExpenseInvoicePost",
                 new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
-                commandType: System.Data.CommandType.StoredProcedure);
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Fatura onaylandı.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)
@@ -256,16 +264,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public decimal TotalAmount     { get; set; }
     }
 
-    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    public async Task<IActionResult> OnPostReverseAsync(Guid id, CancellationToken ct)
     {
         // sp_ExpenseInvoiceReverse: POSTED alış faturasını CANCELLED yapar, AccountMovement ters-satır yazar
         // Guard: e-Fatura (INBOUND) gönderilmişse SP THROW 51414 fırlatır
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_ExpenseInvoiceReverse",
+            await conn.ExecuteAsync(new CommandDefinition("sp_ExpenseInvoiceReverse",
                 new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
-                commandType: System.Data.CommandType.StoredProcedure);
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Alış faturası iptal edildi.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)

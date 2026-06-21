@@ -25,10 +25,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user,
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public async Task<IActionResult> OnGetAsync(Guid? id)
+    public async Task<IActionResult> OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
-        await LoadLookupsAsync(conn, id);
+        await LoadLookupsAsync(conn, id, ct);
 
         // İş kuralı: id yoksa yeni liste — varsayılan satış/TRY/aktif
         if (id is null)
@@ -37,29 +37,29 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user,
             return Page();
         }
 
-        var h = await conn.QuerySingleOrDefaultAsync<PriceListInput>(
+        var h = await conn.QuerySingleOrDefaultAsync<PriceListInput>(new CommandDefinition(
             @"SELECT Id, Code, Name, Direction, Currency, PartnerId, BranchId, Priority, ValidFrom, ValidTo, IsActive
               FROM PriceList WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
         // İş kuralı: liste bulunamazsa 404
         if (h is null) return NotFound();
         Header = h;
 
-        GridLinesJson = await BuildGridLinesJsonAsync(conn, id.Value);
+        GridLinesJson = await BuildGridLinesJsonAsync(conn, id.Value, ct);
         return Page();
     }
 
     // Başlık kaydet (route id yoksa insert, varsa update). Id route'tan (PriceListInput.Id [BindNever]).
-    public async Task<IActionResult> OnPostSaveHeaderAsync(Guid? id)
+    public async Task<IActionResult> OnPostSaveHeaderAsync(Guid? id, CancellationToken ct)
     {
         // İş kuralı: Kod ve ad zorunlu
         if (string.IsNullOrWhiteSpace(Header.Code) || string.IsNullOrWhiteSpace(Header.Name))
         {
             using var c = db.Open();
             Header.Id = id ?? Guid.Empty;
-            await LoadLookupsAsync(c, id);
-            if (id is not null) GridLinesJson = await BuildGridLinesJsonAsync(c, id.Value);
+            await LoadLookupsAsync(c, id, ct);
+            if (id is not null) GridLinesJson = await BuildGridLinesJsonAsync(c, id.Value, ct);
             TempData["Error"] = "Kod ve ad alanları zorunludur.";
             return Page();
         }
@@ -68,23 +68,23 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user,
         if (id is null)
         {
             var newId = Guid.NewGuid();
-            await conn.ExecuteAsync(
+            await conn.ExecuteAsync(new CommandDefinition(
                 @"INSERT INTO PriceList (Id, CompanyId, Code, Name, Direction, Currency, PartnerId, BranchId,
                      Priority, ValidFrom, ValidTo, IsActive, CreatedBy)
                   VALUES (@Id, @CompanyId, @Code, @Name, @Direction, @Currency, @PartnerId, @BranchId,
                      @Priority, @ValidFrom, @ValidTo, @IsActive, @UserId)",
-                Bind(newId));
+                Bind(newId), cancellationToken: ct));
             TempData["Success"] = "Fiyat listesi oluşturuldu. Şimdi satır ekleyebilirsiniz.";
             return RedirectToPage("Details", new { id = newId });
         }
 
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             @"UPDATE PriceList SET Code=@Code, Name=@Name, Direction=@Direction, Currency=@Currency,
                 PartnerId=@PartnerId, BranchId=@BranchId, Priority=@Priority,
                 ValidFrom=@ValidFrom, ValidTo=@ValidTo, IsActive=@IsActive,
                 UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId
               WHERE Id=@Id AND CompanyId=@CompanyId AND IsDeleted=0",
-            Bind(id.Value));
+            Bind(id.Value), cancellationToken: ct));
         TempData["Success"] = "Fiyat listesi güncellendi.";
         return RedirectToPage("Details", new { id });
     }
@@ -180,41 +180,41 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user,
         Header.IsActive, UserId = user.Id
     };
 
-    private async Task LoadLookupsAsync(System.Data.IDbConnection conn, Guid? currentId)
+    private async Task LoadLookupsAsync(System.Data.IDbConnection conn, Guid? currentId, CancellationToken ct)
     {
         var p = new { CompanyId = company.Id };
-        var items = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM Item WHERE CompanyId=@CompanyId AND IsActive=1 AND IsDeleted=0 ORDER BY Code", p);
+        var items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Code, Name FROM Item WHERE CompanyId=@CompanyId AND IsActive=1 AND IsDeleted=0 ORDER BY Code", p, cancellationToken: ct));
         ItemsJson = JsonSerializer.Serialize(items.Select(i => new { id = i.Id, code = i.Code, name = i.Name }));
 
-        Partners = await conn.QueryAsync<PartnerOption>(
-            "SELECT Id, Code, Name, Type FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 ORDER BY Name", p);
-        Branches = await conn.QueryAsync<DdlDto>(
-            "SELECT Id, Code, Name FROM Branch WHERE CompanyId=@CompanyId AND IsActive=1 AND IsDeleted=0 ORDER BY Name", p);
+        Partners = await conn.QueryAsync<PartnerOption>(new CommandDefinition(
+            "SELECT Id, Code, Name, Type FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 ORDER BY Name", p, cancellationToken: ct));
+        Branches = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Code, Name FROM Branch WHERE CompanyId=@CompanyId AND IsActive=1 AND IsDeleted=0 ORDER BY Name", p, cancellationToken: ct));
 
         // Çoğaltma kaynağı: bu liste hariç diğer aktif listeler
-        OtherLists = await conn.QueryAsync<DdlDto>(
+        OtherLists = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             @"SELECT Id, Code, Name FROM PriceList
               WHERE CompanyId=@CompanyId AND IsDeleted=0 AND (@Cur IS NULL OR Id <> @Cur)
               ORDER BY Code",
-            new { CompanyId = company.Id, Cur = currentId });
+            new { CompanyId = company.Id, Cur = currentId }, cancellationToken: ct));
     }
 
     // Mevcut satırları grid JSON'una çevirir (zincir iskonto ham "10+5+3" biçiminde).
-    private static async Task<string> BuildGridLinesJsonAsync(System.Data.IDbConnection conn, Guid priceListId)
+    private static async Task<string> BuildGridLinesJsonAsync(System.Data.IDbConnection conn, Guid priceListId, CancellationToken ct)
     {
-        var rawLines = await conn.QueryAsync<LineRaw>(
+        var rawLines = await conn.QueryAsync<LineRaw>(new CommandDefinition(
             @"/* isolation-guard:ignore: parent liste OnGet'te CompanyId ile doğrulandı, @Pid güvenli */
               SELECT l.Id, l.ItemId, l.UnitPrice, l.MinQty, l.LineType
               FROM PriceListLine l WHERE l.PriceListId = @Pid AND l.IsDeleted = 0",
-            new { Pid = priceListId });
+            new { Pid = priceListId }, cancellationToken: ct));
 
-        var discounts = (await conn.QueryAsync<(Guid LineId, int Seq, decimal Pct)>(
+        var discounts = (await conn.QueryAsync<(Guid LineId, int Seq, decimal Pct)>(new CommandDefinition(
             @"/* isolation-guard:ignore: parent liste OnGet'te CompanyId ile doğrulandı, @Pid güvenli */
               SELECT d.LineId, d.Seq, d.Pct FROM PriceListLineDiscount d
               JOIN PriceListLine l ON l.Id = d.LineId
               WHERE l.PriceListId = @Pid AND l.IsDeleted = 0 ORDER BY d.LineId, d.Seq",
-            new { Pid = priceListId })).ToList();
+            new { Pid = priceListId }, cancellationToken: ct))).ToList();
 
         var rows = rawLines.Select(l => new
         {

@@ -20,14 +20,16 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int CriticalItemCount { get; set; } = 0;
     public int ActiveBinCount { get; set; } = 0;
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
 
         // Depo listesi — filtre dropdown'ı için
         Warehouses = await conn.QueryAsync<WarehouseOptionDto>(
-            "SELECT Id, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT Id, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
 
         // tvf_InventoryBalance: CompanyId yalıtılmış, sıfır bakiyeler zaten hariç
         // TOP 1000 + filtre: büyük tablolarda performans koruması; WHERE SARGable
@@ -45,21 +47,27 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                    OR i.Name LIKE '%' + @Q + '%')
             ORDER BY i.Code, wh.Name, b.Code";
 
-        BalanceLines = await conn.QueryAsync<BalanceDto>(sql,
-            new { CompanyId = company.Id, WarehouseId, Q });
+        BalanceLines = await conn.QueryAsync<BalanceDto>(
+            new CommandDefinition(sql,
+                new { CompanyId = company.Id, WarehouseId, Q },
+                cancellationToken: ct));
 
         // Total Stock Quantity
         TotalStockQty = BalanceLines.Sum(x => x.QtyOnHand);
 
         // Active Storage Bins Count
         ActiveBinCount = await conn.QueryFirstOrDefaultAsync<int>(
-            "SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE BinId IS NOT NULL",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT COUNT(DISTINCT BinId) FROM tvf_InventoryBalance(@CompanyId) WHERE BinId IS NOT NULL",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
 
         // Calculate Critical Items (Violating Emniyet/Min Stok Seviyesi)
         var items = await conn.QueryAsync<ItemMinQtyDto>(
-            "SELECT Code, Description FROM Item WHERE CompanyId = @CompanyId AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT Code, Description FROM Item WHERE CompanyId = @CompanyId AND IsDeleted = 0",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
 
         var stockGroup = BalanceLines.GroupBy(b => b.ItemCode).ToDictionary(g => g.Key, g => g.Sum(x => x.QtyOnHand));
 

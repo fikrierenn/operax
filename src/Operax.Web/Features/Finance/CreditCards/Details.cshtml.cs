@@ -20,25 +20,25 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public List<TxnDto>         Transactions { get; set; } = [];
     public List<DdlDto>         BankAccounts { get; set; } = [];
 
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         if (Id == Guid.Empty) return RedirectToPage("Index");
 
         using var conn = db.Open();
         var p = new { CompanyId = company.Id, Id };
 
-        Card = await conn.QuerySingleOrDefaultAsync<CardInfoDto>(@"
+        Card = await conn.QuerySingleOrDefaultAsync<CardInfoDto>(new CommandDefinition(@"
             SELECT cc.Id, cc.CardNoMasked, cc.HolderName, cc.BankName, cc.CardType,
                    cc.CreditLimit, cc.AvailableLimit, cc.StatementDay, cc.DueDay,
                    cc.InterestRate, cc.Currency, cc.ExpiresAt,
                    ba.Name AS LinkedBankAccountName
             FROM CreditCard cc
             LEFT JOIN FinancialAccount ba ON ba.Id = cc.LinkedBankAccountId
-            WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId AND cc.IsDeleted = 0", p);
+            WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId AND cc.IsDeleted = 0", p, cancellationToken: ct));
 
         if (Card == null) return NotFound();
 
-        Statements = (await conn.QueryAsync<StatementDto>(@"
+        Statements = (await conn.QueryAsync<StatementDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst kayıt CreditCard aynı handler içinde daha önce
             -- WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -49,9 +49,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                    ClosingBalance, MinPayment, PaidAmount, IsClosed
             FROM CreditCardStatement
             WHERE CardId = @Id
-            ORDER BY PeriodEnd DESC", new { Id })).ToList();
+            ORDER BY PeriodEnd DESC", new { Id }, cancellationToken: ct))).ToList();
 
-        Transactions = (await conn.QueryAsync<TxnDto>(@"
+        Transactions = (await conn.QueryAsync<TxnDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst kayıt CreditCard aynı handler içinde daha önce
             -- WHERE cc.Id = @Id AND cc.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -62,28 +62,28 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                    Amount, Currency, InstallmentCount, InstallmentNo
             FROM CreditCardTransaction
             WHERE CardId = @Id
-            ORDER BY TransactionDate DESC", new { Id })).ToList();
+            ORDER BY TransactionDate DESC", new { Id }, cancellationToken: ct))).ToList();
 
-        BankAccounts = (await conn.QueryAsync<DdlDto>(@"
+        BankAccounts = (await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code, Name FROM FinancialAccount
             WHERE CompanyId = @CompanyId AND AccountType = 'BANK' AND IsDeleted = 0
-            ORDER BY Name", new { CompanyId = company.Id })).ToList();
+            ORDER BY Name", new { CompanyId = company.Id }, cancellationToken: ct))).ToList();
 
         logger.LogInformation("Kredi kartı detayı görüntülendi: {CardId}", Id);
         return Page();
     }
 
     // Ekstre ödeme — banka hesabından gider, ekstre kapatma, limit iadesi
-    public async Task<IActionResult> OnPostPayStatementAsync(Guid statementId, Guid fromAccountId, decimal amount)
+    public async Task<IActionResult> OnPostPayStatementAsync(Guid statementId, Guid fromAccountId, decimal amount, CancellationToken ct)
     {
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_PayCreditCardStatement",
+            await conn.ExecuteAsync(new CommandDefinition("sp_PayCreditCardStatement",
                 new { StatementId = statementId, CompanyId = company.Id,
                       FromAccountId = fromAccountId, Amount = amount,
                       PayDate = (DateTime?)null, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
             // Audit izi (A-4): kredi kartı ekstre ödemesi — finansal mutasyon
             await audit.LogAsync("STATEMENT_PAID", "CreditCardStatement", statementId, $"Tutar: {amount}");
             TempData["Success"] = "Ekstre ödemesi yapıldı.";

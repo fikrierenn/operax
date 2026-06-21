@@ -19,7 +19,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Butce listesini (sayfalanmis) ve 30 gunluk nakit akisi ozetini yukler
         using var conn = db.Open();
@@ -35,14 +35,14 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM Budget WHERE CompanyId = @CompanyId;";
-        using (var grid = await conn.QueryMultipleAsync(budgetSql, new { CompanyId = company.Id, Page = page, PageSize }))
+        using (var grid = await conn.QueryMultipleAsync(new CommandDefinition(budgetSql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct)))
         {
             Budgets = (await grid.ReadAsync<BudgetListDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
 
         // 30 gunluk nakit akisi takvimi (gun bazli ozet)
-        CashFlow30 = await conn.QueryAsync<CashFlowDto>(@"
+        CashFlow30 = await conn.QueryAsync<CashFlowDto>(new CommandDefinition(@"
             SELECT
                 bl.CashDate,
                 SUM(CASE WHEN bl.Direction = 'IN'  THEN bl.AmountPlanned ELSE 0 END) AS CashIn,
@@ -53,7 +53,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
               AND bl.CashDate BETWEEN CAST(GETUTCDATE() AS DATE) AND DATEADD(DAY, 30, CAST(GETUTCDATE() AS DATE))
             GROUP BY bl.CashDate
             ORDER BY bl.CashDate",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         NetCashFlow30 = CashFlow30.Sum(x => x.CashIn - x.CashOut);
     }

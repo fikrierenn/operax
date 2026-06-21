@@ -29,7 +29,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     private record AggRow(int Cnt, decimal TotalBalance);
 
     // Finansal hesap listesini ve tip bazlı sayım rozetlerini yükler.
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
@@ -37,7 +37,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             var p = new { CompanyId = company.Id };
 
             // Tip bazlı sayım rozetleri için ayrı sorgu
-            Counts = await conn.QuerySingleAsync<CountsDto>(@"
+            Counts = await conn.QuerySingleAsync<CountsDto>(new CommandDefinition(@"
                 SELECT
                     COUNT(*) AS Total,
                     SUM(CASE WHEN AccountType = 'CASH'        THEN 1 ELSE 0 END) AS Cash,
@@ -45,7 +45,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     SUM(CASE WHEN AccountType = 'CREDIT_CARD' THEN 1 ELSE 0 END) AS Card,
                     SUM(CASE WHEN AccountType = 'LOAN'        THEN 1 ELSE 0 END) AS Loan
                 FROM FinancialAccount
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
 
             // Hesap listesi + bakiye (sayfalanmış + toplam bakiye SQL aggregate)
             var page = Page < 1 ? 1 : Page;
@@ -72,12 +72,13 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 FROM dbo.tvf_AccountBalance(@CompanyId) v
                 WHERE 1 = 1{filter};";
 
-            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
             Accounts = (await grid.ReadAsync<AccountRowDto>()).ToList();
             var agg = await grid.ReadSingleAsync<AggRow>();
             FilteredCount = agg.Cnt;
             TotalBalance  = agg.TotalBalance;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Finansal hesap listesi veri yükleme hatası");

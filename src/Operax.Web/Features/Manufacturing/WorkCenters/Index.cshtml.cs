@@ -20,7 +20,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Şirkete ait iş merkezlerini / makineleri listeler
         using var conn = db.Open();
@@ -37,12 +37,12 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM WorkCenter WHERE CompanyId = @CompanyId;";
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         WorkCenters = (await grid.ReadAsync<WorkCenterDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Yeni iş merkezi ekler veya mevcut iş merkezini günceller
         using var conn = db.Open();
@@ -50,7 +50,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         {
             if (Form.Id == Guid.Empty)
             {
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     INSERT INTO WorkCenter (Id, CompanyId, Code, Name,
                         LaborRatePerSec, MachineRatePerSec, ElectricityRatePerSec, IsActive)
                     VALUES (NEWID(), @CompanyId, @Code, @Name,
@@ -63,12 +63,12 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                         MachineRate = Form.MachineRatePerHour,
                         ElectricRate = Form.ElectricityRatePerHour,
                         Form.IsActive
-                    });
+                    }, cancellationToken: ct));
             }
             else
             {
                 // CompanyId: başka şirketin iş merkezini güncelleyemez
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     UPDATE WorkCenter
                     SET Code = @Code, Name = @Name,
                         LaborRatePerSec = @LaborRate / 3600.0,
@@ -84,7 +84,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                         MachineRate = Form.MachineRatePerHour,
                         ElectricRate = Form.ElectricityRatePerHour,
                         Form.IsActive
-                    });
+                    }, cancellationToken: ct));
             }
 
             TempData["Success"] = "İş merkezi kaydedildi.";

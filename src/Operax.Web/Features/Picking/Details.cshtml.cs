@@ -15,19 +15,21 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
     public IEnumerable<PickLineDto> Lines          { get; set; } = [];
     public IEnumerable<IdentityUser> WarehouseStaff { get; set; } = [];
 
-    public async Task OnGetAsync(Guid id)
+    public async Task OnGetAsync(Guid id, CancellationToken ct)
     {
         // Pick task detayları ve satırlarını yükler
         using var conn = db.Open();
 
-        Task = await conn.QueryFirstOrDefaultAsync<PickTaskDto>(@"
+        Task = await conn.QueryFirstOrDefaultAsync<PickTaskDto>(
+            new CommandDefinition(@"
             SELECT t.*, u.UserName as AssignedUserName
             FROM PickTask t
             LEFT JOIN AspNetUsers u ON u.Id = t.AssignedUserId
             WHERE t.Id = @Id AND t.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
-        Lines = await conn.QueryAsync<PickLineDto>(@"
+        Lines = await conn.QueryAsync<PickLineDto>(
+            new CommandDefinition(@"
             SELECT l.*, i.Code as ItemCode, i.Name as ItemName,
                    tb.Code as TargetBinCode, pb.Code as PickedBinCode,
                    u.UserName as PickedByUserName
@@ -38,7 +40,7 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
             LEFT JOIN Bin pb ON pb.Id = l.PickedBinId
             LEFT JOIN AspNetUsers u ON u.Id = l.PickedByUserId
             WHERE l.PickTaskId = @Id AND pt.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
         // Depo personeli: Warehouse rolü tercih edilir
         WarehouseStaff = await userManager.GetUsersInRoleAsync("Warehouse");
@@ -46,24 +48,27 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
             WarehouseStaff = userManager.Users.Take(10).ToList();
     }
 
-    public async Task<IActionResult> OnPostAssignAsync(Guid id, string userId)
+    public async Task<IActionResult> OnPostAssignAsync(Guid id, string userId, CancellationToken ct)
     {
         // Görevi personele atar, durum ASSIGNED olur
         using var conn = db.Open();
         await conn.ExecuteAsync(
-            "UPDATE PickTask SET AssignedUserId = @UserId, Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { UserId = userId, Status = DocStatus.Assigned, Id = id, CompanyId = company.Id });
+            new CommandDefinition(
+                "UPDATE PickTask SET AssignedUserId = @UserId, Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId",
+                new { UserId = userId, Status = DocStatus.Assigned, Id = id, CompanyId = company.Id },
+                cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostPickLineAsync(Guid id, Guid lineId, decimal qty)
+    public async Task<IActionResult> OnPostPickLineAsync(Guid id, Guid lineId, decimal qty, CancellationToken ct)
     {
         // sp_PickLinePost: satırı günceller, stok hareketi yazar, görev durumunu günceller
         var userId = userManager.GetUserId(User) ?? "";
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_PickLinePost",
-            new { LineId = lineId, TaskId = id, Qty = qty, CompanyId = company.Id, UserId = userId },
-            commandType: CommandType.StoredProcedure);
+        await conn.ExecuteAsync(
+            new CommandDefinition("sp_PickLinePost",
+                new { LineId = lineId, TaskId = id, Qty = qty, CompanyId = company.Id, UserId = userId },
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 

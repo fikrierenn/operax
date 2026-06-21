@@ -23,7 +23,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal          TotalActive   { get; set; }
 
     // Sipariş listesi ve sekme sayaçlarını veritabanından yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
@@ -38,9 +38,10 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 StApproved  = DocStatus.Approved
             };
 
-            await LoadStatusCountsAsync(conn, p);
-            await LoadOrdersAsync(conn);
+            await LoadStatusCountsAsync(conn, p, ct);
+            await LoadOrdersAsync(conn, ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Satış siparişleri liste veri yükleme hatası");
@@ -48,7 +49,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         }
     }
 
-    private async Task LoadStatusCountsAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadStatusCountsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
         // İş kuralı: SalesOrder için APPROVED durumu POSTED ile eşdeğer sayılır
         const string sql = @"
@@ -59,10 +60,11 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 SUM(CASE WHEN Status = @StCancelled                    THEN 1 ELSE 0 END) AS Cancelled
             FROM SalesOrderHeader
             WHERE CompanyId = @CompanyId AND IsDeleted = 0";
-        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(sql, p);
+        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(
+            new CommandDefinition(sql, p, cancellationToken: ct));
     }
 
-    private async Task LoadOrdersAsync(System.Data.IDbConnection conn)
+    private async Task LoadOrdersAsync(System.Data.IDbConnection conn, CancellationToken ct)
     {
         var sql = @"
             ;WITH HeaderTotals AS (
@@ -107,7 +109,8 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
         sql += " ORDER BY h.OrderDate DESC, h.OrderNo DESC";
 
-        var rows = (await conn.QueryAsync<OrderDto>(sql, parms)).ToList();
+        var rows = (await conn.QueryAsync<OrderDto>(
+            new CommandDefinition(sql, parms, cancellationToken: ct))).ToList();
         Orders = rows;
 
         TotalActive = rows.Where(r => r.Status != DocStatus.Cancelled).Sum(r => r.TotalAmount);

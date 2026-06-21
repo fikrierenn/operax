@@ -21,7 +21,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
     public decimal              TotalOpen  { get; set; }
 
     // Belirtilen cari için açık ödeme planı satırlarını ve yaşlandırma bilgisini yükler.
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         if (PartnerId == Guid.Empty) return RedirectToPage("Index");
 
@@ -30,13 +30,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             using var conn = db.Open();
             var p = new { CompanyId = company.Id, PartnerId, Direction };
 
-            Partner = await conn.QueryFirstOrDefaultAsync<PartnerSummaryDto>(
+            Partner = await conn.QueryFirstOrDefaultAsync<PartnerSummaryDto>(new CommandDefinition(
                 "SELECT Id, Code, Name, RiskCategory FROM Partner WHERE Id = @PartnerId AND CompanyId = @CompanyId",
-                new { PartnerId, CompanyId = company.Id });
+                new { PartnerId, CompanyId = company.Id }, cancellationToken: ct));
 
             if (Partner == null) return NotFound();
 
-            Lines = (await conn.QueryAsync<PaymentLineDto>(@"
+            Lines = (await conn.QueryAsync<PaymentLineDto>(new CommandDefinition(@"
                 SELECT
                     pp.Id,
                     pp.DueDate,
@@ -53,10 +53,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                   AND pp.Direction    = @Direction
                   AND pp.Status      <> 'PAID'
                   AND pp.IsDeleted    = 0
-                ORDER BY pp.DueDate ASC", p)).ToList();
+                ORDER BY pp.DueDate ASC", p, cancellationToken: ct))).ToList();
 
             TotalOpen = Lines.Sum(l => l.OpenAmount);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Yaşlandırma detay veri yükleme hatası");

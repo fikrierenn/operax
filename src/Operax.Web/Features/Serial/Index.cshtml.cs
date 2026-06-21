@@ -11,13 +11,13 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public IEnumerable<SerialListDto> Serials { get; set; } = [];
     public string? Filter { get; set; }
 
-    public async Task OnGetAsync(string? q)
+    public async Task OnGetAsync(string? q, CancellationToken ct)
     {
         // Şirkete ait seri numaralarını ürün ve konum bilgisiyle listeler
         Filter = q;
         using var conn = db.Open();
 
-        Serials = await conn.QueryAsync<SerialListDto>(@"
+        Serials = await conn.QueryAsync<SerialListDto>(new CommandDefinition(@"
             SELECT TOP 500
                 s.Id, s.SerialNo, s.Status, s.LotNo,
                 i.Code AS ItemCode, i.Name AS ItemName,
@@ -33,7 +33,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                    OR i.Code LIKE '%' + @Q + '%'
                    OR i.Name LIKE '%' + @Q + '%')
             ORDER BY s.CreatedAt DESC",
-            new { CompanyId = company.Id, Q = string.IsNullOrWhiteSpace(q) ? null : q });
+            new { CompanyId = company.Id, Q = string.IsNullOrWhiteSpace(q) ? null : q }, cancellationToken: ct));
     }
 
     public record SerialListDto

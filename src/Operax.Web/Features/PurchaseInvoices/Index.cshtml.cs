@@ -26,7 +26,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // Mal alım faturalarını durum/arama filtresiyle ve sekme sayaçlarıyla yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         try
@@ -53,20 +53,21 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                   AND (@Status = 'all' OR pi.Status = @Status)
                   AND (@Q IS NULL OR pi.SupplierInvoiceNo LIKE @Like OR p.Name LIKE @Like);";
 
-            using var grid = await conn.QueryMultipleAsync(sql, new
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new
             {
                 CompanyId = company.Id, Status, Q, Like = $"%{Q}%", Page = page, PageSize
-            });
+            }, cancellationToken: ct));
             Invoices = (await grid.ReadAsync<InvoiceRowDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
 
-            DraftCount = await conn.ExecuteScalarAsync<int>(
+            DraftCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM PurchaseInvoice WHERE CompanyId = @CompanyId AND Status = @St",
-                new { CompanyId = company.Id, St = DocStatus.Draft });
-            PostedCount = await conn.ExecuteScalarAsync<int>(
+                new { CompanyId = company.Id, St = DocStatus.Draft }, cancellationToken: ct));
+            PostedCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM PurchaseInvoice WHERE CompanyId = @CompanyId AND Status = @St",
-                new { CompanyId = company.Id, St = DocStatus.Posted });
+                new { CompanyId = company.Id, St = DocStatus.Posted }, cancellationToken: ct));
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Alış faturası listesi yükleme hatası");

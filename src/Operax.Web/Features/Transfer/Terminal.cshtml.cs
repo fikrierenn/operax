@@ -14,33 +14,33 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
     public TransferTermDto? ActiveTransfer { get; set; }
     public IEnumerable<PendingTransferDto> PendingTransfers { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? transferId)
+    public async Task OnGetAsync(Guid? transferId, CancellationToken ct)
     {
         // El terminali: transfer belgesi seçilip barkod ile satırlar onaylanır
         using var conn = db.Open();
 
-        PendingTransfers = await conn.QueryAsync<PendingTransferDto>(@"
+        PendingTransfers = await conn.QueryAsync<PendingTransferDto>(new CommandDefinition(@"
             SELECT t.Id, t.DocNo,
                    (SELECT COUNT(*) FROM StockTransferLine WHERE TransferId = t.Id) AS LineCount
             FROM StockTransfer t
             WHERE t.CompanyId = @CompanyId AND t.Status = @StDraft
             ORDER BY t.CreatedAt DESC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
 
         if (!transferId.HasValue) return;
 
-        ActiveTransfer = await conn.QueryFirstOrDefaultAsync<TransferTermDto>(@"
+        ActiveTransfer = await conn.QueryFirstOrDefaultAsync<TransferTermDto>(new CommandDefinition(@"
             SELECT t.Id, t.DocNo, t.Status,
                    wf.Code AS FromWhCode, wt.Code AS ToWhCode
             FROM StockTransfer t
             LEFT JOIN Warehouse wf ON wf.Id = t.FromWarehouseId
             LEFT JOIN Warehouse wt ON wt.Id = t.ToWarehouseId
             WHERE t.Id = @TransferId AND t.CompanyId = @CompanyId",
-            new { TransferId = transferId, CompanyId = company.Id });
+            new { TransferId = transferId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (ActiveTransfer == null) return;
 
-        ActiveTransfer.Lines = (await conn.QueryAsync<TransferLineTermDto>(@"
+        ActiveTransfer.Lines = (await conn.QueryAsync<TransferLineTermDto>(new CommandDefinition(@"
             SELECT l.Id, l.QtyBase, l.IsConfirmed,
                    i.Code AS ItemCode, i.Name AS ItemName,
                    bf.Code AS FromBinCode, bt.Code AS ToBinCode, l.LotNo
@@ -51,28 +51,30 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
             LEFT JOIN Bin bt ON bt.Id = l.ToBinId
             WHERE l.TransferId = @TransferId AND t.CompanyId = @CompanyId
             ORDER BY (CASE WHEN l.IsConfirmed = 0 THEN 0 ELSE 1 END), i.Code",
-            new { TransferId = transferId, CompanyId = company.Id })).ToList();
+            new { TransferId = transferId, CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
-    public async Task<IActionResult> OnPostConfirmLineAsync(Guid transferId, Guid lineId, string barcode)
+    public async Task<IActionResult> OnPostConfirmLineAsync(Guid transferId, Guid lineId, string barcode, CancellationToken ct)
     {
         // Barkod doğrulamasıyla transfer satırını onaylar
         using var conn = db.Open();
         using var trans = conn.BeginTransaction();
         try
         {
-            var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
+            var itemId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(@"
                 SELECT i.Id FROM ItemBarcode b JOIN Item i ON i.Id = b.ItemId
                 WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
                 UNION
                 SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
-                new { Barcode = barcode, CompanyId = company.Id }, trans);
+                new { Barcode = barcode, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
-            var lineItemId = await conn.ExecuteScalarAsync<Guid?>(@"
+            var lineItemId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(@"
                 SELECT l.ItemId FROM StockTransferLine l
                 JOIN StockTransfer t ON t.Id = l.TransferId
                 WHERE l.Id = @LineId AND l.TransferId = @TransferId AND t.CompanyId = @CompanyId",
-                new { LineId = lineId, TransferId = transferId, CompanyId = company.Id }, trans);
+                new { LineId = lineId, TransferId = transferId, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
             if (itemId == null || itemId != lineItemId)
             {
@@ -80,12 +82,13 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
                 return RedirectToPage(new { transferId });
             }
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE l SET l.IsConfirmed = 1
                 FROM StockTransferLine l
                 JOIN StockTransfer t ON t.Id = l.TransferId
                 WHERE l.Id = @LineId AND t.CompanyId = @CompanyId",
-                new { LineId = lineId, CompanyId = company.Id }, trans);
+                new { LineId = lineId, CompanyId = company.Id },
+                transaction: trans, cancellationToken: ct));
 
             trans.Commit();
             TempData["Success"] = "Satır onaylandı!";

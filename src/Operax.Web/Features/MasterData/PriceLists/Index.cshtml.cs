@@ -24,7 +24,7 @@ public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user) : Pag
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -57,20 +57,20 @@ public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user) : Pag
                    OR (@StatusFilter = 'active'  AND pl.IsActive = 1)
                    OR (@StatusFilter = 'passive' AND pl.IsActive = 0));";
 
-        using (var grid = await conn.QueryMultipleAsync(sql, new
+        using (var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new
         {
             CompanyId = company.Id, Q, DirectionFilter, StatusFilter, Page = page, PageSize
-        }))
+        }, cancellationToken: ct)))
         {
             Rows = (await grid.ReadAsync<PriceListRow>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
 
         // Yön bazlı sayaçlar (filtreden bağımsız toplamlar)
-        var counts = await conn.QueryAsync<(string Direction, int Cnt)>(
+        var counts = await conn.QueryAsync<(string Direction, int Cnt)>(new CommandDefinition(
             @"SELECT Direction, COUNT(1) AS Cnt FROM PriceList
               WHERE CompanyId = @CompanyId AND IsDeleted = 0 GROUP BY Direction",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
         foreach (var c in counts)
         {
             if (c.Direction == PriceDirection.Sales) SalesCount = c.Cnt;
@@ -79,13 +79,13 @@ public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user) : Pag
     }
 
     // Fiyat listesini soft-delete eder (IsDeleted=1). Liste başlığı + satırları gizlenir.
-    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken ct)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             @"UPDATE PriceList SET IsDeleted = 1, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
               WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id, UserId = user.Id });
+            new { Id = id, CompanyId = company.Id, UserId = user.Id }, cancellationToken: ct));
         TempData["Success"] = "Fiyat listesi silindi.";
         return RedirectToPage("Index");
     }

@@ -61,7 +61,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     public List<InstrumentRowDto>  Instruments { get; set; } = [];
     public List<PriceListRowDto>   PriceLists  { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
 
@@ -70,14 +70,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         DateTo   ??= DateTime.Today;
 
         // İş kuralı: temsilci dropdown'ı her durumda gerekir (Genel tabı düzenleme formu)
-        Users = (await conn.QueryAsync<UserDdl>(
-            "SELECT Id, UserName FROM AspNetUsers ORDER BY UserName")).ToList();
+        Users = (await conn.QueryAsync<UserDdl>(new CommandDefinition(
+            "SELECT Id, UserName FROM AspNetUsers ORDER BY UserName", cancellationToken: ct))).ToList();
 
         if (id.HasValue)
         {
             var p = new { Id = id, CompanyId = company.Id };
 
-            Partner = await conn.QueryFirstOrDefaultAsync<PartnerDto>(
+            Partner = await conn.QueryFirstOrDefaultAsync<PartnerDto>(new CommandDefinition(
                 @"SELECT Id, Code, Name, Type, TaxNumber, Email, Phone, Address,
                          IsActive, Notes,
                          PaymentTermDays, PaymentTermPolicy, CreditLimit, BlockOnLimitExceed,
@@ -85,7 +85,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                          DefaultPaymentMethod,
                          EFaturaMukellef, EFaturaAlias, IbanForRefund,
                          SalesRepUserId, PurchaseRepUserId, AdditionalFields
-                  FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId", p) ?? new();
+                  FROM Partner WHERE Id = @Id AND CompanyId = @CompanyId",
+                p, cancellationToken: ct)) ?? new();
 
             // Dinamik UDF paneli: tanımları yükle + kayıtlı değerleri çöz (Plan 34 Faz 2)
             var udfDefs = await udfSvc.LoadDefinitionsAsync("Partner");
@@ -102,12 +103,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
             if (Partner.Id != Guid.Empty)
             {
-                if (Tab == "ekstre")     await LoadLedgerAsync(conn, Partner.Id);
-                if (Tab == "siparisler") await LoadOrdersAsync(conn, Partner.Id);
-                if (Tab == "faturalar")  await LoadInvoicesAsync(conn, Partner.Id);
-                if (Tab == "cekssenet")  await LoadInstrumentsAsync(conn, Partner.Id);
-                if (Tab == "fiyatlar")   await LoadPriceListsAsync(conn, Partner.Id);
-                if (Tab == "mutabakat")  await LoadReconciliationAsync(conn, Partner.Id);
+                if (Tab == "ekstre")     await LoadLedgerAsync(conn, Partner.Id, ct);
+                if (Tab == "siparisler") await LoadOrdersAsync(conn, Partner.Id, ct);
+                if (Tab == "faturalar")  await LoadInvoicesAsync(conn, Partner.Id, ct);
+                if (Tab == "cekssenet")  await LoadInstrumentsAsync(conn, Partner.Id, ct);
+                if (Tab == "fiyatlar")   await LoadPriceListsAsync(conn, Partner.Id, ct);
+                if (Tab == "mutabakat")  await LoadReconciliationAsync(conn, Partner.Id, ct);
             }
         }
         else
@@ -125,12 +126,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     }
 
     // Bakiye özeti + devir + tarih aralığı ekstresi + vade analizi — QueryMultiple ile tek round-trip
-    private async Task LoadLedgerAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadLedgerAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
         var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo,
                       StApproved = DocStatus.Approved, StPosted = DocStatus.Posted };
-        using var multi = await conn.QueryMultipleAsync(@"
+        using var multi = await conn.QueryMultipleAsync(new CommandDefinition(@"
             -- 1) Bakiye özeti — cari hesap defteri (AccountMovement). Debit/Credit GROSS toplam.
             --    NetBakiye = SUM(Debit) - SUM(Credit). + = cari bize borçlu, - = biz cariye borçluyuz.
             SELECT
@@ -177,7 +178,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             -- 4) Ödeme davranışı analizi
             SELECT Direction, PaidCount, AvgDelayDays, AvgInvoiceAmount, TotalPaidAmount, LastPayment
             FROM v_PartnerVadeAnalysis
-            WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId;", p);
+            WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId;",
+            p, cancellationToken: ct));
 
         Balance        = await multi.ReadFirstOrDefaultAsync<BalanceSummaryDto>();
         OpeningBalance = await multi.ReadFirstOrDefaultAsync<decimal>();
@@ -186,7 +188,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     }
 
     // Cariye ait satış (SO) + satınalma (PO) siparişleri — birleşik liste, satırlardan tutar hesaplanır
-    private async Task LoadOrdersAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadOrdersAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
         var p = new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo, Sf = OrderStatus,
@@ -194,7 +196,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         // Açık tutar = (sipariş - sevk/kabul) * fiyat; sipariş ledger/bakiyeyi etkilemez (bilgi amaçlı)
         // HasInvoice/HasDelivery: belge zinciri durumu (SO→Shipping/SalesInvoice, PO→Receiving)
         // Durum filtresi: @Sf boşsa tümü, doluysa eşleşen Status
-        Orders = (await conn.QueryAsync<OrderRowDto>(@"
+        Orders = (await conn.QueryAsync<OrderRowDto>(new CommandDefinition(@"
             SELECT 'Satış' AS Kind, soh.Id, soh.OrderNo, soh.OrderDate, soh.Status,
                    ISNULL((SELECT SUM(sol.QtyOrdered * sol.Price)
                            FROM SalesOrderLine sol WHERE sol.HeaderId = soh.Id), 0) AS Total,
@@ -218,14 +220,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             WHERE poh.PartnerId = @PartnerId AND poh.CompanyId = @CompanyId AND poh.IsDeleted = 0
               AND poh.OrderDate >= @From AND poh.OrderDate < DATEADD(DAY, 1, @To)
               AND (@Sf IS NULL OR poh.Status = @Sf)
-            ORDER BY OrderDate DESC", p)).ToList();
+            ORDER BY OrderDate DESC",
+            p, cancellationToken: ct))).ToList();
     }
 
     // Cariye ait satış + alış faturaları (birleşik)
-    private async Task LoadInvoicesAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadInvoicesAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
-        Invoices = (await conn.QueryAsync<InvoiceRowDto>(@"
+        Invoices = (await conn.QueryAsync<InvoiceRowDto>(new CommandDefinition(@"
             SELECT 'Satış' AS Kind, Id, InvoiceNo AS DocNo, InvoiceDate, GrandTotal, ISNULL(PaidAmount,0) AS PaidAmount, Status
             FROM SalesInvoice
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId AND IsDeleted = 0
@@ -233,14 +236,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             SELECT 'Alış' AS Kind, Id, DocNo, InvoiceDate, TotalAmount, 0, Status
             FROM ExpenseInvoice
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
-            ORDER BY InvoiceDate DESC", p)).ToList();
+            ORDER BY InvoiceDate DESC",
+            p, cancellationToken: ct))).ToList();
     }
 
     // Cariye ait çek + senet portföyü (birleşik)
-    private async Task LoadInstrumentsAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadInstrumentsAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
-        Instruments = (await conn.QueryAsync<InstrumentRowDto>(@"
+        Instruments = (await conn.QueryAsync<InstrumentRowDto>(new CommandDefinition(@"
             SELECT Id, 'Çek' AS Kind, Direction, ChequeNo AS No, Amount, DueDate, Status
             FROM Cheque
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
@@ -248,41 +252,41 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             SELECT Id, 'Senet' AS Kind, Direction, NoteNo, Amount, DueDate, Status
             FROM PromissoryNote
             WHERE PartnerId = @PartnerId AND CompanyId = @CompanyId
-            ORDER BY DueDate DESC", p)).ToList();
+            ORDER BY DueDate DESC", p, cancellationToken: ct))).ToList();
     }
 
     // Cariye özel fiyat listeleri (satır sayısıyla)
-    private async Task LoadPriceListsAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadPriceListsAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
-        PriceLists = (await conn.QueryAsync<PriceListRowDto>(@"
+        PriceLists = (await conn.QueryAsync<PriceListRowDto>(new CommandDefinition(@"
             SELECT pl.Id, pl.Code, pl.Name, pl.Direction, pl.Currency, pl.ValidFrom, pl.ValidTo, pl.IsActive,
                    (SELECT COUNT(*) FROM PriceListLine pll WHERE pll.PriceListId = pl.Id) AS LineCount
             FROM PriceList pl
             WHERE pl.PartnerId = @PartnerId AND pl.CompanyId = @CompanyId
-            ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p)).ToList();
+            ORDER BY pl.IsActive DESC, pl.ValidFrom DESC", p, cancellationToken: ct))).ToList();
     }
 
     // Cari mutabakat geçmişi + güncel açık kalem özeti (Plan 19)
-    private async Task LoadReconciliationAsync(System.Data.IDbConnection conn, Guid partnerId)
+    private async Task LoadReconciliationAsync(System.Data.IDbConnection conn, Guid partnerId, CancellationToken ct)
     {
         var p = new { CompanyId = company.Id, PartnerId = partnerId };
         // Mutabakat turu geçmişi (en yeni üstte)
-        ReconciliationLog = (await conn.QueryAsync<ReconciliationRowDto>(@"
+        ReconciliationLog = (await conn.QueryAsync<ReconciliationRowDto>(new CommandDefinition(@"
             SELECT Id, StatementDate, BalanceSnapshot, Status, SentChannel,
                    SentAt, DeadlineAt, ResponseAt, ResponseNote
             FROM PartnerReconciliationLog
             WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
-            ORDER BY StatementDate DESC, CreatedAt DESC", p)).ToList();
+            ORDER BY StatementDate DESC, CreatedAt DESC", p, cancellationToken: ct))).ToList();
         // Bugün itibarıyla mutabakat hazırlık özeti (muhasebe tarih girince yenilenir)
-        ReconciliationPrep = await conn.QueryFirstOrDefaultAsync<ReconciliationPrepDto>(@"
+        ReconciliationPrep = await conn.QueryFirstOrDefaultAsync<ReconciliationPrepDto>(new CommandDefinition(@"
             SELECT NetBalance, MovementCount, OpenItemCount, OpenItemTotal
             FROM dbo.tvf_ReconciliationPrep(@CompanyId, @PartnerId, @AsOf)",
-            new { CompanyId = company.Id, PartnerId = partnerId, AsOf = DateTime.Today });
+            new { CompanyId = company.Id, PartnerId = partnerId, AsOf = DateTime.Today }, cancellationToken: ct));
     }
 
     // Mutabakat turu başlat — muhasebe kesim tarihi + kanal girer, bakiye snapshot alınır
-    public async Task<IActionResult> OnPostCreateReconciliationAsync(Guid id, DateTime statementDate, string channel)
+    public async Task<IActionResult> OnPostCreateReconciliationAsync(Guid id, DateTime statementDate, string channel, CancellationToken ct)
     {
         using var conn = db.Open();
         try
@@ -294,8 +298,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             prm.Add("@SentChannel", channel);
             prm.Add("@UserId", user.Id.ToString());
             prm.Add("@NewId", dbType: System.Data.DbType.Guid, direction: System.Data.ParameterDirection.Output);
-            await conn.ExecuteAsync("sp_CreateReconciliationStatement", prm,
-                commandType: System.Data.CommandType.StoredProcedure);
+            await conn.ExecuteAsync(new CommandDefinition("sp_CreateReconciliationStatement", prm,
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Mutabakat oluşturuldu ve gönderim için işaretlendi.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
@@ -306,15 +310,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     }
 
     // Mutabakata yanıt — onay (CONFIRMED) veya itiraz (DISPUTED, gerekçe zorunlu)
-    public async Task<IActionResult> OnPostRespondReconciliationAsync(Guid id, Guid reconciliationId, bool confirmed, string? note)
+    public async Task<IActionResult> OnPostRespondReconciliationAsync(Guid id, Guid reconciliationId, bool confirmed, string? note, CancellationToken ct)
     {
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_RespondReconciliation",
+            await conn.ExecuteAsync(new CommandDefinition("sp_RespondReconciliation",
                 new { ReconciliationId = reconciliationId, CompanyId = company.Id,
                       Confirmed = confirmed, ResponseNote = note, UserId = user.Id.ToString() },
-                commandType: System.Data.CommandType.StoredProcedure);
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = confirmed ? "Mutabakat onaylandı." : "Mutabakat itirazı kaydedildi.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
@@ -336,7 +340,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         return await numberSeries.NextAsync(company.Id, docType);
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // İş kuralı: Tab navigasyon paramı + Code (otomatik atanır) form-zorunlu değil.
         // NRT (non-nullable string) implicit [Required] üretiyor → bu alanlar için temizle.
@@ -379,7 +383,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                      @DefaultPaymentMethod,
                      @EFaturaMukellef, @EFaturaAlias, @IbanForRefund,
                      @SalesRepUserId, @PurchaseRepUserId, @AdditionalFields)";
-            await conn.ExecuteAsync(sql, new
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Partner.Id, CompanyId = company.Id,
                 Partner.Code, Partner.Name, Partner.Type, Partner.TaxNumber,
@@ -391,7 +395,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                 SalesRepUserId    = string.IsNullOrEmpty(Partner.SalesRepUserId)    ? null : Partner.SalesRepUserId,
                 PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId,
                 Partner.AdditionalFields
-            });
+            }, cancellationToken: ct));
         }
         else
         {
@@ -411,7 +415,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                     AdditionalFields = @AdditionalFields,
                     UpdatedAt = GETUTCDATE()
                 WHERE Id = @Id AND CompanyId = @CompanyId";
-            await conn.ExecuteAsync(sql, new
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Partner.Code, Partner.Name, Partner.Type,
                 Partner.TaxNumber, Partner.Email, Partner.Phone, Partner.Address,
@@ -424,7 +428,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
                 PurchaseRepUserId = string.IsNullOrEmpty(Partner.PurchaseRepUserId) ? null : Partner.PurchaseRepUserId,
                 Partner.AdditionalFields,
                 Partner.Id, CompanyId = company.Id
-            });
+            }, cancellationToken: ct));
         }
 
         TempData["Success"] = "Cari kart kaydedildi.";

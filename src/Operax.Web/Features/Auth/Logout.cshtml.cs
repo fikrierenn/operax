@@ -10,14 +10,14 @@ namespace Operax.Web.Features.Auth;
 public class LogoutModel(SignInManager<IdentityUser> signInManager) : PageModel
 {
     // GET: doğrudan çıkış yap ve Login'e yönlendir
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct = default)
     {
         await signInManager.SignOutAsync();
         return RedirectToPage("/Auth/Login");
     }
 
     // POST (form submit): aynı işlem
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         await signInManager.SignOutAsync();
         return RedirectToPage("/Auth/Login");

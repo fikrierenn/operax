@@ -28,17 +28,17 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var p = new { CompanyId = company.Id };
 
-        await LoadStatusCountsAsync(conn, p);
-        await LoadOrdersAsync(conn);
+        await LoadStatusCountsAsync(conn, p, ct);
+        await LoadOrdersAsync(conn, ct);
     }
 
     // Sekme rozet sayıları için durum bazlı toplam evrak adedi
-    private async Task LoadStatusCountsAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadStatusCountsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
         const string sql = @"
             SELECT
@@ -49,18 +49,18 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             FROM PurchaseOrderHeader
             WHERE CompanyId = @CompanyId AND IsDeleted = 0";
         // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
-        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(sql, new
+        StatusCounts = await conn.QuerySingleAsync<StatusCountsDto>(new CommandDefinition(sql, new
         {
             ((dynamic)p).CompanyId,
             StDraft     = DocStatus.Draft,
             StPosted    = DocStatus.Posted,
             StApproved  = DocStatus.Approved,
             StCancelled = DocStatus.Cancelled
-        });
+        }, cancellationToken: ct));
     }
 
     // Sekme + arama filtresine göre evrak listesi (header total = sum of QtyOrdered * Price)
-    private async Task LoadOrdersAsync(System.Data.IDbConnection conn)
+    private async Task LoadOrdersAsync(System.Data.IDbConnection conn, CancellationToken ct)
     {
         var page = Page < 1 ? 1 : Page;
         var parms = new DynamicParameters();
@@ -113,7 +113,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             LEFT JOIN HeaderTotals ht ON ht.HeaderId = h.Id
             WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0{filter};";
 
-        using var grid = await conn.QueryMultipleAsync(sql, parms);
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
         Orders = (await grid.ReadAsync<OrderDto>()).ToList();
         var agg = await grid.ReadSingleAsync<AggDto>();
         FilteredCount = agg.Cnt;

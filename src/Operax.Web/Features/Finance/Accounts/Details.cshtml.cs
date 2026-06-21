@@ -21,7 +21,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
     public decimal              Balance      { get; set; }
 
     // Hesap bilgilerini ve son 100 finansal işlem satırını yükler.
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         if (Id == Guid.Empty) return RedirectToPage("Index");
 
@@ -30,19 +30,19 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             using var conn = db.Open();
             var p = new { CompanyId = company.Id, Id };
 
-            Account = await conn.QuerySingleOrDefaultAsync<AccountInfoDto>(@"
+            Account = await conn.QuerySingleOrDefaultAsync<AccountInfoDto>(new CommandDefinition(@"
                 SELECT a.Id, a.Code, a.Name, a.AccountType, a.Currency,
                        a.BankName, a.BranchName, a.IBAN, a.AccountNumber,
                        a.CreditLimit, a.InterestRate, a.OpeningBalance, a.Notes,
                        v.Balance, v.LastMovementDate
                 FROM FinancialAccount a
                 LEFT JOIN dbo.tvf_AccountBalance(@CompanyId) v ON v.AccountId = a.Id
-                WHERE a.Id = @Id AND a.CompanyId = @CompanyId AND a.IsDeleted = 0", p);
+                WHERE a.Id = @Id AND a.CompanyId = @CompanyId AND a.IsDeleted = 0", p, cancellationToken: ct));
 
             if (Account == null) return NotFound();
             Balance = Account.Balance;
 
-            Transactions = (await conn.QueryAsync<TxRowDto>(@"
+            Transactions = (await conn.QueryAsync<TxRowDto>(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                 -- Gerekçe: üst kayıt FinancialAccount aynı handler içinde daha önce
                 -- WHERE a.Id = @Id AND a.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -58,8 +58,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                 FROM FinancialTransaction t
                 LEFT JOIN Partner p ON p.Id = t.PartnerId
                 WHERE t.AccountId = @Id AND t.IsDeleted = 0
-                ORDER BY t.TransactionDate DESC, t.CreatedAt DESC", p)).ToList();
+                ORDER BY t.TransactionDate DESC, t.CreatedAt DESC", p, cancellationToken: ct))).ToList();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Hesap ekstresi veri yükleme hatası");

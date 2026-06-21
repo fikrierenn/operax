@@ -21,10 +21,11 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
 
     public async Task OnGetAsync(
         Guid? partnerId, string? txType,
-        decimal? amount, Guid? sourceDocId, string? sourceDocType)
+        decimal? amount, Guid? sourceDocId, string? sourceDocType,
+        CancellationToken ct)
     {
         // Ödeme formunu yükler; belge zinciri ön-doldurma parametrelerini destekler
-        await LoadDropdownsAsync();
+        await LoadDropdownsAsync(ct);
         Form.TxType         = txType ?? TransactionType.Income;
         Form.InstrumentType = "EFT";
         Form.Currency       = "TRY";
@@ -37,11 +38,11 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         if (!ModelState.IsValid)
         {
-            await LoadDropdownsAsync();
+            await LoadDropdownsAsync(ct);
             return Page();
         }
 
@@ -61,8 +62,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
             prm.Add("UserId",         user.Id);
             prm.Add("NewTxId",        dbType: DbType.Guid, direction: ParameterDirection.Output);
 
-            await conn.ExecuteAsync("sp_RecordPaymentAndAutoClose", prm,
-                commandType: CommandType.StoredProcedure);
+            await conn.ExecuteAsync(new CommandDefinition("sp_RecordPaymentAndAutoClose", prm,
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
 
             var newId = prm.Get<Guid>("NewTxId");
             // Audit izi (A-4): kasa/banka tahsilat-ödeme hareketi — finansal mutasyon
@@ -83,24 +84,24 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
             TempData["Error"] = "Ödeme kaydedilirken veritabanı hatası oluştu.";
         }
 
-        await LoadDropdownsAsync();
+        await LoadDropdownsAsync(ct);
         return Page();
     }
 
-    private async Task LoadDropdownsAsync()
+    private async Task LoadDropdownsAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
         // Yalnız nakit hareketi yapılabilen hesaplar (kasa + banka) — sabit ile parametreli
         var p = new { CompanyId = company.Id, CashType = AccountType.Cash, BankType = AccountType.Bank };
 
-        using var multi = await conn.QueryMultipleAsync(@"
+        using var multi = await conn.QueryMultipleAsync(new CommandDefinition(@"
             SELECT Id, Code, Name FROM FinancialAccount
             WHERE CompanyId = @CompanyId AND AccountType IN (@CashType, @BankType) AND IsDeleted = 0
             ORDER BY AccountType, Name;
 
             SELECT Id, Code, Name FROM Partner
             WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0
-            ORDER BY Name;", p);
+            ORDER BY Name;", p, cancellationToken: ct));
 
         Accounts = (await multi.ReadAsync<DdlDto>()).ToList();
         Partners = (await multi.ReadAsync<DdlDto>()).ToList();

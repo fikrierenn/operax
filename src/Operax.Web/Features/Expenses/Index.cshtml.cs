@@ -20,7 +20,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Şirkete ait gider faturaları (sayfalanmış) + durum bazlı tutar toplamları (rows yerine SQL)
         using var conn = db.Open();
@@ -42,11 +42,11 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 ISNULL(SUM(CASE WHEN Status = @StPaid   THEN TotalAmount ELSE 0 END), 0) AS TotalPaid
             FROM ExpenseInvoice WHERE CompanyId = @CompanyId;";
 
-        using var grid = await conn.QueryMultipleAsync(sql, new
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new
         {
             CompanyId = company.Id, Page = page, PageSize,
             StDraft = DocStatus.Draft, StPosted = DocStatus.Posted, StPaid = DocStatus.Paid
-        });
+        }, cancellationToken: ct));
         Invoices = (await grid.ReadAsync<ExpenseInvoiceDto>()).ToList();
         var agg = await grid.ReadSingleAsync<AggRow>();
         FilteredCount = agg.Total;

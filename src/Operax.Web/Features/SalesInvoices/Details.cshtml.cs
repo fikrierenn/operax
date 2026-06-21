@@ -21,7 +21,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public DocFlowVm?        DocFlow   { get; set; }
 
     // Fatura başlık, kalem ve e-Belge zarf bilgilerini veritabanından yükler
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         if (Id == Guid.Empty) return RedirectToPage("Index");
 
@@ -30,7 +30,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             using var conn = db.Open();
             var p = new { CompanyId = company.Id, Id };
 
-            Header = await conn.QuerySingleOrDefaultAsync<InvoiceHeaderDto>(@"
+            Header = await conn.QuerySingleOrDefaultAsync<InvoiceHeaderDto>(new CommandDefinition(@"
                 SELECT si.Id, si.InvoiceNo, si.InvoiceDate, si.DueDate,
                        si.PartnerId, p.Name AS PartnerName, p.TaxNumber, p.TaxOffice,
                        si.Subtotal, si.TaxAmount, si.GrandTotal, si.PaidAmount,
@@ -38,11 +38,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                        si.ShippingId, si.SalesOrderId, si.Notes
                 FROM SalesInvoice si
                 JOIN Partner p ON p.Id = si.PartnerId
-                WHERE si.Id = @Id AND si.CompanyId = @CompanyId AND si.IsDeleted = 0", p);
+                WHERE si.Id = @Id AND si.CompanyId = @CompanyId AND si.IsDeleted = 0", p, cancellationToken: ct));
 
             if (Header == null) return NotFound();
 
-            Lines = (await conn.QueryAsync<LineDto>(@"
+            Lines = (await conn.QueryAsync<LineDto>(new CommandDefinition(@"
                 /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                    Gerekçe: üst belge SalesInvoice aynı handler içinde daha önce
                    WHERE si.Id = @Id AND si.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -57,9 +57,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                 JOIN Item i ON i.Id = sil.ItemId
                 LEFT JOIN DictionaryValue dv ON dv.Id = sil.UomId
                 WHERE sil.InvoiceId = @Id
-                ORDER BY sil.CreatedAt", p)).ToList();
+                ORDER BY sil.CreatedAt", p, cancellationToken: ct))).ToList();
 
-            Envelopes = (await conn.QueryAsync<EnvelopeDto>(@"
+            Envelopes = (await conn.QueryAsync<EnvelopeDto>(new CommandDefinition(@"
                 /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                    Gerekçe: üst belge SalesInvoice aynı handler içinde daha önce
                    WHERE si.Id = @Id AND si.CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -70,7 +70,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
                        RejectedAt, ResponseText, RetryCount
                 FROM InvoiceEnvelope
                 WHERE InvoiceId = @Id AND IsDeleted = 0
-                ORDER BY CreatedAt DESC", p)).ToList();
+                ORDER BY CreatedAt DESC", p, cancellationToken: ct))).ToList();
 
             // Tahsilat smart button — POSTED faturalarda gösterilir
             if (Header?.Status == DocStatus.Posted)
@@ -118,16 +118,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         DateTime? SentAt, DateTime? AcceptedAt, DateTime? RejectedAt,
         string? ResponseText, int RetryCount);
 
-    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    public async Task<IActionResult> OnPostReverseAsync(Guid id, CancellationToken ct)
     {
         // sp_SalesInvoiceReverse: POSTED faturayı CANCELLED yapar, AccountMovement ters-satır yazar
         // Guard: e-Fatura gönderilmişse SP THROW 51404 fırlatır
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_SalesInvoiceReverse",
+            await conn.ExecuteAsync(new CommandDefinition("sp_SalesInvoiceReverse",
                 new { InvoiceId = id, CompanyId = company.Id, UserId = user.Id },
-                commandType: System.Data.CommandType.StoredProcedure);
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Satış faturası iptal edildi.";
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)

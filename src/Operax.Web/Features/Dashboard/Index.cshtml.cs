@@ -30,7 +30,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public List<ActivityDto>           RecentActivities     { get; set; } = [];
     public List<MonthlyPerformBarDto>  MonthlyPerformance   { get; set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         // DocStatus sabitleri parametre olarak geçilir; SQL içinde literal yasak
@@ -43,17 +43,17 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             StApproved = DocStatus.Approved
         };
 
-        await LoadKpisAsync(conn, p);
-        await LoadIncomingShipmentsAsync(conn, p);
-        await LoadRecentPosAsync(conn, p);
-        await LoadRecentActivitiesAsync(conn, p);
-        await LoadMonthlyPerformanceAsync(conn, p);
+        await LoadKpisAsync(conn, p, ct);
+        await LoadIncomingShipmentsAsync(conn, p, ct);
+        await LoadRecentPosAsync(conn, p, ct);
+        await LoadRecentActivitiesAsync(conn, p, ct);
+        await LoadMonthlyPerformanceAsync(conn, p, ct);
     }
 
     // KPI metriklerini TEK round-trip'te okur (PF-2: 6 ayrı scalar sorgu → 1 sorgu, alt-SELECT'ler).
-    private async Task LoadKpisAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadKpisAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
-        var k = await conn.QuerySingleAsync<KpiRow>(@"
+        var k = await conn.QuerySingleAsync<KpiRow>(new CommandDefinition(@"
             SELECT
                 -- İptal edilmeyen tüm satınalma satırlarının toplam tutarı
                 (SELECT ISNULL(SUM(l.QtyOrdered * l.Price), 0)
@@ -74,7 +74,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                     FROM tvf_InventoryBalance(@CompanyId) b
                     JOIN Item i ON i.Id = b.ItemId AND i.IsDeleted = 0
                     GROUP BY b.ItemId
-                 ) t WHERE t.MinLvl > 0 AND t.Bal < t.MinLvl) AS LowStockSkuCount", p);
+                 ) t WHERE t.MinLvl > 0 AND t.Bal < t.MinLvl) AS LowStockSkuCount",
+            p, cancellationToken: ct));
 
         TotalPoAmount     = k.TotalPoAmount;
         ApprovedPoCount   = k.ApprovedPoCount;
@@ -89,9 +90,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         decimal WarehouseFillRate, int StockLocations, int LowStockSkuCount);
 
     // Yaklaşan sevkiyatlar (DRAFT durumundaki mal kabul satırları, son 5)
-    private async Task LoadIncomingShipmentsAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadIncomingShipmentsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
-        var rows = await conn.QueryAsync<IncomingShipmentDto>(@"
+        var rows = await conn.QueryAsync<IncomingShipmentDto>(new CommandDefinition(@"
             SELECT TOP 5
                 rh.DocNo AS Lpn,
                 p.Name   AS Supplier,
@@ -107,14 +108,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             JOIN DictionaryValue dv ON dv.Id = rl.UomId
             WHERE rh.CompanyId = @CompanyId AND rh.Status = @StDraft
             GROUP BY rh.DocNo, p.Name, i.Code, dv.Code, rh.UpdatedAt, rh.Id
-            ORDER BY rh.UpdatedAt DESC", p);
+            ORDER BY rh.UpdatedAt DESC",
+            p, cancellationToken: ct));
         IncomingShipments = rows.ToList();
     }
 
     // Son satınalma siparişleri (en yeni 5)
-    private async Task LoadRecentPosAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadRecentPosAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
-        var rows = await conn.QueryAsync<RecentPoDto>(@"
+        var rows = await conn.QueryAsync<RecentPoDto>(new CommandDefinition(@"
             SELECT TOP 5
                 h.OrderNo,
                 p.Name AS SupplierName,
@@ -127,14 +129,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             JOIN Partner p ON p.Id = h.PartnerId
             LEFT JOIN City c ON c.Id = p.CityId
             WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0
-            ORDER BY h.OrderDate DESC, h.OrderNo DESC", p);
+            ORDER BY h.OrderDate DESC, h.OrderNo DESC",
+            p, cancellationToken: ct));
         RecentPOs = rows.ToList();
     }
 
     // Son stok hareketleri (en yeni 6 hareket)
-    private async Task LoadRecentActivitiesAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadRecentActivitiesAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
-        var rows = await conn.QueryAsync<ActivityDto>(@"
+        var rows = await conn.QueryAsync<ActivityDto>(new CommandDefinition(@"
             SELECT TOP 6
                 sm.CreatedAt,
                 ISNULL(u.UserName, 'Sistem') AS Who,
@@ -149,16 +152,17 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             JOIN Item i ON i.Id = sm.ItemId
             LEFT JOIN AspNetUsers u ON u.Id = sm.CreatedBy
             WHERE sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
-            ORDER BY sm.CreatedAt DESC", p);
+            ORDER BY sm.CreatedAt DESC",
+            p, cancellationToken: ct));
         RecentActivities = rows.ToList();
     }
 
     // Aylık satınalma performansı: son 6 ay × (POSTED, DRAFT, CANCELLED) tutarları
-    private async Task LoadMonthlyPerformanceAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadMonthlyPerformanceAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
         // İş kuralı: Önce evrak başına satır toplamı CTE'de hesaplanır, sonra aylara dağıtılır.
         // SQL'de SUM(CASE WHEN ... THEN (SELECT SUM...)) yasak olduğundan iki kademe yapılır.
-        var rows = await conn.QueryAsync<MonthlyPerformBarDto>(@"
+        var rows = await conn.QueryAsync<MonthlyPerformBarDto>(new CommandDefinition(@"
             WITH Months AS (
                 SELECT DATEFROMPARTS(YEAR(DATEADD(MONTH, n, GETUTCDATE())),
                                      MONTH(DATEADD(MONTH, n, GETUTCDATE())), 1) AS MonthStart
@@ -182,7 +186,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 ON ht.OrderDate >= m.MonthStart
                AND ht.OrderDate <  DATEADD(MONTH, 1, m.MonthStart)
             GROUP BY m.MonthStart
-            ORDER BY m.MonthStart", p);
+            ORDER BY m.MonthStart",
+            p, cancellationToken: ct));
         MonthlyPerformance = rows.ToList();
     }
 

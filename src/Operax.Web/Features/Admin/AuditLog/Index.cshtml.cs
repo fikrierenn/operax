@@ -20,7 +20,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public string? FilterAction { get; set; }
     public string? FilterEntity { get; set; }
 
-    public async Task OnGetAsync(string? user = null, string? action = null, string? entity = null)
+    public async Task OnGetAsync(string? user = null, string? action = null, string? entity = null, CancellationToken ct = default)
     {
         // Filtre değerleri saklanır (form'da tekrar göstermek için)
         FilterUser = user;
@@ -30,7 +30,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         using var conn = db.Open();
 
         // Son 200 denetim kaydı getirilir; şirket ve filtre koşulları uygulanır
-        Entries = await conn.QueryAsync<AuditLogDto>(@"
+        Entries = await conn.QueryAsync<AuditLogDto>(new CommandDefinition(@"
             SELECT TOP 200
                 Id, CompanyId, UserId, UserName,
                 Action, EntityType, EntityId,
@@ -47,7 +47,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 User = user,
                 Action = action,
                 Entity = entity
-            });
+            }, cancellationToken: ct));
     }
 
     /// <summary>Denetim kaydı satırı veri aktarım nesnesi.</summary>

@@ -15,32 +15,36 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
     public IEnumerable<PendingTaskDto> PendingTasks { get; set; } = [];
     public CurrentLineDto? CurrentLine { get; set; }
 
-    public async Task OnGetAsync(Guid? taskId)
+    public async Task OnGetAsync(Guid? taskId, CancellationToken ct)
     {
         // El terminali: toplama görevleri listelenir, barkod onayıyla satırlar tamamlanır
         using var conn = db.Open();
 
-        PendingTasks = await conn.QueryAsync<PendingTaskDto>(@"
+        PendingTasks = await conn.QueryAsync<PendingTaskDto>(
+            new CommandDefinition(@"
             SELECT t.Id, t.DocNo, t.Status,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id) AS TotalLines,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase >= QtyRequestedBase) AS DoneLines
             FROM PickTask t
             WHERE t.CompanyId = @CompanyId AND t.Status IN (@StDraft, @StAssigned, @StInProgress)
             ORDER BY t.CreatedAt ASC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress },
+            cancellationToken: ct));
 
         if (!taskId.HasValue) return;
 
-        ActiveTask = await conn.QueryFirstOrDefaultAsync<PickTaskTermDto>(@"
+        ActiveTask = await conn.QueryFirstOrDefaultAsync<PickTaskTermDto>(
+            new CommandDefinition(@"
             SELECT t.Id, t.DocNo, t.Status
             FROM PickTask t
             WHERE t.Id = @TaskId AND t.CompanyId = @CompanyId",
-            new { TaskId = taskId, CompanyId = company.Id });
+            new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (ActiveTask == null) return;
 
         // Tamamlanmamış ilk satır — FIFO sırası
-        CurrentLine = await conn.QueryFirstOrDefaultAsync<CurrentLineDto>(@"
+        CurrentLine = await conn.QueryFirstOrDefaultAsync<CurrentLineDto>(
+            new CommandDefinition(@"
             SELECT TOP 1 l.Id, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase,
                    i.Code AS ItemCode, i.Name AS ItemName,
                    b.Code AS BinCode, w.Code AS WhCode
@@ -52,21 +56,23 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyRequestedBase
               AND pt.CompanyId = @CompanyId
             ORDER BY l.Id",
-            new { TaskId = taskId, CompanyId = company.Id });
+            new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
     }
 
-    public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode)
+    public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode, CancellationToken ct)
     {
         // Barkod onayı + satır tamamlama + durum geçişi — iş mantığı SP'de (SQL-First).
         // sp_PickConfirm: barkod doğrula, satırı tamamla, DRAFT→IN_PROGRESS, bitince COMPLETED.
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_PickConfirm",
-                new { TaskId = taskId, LineId = lineId, Barcode = barcode, CompanyId = company.Id, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+            await conn.ExecuteAsync(
+                new CommandDefinition("sp_PickConfirm",
+                    new { TaskId = taskId, LineId = lineId, Barcode = barcode, CompanyId = company.Id, UserId = user.Id },
+                    commandType: CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Toplama onaylandı!";
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)
         {
             // İş kuralı hatası — SP Türkçe mesaj fırlattı (barkod eşleşmedi / satır yok)

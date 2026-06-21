@@ -20,7 +20,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Şirkete ait üretim rotalarını ve adım sayılarını listeler
         using var conn = db.Open();
@@ -35,31 +35,31 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM ProductRoute WHERE CompanyId = @CompanyId;";
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Routes = (await grid.ReadAsync<RouteDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Yeni rota ekler veya mevcut rotayı günceller
         using var conn = db.Open();
 
         if (Form.Id == Guid.Empty)
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO ProductRoute (Id, CompanyId, Code, Name, IsActive)
                 VALUES (NEWID(), @CompanyId, @Code, @Name, @IsActive)",
-                new { CompanyId = company.Id, Form.Code, Form.Name, Form.IsActive });
+                new { CompanyId = company.Id, Form.Code, Form.Name, Form.IsActive }, cancellationToken: ct));
         }
         else
         {
             // CompanyId: başka şirketin rotasını güncelleyemez
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE ProductRoute
                 SET Code = @Code, Name = @Name, IsActive = @IsActive
                 WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Form.Id, CompanyId = company.Id, Form.Code, Form.Name, Form.IsActive });
+                new { Form.Id, CompanyId = company.Id, Form.Code, Form.Name, Form.IsActive }, cancellationToken: ct));
         }
 
         return RedirectToPage();

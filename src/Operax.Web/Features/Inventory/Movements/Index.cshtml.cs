@@ -27,7 +27,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -65,22 +65,30 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                    OR i.Name LIKE '%' + @Q + '%'
                    OR sm.SourceDocNo LIKE '%' + @Q + '%');";
 
-        using var grid = await conn.QueryMultipleAsync(sql,
-            new { CompanyId = company.Id, Type, From, To, Q, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(
+            new CommandDefinition(sql,
+                new { CompanyId = company.Id, Type, From, To, Q, Page = page, PageSize },
+                cancellationToken: ct));
         Movements = (await grid.ReadAsync<MovementDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
 
         Last24hMovements = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM StockMovement WHERE CompanyId = @CompanyId AND CreatedAt >= DATEADD(hour, -24, GETDATE())",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT COUNT(1) FROM StockMovement WHERE CompanyId = @CompanyId AND CreatedAt >= DATEADD(hour, -24, GETDATE())",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
 
         InflowVolume = await conn.ExecuteScalarAsync<decimal>(
-            "SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase > 0",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase > 0",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
 
         OutflowVolume = await conn.ExecuteScalarAsync<decimal>(
-            "SELECT ISNULL(SUM(ABS(QtyBase)), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase < 0",
-            new { CompanyId = company.Id });
+            new CommandDefinition(
+                "SELECT ISNULL(SUM(ABS(QtyBase)), 0) FROM StockMovement WHERE CompanyId = @CompanyId AND QtyBase < 0",
+                new { CompanyId = company.Id },
+                cancellationToken: ct));
     }
 
     public record MovementDto(DateTime CreatedAt, string MovementType, string ItemName, string ItemCode, string WarehouseCode, string BinCode, decimal QtyBase, string SourceDocType, string SourceDocNo, string? OperatorName);

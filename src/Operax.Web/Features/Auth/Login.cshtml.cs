@@ -35,13 +35,13 @@ public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<Login
         public bool RememberMe { get; set; }
     }
 
-    public async Task OnGetAsync(string? returnUrl = null)
+    public async Task OnGetAsync(string? returnUrl = null, CancellationToken ct = default)
     {
         ReturnUrl = returnUrl;
         await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
     }
 
-    public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
+    public async Task<IActionResult> OnPostAsync(string? returnUrl = null, CancellationToken ct = default)
     {
         returnUrl ??= Url.Content("~/");
 

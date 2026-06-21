@@ -20,7 +20,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         Form.Currency    = "TRY";
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         if (!ModelState.IsValid) return Page();
 
@@ -28,9 +28,9 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         try
         {
             // İş kuralı: Aynı kodlu hesap engellenir
-            var exists = await conn.ExecuteScalarAsync<bool>(
+            var exists = await conn.ExecuteScalarAsync<bool>(new CommandDefinition(
                 "SELECT 1 FROM FinancialAccount WHERE CompanyId = @CompanyId AND Code = @Code AND IsDeleted = 0",
-                new { CompanyId = company.Id, Form.Code });
+                new { CompanyId = company.Id, Form.Code }, cancellationToken: ct));
             if (exists)
             {
                 ModelState.AddModelError(string.Empty, "Bu kod ile hesap zaten var.");
@@ -38,7 +38,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             }
 
             var id = Guid.NewGuid();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO FinancialAccount
                     (Id, CompanyId, Code, Name, AccountType, Currency,
                      BankName, BranchName, AccountNumber, IBAN,
@@ -52,7 +52,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                     Form.BankName, Form.BranchName, Form.AccountNumber, Form.IBAN,
                     Form.CreditLimit, Form.InterestRate, Form.OpeningBalance, Form.Notes,
                     UserId = user.Id
-                });
+                }, cancellationToken: ct));
 
             TempData["Success"] = "Hesap oluşturuldu.";
             return RedirectToPage("Details", new { id });

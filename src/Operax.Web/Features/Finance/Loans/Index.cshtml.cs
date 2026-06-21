@@ -28,32 +28,32 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // Kredi listesini ve özet sayaçlarını yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
             using var conn = db.Open();
             var p = new { CompanyId = company.Id };
 
-            Counts = await conn.QuerySingleAsync<LoanCountsDto>(@"
+            Counts = await conn.QuerySingleAsync<LoanCountsDto>(new CommandDefinition(@"
                 SELECT
                     COUNT(*) AS Total,
                     SUM(CASE WHEN Status = 'ACTIVE' THEN 1 ELSE 0 END) AS Active,
                     SUM(CASE WHEN Status = 'CLOSED' THEN 1 ELSE 0 END) AS Closed
                 FROM Loan
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
 
-            TotalOutstanding = await conn.ExecuteScalarAsync<decimal>(@"
+            TotalOutstanding = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(OutstandingBalance), 0)
-                FROM Loan WHERE CompanyId = @CompanyId AND Status = 'ACTIVE' AND IsDeleted = 0", p);
+                FROM Loan WHERE CompanyId = @CompanyId AND Status = 'ACTIVE' AND IsDeleted = 0", p, cancellationToken: ct));
 
-            NextMonthDue = await conn.ExecuteScalarAsync<decimal>(@"
+            NextMonthDue = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(lp.TotalAmount), 0)
                 FROM LoanPayment lp
                 JOIN Loan l ON l.Id = lp.LoanId
                 WHERE l.CompanyId = @CompanyId
                   AND lp.IsPaid = 0
-                  AND lp.DueDate BETWEEN GETUTCDATE() AND DATEADD(DAY, 30, GETUTCDATE())", p);
+                  AND lp.DueDate BETWEEN GETUTCDATE() AND DATEADD(DAY, 30, GETUTCDATE())", p, cancellationToken: ct));
 
             var page = Page < 1 ? 1 : Page;
             const string fromWhere = "FROM Loan l WHERE l.CompanyId = @CompanyId AND l.IsDeleted = 0";
@@ -81,10 +81,11 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
                 SELECT COUNT(*) {fromWhere}{filter};";
 
-            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
             Loans = (await grid.ReadAsync<LoanRowDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Kredi listesi veri yükleme hatası");

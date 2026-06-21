@@ -31,16 +31,16 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public Dictionary<string, decimal> AssetGroupTotals      => Assets.GroupBy(r => r.GroupName).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
     public Dictionary<string, decimal> LiabilityGroupTotals  => Liabilities.GroupBy(r => r.GroupName).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var p = new { CompanyId = company.Id, AsOfDate = EffectiveDate.Date };
 
         // İş kuralı: Mali pozisyon tek TVF çağrısında, alttaki gruplama PageModel'de
-        var rows = await conn.QueryAsync<PositionRowDto>(@"
+        var rows = await conn.QueryAsync<PositionRowDto>(new CommandDefinition(@"
             SELECT Category, GroupName, ItemCode, ItemName, Currency, Amount, SortOrder
             FROM dbo.tvf_FinancialPosition(@CompanyId, @AsOfDate)
-            ORDER BY SortOrder, GroupName, ItemCode", p);
+            ORDER BY SortOrder, GroupName, ItemCode", p, cancellationToken: ct));
 
         var list = rows.ToList();
         Assets      = list.Where(r => r.Category == "ASSET"    ).ToList();
@@ -48,7 +48,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
         // Kredi detayı — kullanıcı "kapama tablosunda kredi borcum ne?" sorduğunda
         // tıkladığında her kredinin: ödenen anapara, kalan, geciken, sonraki ödeme
-        LoanSummary = (await conn.QueryAsync<LoanSummaryDto>(@"
+        LoanSummary = (await conn.QueryAsync<LoanSummaryDto>(new CommandDefinition(@"
             SELECT LoanId, LoanNo, BankName, CalcMethod, Status,
                    Principal, InterestRate, StartDate, EndDate, TermMonths,
                    DueInstallmentCount, PaidInstallmentCount, OverdueInstallmentCount,
@@ -57,7 +57,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                    OutstandingPrincipal, RemainingInterest, TotalRemainingDebt,
                    OverdueAmount, NextDueDate, NextDueAmount
             FROM dbo.tvf_LoanSummaryAsOf(@CompanyId, @AsOfDate)
-            ORDER BY CASE WHEN Status = 'ACTIVE' THEN 0 ELSE 1 END, BankName, LoanNo", p)).ToList();
+            ORDER BY CASE WHEN Status = 'ACTIVE' THEN 0 ELSE 1 END, BankName, LoanNo", p, cancellationToken: ct))).ToList();
 
         logger.LogInformation(
             "Mali durum: tarih={Date}, varlık={Assets}, yükümlülük={Liabilities}, kredi={Loans}",

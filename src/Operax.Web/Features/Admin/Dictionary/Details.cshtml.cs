@@ -13,28 +13,29 @@ public class DetailsModel(Db db) : PageModel
     public DictionaryTypeDto Type { get; set; } = new();
     public IEnumerable<DictionaryValueDto> Values { get; set; } = [];
 
-    public async Task OnGetAsync(Guid id)
+    public async Task OnGetAsync(Guid id, CancellationToken ct = default)
     {
         using var conn = db.Open();
-        Type = await conn.QueryFirstOrDefaultAsync<DictionaryTypeDto>(
+        Type = await conn.QueryFirstOrDefaultAsync<DictionaryTypeDto>(new CommandDefinition(
             @"-- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: DictionaryType tüm firmalar tarafından paylaşılan global sistem verisidir
             -- (birim, para birimi, ülke kodları vb.). Şirkete özel kayıt içermez.
             -- Bu sayfa yalnızca Administrator rolüne açıktır; veri sızıntısı riski yoktur.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            SELECT Id, Code, NameTr, NameEn FROM DictionaryType WHERE Id = @Id", new { Id = id }) ?? new();
+            SELECT Id, Code, NameTr, NameEn FROM DictionaryType WHERE Id = @Id",
+            new { Id = id }, cancellationToken: ct)) ?? new();
 
-        Values = await conn.QueryAsync<DictionaryValueDto>(
+        Values = await conn.QueryAsync<DictionaryValueDto>(new CommandDefinition(
             @"-- Çoklu-firma izolasyon notu: bu sorgu CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: DictionaryValue, tüm firmalar tarafından paylaşılan global sözlük değerleridir
             -- (ölçü birimi kodları, ülke adları, kategori değerleri vb.).
             -- DictionaryTypeId filtresi tür kapsamını sınırlar; şirkete özel veri içermez.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             SELECT Id, Code, NameTr, NameEn, SortNo FROM DictionaryValue WHERE DictionaryTypeId = @Id AND IsDeleted = 0 ORDER BY SortNo, NameTr",
-            new { Id = id });
+            new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<IActionResult> OnPostAddValueAsync(Guid id, string code, string nameTr, string nameEn, int sortNo)
+    public async Task<IActionResult> OnPostAddValueAsync(Guid id, string code, string nameTr, string nameEn, int sortNo, CancellationToken ct = default)
     {
         using var conn = db.Open();
         const string sql = @"
@@ -44,8 +45,8 @@ public class DetailsModel(Db db) : PageModel
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO DictionaryValue (DictionaryTypeId, Code, NameTr, NameEn, SortNo)
             VALUES (@TypeId, @Code, @NameTr, @NameEn, @SortNo)";
-        
-        await conn.ExecuteAsync(sql, new { TypeId = id, Code = code, NameTr = nameTr, NameEn = nameEn, SortNo = sortNo });
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { TypeId = id, Code = code, NameTr = nameTr, NameEn = nameEn, SortNo = sortNo }, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 

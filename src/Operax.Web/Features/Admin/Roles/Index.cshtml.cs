@@ -18,7 +18,7 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -27,12 +27,12 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM AspNetRoles;";
-        using var grid = await conn.QueryMultipleAsync(sql, new { Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { Page = page, PageSize }, cancellationToken: ct));
         Roles = (await grid.ReadAsync<IdentityRole>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
-    public async Task<IActionResult> OnPostDeleteAsync(string id)
+    public async Task<IActionResult> OnPostDeleteAsync(string id, CancellationToken ct = default)
     {
         var role = await roleManager.FindByIdAsync(id);
         if (role == null) return NotFound();
@@ -41,7 +41,7 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
         if (role.Name == "Administrator")
         {
             ModelState.AddModelError("", "Administrator rolü silinemez.");
-            await OnGetAsync();
+            await OnGetAsync(ct);
             return Page();
         }
 

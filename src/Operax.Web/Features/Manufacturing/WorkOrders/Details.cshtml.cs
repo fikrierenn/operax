@@ -13,20 +13,20 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     public IEnumerable<RouteStepDto> Steps { get; set; } = [];
     public IEnumerable<DdlDto> WorkCenters { get; set; } = [];
 
-    public async Task OnGetAsync(Guid id)
+    public async Task OnGetAsync(Guid id, CancellationToken ct)
     {
         // Rota detayını ve adımlarını yükler
         using var conn = db.Open();
 
-        Route = await conn.QueryFirstOrDefaultAsync<RouteDto>(@"
+        Route = await conn.QueryFirstOrDefaultAsync<RouteDto>(new CommandDefinition(@"
             SELECT Id, Code, Name, IsActive
             FROM ProductRoute
             WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Route.Id == Guid.Empty) return;
 
-        Steps = await conn.QueryAsync<RouteStepDto>(@"
+        Steps = await conn.QueryAsync<RouteStepDto>(new CommandDefinition(@"
             /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                Gerekçe: üst kayıt ProductRoute aynı handler içinde daha önce
                WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş döndü.
@@ -41,41 +41,42 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             JOIN WorkCenter wc ON wc.Id = s.WorkCenterId
             WHERE s.ProductRouteId = @RouteId
             ORDER BY s.StepOrder",
-            new { RouteId = id });
+            new { RouteId = id }, cancellationToken: ct));
 
-        WorkCenters = await conn.QueryAsync<DdlDto>(@"
+        WorkCenters = await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code + ' — ' + Name AS Name
             FROM WorkCenter
             WHERE CompanyId = @CompanyId AND IsActive = 1
             ORDER BY Code",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
     }
 
     public async Task<IActionResult> OnPostAddStepAsync(
         Guid id, string operationCode, string operationName,
         Guid workCenterId, int standardDurationMin,
-        decimal standardLaborCost, decimal standardMachineCost)
+        decimal standardLaborCost, decimal standardMachineCost,
+        CancellationToken ct)
     {
         // Rotaya yeni adım ekler — rotanın şirkete ait olduğunu doğrula
         using var conn = db.Open();
 
-        var exists = await conn.ExecuteScalarAsync<int>(
+        var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM ProductRoute WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (exists == 0) return RedirectToPage("./Index");
 
         // WorkCenter aynı şirkete ait mi?
-        var wcExists = await conn.ExecuteScalarAsync<int>(
+        var wcExists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM WorkCenter WHERE Id = @WcId AND CompanyId = @CompanyId",
-            new { WcId = workCenterId, CompanyId = company.Id });
+            new { WcId = workCenterId, CompanyId = company.Id }, cancellationToken: ct));
         if (wcExists == 0) return RedirectToPage(new { id });
 
         // Sonraki sıra numarasını hesapla
-        var nextOrder = await conn.ExecuteScalarAsync<int>(
+        var nextOrder = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT ISNULL(MAX(StepOrder), 0) + 10 FROM ProductRouteStep WHERE ProductRouteId = @RouteId",
-            new { RouteId = id });
+            new { RouteId = id }, cancellationToken: ct));
 
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             /* Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                Gerekçe: üst kayıt ProductRoute bu handler'da
                WHERE Id = @Id AND CompanyId = @CompanyId ile doğrulandı; bulunamazsa Index'e yönlendirildi.
@@ -98,20 +99,20 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 DurationSec = standardDurationMin * 60,
                 LaborCost = standardLaborCost,
                 MachineCost = standardMachineCost
-            });
+            }, cancellationToken: ct));
 
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteStepAsync(Guid id, Guid stepId)
+    public async Task<IActionResult> OnPostDeleteStepAsync(Guid id, Guid stepId, CancellationToken ct)
     {
         // Adımı siler — JOIN ile şirket sahipliği doğrulanır
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             DELETE s FROM ProductRouteStep s
             JOIN ProductRoute r ON r.Id = s.ProductRouteId
             WHERE s.Id = @StepId AND r.CompanyId = @CompanyId",
-            new { StepId = stepId, CompanyId = company.Id });
+            new { StepId = stepId, CompanyId = company.Id }, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 

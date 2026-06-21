@@ -12,29 +12,29 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     public LpnDto Lpn { get; set; } = new();
     public IEnumerable<LpnContentDto> Contents { get; set; } = [];
 
-    public async Task OnGetAsync(string code)
+    public async Task OnGetAsync(string code, CancellationToken ct)
     {
         using var conn = db.Open();
-        
-        Lpn = await conn.QueryFirstOrDefaultAsync<LpnDto>(@"
+
+        Lpn = await conn.QueryFirstOrDefaultAsync<LpnDto>(new CommandDefinition(@"
             SELECT l.*, w.Code as WhCode, b.Code as BinCode
             FROM LPN l
             LEFT JOIN Warehouse w ON w.Id = l.CurrentWarehouseId
             LEFT JOIN Bin b ON b.Id = l.CurrentBinId
-            WHERE l.Code = @Code AND l.CompanyId = @CompanyId", 
-            new { Code = code, CompanyId = company.Id }) ?? new();
+            WHERE l.Code = @Code AND l.CompanyId = @CompanyId",
+            new { Code = code, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Lpn.Id != Guid.Empty)
         {
             // CompanyId: LpnId zaten şirkete ait ama StockMovement'a açıkça ekle
-            Contents = await conn.QueryAsync<LpnContentDto>(@"
+            Contents = await conn.QueryAsync<LpnContentDto>(new CommandDefinition(@"
                 SELECT ItemId, LotNo, SUM(QtyBase) as Qty, i.Code as ItemCode, i.Name as ItemName
                 FROM StockMovement sm
                 JOIN Item i ON i.Id = sm.ItemId
                 WHERE sm.LpnId = @LpnId AND sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
                 GROUP BY ItemId, LotNo, i.Code, i.Name
                 HAVING SUM(QtyBase) <> 0",
-                new { LpnId = Lpn.Id, CompanyId = company.Id });
+                new { LpnId = Lpn.Id, CompanyId = company.Id }, cancellationToken: ct));
         }
     }
 

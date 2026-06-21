@@ -11,7 +11,7 @@ public class CreateModel(RoleManager<IdentityRole> roleManager) : PageModel
     [BindProperty]
     public string RoleName { get; set; } = "";
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(RoleName))
         {

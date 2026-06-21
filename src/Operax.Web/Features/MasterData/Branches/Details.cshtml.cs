@@ -20,26 +20,26 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
     public bool IsNew => Branch.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
 
         // Dropdown her zaman yüklenir
-        WarehouseDdl = await conn.QueryAsync<DdlDto>(
+        WarehouseDdl = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Name AS Text FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         if (id.HasValue)
         {
             // CompanyId zorunlu — başka şirket şubesi görüntülenemez
-            Branch = await conn.QueryFirstOrDefaultAsync<BranchDto>(
+            Branch = await conn.QueryFirstOrDefaultAsync<BranchDto>(new CommandDefinition(
                 "SELECT Id, Code, Name, City, Address, Phone, BranchType, ReturnWarehouseId, IsActive FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }) ?? new();
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
             // Şubeye bağlı depolar — CompanyId zorunlu (izolasyon: başka şirket deposu sızmaz)
-            Warehouses = await conn.QueryAsync<WarehouseDto>(
+            Warehouses = await conn.QueryAsync<WarehouseDto>(new CommandDefinition(
                 "SELECT Id, Code, Name, IsActive FROM Warehouse WHERE BranchId = @BranchId AND CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
-                new { BranchId = id, CompanyId = company.Id });
+                new { BranchId = id, CompanyId = company.Id }, cancellationToken: ct));
         }
         else
         {
@@ -48,7 +48,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         if (!ModelState.IsValid) return Page();
 
@@ -57,16 +57,16 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         // İş kuralı: ReturnWarehouseId bu firmaya ait olmalı (IDOR koruması)
         if (Branch.ReturnWarehouseId.HasValue)
         {
-            var whOwned = await conn.ExecuteScalarAsync<int>(
+            var whOwned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = Branch.ReturnWarehouseId, CompanyId = company.Id });
+                new { Id = Branch.ReturnWarehouseId, CompanyId = company.Id }, cancellationToken: ct));
             if (whOwned == 0) Branch.ReturnWarehouseId = null;
         }
 
         if (IsNew)
         {
             Branch.Id = Guid.NewGuid();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO Branch (Id, CompanyId, Code, Name, City, Address, Phone, BranchType, ReturnWarehouseId, IsActive)
                 VALUES (@Id, @CompanyId, @Code, @Name, @City, @Address, @Phone, @BranchType, @ReturnWarehouseId, @IsActive)",
                 new
@@ -75,12 +75,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                     CompanyId = company.Id,
                     Branch.Code, Branch.Name, Branch.City, Branch.Address,
                     Branch.Phone, Branch.BranchType, Branch.ReturnWarehouseId, Branch.IsActive
-                });
+                }, cancellationToken: ct));
         }
         else
         {
             // CompanyId zorunlu — başka şirket şubesi güncellenemez
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE Branch
                 SET Code = @Code, Name = @Name, City = @City, Address = @Address,
                     Phone = @Phone, BranchType = @BranchType, ReturnWarehouseId = @ReturnWarehouseId,
@@ -91,7 +91,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                     Branch.Code, Branch.Name, Branch.City, Branch.Address,
                     Branch.Phone, Branch.BranchType, Branch.ReturnWarehouseId,
                     Branch.IsActive, Branch.Id, CompanyId = company.Id
-                });
+                }, cancellationToken: ct));
         }
 
         TempData["Success"] = "Şube kaydedildi.";

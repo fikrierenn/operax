@@ -21,7 +21,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -33,13 +33,13 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM NumberSeries WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Series = (await grid.ReadAsync<SeriesRowDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
     // Seri ayarını güncelle (prefix / sonraki no / dolgu / ayraç / aktiflik)
-    public async Task<IActionResult> OnPostSaveAsync(Guid id, string prefix, int nextNo, byte padding, string separator, bool isActive)
+    public async Task<IActionResult> OnPostSaveAsync(Guid id, string prefix, int nextNo, byte padding, string separator, bool isActive, CancellationToken ct = default)
     {
         // İş kuralı: prefix boş olamaz, sonraki no en az 1
         if (string.IsNullOrWhiteSpace(prefix)) { TempData["Error"] = "Önek zorunludur."; return RedirectToPage(); }
@@ -47,13 +47,13 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         if (padding < 1) padding = 1;
 
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE NumberSeries
                SET Prefix = @Prefix, NextNo = @NextNo, Padding = @Padding,
                    Separator = @Separator, IsActive = @IsActive, UpdatedAt = GETUTCDATE()
              WHERE Id = @Id AND CompanyId = @CompanyId",
             new { Id = id, Prefix = prefix.Trim(), NextNo = nextNo, Padding = padding,
-                  Separator = separator ?? "-", IsActive = isActive, CompanyId = company.Id });
+                  Separator = separator ?? "-", IsActive = isActive, CompanyId = company.Id }, cancellationToken: ct));
 
         logger.LogInformation("Belge serisi güncellendi: {Id}", id);
         TempData["Success"] = "Belge serisi güncellendi.";

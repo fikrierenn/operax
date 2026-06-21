@@ -20,7 +20,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // Parametre listesini veritabanından yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         try
         {
@@ -34,7 +34,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
                 SELECT COUNT(1) FROM Parameter WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
-            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
             Parameters = (await grid.ReadAsync<ParameterDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
@@ -46,15 +46,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     }
 
     // Mevcut parametre değeri güncelle
-    public async Task<IActionResult> OnPostSaveAsync(Guid id, string value, string description)
+    public async Task<IActionResult> OnPostSaveAsync(Guid id, string value, string description, CancellationToken ct = default)
     {
         try
         {
             using var conn = db.Open();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE Parameter SET Value = @Value, Description = @Description, UpdatedAt = GETUTCDATE()
                 WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, Value = value, Description = description, CompanyId = company.Id });
+                new { Id = id, Value = value, Description = description, CompanyId = company.Id }, cancellationToken: ct));
             TempData["Success"] = "Parametre güncellendi.";
         }
         catch (SqlException sqlEx)
@@ -66,7 +66,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     }
 
     // Yeni parametre ekle
-    public async Task<IActionResult> OnPostCreateAsync(string moduleCode, string code, string value, string description)
+    public async Task<IActionResult> OnPostCreateAsync(string moduleCode, string code, string value, string description, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(value))
         {
@@ -79,9 +79,9 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             using var conn = db.Open();
 
             // Aynı CompanyId + Code kombinasyonu var mı kontrol
-            var exists = await conn.ExecuteScalarAsync<int>(
+            var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM Parameter WHERE CompanyId = @CompanyId AND Code = @Code AND IsDeleted = 0",
-                new { CompanyId = company.Id, Code = code });
+                new { CompanyId = company.Id, Code = code }, cancellationToken: ct));
 
             if (exists > 0)
             {
@@ -89,10 +89,10 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 return RedirectToPage();
             }
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO Parameter (Id, CompanyId, ModuleCode, Code, Value, Description)
                 VALUES (NEWID(), @CompanyId, @ModuleCode, @Code, @Value, @Description)",
-                new { CompanyId = company.Id, ModuleCode = moduleCode?.ToUpper() ?? "SYS", Code = code.ToUpper(), Value = value, Description = description });
+                new { CompanyId = company.Id, ModuleCode = moduleCode?.ToUpper() ?? "SYS", Code = code.ToUpper(), Value = value, Description = description }, cancellationToken: ct));
 
             TempData["Success"] = $"'{code}' parametresi oluşturuldu.";
         }
@@ -105,15 +105,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     }
 
     // Parametre sil (soft delete)
-    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken ct = default)
     {
         try
         {
             using var conn = db.Open();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE Parameter SET IsDeleted = 1, UpdatedAt = GETUTCDATE()
                 WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id });
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
             TempData["Success"] = "Parametre silindi.";
         }
         catch (SqlException sqlEx)

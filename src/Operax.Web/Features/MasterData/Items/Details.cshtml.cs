@@ -29,25 +29,25 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public bool IsNew => Item.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         // Ürün formunu yükler: UOM listesi, kategori, vergi oranları ve ürün detayları
         using var conn = db.Open();
 
         var p = new { CompanyId = company.Id };
 
-        Uoms = await conn.QueryAsync<DdlDto>(
+        Uoms = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'UOM' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0",
-            p);
+            p, cancellationToken: ct));
 
         // Kategori — şirkete ait + aktif
-        Categories = await conn.QueryAsync<DdlDto>(
+        Categories = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Category WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
-            p);
+            p, cancellationToken: ct));
 
-        TaxRates = await conn.QueryAsync<DdlDto>(
+        TaxRates = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'TAX_RATE' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0 ORDER BY dv.OrderNo",
-            p);
+            p, cancellationToken: ct));
 
         // Yeni ürün varsayılan KDV oranı parametreden (Plan 29) — Admin > Parametreler ile değişir
         if (!id.HasValue)
@@ -56,7 +56,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (id.HasValue)
         {
             // CompanyId filtresi — başka şirket ürünü görüntülenemez
-            Item = await conn.QueryFirstOrDefaultAsync<ItemDto>(@"
+            Item = await conn.QueryFirstOrDefaultAsync<ItemDto>(new CommandDefinition(@"
                 SELECT i.Id, i.Code, i.Name, i.Description, i.BaseUomId, i.CategoryId,
                        i.TaxRate, i.ItemType, i.IsLotTracked, i.IsSerialTracked, i.IsActive,
                        i.MinStockLevel, i.MaxStockLevel, i.AdditionalFields,
@@ -65,35 +65,35 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN DictionaryValue dv ON dv.Id = i.BaseUomId
                 LEFT JOIN Category c ON c.Id = i.CategoryId
                 WHERE i.Id = @Id AND i.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }) ?? new();
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
             // Odoo Smart Buttons için stok bilgilerini getir
-            QtyOnHand = await conn.QueryFirstOrDefaultAsync<decimal>(
+            QtyOnHand = await conn.QueryFirstOrDefaultAsync<decimal>(new CommandDefinition(
                 "SELECT ISNULL(SUM(QtyBalance), 0) FROM tvf_InventoryBalance(@CompanyId) WHERE ItemId = @ItemId",
-                new { ItemId = id, CompanyId = company.Id });
+                new { ItemId = id, CompanyId = company.Id }, cancellationToken: ct));
 
-            MovementCount = await conn.QueryFirstOrDefaultAsync<int>(
+            MovementCount = await conn.QueryFirstOrDefaultAsync<int>(new CommandDefinition(
                 "SELECT COUNT(*) FROM StockMovement WHERE ItemId = @ItemId AND CompanyId = @CompanyId",
-                new { ItemId = id, CompanyId = company.Id });
+                new { ItemId = id, CompanyId = company.Id }, cancellationToken: ct));
 
-            UomConversions = await conn.QueryAsync<UomConversionDto>(@"
+            UomConversions = await conn.QueryAsync<UomConversionDto>(new CommandDefinition(@"
                 SELECT u.Id, dv.Code as UomCode, dv.NameTr as UomName, u.ConversionRate
                 FROM ItemUOM u
                 JOIN DictionaryValue dv ON dv.Id = u.UomId
                 JOIN Item i ON i.Id = u.ItemId
                 WHERE u.ItemId = @Id AND i.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id });
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
-            Barcodes = await conn.QueryAsync<BarcodeDto>(@"
+            Barcodes = await conn.QueryAsync<BarcodeDto>(new CommandDefinition(@"
                 SELECT b.Id, b.Barcode, dv.Code as UomCode
                 FROM ItemBarcode b
                 JOIN DictionaryValue dv ON dv.Id = b.UomId
                 JOIN Item i ON i.Id = b.ItemId
                 WHERE b.ItemId = @Id AND i.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id });
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
             // Tedarikçiler tab (Plan 32) + dinamik UDF paneli (Plan 34) yüklenir
-            await LoadSupplierTabAsync(conn, id.Value);
+            await LoadSupplierTabAsync(conn, id.Value, ct);
 
             var udfDefs = await udfSvc.LoadDefinitionsAsync("Item");
             var udfOpts = await udfSvc.ResolveAllAsync(udfDefs);
@@ -106,7 +106,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     }
 
     // Tedarikçiler tab verisini hazırlar: tedarikçi-ürün eşlemeleri + tedarikçi (cari) lookup JSON'ları
-    private async Task LoadSupplierTabAsync(System.Data.IDbConnection conn, Guid id)
+    private async Task LoadSupplierTabAsync(System.Data.IDbConnection conn, Guid id, CancellationToken ct)
     {
         var suppliers = await supplierItems.ListByItemAsync(company.Id, id);
         SupplierLinesJson = System.Text.Json.JsonSerializer.Serialize(suppliers.Select(s => new
@@ -115,13 +115,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             leadTimeDays = s.LeadTimeDays, minOrderQty = s.MinOrderQty, lastPrice = s.LastPrice,
             currency = s.Currency, isPreferred = s.IsPreferred
         }));
-        var vendors = await conn.QueryAsync<DdlDto>(
+        var vendors = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Partner WHERE CompanyId=@CompanyId AND IsDeleted=0 AND Type IN ('VENDOR','BOTH') ORDER BY Name",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
         VendorsJson = System.Text.Json.JsonSerializer.Serialize(vendors.Select(v => new { id = v.Id, code = v.Code, name = v.Name }));
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Ürünü kaydeder veya günceller
         using var conn = db.Open();
@@ -144,7 +144,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         if (IsNew)
         {
             Item.Id = Guid.NewGuid();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO Item
                     (Id, CompanyId, Code, Name, Description, BaseUomId, CategoryId,
                      TaxRate, ItemType, IsLotTracked, IsSerialTracked, IsActive,
@@ -158,12 +158,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                     Item.BaseUomId, Item.CategoryId, Item.TaxRate, Item.ItemType,
                     Item.IsLotTracked, Item.IsSerialTracked, Item.IsActive,
                     Item.MinStockLevel, Item.MaxStockLevel, Item.AdditionalFields, UserId = user.Id
-                });
+                }, cancellationToken: ct));
             await audit.LogAsync("CREATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
         else
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE Item
                 SET Code=@Code, Name=@Name, Description=@Description,
                     BaseUomId=@BaseUomId, CategoryId=@CategoryId, TaxRate=@TaxRate,
@@ -177,7 +177,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                     Item.IsSerialTracked, Item.IsActive, Item.MinStockLevel, Item.MaxStockLevel,
                     Item.AdditionalFields, UserId = user.Id,
                     Item.Id, CompanyId = company.Id
-                });
+                }, cancellationToken: ct));
             await audit.LogAsync("UPDATE", "Item", Item.Id, $"Kod: {Item.Code}, Ad: {Item.Name}");
         }
 
@@ -241,51 +241,51 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id, tab = "suppliers" });
     }
 
-    public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate)
+    public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate, CancellationToken ct)
     {
         // UOM dönüşüm oranı ekler — IDOR: ürün bu firmaya ait olmalı
         using var conn = db.Open();
-        var owned = await conn.ExecuteScalarAsync<int>(
+        var owned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (owned == 0) return RedirectToPage(new { id, tab = "uom" });
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "INSERT INTO ItemUOM (ItemId, UomId, ConversionRate) VALUES (@ItemId, @UomId, @Rate)",
-            new { ItemId = id, UomId = uomId, Rate = rate });
+            new { ItemId = id, UomId = uomId, Rate = rate }, cancellationToken: ct));
         return RedirectToPage(new { id, tab = "uom" });
     }
 
-    public async Task<IActionResult> OnPostDeleteUomAsync(Guid id, Guid uomConversionId)
+    public async Task<IActionResult> OnPostDeleteUomAsync(Guid id, Guid uomConversionId, CancellationToken ct)
     {
         // UOM dönüşüm satırını siler — IDOR: yalnızca bu firmanın ürününe ait satır
         using var conn = db.Open();
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM ItemUOM WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
-            new { Id = uomConversionId, CompanyId = company.Id });
+            new { Id = uomConversionId, CompanyId = company.Id }, cancellationToken: ct));
         return RedirectToPage(new { id, tab = "uom" });
     }
 
-    public async Task<IActionResult> OnPostAddBarcodeAsync(Guid id, Guid uomId, string barcode)
+    public async Task<IActionResult> OnPostAddBarcodeAsync(Guid id, Guid uomId, string barcode, CancellationToken ct)
     {
         // Barkod ekler — IDOR: ürün bu firmaya ait olmalı
         using var conn = db.Open();
-        var owned = await conn.ExecuteScalarAsync<int>(
+        var owned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (owned == 0) return RedirectToPage(new { id, tab = "barcodes" });
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "INSERT INTO ItemBarcode (ItemId, UomId, Barcode) VALUES (@ItemId, @UomId, @Barcode)",
-            new { ItemId = id, UomId = uomId, Barcode = barcode });
+            new { ItemId = id, UomId = uomId, Barcode = barcode }, cancellationToken: ct));
         return RedirectToPage(new { id, tab = "barcodes" });
     }
 
-    public async Task<IActionResult> OnPostDeleteBarcodeAsync(Guid id, Guid barcodeId)
+    public async Task<IActionResult> OnPostDeleteBarcodeAsync(Guid id, Guid barcodeId, CancellationToken ct)
     {
         // Barkod siler — IDOR: yalnızca bu firmanın ürününe ait barkod
         using var conn = db.Open();
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM ItemBarcode WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
-            new { Id = barcodeId, CompanyId = company.Id });
+            new { Id = barcodeId, CompanyId = company.Id }, cancellationToken: ct));
         return RedirectToPage(new { id, tab = "barcodes" });
     }
 

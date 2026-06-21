@@ -17,7 +17,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -33,12 +33,12 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
             SELECT COUNT(1) FROM Module WHERE IsActive = 1;";
 
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Modules = (await grid.ReadAsync<ModuleDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
-    public async Task<IActionResult> OnPostAsync(Guid moduleId, bool active)
+    public async Task<IActionResult> OnPostAsync(Guid moduleId, bool active, CancellationToken ct = default)
     {
         using var conn = db.Open();
 
@@ -48,7 +48,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             ELSE
                 INSERT INTO CompanyModule (CompanyId, ModuleId, IsActive) VALUES (@CompanyId, @ModuleId, @Active)";
 
-        await conn.ExecuteAsync(sql, new { CompanyId = company.Id, ModuleId = moduleId, Active = active });
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { CompanyId = company.Id, ModuleId = moduleId, Active = active }, cancellationToken: ct));
 
         return RedirectToPage();
     }

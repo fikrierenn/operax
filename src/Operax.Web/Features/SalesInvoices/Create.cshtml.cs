@@ -25,13 +25,13 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
     public string?                SelectedPartnerName { get; set; }
 
     // Faturalanmamış sevkiyatları cari bazlı yükler; cari seçiliyse o carinin satırlarını getirir
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var p = new { CompanyId = company.Id, PartnerId };
 
         // Cari özet: faturalanmamış sevkiyatı olan her cari + sevkiyat/satır sayısı + en eski yaş
-        PartnerGroups = (await conn.QueryAsync<PartnerGroupDto>(@"
+        PartnerGroups = (await conn.QueryAsync<PartnerGroupDto>(new CommandDefinition(@"
             SELECT
                 PartnerId,
                 PartnerName,
@@ -41,13 +41,13 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                 MAX(AgeDays)               AS MaxAgeDays
             FROM dbo.tvf_UninvoicedShipments(@CompanyId)
             GROUP BY PartnerId, PartnerName
-            ORDER BY MAX(AgeDays) DESC, PartnerName", p)).ToList();
+            ORDER BY MAX(AgeDays) DESC, PartnerName", p, cancellationToken: ct))).ToList();
 
         // Cari seçilmemişse satır listesine gerek yok
         if (PartnerId is null) return;
 
         // Seçili carinin faturalanmamış sevkiyat satırları (sevkiyat bazlı gruplanır view'da)
-        ShipmentLines = (await conn.QueryAsync<ShipmentLineDto>(@"
+        ShipmentLines = (await conn.QueryAsync<ShipmentLineDto>(new CommandDefinition(@"
             SELECT
                 ShippingId, ShippingNo, ShipDate,
                 ShippingLineId, ItemName,
@@ -55,13 +55,13 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                 LineStatus, AgeDays
             FROM dbo.tvf_UninvoicedShipments(@CompanyId)
             WHERE PartnerId = @PartnerId
-            ORDER BY ShipDate, ShippingNo", p)).ToList();
+            ORDER BY ShipDate, ShippingNo", p, cancellationToken: ct))).ToList();
 
         SelectedPartnerName = PartnerGroups.FirstOrDefault(g => g.PartnerId == PartnerId)?.PartnerName;
     }
 
     // Seçilen sevkiyatları tek faturada birleştirir (sp_GenerateSalesInvoiceFromShippings)
-    public async Task<IActionResult> OnPostMergeAsync(Guid partnerId, Guid[] shippingIds)
+    public async Task<IActionResult> OnPostMergeAsync(Guid partnerId, Guid[] shippingIds, CancellationToken ct)
     {
         // İş kuralı: en az bir sevkiyat seçilmeli
         if (shippingIds is null || shippingIds.Length == 0)
@@ -80,8 +80,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             prm.Add("UserId",          user.Id);
             prm.Add("NewInvoiceId",    dbType: DbType.Guid, direction: ParameterDirection.Output);
 
-            await conn.ExecuteAsync("sp_GenerateSalesInvoiceFromShippings", prm,
-                commandType: CommandType.StoredProcedure);
+            await conn.ExecuteAsync(new CommandDefinition("sp_GenerateSalesInvoiceFromShippings", prm,
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
 
             var newId = prm.Get<Guid>("NewInvoiceId");
             TempData["Success"] = $"{shippingIds.Length} sevkiyat tek faturada birleştirildi.";

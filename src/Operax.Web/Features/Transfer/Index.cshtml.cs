@@ -34,7 +34,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // İş kuralı: arama terimi varsa DocNo LIKE filtresi uygulanır
         var search = string.IsNullOrWhiteSpace(Q) ? null : $"%{Q.Trim()}%";
@@ -73,32 +73,33 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
               AND (@Status     IS NULL OR t.Status = @Status)
               AND (@BranchId   IS NULL OR fw.BranchId = @BranchId OR tw.BranchId = @BranchId);";
 
-        using (var grid = await conn.QueryMultipleAsync(sql,
-            new { CompanyId = company.Id, Search = search, Status = statusParam, BranchId = BranchFilter, Page = page, PageSize }))
+        using (var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql,
+            new { CompanyId = company.Id, Search = search, Status = statusParam, BranchId = BranchFilter, Page = page, PageSize },
+            cancellationToken: ct)))
         {
             Transfers = (await grid.ReadAsync<TransferDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
 
         // Şube filtresi dropdown için
-        Branches = await conn.QueryAsync<DdlDto>(
+        Branches = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Name AS Text FROM Branch WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
-        DraftCount = await conn.ExecuteScalarAsync<int>(
+        DraftCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = @StDraft",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
 
-        PostedCount = await conn.ExecuteScalarAsync<int>(
+        PostedCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM StockTransfer WHERE CompanyId = @CompanyId AND Status = @StPosted",
-            new { CompanyId = company.Id, StPosted = DocStatus.Posted });
+            new { CompanyId = company.Id, StPosted = DocStatus.Posted }, cancellationToken: ct));
 
-        TotalTransferQty = await conn.ExecuteScalarAsync<decimal>(@"
+        TotalTransferQty = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
             SELECT ISNULL(SUM(l.QtyBase), 0)
             FROM StockTransferLine l
             JOIN StockTransfer t ON t.Id = l.TransferId
             WHERE t.CompanyId = @CompanyId AND t.Status = @StPosted",
-            new { CompanyId = company.Id, StPosted = DocStatus.Posted });
+            new { CompanyId = company.Id, StPosted = DocStatus.Posted }, cancellationToken: ct));
     }
 
     public record TransferDto

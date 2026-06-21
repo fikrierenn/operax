@@ -21,9 +21,9 @@ public class ImportModel(Db db, ICurrentCompany company, ICurrentUser user,
     public string ParsedJson { get; set; } = "[]";   // önizleme sonrası onaya taşınan satırlar
     public int SkippedCount { get; set; }             // ayrıştırılamayıp atlanan satır sayısı
 
-    public async Task<IActionResult> OnGetAsync(Guid id)
+    public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken ct)
     {
-        if (!await LoadListAsync(id)) return NotFound();
+        if (!await LoadListAsync(id, ct)) return NotFound();
         return Page();
     }
 
@@ -31,7 +31,7 @@ public class ImportModel(Db db, ICurrentCompany company, ICurrentUser user,
     public async Task<IActionResult> OnPostPreviewAsync(Guid id, string? pasteData, IFormFile? file,
         CancellationToken ct = default)
     {
-        if (!await LoadListAsync(id)) return NotFound();
+        if (!await LoadListAsync(id, ct)) return NotFound();
 
         var text = await ReadInputAsync(pasteData, file);
         if (string.IsNullOrWhiteSpace(text))
@@ -57,7 +57,7 @@ public class ImportModel(Db db, ICurrentCompany company, ICurrentUser user,
     // Önizlemeden geçen satırları gerçek upsert eder (ek-mod: mevcutları korur).
     public async Task<IActionResult> OnPostConfirmAsync(Guid id, string rowsJson, CancellationToken ct = default)
     {
-        if (!await LoadListAsync(id)) return NotFound();
+        if (!await LoadListAsync(id, ct)) return NotFound();
 
         // İş kuralı: gizli alandan gelen JSON bozuksa sistem hatası gibi 500'e gitmemeli
         List<PriceListBulkService.BulkLine> lines;
@@ -95,12 +95,12 @@ public class ImportModel(Db db, ICurrentCompany company, ICurrentUser user,
 
     // ─── Yardımcılar ────────────────────────────────────────────
 
-    private async Task<bool> LoadListAsync(Guid id)
+    private async Task<bool> LoadListAsync(Guid id, CancellationToken ct)
     {
         using var conn = db.Open();
-        var row = await conn.QuerySingleOrDefaultAsync<(Guid Id, string Name)?>(
+        var row = await conn.QuerySingleOrDefaultAsync<(Guid Id, string Name)?>(new CommandDefinition(
             "SELECT Id, Name FROM PriceList WHERE Id=@Id AND CompanyId=@CompanyId AND IsDeleted=0",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (row is null) return false;
         ListId = row.Value.Id;
         ListName = row.Value.Name;

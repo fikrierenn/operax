@@ -17,29 +17,29 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
 
     public bool IsNew => Model.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         // Model, parametre ve BOM satırlarını yükler; yeni kayıt için boş döner
         using var conn = db.Open();
 
         // Ürün dropdown listesi
-        Items = await conn.QueryAsync<DdlDto>(
+        Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code + ' — ' + Name AS Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 ORDER BY Code",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         if (!id.HasValue) { Model.IsActive = true; return; }
 
-        Model = await conn.QueryFirstOrDefaultAsync<ProductModelDto>(@"
+        Model = await conn.QueryFirstOrDefaultAsync<ProductModelDto>(new CommandDefinition(@"
             SELECT m.*, i.Code AS BaseItemCode
             FROM ProductModel m
             LEFT JOIN Item i ON i.Id = m.BaseItemId
             WHERE m.Id = @Id AND m.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Model.Id == Guid.Empty) return;
 
         // Model parametreleri (WIDTH, HEIGHT, vb.)
-        Parameters = await conn.QueryAsync<ParameterDto>(@"
+        Parameters = await conn.QueryAsync<ParameterDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst kayıt ProductModel aynı handler içinde daha önce
             -- WHERE m.Id = @Id AND m.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
@@ -49,10 +49,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             SELECT Id, Code, Name, DataType, DefaultValue, Unit FROM ProductModelParameter
             WHERE ProductModelId = @ModelId
             ORDER BY Code",
-            new { ModelId = Model.Id });
+            new { ModelId = Model.Id }, cancellationToken: ct));
 
         // BOM satırları (formüllü bileşenler)
-        BomLines = await conn.QueryAsync<BomLineDto>(@"
+        BomLines = await conn.QueryAsync<BomLineDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst kayıt ProductModel aynı handler içinde daha önce
             -- WHERE m.Id = @Id AND m.CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
@@ -64,10 +64,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             JOIN Item i ON i.Id = b.ComponentItemId
             WHERE b.ProductModelId = @ModelId
             ORDER BY i.Code",
-            new { ModelId = Model.Id });
+            new { ModelId = Model.Id }, cancellationToken: ct));
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Ürün modelini kaydeder (insert veya update)
         using var conn = db.Open();
@@ -76,19 +76,19 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
             if (IsNew)
             {
                 Model.Id = Guid.NewGuid();
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     INSERT INTO ProductModel (Id, CompanyId, Code, Name, BaseItemId, IsActive)
                     VALUES (@Id, @CompanyId, @Code, @Name, @BaseItemId, @IsActive)",
-                    new { Model.Id, CompanyId = company.Id, Model.Code, Model.Name, Model.BaseItemId, Model.IsActive });
+                    new { Model.Id, CompanyId = company.Id, Model.Code, Model.Name, Model.BaseItemId, Model.IsActive }, cancellationToken: ct));
             }
             else
             {
                 // CompanyId: başka şirketin modelini güncelleyemez
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     UPDATE ProductModel
                     SET Code = @Code, Name = @Name, BaseItemId = @BaseItemId, IsActive = @IsActive
                     WHERE Id = @Id AND CompanyId = @CompanyId",
-                    new { Model.Code, Model.Name, Model.BaseItemId, Model.IsActive, Model.Id, CompanyId = company.Id });
+                    new { Model.Code, Model.Name, Model.BaseItemId, Model.IsActive, Model.Id, CompanyId = company.Id }, cancellationToken: ct));
             }
 
             TempData["Success"] = "Ürün modeli kaydedildi.";
@@ -109,20 +109,20 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
         return RedirectToPage(new { id = Model.Id });
     }
 
-    public async Task<IActionResult> OnPostAddParamAsync(Guid id, string code, string name, string dataType, string? defaultValue, string? unit)
+    public async Task<IActionResult> OnPostAddParamAsync(Guid id, string code, string name, string dataType, string? defaultValue, string? unit, CancellationToken ct)
     {
         // Ürün modeline yeni parametre ekler (WIDTH, HEIGHT vb.)
         using var conn = db.Open();
 
         // Modelin şirkete ait olduğunu doğrula
-        var exists = await conn.ExecuteScalarAsync<int>(
+        var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM ProductModel WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (exists == 0) return RedirectToPage("./Index");
 
         try
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                 -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
                 -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
@@ -131,7 +131,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                 -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ProductModelParameter (ProductModelId, Code, Name, DataType, DefaultValue, Unit)
                 VALUES (@ModelId, @Code, @Name, @DataType, @DefaultValue, @Unit)",
-                new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit });
+                new { ModelId = id, Code = code.ToUpper(), Name = name, DataType = dataType, DefaultValue = defaultValue, Unit = unit }, cancellationToken: ct));
 
             TempData["Success"] = "Parametre eklendi.";
         }
@@ -149,31 +149,31 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteParamAsync(Guid id, Guid paramId)
+    public async Task<IActionResult> OnPostDeleteParamAsync(Guid id, Guid paramId, CancellationToken ct)
     {
         // Parametreyi siler — önce modelin şirkete ait olduğunu doğrula
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             DELETE p FROM ProductModelParameter p
             JOIN ProductModel m ON m.Id = p.ProductModelId
             WHERE p.Id = @ParamId AND m.CompanyId = @CompanyId",
-            new { ParamId = paramId, CompanyId = company.Id });
+            new { ParamId = paramId, CompanyId = company.Id }, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostAddBomLineAsync(Guid id, Guid itemId, string qtyFormula, decimal wastePercentage, string? conditionFormula)
+    public async Task<IActionResult> OnPostAddBomLineAsync(Guid id, Guid itemId, string qtyFormula, decimal wastePercentage, string? conditionFormula, CancellationToken ct)
     {
         // BOM satırı ekler: bileşen ürün + miktar formülü + fire oranı
         using var conn = db.Open();
 
-        var exists = await conn.ExecuteScalarAsync<int>(
+        var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM ProductModel WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
         if (exists == 0) return RedirectToPage("./Index");
 
         try
         {
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                 -- Gerekçe: üst kayıt ProductModel bu handler'da WHERE Id = @Id AND CompanyId = @CompanyId
                 -- ile doğrulandı; bulunamazsa Index sayfasına yönlendirildi.
@@ -182,7 +182,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                 -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 INSERT INTO ProductModelBOM (ProductModelId, ComponentItemId, QtyFormula, WastePercentage, ConditionFormula)
                 VALUES (@ModelId, @ItemId, @QtyFormula, @WastePercentage, @ConditionFormula)",
-                new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula });
+                new { ModelId = id, ItemId = itemId, QtyFormula = qtyFormula, WastePercentage = wastePercentage, ConditionFormula = conditionFormula }, cancellationToken: ct));
 
             TempData["Success"] = "BOM satırı eklendi.";
         }
@@ -200,15 +200,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteBomLineAsync(Guid id, Guid bomLineId)
+    public async Task<IActionResult> OnPostDeleteBomLineAsync(Guid id, Guid bomLineId, CancellationToken ct)
     {
         // BOM satırını siler — şirket sahipliği JOIN ile doğrulanır
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             DELETE b FROM ProductModelBOM b
             JOIN ProductModel m ON m.Id = b.ProductModelId
             WHERE b.Id = @BomLineId AND m.CompanyId = @CompanyId",
-            new { BomLineId = bomLineId, CompanyId = company.Id });
+            new { BomLineId = bomLineId, CompanyId = company.Id }, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 

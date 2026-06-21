@@ -30,7 +30,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // Fatura listesi verilerini ve sekme sayaçlarını veritabanından yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
@@ -44,23 +44,23 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 StCancelled = DocStatus.Cancelled
             };
 
-            Counts = await conn.QuerySingleAsync<InvoiceCountsDto>(@"
+            Counts = await conn.QuerySingleAsync<InvoiceCountsDto>(new CommandDefinition(@"
                 SELECT
                     COUNT(*) AS Total,
                     SUM(CASE WHEN Status = @StDraft     THEN 1 ELSE 0 END) AS Draft,
                     SUM(CASE WHEN Status = @StPosted    THEN 1 ELSE 0 END) AS Posted,
                     SUM(CASE WHEN Status = @StCancelled THEN 1 ELSE 0 END) AS Cancelled
                 FROM SalesInvoice
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
 
-            TotalAmount = await conn.ExecuteScalarAsync<decimal>(@"
+            TotalAmount = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(GrandTotal), 0)
                 FROM SalesInvoice
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p);
-            TotalPaid = await conn.ExecuteScalarAsync<decimal>(@"
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p, cancellationToken: ct));
+            TotalPaid = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(PaidAmount), 0)
                 FROM SalesInvoice
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p);
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status <> @StCancelled", p, cancellationToken: ct));
 
             var page = Page < 1 ? 1 : Page;
             const string fromWhere = @"
@@ -92,7 +92,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
                 SELECT COUNT(*) {fromWhere}{filter};";
 
-            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
             Invoices = (await grid.ReadAsync<InvoiceRowDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }

@@ -14,13 +14,13 @@ public class PutawayModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public IEnumerable<StockAtReceivingDto> ItemsAtReceiving { get; set; } = [];
     public IEnumerable<DdlDto>             StorageBins      { get; set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Mal kabul alanındaki stokları ve hedef depolama raflarını yükler
         using var conn = db.Open();
 
         // tvf_InventoryBalance: CompanyId parametreli inline TVF — view'dan daha güvenli
-        ItemsAtReceiving = await conn.QueryAsync<StockAtReceivingDto>(@"
+        ItemsAtReceiving = await conn.QueryAsync<StockAtReceivingDto>(new CommandDefinition(@"
             SELECT
                 inv.ItemId, i.Code as ItemCode, i.Name as ItemName,
                 inv.BinId, b.Code as BinCode,
@@ -29,29 +29,29 @@ public class PutawayModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             JOIN Item i ON i.Id = inv.ItemId
             JOIN Bin b ON b.Id = inv.BinId
             WHERE b.IsReceivingArea = 1",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         // Depolama rafları — CompanyId depo üzerinden filtrelenir
-        StorageBins = await conn.QueryAsync<DdlDto>(@"
+        StorageBins = await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT b.Id, b.Code, b.Code as Name
             FROM Bin b
             JOIN Warehouse w ON w.Id = b.WarehouseId
             WHERE w.CompanyId = @CompanyId
               AND b.IsPickingArea = 1
               AND b.IsActive = 1",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
     }
 
-    public async Task<IActionResult> OnPostPutawayAsync(Guid itemId, Guid fromBinId, Guid toBinId, decimal qty)
+    public async Task<IActionResult> OnPostPutawayAsync(Guid itemId, Guid fromBinId, Guid toBinId, decimal qty, CancellationToken ct)
     {
         // Mal kabul rafından depolama rafına yerleme — iş mantığı SP'de (SQL-First).
         // sp_PutawayPost: dönem kilidi + negatif stok engeli + atomik bin-to-bin transfer.
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_PutawayPost",
+            await conn.ExecuteAsync(new CommandDefinition("sp_PutawayPost",
                 new { ItemId = itemId, FromBinId = fromBinId, ToBinId = toBinId, Qty = qty, CompanyId = company.Id, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = "Yerleme tamamlandı.";
         }
         catch (SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)

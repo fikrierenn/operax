@@ -29,49 +29,49 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public decimal            TotalInPortfolio { get; set; }
     public decimal            TotalInBank      { get; set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var p = new { CompanyId = company.Id };
 
-        await LoadCountsAsync(conn, p);
-        await LoadItemsAsync(conn);
+        await LoadCountsAsync(conn, p, ct);
+        await LoadItemsAsync(conn, ct);
     }
 
-    private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
         // İş kuralı: tablo adı kullanıcıdan gelmiyor — sabit iki SQL bloğuyla injection riski sıfır
         if (Type == "note")
         {
-            Counts = await conn.QuerySingleAsync<StatusCounts>(@"
+            Counts = await conn.QuerySingleAsync<StatusCounts>(new CommandDefinition(@"
                 SELECT COUNT(*) AS Total,
                        SUM(CASE WHEN Status = 'PORTFOLIO' THEN 1 ELSE 0 END) AS Portfolio,
                        SUM(CASE WHEN Status = 'IN_BANK'   THEN 1 ELSE 0 END) AS InBank,
                        SUM(CASE WHEN Status = 'COLLECTED' THEN 1 ELSE 0 END) AS Collected,
                        SUM(CASE WHEN Status = 'RETURNED'  THEN 1 ELSE 0 END) AS Returned
-                FROM PromissoryNote WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
-            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(
-                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p);
-            TotalInBank = await conn.ExecuteScalarAsync<decimal>(
-                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p);
+                FROM PromissoryNote WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
+            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p, cancellationToken: ct));
+            TotalInBank = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "SELECT ISNULL(SUM(Amount),0) FROM PromissoryNote WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p, cancellationToken: ct));
         }
         else
         {
-            Counts = await conn.QuerySingleAsync<StatusCounts>(@"
+            Counts = await conn.QuerySingleAsync<StatusCounts>(new CommandDefinition(@"
                 SELECT COUNT(*) AS Total,
                        SUM(CASE WHEN Status = 'PORTFOLIO' THEN 1 ELSE 0 END) AS Portfolio,
                        SUM(CASE WHEN Status = 'IN_BANK'   THEN 1 ELSE 0 END) AS InBank,
                        SUM(CASE WHEN Status = 'COLLECTED' THEN 1 ELSE 0 END) AS Collected,
                        SUM(CASE WHEN Status = 'RETURNED'  THEN 1 ELSE 0 END) AS Returned
-                FROM Cheque WHERE CompanyId = @CompanyId AND IsDeleted = 0", p);
-            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(
-                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p);
-            TotalInBank = await conn.ExecuteScalarAsync<decimal>(
-                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p);
+                FROM Cheque WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
+            TotalInPortfolio = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='PORTFOLIO' AND IsDeleted=0", p, cancellationToken: ct));
+            TotalInBank = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "SELECT ISNULL(SUM(Amount),0) FROM Cheque WHERE CompanyId=@CompanyId AND Status='IN_BANK' AND IsDeleted=0", p, cancellationToken: ct));
         }
     }
 
-    private async Task LoadItemsAsync(System.Data.IDbConnection conn)
+    private async Task LoadItemsAsync(System.Data.IDbConnection conn, CancellationToken ct)
     {
         var page = Page < 1 ? 1 : Page;
         var parms = new DynamicParameters();
@@ -107,7 +107,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
             SELECT COUNT(*) {fromWhere}{filter};";
 
-        using var grid = await conn.QueryMultipleAsync(sql, parms);
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
         Items = (await grid.ReadAsync<ChequeRowDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }

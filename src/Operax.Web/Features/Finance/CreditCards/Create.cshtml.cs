@@ -17,24 +17,24 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
     [BindProperty] public CardForm Form { get; set; } = new();
     public List<DdlDto> BankAccounts { get; set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
-        await LoadBankAccountsAsync();
+        await LoadBankAccountsAsync(ct);
         Form.StatementDay = 1;
         Form.DueDay       = 10;
         Form.Currency     = "TRY";
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
-        if (!ModelState.IsValid) { await LoadBankAccountsAsync(); return Page(); }
+        if (!ModelState.IsValid) { await LoadBankAccountsAsync(ct); return Page(); }
 
         using var conn = db.Open();
         try
         {
             var accountId = Guid.NewGuid();
             // İş kuralı: Kart için FinancialAccount (Type=CREDIT_CARD) açılır — bakiye/hareket buradan
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO FinancialAccount
                     (Id, CompanyId, Code, Name, AccountType, Currency, BankName,
                      CreditLimit, OpeningBalance, CreatedBy)
@@ -45,10 +45,10 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                     Id = accountId, CompanyId = company.Id,
                     Code = "KART-" + Form.CardNoMasked, Name = Form.HolderName + " - " + Form.BankName,
                     Form.Currency, Form.BankName, Form.CreditLimit, UserId = user.Id
-                });
+                }, cancellationToken: ct));
 
             var cardId = Guid.NewGuid();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO CreditCard
                     (Id, CompanyId, AccountId, CardNoMasked, HolderName, BankName, CardType,
                      CreditLimit, AvailableLimit, StatementDay, DueDay, InterestRate,
@@ -62,7 +62,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
                     Form.CardNoMasked, Form.HolderName, Form.BankName, Form.CardType,
                     Form.CreditLimit, Form.StatementDay, Form.DueDay, Form.InterestRate,
                     Form.Currency, Form.ExpiresAt, Form.LinkedBankAccountId
-                });
+                }, cancellationToken: ct));
 
             TempData["Success"] = "Kredi kartı tanımlandı.";
             return RedirectToPage("Details", new { id = cardId });
@@ -71,18 +71,18 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         {
             logger.LogError(sqlEx, "Kart tanımlama hatası: {Card}", Form.CardNoMasked);
             ModelState.AddModelError(string.Empty, "Kart tanımlanırken veritabanı hatası oluştu.");
-            await LoadBankAccountsAsync();
+            await LoadBankAccountsAsync(ct);
             return Page();
         }
     }
 
-    private async Task LoadBankAccountsAsync()
+    private async Task LoadBankAccountsAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
-        BankAccounts = (await conn.QueryAsync<DdlDto>(@"
+        BankAccounts = (await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code, Name FROM FinancialAccount
             WHERE CompanyId = @CompanyId AND AccountType = 'BANK' AND IsDeleted = 0
-            ORDER BY Name", new { CompanyId = company.Id })).ToList();
+            ORDER BY Name", new { CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
     public class CardForm

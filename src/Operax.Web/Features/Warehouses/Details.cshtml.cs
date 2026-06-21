@@ -16,23 +16,25 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
     public bool IsNew => Warehouse.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
 
         // Şube dropdown her zaman yüklenir
-        BranchDdl = await conn.QueryAsync<DdlDto>(
+        BranchDdl = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Name AS Text FROM Branch WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id },
+            cancellationToken: ct));
 
         if (id.HasValue)
         {
             // CompanyId zorunlu — başka şirket deposu görüntülenemez
-            Warehouse = await conn.QueryFirstOrDefaultAsync<WarehouseDto>(
+            Warehouse = await conn.QueryFirstOrDefaultAsync<WarehouseDto>(new CommandDefinition(
                 "SELECT Id, Code, Name, IsActive, BranchId FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }) ?? new();
+                new { Id = id, CompanyId = company.Id },
+                cancellationToken: ct)) ?? new();
 
-            Bins = await conn.QueryAsync<BinDto>(@"
+            Bins = await conn.QueryAsync<BinDto>(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
                 -- Gerekçe: üst kayıt Warehouse aynı handler içinde daha önce
                 -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
@@ -40,7 +42,8 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
                 -- başka firmanın deposuna ait raf verisi dönemez.
                 -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
                 SELECT Id, Code, Zone, IsPickingArea, IsReceivingArea FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
-                new { Id = id });
+                new { Id = id },
+                cancellationToken: ct));
         }
         else
         {
@@ -49,7 +52,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     }
 
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         using var conn = db.Open();
 
@@ -58,9 +61,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         // İş kuralı: BranchId bu firmaya ait olmalı (IDOR koruması)
         if (Warehouse.BranchId.HasValue)
         {
-            var branchOwned = await conn.ExecuteScalarAsync<int>(
+            var branchOwned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = Warehouse.BranchId, CompanyId = company.Id });
+                new { Id = Warehouse.BranchId, CompanyId = company.Id },
+                cancellationToken: ct));
             if (branchOwned == 0) Warehouse.BranchId = null;
         }
 
@@ -70,26 +74,31 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             const string sql = @"
                 INSERT INTO Warehouse (Id, CompanyId, Code, Name, IsActive, BranchId)
                 VALUES (@Id, @CompanyId, @Code, @Name, @IsActive, @BranchId)";
-            await conn.ExecuteAsync(sql, new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId });
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId },
+                cancellationToken: ct));
         }
         else
         {
             // CompanyId zorunlu — başka şirket deposunu güncelleyemez
             const string sql = "UPDATE Warehouse SET Code = @Code, Name = @Name, IsActive = @IsActive, BranchId = @BranchId WHERE Id = @Id AND CompanyId = @CompanyId";
-            await conn.ExecuteAsync(sql, new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id });
+            await conn.ExecuteAsync(new CommandDefinition(sql,
+                new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id },
+                cancellationToken: ct));
         }
 
         TempData["Success"] = wasNew ? "Depo oluşturuldu." : "Depo güncellendi.";
         return RedirectToPage(new { id = Warehouse.Id });
     }
 
-    public async Task<IActionResult> OnPostAddBinAsync(Guid id, string code, string? zone, bool isPicking, bool isReceiving)
+    public async Task<IActionResult> OnPostAddBinAsync(Guid id, string code, string? zone, bool isPicking, bool isReceiving, CancellationToken ct)
     {
         using var conn = db.Open();
         // Deponun şirkete ait olduğunu doğrula
-        var whExists = await conn.ExecuteScalarAsync<int>(
+        var whExists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Warehouse WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id },
+            cancellationToken: ct));
         if (whExists == 0) return RedirectToPage("./Index");
 
         const string sql = @"
@@ -101,20 +110,23 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO Bin (WarehouseId, Code, Zone, IsPickingArea, IsReceivingArea, IsStorageArea, IsActive)
             VALUES (@WarehouseId, @Code, @Zone, @IsPicking, @IsReceiving, 1, 1)";
-        await conn.ExecuteAsync(sql, new { WarehouseId = id, Code = code, Zone = zone, IsPicking = isPicking, IsReceiving = isReceiving });
+        await conn.ExecuteAsync(new CommandDefinition(sql,
+            new { WarehouseId = id, Code = code, Zone = zone, IsPicking = isPicking, IsReceiving = isReceiving },
+            cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteBinAsync(Guid id, Guid binId)
+    public async Task<IActionResult> OnPostDeleteBinAsync(Guid id, Guid binId, CancellationToken ct)
     {
         using var conn = db.Open();
         // Rafa ait deponun şirkete ait olduğunu doğrula
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE b SET b.IsDeleted = 1
             FROM Bin b
             JOIN Warehouse w ON w.Id = b.WarehouseId
             WHERE b.Id = @BinId AND w.CompanyId = @CompanyId",
-            new { BinId = binId, CompanyId = company.Id });
+            new { BinId = binId, CompanyId = company.Id },
+            cancellationToken: ct));
         return RedirectToPage(new { id });
     }
 

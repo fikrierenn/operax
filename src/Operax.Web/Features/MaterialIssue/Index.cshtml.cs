@@ -23,7 +23,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // Sarf fişlerini depo + sayaçlarla yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -47,11 +47,11 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     SUM(CASE WHEN Status = @StPosted THEN 1 ELSE 0 END) AS Posted
                 FROM MaterialIssueHeader WHERE CompanyId = @CompanyId;";
 
-            using var grid = await conn.QueryMultipleAsync(sql, new
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new
             {
                 CompanyId = company.Id, Page = page, PageSize,
                 StDraft = DocStatus.Draft, StPosted = DocStatus.Posted
-            });
+            }, cancellationToken: ct));
             Rows = (await grid.ReadAsync<RowDto>()).ToList();
             var c = await grid.ReadSingleAsync<CountRow>();
             FilteredCount = c.Total;

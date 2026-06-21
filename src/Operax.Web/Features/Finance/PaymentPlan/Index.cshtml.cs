@@ -29,31 +29,31 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal          TotalPayable    { get; set; }
 
     // Vade planı listesini, yön sayaçlarını ve toplam tutarları yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
             using var conn = db.Open();
             var p = new { CompanyId = company.Id };
 
-            DirCounts = await conn.QuerySingleAsync<DirCountsDto>(@"
+            DirCounts = await conn.QuerySingleAsync<DirCountsDto>(new CommandDefinition(@"
                 SELECT
                     COUNT(*) AS Total,
                     SUM(CASE WHEN Direction = 'RECEIVABLE' THEN 1 ELSE 0 END) AS Receivable,
                     SUM(CASE WHEN Direction = 'PAYABLE'    THEN 1 ELSE 0 END) AS Payable
                 FROM PaymentPlan
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')", p);
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')", p, cancellationToken: ct));
 
-            TotalReceivable = await conn.ExecuteScalarAsync<decimal>(@"
+            TotalReceivable = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(Amount - PaidAmount), 0)
                 FROM PaymentPlan
                 WHERE CompanyId = @CompanyId AND Direction = 'RECEIVABLE'
-                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
-            TotalPayable = await conn.ExecuteScalarAsync<decimal>(@"
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p, cancellationToken: ct));
+            TotalPayable = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(Amount - PaidAmount), 0)
                 FROM PaymentPlan
                 WHERE CompanyId = @CompanyId AND Direction = 'PAYABLE'
-                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p);
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p, cancellationToken: ct));
 
             var page = Page < 1 ? 1 : Page;
             const string fromWhere = @"
@@ -85,10 +85,11 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
                 SELECT COUNT(*) {fromWhere}{filter};";
 
-            using var grid = await conn.QueryMultipleAsync(sql, parms);
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, parms, cancellationToken: ct));
             Plans = (await grid.ReadAsync<PlanRowDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Vade planı listesi veri yükleme hatası");

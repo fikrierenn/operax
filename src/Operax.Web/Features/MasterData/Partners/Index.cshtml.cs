@@ -24,7 +24,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int CustomerCount { get; set; }
     public int VendorCount { get; set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -44,24 +44,24 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
               AND (@Q IS NULL OR @Q = '' OR p.Name LIKE '%' + @Q + '%' OR p.Code LIKE '%' + @Q + '%' OR p.TaxNumber LIKE '%' + @Q + '%')
               AND (@Type IS NULL OR @Type = '' OR p.Type = @Type);";
 
-        using (var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Q, Type, Page = page, PageSize }))
+        using (var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Q, Type, Page = page, PageSize }, cancellationToken: ct)))
         {
             Partners = (await grid.ReadAsync<PartnerDto>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
 
-        TotalPartners = await conn.ExecuteScalarAsync<int>(
+        TotalPartners = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
-        CustomerCount = await conn.ExecuteScalarAsync<int>(
+        CustomerCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('CUSTOMER', 'BOTH') AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         // İş kuralı: tedarikçi tipi VENDOR veya SUPPLIER (seed vocab farkı) + BOTH
-        VendorCount = await conn.ExecuteScalarAsync<int>(
+        VendorCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'SUPPLIER', 'BOTH') AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
     }
 
     public record PartnerDto(Guid Id, string Code, string Name, string Type, string TaxNumber, string Email);

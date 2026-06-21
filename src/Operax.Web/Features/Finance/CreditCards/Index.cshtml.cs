@@ -26,7 +26,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     private record AggRow(int Cnt, decimal TotalLimit, decimal TotalAvailable);
 
     // Kredi kartı listesini ve limit özetini yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
@@ -50,13 +50,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                        ISNULL(SUM(AvailableLimit), 0) AS TotalAvailable
                 FROM CreditCard WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
 
-            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql,
+                new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
             Cards = (await grid.ReadAsync<CardRowDto>()).ToList();
             var agg = await grid.ReadSingleAsync<AggRow>();
             FilteredCount = agg.Cnt;
             TotalLimit = agg.TotalLimit;
             TotalUsed  = agg.TotalLimit - agg.TotalAvailable;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Kredi kartı listesi veri yükleme hatası");

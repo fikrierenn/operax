@@ -22,7 +22,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public decimal GrandTotal { get; set; }
 
     // Tarih aralığında gider merkezi × tip kırılımını yükler
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Varsayılan: içinde bulunulan yılın başından bugüne
         From ??= new DateTime(DateTime.Today.Year, 1, 1);
@@ -31,9 +31,10 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         using var conn = db.Open();
         try
         {
-            Rows = (await conn.QueryAsync<RowDto>(
+            Rows = (await conn.QueryAsync<RowDto>(new CommandDefinition(
                 "SELECT CostCenterId, CostCenterName, ExpenseTypeId, ExpenseTypeName, NetAmount, TaxAmount, TotalAmount, LineCount FROM tvf_ExpenseBreakdown(@CompanyId, @From, @To) ORDER BY CostCenterName, ExpenseTypeName",
-                new { CompanyId = company.Id, From = From.Value.Date, To = To.Value.Date })).ToList();
+                new { CompanyId = company.Id, From = From.Value.Date, To = To.Value.Date },
+                cancellationToken: ct))).ToList();
 
             GrandNet   = Rows.Sum(r => r.NetAmount);
             GrandTax   = Rows.Sum(r => r.TaxAmount);

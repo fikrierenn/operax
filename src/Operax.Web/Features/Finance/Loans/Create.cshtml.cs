@@ -17,9 +17,9 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
     [BindProperty] public LoanForm Form { get; set; } = new();
     public List<DdlDto> BankAccounts { get; set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
-        await LoadBankAccountsAsync();
+        await LoadBankAccountsAsync(ct);
         // Varsayılanlar
         Form.StartDate    = DateTime.Today;
         Form.CalcMethod   = "ANUITE";
@@ -27,11 +27,11 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         Form.InterestRate = 0;
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         if (!ModelState.IsValid)
         {
-            await LoadBankAccountsAsync();
+            await LoadBankAccountsAsync(ct);
             return Page();
         }
 
@@ -53,7 +53,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
             prm.Add("UserId",           user.Id);
             prm.Add("NewLoanId", dbType: DbType.Guid, direction: ParameterDirection.Output);
 
-            await conn.ExecuteAsync("sp_CreateLoan", prm, commandType: CommandType.StoredProcedure);
+            await conn.ExecuteAsync(new CommandDefinition("sp_CreateLoan", prm,
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
 
             var newId = prm.Get<Guid>("NewLoanId");
             TempData["Success"] = "Kredi açıldı, taksit takvimi oluşturuldu.";
@@ -63,25 +64,25 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         {
             // İş kuralı hatası — SP Türkçe mesaj döndü
             ModelState.AddModelError(string.Empty, sqlEx.Message);
-            await LoadBankAccountsAsync();
+            await LoadBankAccountsAsync(ct);
             return Page();
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Kredi açma hatası: {LoanNo}", Form.LoanNo);
             ModelState.AddModelError(string.Empty, "Kredi açılırken veritabanı hatası oluştu.");
-            await LoadBankAccountsAsync();
+            await LoadBankAccountsAsync(ct);
             return Page();
         }
     }
 
-    private async Task LoadBankAccountsAsync()
+    private async Task LoadBankAccountsAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
-        BankAccounts = (await conn.QueryAsync<DdlDto>(@"
+        BankAccounts = (await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code, Name FROM FinancialAccount
             WHERE CompanyId = @CompanyId AND AccountType = 'BANK' AND IsDeleted = 0
-            ORDER BY Name", new { CompanyId = company.Id })).ToList();
+            ORDER BY Name", new { CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
     public class LoanForm

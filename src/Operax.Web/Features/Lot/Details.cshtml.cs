@@ -12,13 +12,13 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     public IEnumerable<LotMovementDto> Movements { get; set; } = [];
     public IEnumerable<LotLocationDto> Locations { get; set; } = [];
 
-    public async Task OnGetAsync(Guid id)
+    public async Task OnGetAsync(Guid id, CancellationToken ct)
     {
         // Lot başlık bilgilerini, hareket geçmişini ve konum dağılımını getirir
         using var conn = db.Open();
 
         // Lot master data + anlık bakiye
-        Lot = await conn.QueryFirstOrDefaultAsync<LotHeaderDto>(@"
+        Lot = await conn.QueryFirstOrDefaultAsync<LotHeaderDto>(new CommandDefinition(@"
             SELECT l.*, i.Code AS ItemCode, i.Name AS ItemName,
                    ISNULL((SELECT SUM(QtyBase) FROM StockMovement
                             WHERE CompanyId = @CompanyId AND ItemId = l.ItemId
@@ -26,12 +26,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             FROM ItemLot l
             JOIN Item i ON i.Id = l.ItemId
             WHERE l.Id = @Id AND l.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Lot.Id == Guid.Empty) return;
 
         // Hareket geçmişi — en yeni hareketten eskiye doğru, lot bazlı tüm hareketler
-        Movements = await conn.QueryAsync<LotMovementDto>(@"
+        Movements = await conn.QueryAsync<LotMovementDto>(new CommandDefinition(@"
             SELECT TOP 200
                 sm.Id, sm.MovementType, sm.QtyBase, sm.CreatedAt,
                 sm.SourceDoc, sm.SourceDocId,
@@ -42,10 +42,10 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             WHERE sm.ItemId = @ItemId AND sm.LotNo = @LotNo
               AND sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
             ORDER BY sm.CreatedAt DESC",
-            new { ItemId = Lot.ItemId, LotNo = Lot.LotNo, CompanyId = company.Id });
+            new { ItemId = Lot.ItemId, LotNo = Lot.LotNo, CompanyId = company.Id }, cancellationToken: ct));
 
         // Mevcut konum dağılımı — hangi rafta ne kadar var
-        Locations = await conn.QueryAsync<LotLocationDto>(@"
+        Locations = await conn.QueryAsync<LotLocationDto>(new CommandDefinition(@"
             SELECT w.Code AS WhCode, b.Code AS BinCode, SUM(sm.QtyBase) AS Qty
             FROM StockMovement sm
             LEFT JOIN Warehouse w ON w.Id = sm.WarehouseId
@@ -55,7 +55,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             GROUP BY w.Code, b.Code
             HAVING SUM(sm.QtyBase) <> 0
             ORDER BY w.Code, b.Code",
-            new { ItemId = Lot.ItemId, LotNo = Lot.LotNo, CompanyId = company.Id });
+            new { ItemId = Lot.ItemId, LotNo = Lot.LotNo, CompanyId = company.Id }, cancellationToken: ct));
     }
 
     public record LotHeaderDto

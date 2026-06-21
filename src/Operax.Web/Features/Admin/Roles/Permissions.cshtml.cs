@@ -23,7 +23,7 @@ public class PermissionsModel(Db db, RoleManager<IdentityRole> roleManager, IMem
     [BindProperty] public string RoleId { get; set; } = "";
     [BindProperty] public Dictionary<string, int> Access { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(string id)
+    public async Task<IActionResult> OnGetAsync(string id, CancellationToken ct = default)
     {
         // Guard: rol yoksa liste sayfasına dön
         var role = await roleManager.FindByIdAsync(id);
@@ -33,16 +33,16 @@ public class PermissionsModel(Db db, RoleManager<IdentityRole> roleManager, IMem
         RoleName = role.Name ?? "";
 
         using var conn = db.Open();
-        var rows = await conn.QueryAsync<AccessRow>(
+        var rows = await conn.QueryAsync<AccessRow>(new CommandDefinition(
             "SELECT ModuleKey, AccessLevel FROM RoleModuleAccess WHERE RoleId = @RoleId",
-            new { RoleId = role.Id });
+            new { RoleId = role.Id }, cancellationToken: ct));
         foreach (var row in rows)
             Current[row.ModuleKey] = row.AccessLevel;
 
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         // Guard: rol yoksa işlem yapılmaz
         var role = await roleManager.FindByIdAsync(RoleId);
@@ -54,17 +54,17 @@ public class PermissionsModel(Db db, RoleManager<IdentityRole> roleManager, IMem
         {
             var level = Access.TryGetValue(key, out var v) ? v : 0;
             if (level <= 0)
-                await conn.ExecuteAsync(
+                await conn.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM RoleModuleAccess WHERE RoleId = @RoleId AND ModuleKey = @Key",
-                    new { RoleId = role.Id, Key = key });
+                    new { RoleId = role.Id, Key = key }, cancellationToken: ct));
             else
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     IF EXISTS (SELECT 1 FROM RoleModuleAccess WHERE RoleId = @RoleId AND ModuleKey = @Key)
                         UPDATE RoleModuleAccess SET AccessLevel = @Level WHERE RoleId = @RoleId AND ModuleKey = @Key
                     ELSE
                         INSERT INTO RoleModuleAccess (Id, RoleId, ModuleKey, AccessLevel)
                         VALUES (NEWID(), @RoleId, @Key, @Level)",
-                    new { RoleId = role.Id, Key = key, Level = (byte)Math.Min(level, 2) });
+                    new { RoleId = role.Id, Key = key, Level = (byte)Math.Min(level, 2) }, cancellationToken: ct));
         }
 
         // Cache invalidate: rolün yetki haritası yeniden okunsun

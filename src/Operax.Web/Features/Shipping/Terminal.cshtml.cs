@@ -12,30 +12,30 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
     public ShipmentTermDto? ActiveDoc { get; set; }
     public IEnumerable<PendingShipDto> PendingDocs { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? docId)
+    public async Task OnGetAsync(Guid? docId, CancellationToken ct)
     {
         // El terminali: sevkiyat belgesi seçilip barkod okutularak paketleme onaylanır
         using var conn = db.Open();
 
-        PendingDocs = await conn.QueryAsync<PendingShipDto>(@"
+        PendingDocs = await conn.QueryAsync<PendingShipDto>(new CommandDefinition(@"
             SELECT h.Id, h.DocNo,
                    (SELECT COUNT(*) FROM ShippingLine WHERE HeaderId = h.Id) AS LineCount
             FROM ShippingHeader h
             WHERE h.CompanyId = @CompanyId AND h.Status = @StDraft
             ORDER BY h.CreatedAt DESC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
 
         if (!docId.HasValue) return;
 
-        ActiveDoc = await conn.QueryFirstOrDefaultAsync<ShipmentTermDto>(@"
+        ActiveDoc = await conn.QueryFirstOrDefaultAsync<ShipmentTermDto>(new CommandDefinition(@"
             SELECT h.Id, h.DocNo, h.Status
             FROM ShippingHeader h
             WHERE h.Id = @DocId AND h.CompanyId = @CompanyId",
-            new { DocId = docId, CompanyId = company.Id });
+            new { DocId = docId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (ActiveDoc == null) return;
 
-        ActiveDoc.Lines = (await conn.QueryAsync<ShipLineTermDto>(@"
+        ActiveDoc.Lines = (await conn.QueryAsync<ShipLineTermDto>(new CommandDefinition(@"
             SELECT l.Id, i.Code AS ItemCode, i.Name AS ItemName,
                    dv.Code AS UomCode, l.QtyOriginal AS QtyToShip
             FROM ShippingLine l
@@ -44,36 +44,37 @@ public class TerminalModel(Db db, ICurrentCompany company, ILogger<TerminalModel
             JOIN DictionaryValue dv ON dv.Id = l.UomId
             WHERE l.HeaderId = @DocId AND h.CompanyId = @CompanyId
             ORDER BY i.Code",
-            new { DocId = docId, CompanyId = company.Id })).ToList();
+            new { DocId = docId, CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
-    public async Task<IActionResult> OnPostScanAsync(Guid docId, string barcode, decimal qty)
+    public async Task<IActionResult> OnPostScanAsync(Guid docId, string barcode, decimal qty, CancellationToken ct)
     {
         // Barkod okunan ürünü sevkiyat satırında doğrular
         using var conn = db.Open();
 
         try
         {
-            var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
+            var itemId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(@"
                 SELECT i.Id FROM ItemBarcode b
                 JOIN Item i ON i.Id = b.ItemId
                 WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId
                 UNION
                 SELECT i.Id FROM Item i WHERE i.Code = @Barcode AND i.CompanyId = @CompanyId",
-                new { Barcode = barcode, CompanyId = company.Id });
+                new { Barcode = barcode, CompanyId = company.Id }, cancellationToken: ct));
 
             if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
 
-            var lineExists = await conn.ExecuteScalarAsync<int>(@"
+            var lineExists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
                 SELECT COUNT(1) FROM ShippingLine l
                 JOIN ShippingHeader h ON h.Id = l.HeaderId
                 WHERE l.HeaderId = @DocId AND l.ItemId = @ItemId AND h.CompanyId = @CompanyId",
-                new { DocId = docId, ItemId = itemId });
+                new { DocId = docId, ItemId = itemId }, cancellationToken: ct));
 
             if (lineExists == 0) { TempData["Error"] = "Bu ürün sevkiyat belgesinde yok."; return RedirectToPage(new { docId }); }
 
             TempData["Success"] = $"Doğrulandı: {barcode} × {qty}";
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
             // İş kuralı hatası — SP Türkçe mesaj fırlattı

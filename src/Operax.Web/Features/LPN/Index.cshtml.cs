@@ -17,7 +17,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Şirkete ait tüm palet/kapları konum ve içerik özeti ile listeler + sayfalama
         using var conn = db.Open();
@@ -45,7 +45,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
             SELECT COUNT(1) FROM LPN WHERE CompanyId = @CompanyId;";
 
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Lpns = (await grid.ReadAsync<LpnListDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }

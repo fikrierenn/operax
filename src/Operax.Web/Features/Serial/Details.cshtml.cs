@@ -11,12 +11,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     public SerialHeaderDto Serial { get; set; } = new();
     public IEnumerable<SerialMovementDto> Movements { get; set; } = [];
 
-    public async Task OnGetAsync(Guid id)
+    public async Task OnGetAsync(Guid id, CancellationToken ct)
     {
         // Seri numarasının güncel durumunu ve tam yaşam döngüsü geçmişini getirir
         using var conn = db.Open();
 
-        Serial = await conn.QueryFirstOrDefaultAsync<SerialHeaderDto>(@"
+        Serial = await conn.QueryFirstOrDefaultAsync<SerialHeaderDto>(new CommandDefinition(@"
             SELECT s.*, i.Code AS ItemCode, i.Name AS ItemName,
                    w.Code AS WhCode, b.Code AS BinCode
             FROM ItemSerial s
@@ -24,12 +24,12 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             LEFT JOIN Warehouse w ON w.Id = s.CurrentWarehouseId
             LEFT JOIN Bin b ON b.Id = s.CurrentBinId
             WHERE s.Id = @Id AND s.CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }) ?? new();
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
         if (Serial.Id == Guid.Empty) return;
 
         // Yaşam döngüsü — bu seri noya ait tüm stok hareketleri
-        Movements = await conn.QueryAsync<SerialMovementDto>(@"
+        Movements = await conn.QueryAsync<SerialMovementDto>(new CommandDefinition(@"
             SELECT sm.MovementType, sm.QtyBase, sm.CreatedAt,
                    sm.SourceDoc, sm.LotNo,
                    w.Code AS WhCode, b.Code AS BinCode
@@ -39,7 +39,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             WHERE sm.SerialNo = @SerialNo AND sm.ItemId = @ItemId
               AND sm.CompanyId = @CompanyId AND sm.IsCancelled = 0
             ORDER BY sm.CreatedAt ASC",
-            new { SerialNo = Serial.SerialNo, ItemId = Serial.ItemId, CompanyId = company.Id });
+            new { SerialNo = Serial.SerialNo, ItemId = Serial.ItemId, CompanyId = company.Id }, cancellationToken: ct));
     }
 
     public record SerialHeaderDto

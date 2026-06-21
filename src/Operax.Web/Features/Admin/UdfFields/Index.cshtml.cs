@@ -24,7 +24,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
     // UDF tanımlarını listeler (şirket-kapsamlı)
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         try
         {
@@ -39,7 +39,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
                 SELECT COUNT(1) FROM UserFieldDefinition WHERE CompanyId = @CompanyId AND IsDeleted = 0;";
-            using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+            using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
             Definitions = (await grid.ReadAsync<UdfDefRow>()).ToList();
             FilteredCount = await grid.ReadSingleAsync<int>();
         }
@@ -52,7 +52,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
     // Yeni UDF tanımı ekler
     public async Task<IActionResult> OnPostCreateAsync(string entityName, string fieldName, string labelText,
-        string fieldType, string? dataSourceType, string? dataSourceKey, int orderNo, bool isRequired)
+        string fieldType, string? dataSourceType, string? dataSourceKey, int orderNo, bool isRequired, CancellationToken ct = default)
     {
         // Guard: zorunlu alanlar + entity beyaz listesi
         if (string.IsNullOrWhiteSpace(fieldName) || string.IsNullOrWhiteSpace(labelText))
@@ -95,18 +95,18 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         {
             using var conn = db.Open();
             // İş kuralı: aynı şirket+entity+alan adı tekil
-            var exists = await conn.ExecuteScalarAsync<int>(@"
+            var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
                 SELECT COUNT(1) FROM UserFieldDefinition
                 WHERE CompanyId = @CompanyId AND EntityName = @EntityName
                   AND FieldName = @FieldName AND IsDeleted = 0",
-                new { CompanyId = company.Id, EntityName = entityName, FieldName = fieldName });
+                new { CompanyId = company.Id, EntityName = entityName, FieldName = fieldName }, cancellationToken: ct));
             if (exists > 0)
             {
                 TempData["Error"] = $"'{fieldName}' alanı bu varlık için zaten tanımlı.";
                 return RedirectToPage();
             }
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO UserFieldDefinition
                     (Id, CompanyId, EntityName, FieldName, LabelText, FieldType,
                      DataSourceType, DataSourceKey, OrderNo, IsRequired, CreatedBy)
@@ -120,7 +120,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     DataSourceType = srcType,
                     DataSourceKey = fieldType == "SELECT" ? dataSourceKey : null,
                     OrderNo = orderNo, IsRequired = isRequired, UserId = User.Identity?.Name
-                });
+                }, cancellationToken: ct));
             TempData["Success"] = $"'{labelText}' özel alanı oluşturuldu.";
         }
         catch (SqlException sqlEx)
@@ -133,14 +133,14 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
 
     // Etiket / sıra / zorunluluk / aktiflik + SELECT seçenek listesi (DataSourceKey) günceller.
     // FieldName ve FieldType DEĞİŞTİRİLEMEZ (JSON anahtarı + tip uyumu — veri bütünlüğü).
-    public async Task<IActionResult> OnPostSaveAsync(Guid id, string labelText, int orderNo, bool isRequired, bool isActive, string? dataSourceKey)
+    public async Task<IActionResult> OnPostSaveAsync(Guid id, string labelText, int orderNo, bool isRequired, bool isActive, string? dataSourceKey, CancellationToken ct = default)
     {
         try
         {
             using var conn = db.Open();
             // İş kuralı: boş dataSourceKey mevcut seçenekleri SİLMEZ (SELECT alanın listesi korunur) —
             // yalnız dolu değer geldiğinde güncellenir. Non-SELECT alanlarda zaten NULL kalır.
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE UserFieldDefinition
                 SET LabelText = @LabelText, OrderNo = @OrderNo, IsRequired = @IsRequired,
                     IsActive = @IsActive,
@@ -148,7 +148,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
                 WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, LabelText = labelText, OrderNo = orderNo, IsRequired = isRequired,
-                      IsActive = isActive, DataSourceKey = dataSourceKey, CompanyId = company.Id, UserId = User.Identity?.Name });
+                      IsActive = isActive, DataSourceKey = dataSourceKey, CompanyId = company.Id, UserId = User.Identity?.Name }, cancellationToken: ct));
             TempData["Success"] = "Özel alan güncellendi.";
         }
         catch (SqlException sqlEx)
@@ -160,15 +160,15 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     }
 
     // UDF tanımını siler (soft delete)
-    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken ct = default)
     {
         try
         {
             using var conn = db.Open();
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE UserFieldDefinition SET IsDeleted = 1, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
                 WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id, UserId = User.Identity?.Name });
+                new { Id = id, CompanyId = company.Id, UserId = User.Identity?.Name }, cancellationToken: ct));
             TempData["Success"] = "Özel alan silindi.";
         }
         catch (SqlException sqlEx)

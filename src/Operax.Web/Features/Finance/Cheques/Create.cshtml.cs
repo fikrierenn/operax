@@ -19,18 +19,18 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
 
     public bool IsNote => Type == "note";
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
-        await LoadPartnersAsync();
+        await LoadPartnersAsync(ct);
         Form.Direction = "RECEIVED";
         Form.DocDate   = DateTime.Today;
         Form.DueDate   = DateTime.Today.AddDays(30);
         Form.Currency  = "TRY";
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
-        if (!ModelState.IsValid) { await LoadPartnersAsync(); return Page(); }
+        if (!ModelState.IsValid) { await LoadPartnersAsync(ct); return Page(); }
 
         using var conn = db.Open();
         try
@@ -38,7 +38,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
             var id = Guid.NewGuid();
             if (IsNote)
             {
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     INSERT INTO PromissoryNote
                         (Id, CompanyId, Direction, NoteNo, DrawerName, DrawerTaxNo,
                          Amount, Currency, IssueDate, DueDate, Status, PartnerId, CreatedBy)
@@ -47,13 +47,13 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
                          @Amount, @Currency, @DocDate, @DueDate, 'PORTFOLIO', @PartnerId, @UserId)",
                     new { id, CompanyId = company.Id, Form.Direction, Form.DocNo, Form.DrawerName,
                           Form.DrawerTaxNo, Form.Amount, Form.Currency, Form.DocDate, Form.DueDate,
-                          Form.PartnerId, UserId = user.Id });
+                          Form.PartnerId, UserId = user.Id }, cancellationToken: ct));
             }
             else
             {
                 // İş kuralı: çek üstündeki numara (ChequeNo) kullanıcıdan; bizim iç kayıt no seriden
                 var registryNo = await numberSeries.NextAsync(company.Id, NumberSeriesType.Cheque);
-                await conn.ExecuteAsync(@"
+                await conn.ExecuteAsync(new CommandDefinition(@"
                     INSERT INTO Cheque
                         (Id, CompanyId, Direction, ChequeNo, RegistryNo, BankName, BranchName,
                          DrawerName, DrawerTaxNo, Amount, Currency, ChequeDate, DueDate,
@@ -64,7 +64,8 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
                          'PORTFOLIO', @PartnerId, @UserId)",
                     new { id, CompanyId = company.Id, Form.Direction, Form.DocNo, RegistryNo = registryNo,
                           Form.BankName, Form.BranchName, Form.DrawerName, Form.DrawerTaxNo, Form.Amount,
-                          Form.Currency, Form.DocDate, Form.DueDate, Form.PartnerId, UserId = user.Id });
+                          Form.Currency, Form.DocDate, Form.DueDate, Form.PartnerId, UserId = user.Id },
+                    cancellationToken: ct));
             }
 
             TempData["Success"] = IsNote ? "Senet eklendi." : "Çek eklendi.";
@@ -74,18 +75,18 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
         {
             logger.LogError(sqlEx, "Çek/senet ekleme hatası: {DocNo}", Form.DocNo);
             ModelState.AddModelError(string.Empty, "Kayıt sırasında veritabanı hatası oluştu.");
-            await LoadPartnersAsync();
+            await LoadPartnersAsync(ct);
             return Page();
         }
     }
 
-    private async Task LoadPartnersAsync()
+    private async Task LoadPartnersAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
-        Partners = (await conn.QueryAsync<DdlDto>(@"
+        Partners = (await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code, Name FROM Partner
             WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
-            new { CompanyId = company.Id })).ToList();
+            new { CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
     public class ChequeForm

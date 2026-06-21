@@ -52,12 +52,7 @@ public async Task<IActionResult> OnPostAsync(Guid id, CancellationToken ct)
 > Her faz: handler imzaları + Dapper çağrıları dönüştürülür → `dotnet build` 0/0 → ilgili integration test (varsa) yeşil → commit (`plan:38`).
 
 - **Faz 1 — Pilot + pattern kilidi ✅ (2026-06-22):** `Receiving` 3 dosya (Index/Details/Terminal) — 9 handler + 27 Dapper çağrısı CommandDefinition+ct'ye çevrildi. Build 0 hata, ReceivingPostingTests 5/5, code-reviewer 0 ihlal (pattern onaylandı). **Kanonik şablon:** handler `(..., CancellationToken ct)`; düz `conn.QueryAsync<T>(new CommandDefinition(sql, params, cancellationToken: ct))`; SP `new CommandDefinition(sp, params, commandType: ..., cancellationToken: ct)`; DynamicParameters output param CommandDefinition ile uyumlu. **Servis-katmanı istisna:** `AutoTraceabilityService`/`DocumentLock`/`ParameterStore` gibi servisler ct almaz (ayrı servis turu) — Done grep `*Service.cs` + Lib hariç.
-- **Faz 2 — WMS core:** Inventory, Transfer, Putaway, Picking, CycleCount, LPN, Lot.
-- **Faz 3 — Satınalma:** PurchaseOrders, PurchaseInvoices, Expenses.
-- **Faz 4 — Satış:** SalesOrders, Shipping, SalesInvoices.
-- **Faz 5 — Finans:** Accounts, Cheques, Loans, CreditCards, PaymentPlan, MaterialIssue.
-- **Faz 6 — MasterData + Admin:** Items, Partners, Branches, Warehouses, PriceLists, Dictionary, Users, Roles, vb.
-- **Faz 7 — Üretim + kalan:** Manufacturing (BOM/WorkOrders/WorkCenters), Production, Dashboard, Budget, kalan.
+- **Faz 2-7 — TÜM kalan modüller ✅ (2026-06-22, workflow fan-out):** 23 modül paralel (modül başına 1 sonnet ajan, kanonik pattern). **91 dosya · 202 handler · 361 Dapper çağrısı** CommandDefinition+ct'ye çevrildi. Kapsam: Inventory/Transfer/Picking/CycleCount/LPN/Lot/Serial (WMS) · PurchaseOrders/PurchaseInvoices/Expenses (Satınalma) · SalesOrders/Shipping/SalesInvoices (Satış) · Finance/MaterialIssue (Finans) · MasterData/Admin/Warehouses/Auth (Master) · Manufacturing/Production/Dashboard/Budget (Üretim). Transaction-bound çağrılarda `transaction: trans` + `cancellationToken: ct` birlikte; generic catch'lere OCE rethrow; GridReader.Read* dokunulmadı; servis/Lib hariç. **Build 0 hata · 45/45 test · multiline-aware grep 0 gerçek kalıntı.**
 
 ## 5. Alternatifler (reddedilen)
 

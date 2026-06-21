@@ -17,7 +17,7 @@ public class EditModel(
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(string id)
+    public async Task<IActionResult> OnGetAsync(string id, CancellationToken ct = default)
     {
         var user = await userManager.FindByIdAsync(id);
         if (user == null) return NotFound();
@@ -36,7 +36,7 @@ public class EditModel(
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         if (!ModelState.IsValid) return Page();
 
@@ -81,16 +81,16 @@ public class EditModel(
         // İş kuralı (Plan 13): rol AspNetUserRoles'tan değil UserCompany'den çözülür
         // (CompanyAwareClaimsPrincipalFactory). Rol değişikliği UserCompany'ye yansımazsa login'de
         // eski/boş rol döner. Aktif firma kaydını güncel rolle hizala (boş rol → Viewer).
-        await UpsertUserCompanyAsync(user.Id, string.IsNullOrEmpty(Input.Role) ? Operax.Web.Lib.Roles.Viewer : Input.Role);
+        await UpsertUserCompanyAsync(user.Id, string.IsNullOrEmpty(Input.Role) ? Operax.Web.Lib.Roles.Viewer : Input.Role, ct);
 
         return RedirectToPage("./Index");
     }
 
     /// <summary>Kullanıcının aktif firmadaki rolünü UserCompany'ye idempotent hizalar (firma-bağlamlı rol).</summary>
-    private async Task UpsertUserCompanyAsync(string userId, string role)
+    private async Task UpsertUserCompanyAsync(string userId, string role, CancellationToken ct = default)
     {
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             MERGE UserCompany AS t
             USING (SELECT @UserId AS UserId, @CompanyId AS CompanyId) AS s
               ON t.UserId = s.UserId AND t.CompanyId = s.CompanyId
@@ -98,7 +98,7 @@ public class EditModel(
             WHEN NOT MATCHED THEN
               INSERT (UserId, CompanyId, Role, IsActive, CreatedAt)
               VALUES (@UserId, @CompanyId, @Role, 1, GETUTCDATE());",
-            new { UserId = userId, CompanyId = company.Id, Role = role });
+            new { UserId = userId, CompanyId = company.Id, Role = role }, cancellationToken: ct));
     }
 
     public class InputModel

@@ -20,21 +20,21 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public AgingTotalsDto    Totals { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
 
     // Yaşlandırma raporunu tvf_PaymentPlanAging'den yükler ve kova toplamlarını hesaplar.
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         try
         {
             using var conn = db.Open();
             var p = new { CompanyId = company.Id, Direction };
 
-            Rows = (await conn.QueryAsync<AgingRowDto>(@"
+            Rows = (await conn.QueryAsync<AgingRowDto>(new CommandDefinition(@"
                 SELECT
                     PartnerId, PartnerName,
                     NotDue, Days1_30, Days31_60, Days61_90, Over90, TotalOpen,
                     OpenOrderAmount
                 FROM dbo.tvf_PaymentPlanAging(@CompanyId)
                 WHERE Direction = @Direction
-                ORDER BY TotalOpen DESC", p)).ToList();
+                ORDER BY TotalOpen DESC", p, cancellationToken: ct))).ToList();
 
             Totals = new AgingTotalsDto(
                 Rows.Sum(r => r.NotDue),
@@ -45,6 +45,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                 Rows.Sum(r => r.TotalOpen),
                 Rows.Sum(r => r.OpenOrderAmount));
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
             logger.LogError(sqlEx, "Yaşlandırma raporu veri yükleme hatası");

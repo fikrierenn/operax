@@ -12,23 +12,23 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
     public IEnumerable<ActiveTaskDto> ActiveTasks   { get; set; } = [];
     public ActiveActivityDto?         CurrentActivity { get; set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         // Operatörün mevcut aktivitesini ve başlatabileceği görevleri yükler
         using var conn = db.Open();
 
         // Operatörün açık aktivitesi (EndTime NULL = devam ediyor)
-        CurrentActivity = await conn.QueryFirstOrDefaultAsync<ActiveActivityDto>(@"
+        CurrentActivity = await conn.QueryFirstOrDefaultAsync<ActiveActivityDto>(new CommandDefinition(@"
             SELECT a.Id, a.StartTime, po.DocNo, rs.OperationName, wc.Name as WorkCenterName
             FROM ProductionActivity a
             JOIN ProductionOrder po ON po.Id = a.ProductionOrderId
             JOIN ProductRouteStep rs ON rs.Id = a.RouteStepId
             JOIN WorkCenter wc ON wc.Id = a.WorkCenterId
             WHERE a.UserId = @UserId AND a.EndTime IS NULL AND po.CompanyId = @CompanyId",
-            new { UserId = user.Id, CompanyId = company.Id });
+            new { UserId = user.Id, CompanyId = company.Id }, cancellationToken: ct));
 
         // Başlatabileceği görevler: RELEASED veya IN_PROGRESS, aktif aktivitesi olmayan emirler
-        ActiveTasks = await conn.QueryAsync<ActiveTaskDto>(@"
+        ActiveTasks = await conn.QueryAsync<ActiveTaskDto>(new CommandDefinition(@"
             SELECT po.Id as OrderId, po.DocNo, i.Name as ItemName,
                    rs.Id as RouteStepId, rs.OperationName, wc.Name as WorkCenterName
             FROM ProductionOrder po
@@ -41,10 +41,10 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
                   SELECT 1 FROM ProductionActivity
                   WHERE ProductionOrderId = po.Id AND EndTime IS NULL
               )",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
     }
 
-    public async Task<IActionResult> OnPostStartAsync(Guid orderId, Guid stepId)
+    public async Task<IActionResult> OnPostStartAsync(Guid orderId, Guid stepId, CancellationToken ct)
     {
         // Mevcut açık aktiviteyi kapatır ve yeni aktivite başlatır
         using var conn = db.Open();
@@ -55,9 +55,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             // Çoklu-firma izolasyon guard'ı: dışarıdan POST edilen orderId başka firmaya
             // ait olabilir. Aktivite/durum yazmadan önce üretim emrinin oturum firmasına
             // ait olduğunu doğrula; değilse hiçbir kayda dokunmadan yetki hatası dön.
-            var orderBelongsToCompany = await conn.ExecuteScalarAsync<int>(
+            var orderBelongsToCompany = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM ProductionOrder WHERE Id = @OrderId AND CompanyId = @CompanyId",
-                new { OrderId = orderId, CompanyId = company.Id }, trans);
+                new { OrderId = orderId, CompanyId = company.Id }, trans, cancellationToken: ct));
             if (orderBelongsToCompany == 0)
             {
                 trans.Rollback();
@@ -68,20 +68,20 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             // ProductionActivity'de CompanyId kolonu yok; izolasyon üst belge ProductionOrder üzerinden.
             // Sadece UserId ile kapatmak, operatörün başka firmadaki açık aktivitesini de sessizce
             // bitirir (firma değiştirince çapraz mutasyon) — JOIN ile firmaya kısıtla.
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE pa SET pa.EndTime = GETUTCDATE()
                 FROM ProductionActivity pa
                 JOIN ProductionOrder po ON po.Id = pa.ProductionOrderId
                 WHERE pa.UserId = @UserId AND pa.EndTime IS NULL AND po.CompanyId = @CompanyId",
-                new { UserId = user.Id, CompanyId = company.Id }, trans);
+                new { UserId = user.Id, CompanyId = company.Id }, trans, cancellationToken: ct));
 
             // Rota adımından iş merkezini al
-            var workCenterId = await conn.ExecuteScalarAsync<Guid?>(
+            var workCenterId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
                 "SELECT WorkCenterId FROM ProductRouteStep WHERE Id = @StepId",
-                new { StepId = stepId }, trans);
+                new { StepId = stepId }, trans, cancellationToken: ct));
 
             // Yeni aktivite kaydı oluştur.
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 -- Çoklu-firma izolasyon notu: ProductionActivity tablosunda CompanyId kolonu yoktur;
                 -- izolasyon üst belge ProductionOrder üzerinden sağlanır. @OrderId bu handler'ın
                 -- başında ProductionOrder.CompanyId = oturum firması koşuluyla doğrulandığından
@@ -91,15 +91,16 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
                     (Id, ProductionOrderId, UserId, WorkCenterId, RouteStepId, StartTime)
                 VALUES
                     (NEWID(), @OrderId, @UserId, @WorkCenterId, @StepId, GETUTCDATE())",
-                new { OrderId = orderId, UserId = user.Id, WorkCenterId = workCenterId, StepId = stepId }, trans);
+                new { OrderId = orderId, UserId = user.Id, WorkCenterId = workCenterId, StepId = stepId }, trans, cancellationToken: ct));
 
             // İş kuralı: üretim emri IN_PROGRESS değilse güncelle (firma filtresi guard'la birlikte)
-            await conn.ExecuteAsync(
+            await conn.ExecuteAsync(new CommandDefinition(
                 "UPDATE ProductionOrder SET Status = 'IN_PROGRESS', CurrentRouteStepId = @StepId WHERE Id = @OrderId AND CompanyId = @CompanyId AND Status <> 'COMPLETED'",
-                new { StepId = stepId, OrderId = orderId, CompanyId = company.Id }, trans);
+                new { StepId = stepId, OrderId = orderId, CompanyId = company.Id }, trans, cancellationToken: ct));
 
             trans.Commit();
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
             // İş kuralı hatası — SP veya DB kısıtı Türkçe mesaj fırlattı
@@ -127,13 +128,13 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         return RedirectToPage();
     }
 
-    public async Task<IActionResult> OnPostStopAsync(Guid activityId)
+    public async Task<IActionResult> OnPostStopAsync(Guid activityId, CancellationToken ct)
     {
         // Aktif aktiviteyi durdurur (EndTime set eder)
         using var conn = db.Open();
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE ProductionActivity SET EndTime = GETUTCDATE() WHERE Id = @Id AND UserId = @UserId",
-            new { Id = activityId, UserId = user.Id });
+            new { Id = activityId, UserId = user.Id }, cancellationToken: ct));
         return RedirectToPage();
     }
 

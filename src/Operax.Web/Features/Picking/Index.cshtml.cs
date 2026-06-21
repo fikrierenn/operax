@@ -17,7 +17,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var page = Page < 1 ? 1 : Page;
@@ -34,7 +34,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
             SELECT COUNT(1) FROM PickTask WHERE CompanyId = @CompanyId;";
 
-        using var grid = await conn.QueryMultipleAsync(sql, new { CompanyId = company.Id, Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(
+            new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Tasks = (await grid.ReadAsync<PickTaskDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }

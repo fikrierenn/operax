@@ -18,7 +18,7 @@ public class IndexModel(Db db, UserManager<IdentityUser> userManager) : PageMode
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
         // Kullanıcıları doğrudan AspNetUsers tablosundan Dapper ile çek (EF bağımlılığı yok)
         using var conn = db.Open();
@@ -29,7 +29,7 @@ public class IndexModel(Db db, UserManager<IdentityUser> userManager) : PageMode
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT COUNT(1) FROM AspNetUsers;";
-        using var grid = await conn.QueryMultipleAsync(sql, new { Page = page, PageSize });
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { Page = page, PageSize }, cancellationToken: ct));
         var users = (await grid.ReadAsync<IdentityUser>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
 

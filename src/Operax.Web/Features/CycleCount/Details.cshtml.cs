@@ -19,22 +19,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public bool IsNew => Header.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         // Sayım formu için dropdown listelerini ve belge bilgilerini yükler
         using var conn = db.Open();
 
-        Warehouses = await conn.QueryAsync<DdlDto>(
+        Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         if (id.HasValue)
         {
-            Header = await conn.QueryFirstOrDefaultAsync<CountHeaderDto>(
+            Header = await conn.QueryFirstOrDefaultAsync<CountHeaderDto>(new CommandDefinition(
                 "SELECT Id, DocNo, Status, WarehouseId FROM CycleCount WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }) ?? new();
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
-            Lines = await conn.QueryAsync<CountLineDto>(@"
+            Lines = await conn.QueryAsync<CountLineDto>(new CommandDefinition(@"
                 SELECT l.*, i.Code as ItemCode, i.Name as ItemName,
                        b.Code as BinCode
                 FROM CycleCountLine l
@@ -42,18 +42,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN Item i ON i.Id = l.ItemId
                 JOIN Bin b ON b.Id = l.BinId
                 WHERE l.CycleCountId = @Id AND cc.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id });
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
             // Bin listesi — sadece seçilen depoya ait (CompanyId üzerinden güvenli)
-            Bins = await conn.QueryAsync<BinDto>(@"
+            Bins = await conn.QueryAsync<BinDto>(new CommandDefinition(@"
                 SELECT b.Id, b.Code FROM Bin b
                 JOIN Warehouse w ON w.Id = b.WarehouseId
                 WHERE b.WarehouseId = @WhId AND w.CompanyId = @CompanyId",
-                new { WhId = Header.WarehouseId, CompanyId = company.Id });
+                new { WhId = Header.WarehouseId, CompanyId = company.Id }, cancellationToken: ct));
 
-            Items = await conn.QueryAsync<DdlDto>(
+            Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
                 "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
-                new { CompanyId = company.Id });
+                new { CompanyId = company.Id }, cancellationToken: ct));
         }
         else
         {
@@ -61,7 +61,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Sayım belgesi oluşturur (DRAFT)
         using var conn = db.Open();
@@ -71,32 +71,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             Header.Id    = Guid.NewGuid();
             Header.DocNo = $"{DocPrefix.CycleCount}-{DateTime.UtcNow:yyyyMMddHHmm}";
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO CycleCount (Id, CompanyId, DocNo, Status, WarehouseId, CreatedBy)
                 VALUES (@Id, @CompanyId, @DocNo, @Status, @WarehouseId, @UserId)",
                 new {
                     Header.Id, CompanyId = company.Id, Header.DocNo,
                     Status = DocStatus.Draft, Header.WarehouseId, UserId = user.Id
-                });
+                }, cancellationToken: ct));
             await audit.LogAsync("CREATE", "CycleCount", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
     }
 
-    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid binId, Guid itemId, decimal qtyCounted)
+    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid binId, Guid itemId, decimal qtyCounted, CancellationToken ct)
     {
         // Sistem bakiyesini snapshot alır ve sayım satırı ekler
         using var conn = db.Open();
 
         // İş kuralı: sistem stok bakiyesi sayım anındaki snapshot — CompanyId zorunlu!
-        var qtySystem = await conn.ExecuteScalarAsync<decimal>(@"
+        var qtySystem = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
             SELECT ISNULL(SUM(QtyBase), 0)
             FROM StockMovement
             WHERE CompanyId = @CompanyId AND BinId = @BinId AND ItemId = @ItemId AND IsCancelled = 0",
-            new { CompanyId = company.Id, BinId = binId, ItemId = itemId });
+            new { CompanyId = company.Id, BinId = binId, ItemId = itemId }, cancellationToken: ct));
 
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst belge CycleCount aynı handler içinde daha önce
             -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi ve bulunamazsa boş form döndü.
@@ -106,36 +106,36 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO CycleCountLine (CycleCountId, BinId, ItemId, QtySystem, QtyCounted, CountedBy, CountedAt)
             VALUES (@Id, @BinId, @ItemId, @QtySystem, @QtyCounted, @UserId, GETUTCDATE())",
-            new { Id = id, BinId = binId, ItemId = itemId, QtySystem = qtySystem, QtyCounted = qtyCounted, UserId = user.Id.ToString() });
+            new { Id = id, BinId = binId, ItemId = itemId, QtySystem = qtySystem, QtyCounted = qtyCounted, UserId = user.Id.ToString() }, cancellationToken: ct));
 
         // Sayım başladığında durum COUNTING olur
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE CycleCount SET Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Status = DocStatus.Counting, Id = id, CompanyId = company.Id });
+            new { Status = DocStatus.Counting, Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostPostAdjustmentsAsync(Guid id)
+    public async Task<IActionResult> OnPostPostAdjustmentsAsync(Guid id, CancellationToken ct)
     {
         // sp_CycleCountPost: fark hareketi yazar, sayımı tamamlar
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_CycleCountPost",
+        await conn.ExecuteAsync(new CommandDefinition("sp_CycleCountPost",
             new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-            commandType: CommandType.StoredProcedure);
+            commandType: CommandType.StoredProcedure, cancellationToken: ct));
         await audit.LogAsync("POST", "CycleCount", id, "Stok sayımı kapatıldı, düzeltme hareketleri oluşturuldu");
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostReverseAsync(Guid id)
+    public async Task<IActionResult> OnPostReverseAsync(Guid id, CancellationToken ct)
     {
         // sp_CycleCountReverse: COMPLETED sayımı CANCELLED yapar, COUNT_ADJ hareketlerini kapatıp ters REVERSAL yazar
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_CycleCountReverse",
+            await conn.ExecuteAsync(new CommandDefinition("sp_CycleCountReverse",
                 new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
             await audit.LogAsync("CANCEL", "CycleCount", id, "Sayım iptal edildi, ters düzeltme hareketi yazıldı");
             TempData["Success"] = "Sayım iptal edildi.";
         }

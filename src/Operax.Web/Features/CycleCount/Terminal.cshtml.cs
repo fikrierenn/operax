@@ -13,33 +13,33 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
     public CountSessionDto? ActiveCount { get; set; }
     public IEnumerable<PendingCountDto> PendingCounts { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? countId)
+    public async Task OnGetAsync(Guid? countId, CancellationToken ct)
     {
         // El terminali: sayım belgesi seçilip raf raf fiziksel sayım sonucu girilir
         using var conn = db.Open();
 
-        PendingCounts = await conn.QueryAsync<PendingCountDto>(@"
+        PendingCounts = await conn.QueryAsync<PendingCountDto>(new CommandDefinition(@"
             SELECT c.Id, c.DocNo,
                    (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id) AS TotalLines,
                    (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id AND QtyCounted > 0) AS CountedLines
             FROM CycleCount c
             WHERE c.CompanyId = @CompanyId AND c.Status = @Status
             ORDER BY c.CreatedAt DESC",
-            new { CompanyId = company.Id, Status = DocStatus.Counting });
+            new { CompanyId = company.Id, Status = DocStatus.Counting }, cancellationToken: ct));
 
         if (!countId.HasValue) return;
 
-        ActiveCount = await conn.QueryFirstOrDefaultAsync<CountSessionDto>(@"
+        ActiveCount = await conn.QueryFirstOrDefaultAsync<CountSessionDto>(new CommandDefinition(@"
             SELECT c.Id, c.DocNo, c.Status, w.Code AS WhCode
             FROM CycleCount c
             LEFT JOIN Warehouse w ON w.Id = c.WarehouseId
             WHERE c.Id = @CountId AND c.CompanyId = @CompanyId",
-            new { CountId = countId, CompanyId = company.Id });
+            new { CountId = countId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (ActiveCount == null) return;
 
         // Sayılmamış (QtyCounted = 0) satırlar — önce bunlar
-        ActiveCount.Lines = (await conn.QueryAsync<CountLineTermDto>(@"
+        ActiveCount.Lines = (await conn.QueryAsync<CountLineTermDto>(new CommandDefinition(@"
             SELECT l.Id, l.QtyCounted, l.QtySystem,
                    i.Code AS ItemCode, i.Name AS ItemName,
                    b.Code AS BinCode, l.LotNo
@@ -49,19 +49,19 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user) : 
             LEFT JOIN Bin b ON b.Id = l.BinId
             WHERE l.CycleCountId = @CountId AND c.CompanyId = @CompanyId
             ORDER BY (CASE WHEN l.QtyCounted = 0 THEN 0 ELSE 1 END), b.Code, i.Code",
-            new { CountId = countId, CompanyId = company.Id })).ToList();
+            new { CountId = countId, CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
-    public async Task<IActionResult> OnPostEnterCountAsync(Guid countId, Guid lineId, decimal qtyCounted)
+    public async Task<IActionResult> OnPostEnterCountAsync(Guid countId, Guid lineId, decimal qtyCounted, CancellationToken ct)
     {
         // Sayım sonucunu kaydeder (günceller), fark hesabı SP'de yapılacak
         using var conn = db.Open();
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE l SET l.QtyCounted = @QtyCounted, l.CountedBy = @UserId, l.CountedAt = GETUTCDATE()
             FROM CycleCountLine l
             JOIN CycleCount c ON c.Id = l.CycleCountId
             WHERE l.Id = @LineId AND l.CycleCountId = @CountId AND c.CompanyId = @CompanyId",
-            new { QtyCounted = qtyCounted, UserId = user.Id, LineId = lineId, CountId = countId, CompanyId = company.Id });
+            new { QtyCounted = qtyCounted, UserId = user.Id, LineId = lineId, CountId = countId, CompanyId = company.Id }, cancellationToken: ct));
 
         TempData["Success"] = $"Sayım kaydedildi: {qtyCounted}";
         return RedirectToPage(new { countId });

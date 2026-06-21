@@ -20,32 +20,32 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
     public int ApprovedCount { get; set; }
     public int RejectedCount { get; set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
         var p = new { CompanyId = company.Id };
 
-        await LoadCountsAsync(conn, p);
-        await LoadVariancesAsync(conn);
+        await LoadCountsAsync(conn, p, ct);
+        await LoadVariancesAsync(conn, ct);
     }
 
-    private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p)
+    private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
         // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
-        var counts = await conn.QuerySingleAsync<(int Draft, int Approved, int Rejected)>(@"
+        var counts = await conn.QuerySingleAsync<(int Draft, int Approved, int Rejected)>(new CommandDefinition(@"
             SELECT
                 SUM(CASE WHEN Status = @StDraft    THEN 1 ELSE 0 END) AS Draft,
                 SUM(CASE WHEN Status = @StApproved THEN 1 ELSE 0 END) AS Approved,
                 SUM(CASE WHEN Status = 'REJECTED'  THEN 1 ELSE 0 END) AS Rejected
             FROM PriceVariance
             WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND SourceDocType = 'PURCHASE_ORDER'",
-            new { ((dynamic)p).CompanyId, StDraft = DocStatus.Draft, StApproved = DocStatus.Approved });
+            new { ((dynamic)p).CompanyId, StDraft = DocStatus.Draft, StApproved = DocStatus.Approved }, cancellationToken: ct));
         DraftCount = counts.Draft;
         ApprovedCount = counts.Approved;
         RejectedCount = counts.Rejected;
     }
 
-    private async Task LoadVariancesAsync(System.Data.IDbConnection conn)
+    private async Task LoadVariancesAsync(System.Data.IDbConnection conn, CancellationToken ct)
     {
         var sql = @"
             SELECT
@@ -63,31 +63,31 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
               AND v.SourceDocType = 'PURCHASE_ORDER'
               AND v.Status = @Tab
             ORDER BY v.CreatedAt DESC";
-        Variances = (await conn.QueryAsync<VarianceDto>(sql,
-            new { CompanyId = company.Id, Tab })).ToList();
+        Variances = (await conn.QueryAsync<VarianceDto>(new CommandDefinition(sql,
+            new { CompanyId = company.Id, Tab }, cancellationToken: ct))).ToList();
     }
 
-    public async Task<IActionResult> OnPostApproveAsync(Guid id)
+    public async Task<IActionResult> OnPostApproveAsync(Guid id, CancellationToken ct)
     {
         // İş kuralı: Fiyat farkı onaylanır — PO satır fiyatı + maliyet motoru güncellenir
         using var conn = db.Open();
-        await conn.ExecuteAsync("sp_ApprovePriceVariance",
+        await conn.ExecuteAsync(new CommandDefinition("sp_ApprovePriceVariance",
             new { VarianceId = id, UserId = user.Id },
-            commandType: System.Data.CommandType.StoredProcedure);
+            commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
         await audit.LogAsync("APPROVE_VARIANCE", "PriceVariance", id, "Fiyat farkı onaylandı");
         return RedirectToPage(new { tab = DocStatus.Draft });
     }
 
-    public async Task<IActionResult> OnPostRejectAsync(Guid id)
+    public async Task<IActionResult> OnPostRejectAsync(Guid id, CancellationToken ct)
     {
         // İş kuralı: Reddedildiğinde PO satır fiyatı değişmez, kayıt REJECTED işaretlenir
         using var conn = db.Open();
         // İş kuralı: yalnızca DRAFT fiyat farkı reddedilebilir; REJECTED DocStatus dışı sabit
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE PriceVariance
             SET Status = 'REJECTED', ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
             WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
-            new { Id = id, UserId = user.Id, CompanyId = company.Id, StDraft = DocStatus.Draft });
+            new { Id = id, UserId = user.Id, CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
         await audit.LogAsync("REJECT_VARIANCE", "PriceVariance", id, "Fiyat farkı reddedildi");
         return RedirectToPage(new { tab = DocStatus.Draft });
     }

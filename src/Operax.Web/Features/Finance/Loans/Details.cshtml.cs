@@ -26,23 +26,23 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public int     PaidCount         => Payments.Count(p => p.IsPaid);
     public int     OverdueCount      => Payments.Count(p => !p.IsPaid && p.DueDate < DateTime.Today);
 
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         if (Id == Guid.Empty) return RedirectToPage("Index");
 
         using var conn = db.Open();
         var p = new { CompanyId = company.Id, Id };
 
-        Loan = await conn.QuerySingleOrDefaultAsync<LoanInfoDto>(@"
+        Loan = await conn.QuerySingleOrDefaultAsync<LoanInfoDto>(new CommandDefinition(@"
             SELECT Id, LoanNo, BankName, CalcMethod, Status,
                    Principal, InterestRate, TermMonths, StartDate, EndDate,
                    MonthlyPayment, OutstandingBalance, GracePeriodMonths, BalloonAmount, AccountId
             FROM Loan
-            WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0", p);
+            WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
 
         if (Loan == null) return NotFound();
 
-        Payments = (await conn.QueryAsync<PaymentDto>(@"
+        Payments = (await conn.QueryAsync<PaymentDto>(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: üst belge Loan aynı handler içinde daha önce
             -- WHERE Id = @Id AND CompanyId = @CompanyId ile yüklendi; bulunamazsa NotFound döndü.
@@ -53,26 +53,26 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                    TotalAmount, PaidAmount, PaidAt, IsPaid
             FROM LoanPayment
             WHERE LoanId = @Id
-            ORDER BY InstallmentNo", p)).ToList();
+            ORDER BY InstallmentNo", p, cancellationToken: ct))).ToList();
 
-        BankAccounts = (await conn.QueryAsync<DdlDto>(@"
+        BankAccounts = (await conn.QueryAsync<DdlDto>(new CommandDefinition(@"
             SELECT Id, Code, Name FROM FinancialAccount
             WHERE CompanyId = @CompanyId AND AccountType = 'BANK' AND IsDeleted = 0
-            ORDER BY Name", new { CompanyId = company.Id })).ToList();
+            ORDER BY Name", new { CompanyId = company.Id }, cancellationToken: ct))).ToList();
 
         return Page();
     }
 
-    public async Task<IActionResult> OnPostPayAsync(Guid paymentId, Guid fromAccountId)
+    public async Task<IActionResult> OnPostPayAsync(Guid paymentId, Guid fromAccountId, CancellationToken ct)
     {
         // İş kuralı: Taksit ödeme — sp_PayLoanInstallment banka hesabından gider yazar,
         // anapara bakiyesini düşürür, tüm taksitler bitince krediyi CLOSED yapar.
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_PayLoanInstallment",
+            await conn.ExecuteAsync(new CommandDefinition("sp_PayLoanInstallment",
                 new { PaymentId = paymentId, CompanyId = company.Id, PayDate = (DateTime?)null, FromAccountId = fromAccountId, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
             // Audit izi (A-4): kredi taksit ödemesi — security-principles zorunlu kıldığı kayıt
             await audit.LogAsync("LOAN_INSTALLMENT_PAID", "LoanPayment", paymentId, $"Loan: {Id}");
             TempData["Success"] = "Taksit ödendi.";

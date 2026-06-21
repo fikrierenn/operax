@@ -13,36 +13,36 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
     public ReceivingTerminalDto? ActiveDoc { get; set; }
     public IEnumerable<PendingDocDto> PendingDocs { get; set; } = [];
 
-    public async Task OnGetAsync(Guid? docId)
+    public async Task OnGetAsync(Guid? docId, CancellationToken ct)
     {
         // El terminali: mal kabul belgesi seçilip barkod okutularak satır girilir
         using var conn = db.Open();
 
         // Bekleyen (DRAFT) mal kabul belgeleri
-        PendingDocs = await conn.QueryAsync<PendingDocDto>(@"
+        PendingDocs = await conn.QueryAsync<PendingDocDto>(new CommandDefinition(@"
             SELECT h.Id, h.DocNo, p.Name AS PartnerName,
                    (SELECT COUNT(*) FROM ReceivingLine WHERE HeaderId = h.Id) AS LineCount
             FROM ReceivingHeader h
             LEFT JOIN Partner p ON p.Id = h.PartnerId
             WHERE h.CompanyId = @CompanyId AND h.Status = @StDraft
             ORDER BY h.CreatedAt DESC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft });
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
 
         if (!docId.HasValue) return;
 
         // Seçili belge ve satırları
-        ActiveDoc = await conn.QueryFirstOrDefaultAsync<ReceivingTerminalDto>(@"
+        ActiveDoc = await conn.QueryFirstOrDefaultAsync<ReceivingTerminalDto>(new CommandDefinition(@"
             SELECT h.Id, h.DocNo, p.Name AS PartnerName, h.Status
             FROM ReceivingHeader h
             LEFT JOIN Partner p ON p.Id = h.PartnerId
             WHERE h.Id = @DocId AND h.CompanyId = @CompanyId",
-            new { DocId = docId, CompanyId = company.Id });
+            new { DocId = docId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (ActiveDoc == null) return;
 
         // İlerleme sayacı: beklenen miktar tek-sipariş modunda PO satırından (QtyOrdered) gelir;
         // toplu/serbest modda PO satırı olmadığından okutulan orijinal (QtyOriginal) beklenen sayılır.
-        ActiveDoc.Lines = (await conn.QueryAsync<ReceivingLineTermDto>(@"
+        ActiveDoc.Lines = (await conn.QueryAsync<ReceivingLineTermDto>(new CommandDefinition(@"
             SELECT l.Id, i.Code AS ItemCode, i.Name AS ItemName,
                    COALESCE(pol.QtyOrdered, l.QtyOriginal) AS QtyExpected,
                    l.QtyBase AS QtyReceived, l.ReturnQty AS ReturnPending, l.LotNo
@@ -52,26 +52,26 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             LEFT JOIN PurchaseOrderLine pol ON pol.Id = l.PurchaseOrderLineId
             WHERE l.HeaderId = @DocId AND h.CompanyId = @CompanyId
             ORDER BY i.Code",
-            new { DocId = docId, CompanyId = company.Id })).ToList();
+            new { DocId = docId, CompanyId = company.Id }, cancellationToken: ct))).ToList();
     }
 
-    public async Task<IActionResult> OnPostScanAsync(Guid docId, string barcode, string? lotNo, decimal qty)
+    public async Task<IActionResult> OnPostScanAsync(Guid docId, string barcode, string? lotNo, decimal qty, CancellationToken ct)
     {
         // Sipariş kontrollü tarama (Plan 28): mod + miktar doğrulaması SP'de; fazla → iade alanı.
         using var conn = db.Open();
 
         // Barkoddan ItemId bul (şirkete ait ürün)
-        var itemId = await conn.ExecuteScalarAsync<Guid?>(@"
+        var itemId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(@"
             SELECT i.Id FROM ItemBarcode b
             JOIN Item i ON i.Id = b.ItemId
             WHERE b.Barcode = @Barcode AND i.CompanyId = @CompanyId",
-            new { Barcode = barcode, CompanyId = company.Id });
+            new { Barcode = barcode, CompanyId = company.Id }, cancellationToken: ct));
         if (itemId == null) { TempData["Error"] = $"Barkod bulunamadı: {barcode}"; return RedirectToPage(new { docId }); }
 
         // İş kuralı: serbest (FREE) mod yalnızca yetkili rollerde
-        var mode = await conn.ExecuteScalarAsync<string?>(
+        var mode = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
             "SELECT ReceivingMode FROM ReceivingHeader WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = docId, CompanyId = company.Id });
+            new { Id = docId, CompanyId = company.Id }, cancellationToken: ct));
         if (mode == "FREE" && !user.HasRole(Roles.Administrator, Roles.WarehouseManager, Roles.Purchasing))
         {
             TempData["Error"] = "Siparişsiz (serbest) mal kabul yetkiniz yok.";
@@ -81,9 +81,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         try
         {
             var r = await conn.QueryFirstOrDefaultAsync<(decimal Accepted, decimal Excess, string ItemName)>(
-                "sp_ReceivingTerminalScan",
+                new CommandDefinition("sp_ReceivingTerminalScan",
                 new { HeaderId = docId, ItemId = itemId, Qty = qty, LotNo = lotNo, CompanyId = company.Id, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
 
             // İş kuralı: fazla okutma → iade alanına ayrıldı, kullanıcıyı UYAR
             if (r.Excess > 0)

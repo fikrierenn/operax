@@ -22,45 +22,45 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
 
     public bool IsNew => Header.Id == Guid.Empty;
 
-    public async Task OnGetAsync(Guid? id)
+    public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         // Dropdown listelerini ve belge bilgilerini yükler
         using var conn = db.Open();
 
-        Warehouses = await conn.QueryAsync<DdlDto>(
+        Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
-        Partners = await conn.QueryAsync<DdlDto>(
+        Partners = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'BOTH') AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
-        AvailableItems = await conn.QueryAsync<DdlDto>(
+        AvailableItems = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         // tvf_OpenPurchaseOrders: CompanyId parametreli iTVF — tedarikçiye göre client-side
         // filtrelemek için PartnerId, ekranda göstermek için tedarikçi adı + tarih döner.
-        OpenPurchaseOrders = await conn.QueryAsync<OpenPoDto>(
+        OpenPurchaseOrders = await conn.QueryAsync<OpenPoDto>(new CommandDefinition(
             "SELECT Id, Code, Name AS PartnerName, PartnerId, WarehouseId, OrderDate FROM tvf_OpenPurchaseOrders(@CompanyId)",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
-        AllUoms = await conn.QueryAsync<DdlDto>(
+        AllUoms = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT dv.Id, dv.Code, dv.NameTr as Name FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId WHERE dt.Code = 'UOM' AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0",
-            new { CompanyId = company.Id });
+            new { CompanyId = company.Id }, cancellationToken: ct));
 
         if (id.HasValue)
         {
-            Header = await conn.QueryFirstOrDefaultAsync<ReceivingHeaderDto>(@"
+            Header = await conn.QueryFirstOrDefaultAsync<ReceivingHeaderDto>(new CommandDefinition(@"
                 SELECT r.Id, r.WarehouseId, r.PartnerId, r.PurchaseOrderId, r.DocNo, r.Status, r.Notes,
                        r.ReceivingMode AS Mode, r.SupplierWaybillNo, r.SupplierWaybillDate,
                        p.Name as PartnerName
                 FROM ReceivingHeader r
                 JOIN Partner p ON p.Id = r.PartnerId
                 WHERE r.Id = @Id AND r.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id }) ?? new();
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
-            Lines = await conn.QueryAsync<ReceivingLineDto>(@"
+            Lines = await conn.QueryAsync<ReceivingLineDto>(new CommandDefinition(@"
                 SELECT l.Id, i.Code as ItemCode, i.Name as ItemName, dv.Code as UomCode,
                        bdv.Code as BaseUomCode,
                        l.QtyOriginal, l.QtyBase, l.LotNo, l.PurchaseOrderLineId, l.ItemId, l.UomId
@@ -70,16 +70,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 JOIN DictionaryValue dv ON dv.Id = l.UomId
                 LEFT JOIN DictionaryValue bdv ON bdv.Id = i.BaseUomId
                 WHERE l.HeaderId = @Id AND rh.CompanyId = @CompanyId",
-                new { Id = id, CompanyId = company.Id });
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
             // Bağlı alış faturası sayacı (PurchaseInvoice — satır-bazlı Receiving bağı)
-            InvoiceCount = await conn.ExecuteScalarAsync<int>(@"
+            InvoiceCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
                 SELECT COUNT(DISTINCT pi.Id)
                 FROM PurchaseInvoice pi
                 JOIN PurchaseInvoiceLine pil ON pil.InvoiceId = pi.Id
                 JOIN ReceivingLine rl ON rl.Id = pil.SourceReceivingLineId
                 WHERE rl.HeaderId = @Id AND pi.CompanyId = @CompanyId AND pi.Status <> @Cancelled",
-                new { Id = id, CompanyId = company.Id, Cancelled = DocStatus.Cancelled });
+                new { Id = id, CompanyId = company.Id, Cancelled = DocStatus.Cancelled }, cancellationToken: ct));
 
             DocFlow = new DocFlowVm([
                 new DocFlowItem(
@@ -101,7 +101,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         // Belge başlığını kaydeder veya günceller (DRAFT)
         using var conn = db.Open();
@@ -133,9 +133,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         {
             Header.Id = Guid.NewGuid();
             // DocNo: RCV-YYYYMMDD-00001 formatı — şirket bazlı günlük sıra numarası
-            var seq = await conn.ExecuteScalarAsync<int>(
+            var seq = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
                 "SELECT COUNT(1) + 1 FROM ReceivingHeader WHERE CompanyId = @CompanyId AND CAST(DocDate AS DATE) = CAST(GETDATE() AS DATE)",
-                new { CompanyId = company.Id });
+                new { CompanyId = company.Id }, cancellationToken: ct));
             Header.DocNo = $"{DocPrefix.Receiving}-{DateTime.UtcNow:yyyyMMdd}-{seq:D5}";
 
             // İş kuralı (Plan 28): tek-sipariş modunda PO seçimi zorunlu; toplu/serbest modda PO boş kalır
@@ -145,7 +145,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 return RedirectToPage(new { id = (Guid?)null });
             }
 
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 INSERT INTO ReceivingHeader
                     (Id, CompanyId, WarehouseId, PartnerId, PurchaseOrderId, ReceivingMode,
                      SupplierWaybillNo, SupplierWaybillDate, DocNo, Status, Notes, CreatedBy)
@@ -158,7 +158,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                     Header.Mode, Header.SupplierWaybillNo, Header.SupplierWaybillDate,
                     Header.DocNo, Status = DocStatus.Draft, Header.Notes,
                     UserId = user.Id
-                });
+                }, cancellationToken: ct));
             await audit.LogAsync("CREATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
         else
@@ -169,21 +169,21 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 TempData["Error"] = "Belge kilitli: bu mal kabule bağlı alış faturası mevcut, düzenlenemez.";
                 return RedirectToPage(new { id = Header.Id });
             }
-            await conn.ExecuteAsync(@"
+            await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE ReceivingHeader
                 SET WarehouseId=@WarehouseId, PartnerId=@PartnerId, PurchaseOrderId=@PurchaseOrderId,
                     SupplierWaybillNo=@SupplierWaybillNo, SupplierWaybillDate=@SupplierWaybillDate, Notes=@Notes
                 WHERE Id=@Id AND CompanyId=@CompanyId",
                 new { Header.WarehouseId, Header.PartnerId, Header.PurchaseOrderId,
                       Header.SupplierWaybillNo, Header.SupplierWaybillDate, Header.Notes,
-                      Header.Id, CompanyId = company.Id });
+                      Header.Id, CompanyId = company.Id }, cancellationToken: ct));
             await audit.LogAsync("UPDATE", "ReceivingHeader", Header.Id, $"DocNo: {Header.DocNo}");
         }
 
         return RedirectToPage(new { id = Header.Id });
     }
 
-    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, Guid uomId, decimal qty, string? lotNo, Guid? poLineId)
+    public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, Guid uomId, decimal qty, string? lotNo, Guid? poLineId, CancellationToken ct)
     {
         // Satır ekler; UOM dönüşümünü fn_GetConversionRate ile hesaplar
         using var conn = db.Open();
@@ -196,20 +196,20 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
 
         // Ürün kontrolü — CompanyId dahil
-        var exists = await conn.ExecuteScalarAsync<int>(
+        var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1",
-            new { ItemId = itemId, CompanyId = company.Id });
+            new { ItemId = itemId, CompanyId = company.Id }, cancellationToken: ct));
 
         if (exists == 0) return RedirectToPage(new { id });
 
         // DB fonksiyonu ile dönüşüm oranı
-        var rate = await conn.ExecuteScalarAsync<decimal>(
+        var rate = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
             "SELECT dbo.fn_GetConversionRate(@ItemId, @UomId)",
-            new { ItemId = itemId, UomId = uomId });
+            new { ItemId = itemId, UomId = uomId }, cancellationToken: ct));
 
         if (rate == 0) rate = 1;
 
-        await conn.ExecuteAsync(@"
+        await conn.ExecuteAsync(new CommandDefinition(@"
             -- Çoklu-firma izolasyon notu: bu sorgu doğrudan CompanyId filtresi taşımaz; güvenlidir.
             -- Gerekçe: eklenen Item bu handler'da WHERE Id = @ItemId AND CompanyId = @CompanyId ile
             -- doğrulandı; bulunamazsa işlem iptal edildi (exists == 0).
@@ -218,19 +218,19 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
             INSERT INTO ReceivingLine (HeaderId, ItemId, UomId, QtyOriginal, QtyBase, LotNo, PurchaseOrderLineId)
             VALUES (@HeaderId, @ItemId, @UomId, @Qty, @QtyBase, @LotNo, @PoLineId)",
-            new { HeaderId = id, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rate, LotNo = lotNo, PoLineId = poLineId });
+            new { HeaderId = id, ItemId = itemId, UomId = uomId, Qty = qty, QtyBase = qty * rate, LotNo = lotNo, PoLineId = poLineId }, cancellationToken: ct));
 
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken ct)
     {
         // Yalnızca DRAFT mal kabul belgesi silinebilir (soft-delete). POSTED için iptal/ters hareket gerekir.
         using var conn = db.Open();
 
-        var status = await conn.ExecuteScalarAsync<string?>(
+        var status = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
             "SELECT Status FROM ReceivingHeader WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0",
-            new { Id = id, CompanyId = company.Id });
+            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
         // İş kuralı: belge yoksa veya taslak değilse silme reddedilir
         if (status is null) { TempData["Error"] = "Belge bulunamadı."; return RedirectToPage("./Index"); }
@@ -240,24 +240,24 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             return RedirectToPage(new { id });
         }
 
-        await conn.ExecuteAsync(
+        await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE ReceivingHeader SET IsDeleted = 1, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id, UserId = user.Id });
+            new { Id = id, CompanyId = company.Id, UserId = user.Id }, cancellationToken: ct));
         await audit.LogAsync("DELETE", "ReceivingHeader", id, "Taslak mal kabul silindi");
 
         TempData["Success"] = "Taslak mal kabul belgesi silindi.";
         return RedirectToPage("./Index");
     }
 
-    public async Task<IActionResult> OnPostPostAsync(Guid id)
+    public async Task<IActionResult> OnPostPostAsync(Guid id, CancellationToken ct)
     {
         // sp_ReceivingPost: stok hareketi, PO güncelleme, ItemCost MA, durum değişimi
         using var conn = db.Open();
         try
         {
-            await conn.ExecuteAsync("sp_ReceivingPost",
+            await conn.ExecuteAsync(new CommandDefinition("sp_ReceivingPost",
                 new { HeaderId = id, CompanyId = company.Id, UserId = user.Id },
-                commandType: CommandType.StoredProcedure);
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
             await audit.LogAsync("POST", "ReceivingHeader", id, "Mal kabul belgesi onaylandı (stoğa aktarıldı)");
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
@@ -318,7 +318,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public int InvoiceCount { get; set; }
     public DocFlowVm? DocFlow { get; set; }
 
-    public async Task<IActionResult> OnPostCreateInvoiceAsync(Guid id)
+    public async Task<IActionResult> OnPostCreateInvoiceAsync(Guid id, CancellationToken ct)
     {
         // sp_CreatePurchaseInvoiceFromReceiving: POSTED Receiving'den DRAFT PurchaseInvoice + satırlar (Plan 24)
         using var conn = db.Open();
@@ -331,8 +331,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             prm.Add("NewInvoiceId", dbType: System.Data.DbType.Guid,
                     direction: System.Data.ParameterDirection.Output);
 
-            await conn.ExecuteAsync("sp_CreatePurchaseInvoiceFromReceiving", prm,
-                commandType: System.Data.CommandType.StoredProcedure);
+            await conn.ExecuteAsync(new CommandDefinition("sp_CreatePurchaseInvoiceFromReceiving", prm,
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
 
             var newId = prm.Get<Guid>("NewInvoiceId");
             TempData["Success"] = "Alış faturası oluşturuldu.";

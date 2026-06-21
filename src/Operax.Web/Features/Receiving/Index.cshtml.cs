@@ -36,7 +36,7 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
     // GRNI yaşlandırma eşiği — parametrik (Parameter: INVOICE_AGING_DAYS), kayıt yoksa 30 gün varsayılan
     public int InvoiceAgingThresholdDays { get; set; } = 30;
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
 
@@ -50,7 +50,8 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
             WHERE r.CompanyId = @CompanyId AND r.IsDeleted = 0
             GROUP BY r.Status";
 
-        var statusCounts = await conn.QueryAsync<(string Status, int Cnt)>(countSql, new { CompanyId = company.Id });
+        var statusCounts = await conn.QueryAsync<(string Status, int Cnt)>(
+            new CommandDefinition(countSql, new { CompanyId = company.Id }, cancellationToken: ct));
         foreach (var (status, cnt) in statusCounts)
         {
             if (status == DocStatus.Draft)     DraftCount     = cnt;
@@ -59,7 +60,7 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
         }
 
         // Fatura bekleyen (POSTED + faturasız/kısmi) + geciken (eşik aşan) sayaçları — GRNI
-        var grni = await conn.QueryFirstAsync<(int Awaiting, int Overdue)>(@"
+        var grni = await conn.QueryFirstAsync<(int Awaiting, int Overdue)>(new CommandDefinition(@"
             SELECT
                 COUNT(*) AS Awaiting,
                 SUM(CASE WHEN DATEDIFF(DAY, r.DocDate, CAST(GETUTCDATE() AS DATE)) >= @Threshold THEN 1 ELSE 0 END) AS Overdue
@@ -67,7 +68,8 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
             WHERE r.CompanyId = @CompanyId AND r.IsDeleted = 0 AND r.Status = @Posted
               AND EXISTS (SELECT 1 FROM ReceivingLine l
                           WHERE l.HeaderId = r.Id AND (l.QtyBase - l.InvoicedQty) > 0.000001)",
-            new { CompanyId = company.Id, Posted = DocStatus.Posted, Threshold = InvoiceAgingThresholdDays });
+            new { CompanyId = company.Id, Posted = DocStatus.Posted, Threshold = InvoiceAgingThresholdDays },
+            cancellationToken: ct));
         AwaitingInvoiceCount = grni.Awaiting;
         OverdueInvoiceCount  = grni.Overdue;
 
@@ -107,7 +109,7 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
                                WHERE l2.HeaderId = r.Id AND (l2.QtyBase - l2.InvoicedQty) > 0.000001)));";
 
         var page = Page < 1 ? 1 : Page;
-        using var grid = await conn.QueryMultipleAsync(sql, new
+        using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new
         {
             CompanyId = company.Id,
             Q         = Q,
@@ -116,7 +118,7 @@ public class IndexModel(Db db, ICurrentCompany company, ParameterStore parameter
             Posted    = DocStatus.Posted,
             Page      = page,
             PageSize
-        });
+        }, cancellationToken: ct));
         Documents = (await grid.ReadAsync<ReceivingDto>()).ToList();
         FilteredCount = await grid.ReadSingleAsync<int>();
     }

@@ -720,12 +720,8 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Dönem kilidi (Plan 14): toplama-ISSUE hareketi kilitli döneme yazılamaz; LOCKED/CLOSED → THROW
-        DECLARE @nowGuard DATETIME2 = GETUTCDATE();
-        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowGuard, @UserId;
-
-    -- İş kuralı: zaten toplanmış satır tekrar toplanamaz (çift ISSUE-stok engeli).
-    -- UPDLOCK eşzamanlı çift çağrıyı serialize eder. (NOT: ISSUE-stok semantiği ayrı DEBT.)
+    -- İş kuralı: zaten toplanmış satır tekrar toplanamaz (çift toplama engeli).
+    -- UPDLOCK eşzamanlı çift çağrıyı serialize eder.
     DECLARE @AlreadyPicked DECIMAL(18,4);
     SELECT @AlreadyPicked = QtyPicked FROM PickTaskLine WITH (UPDLOCK, ROWLOCK) WHERE Id = @LineId;
     IF @AlreadyPicked IS NULL
@@ -746,7 +742,7 @@ BEGIN
     DECLARE @WarehouseId UNIQUEIDENTIFIER, @BinId UNIQUEIDENTIFIER,
             @ItemId UNIQUEIDENTIFIER, @UomId UNIQUEIDENTIFIER,
             @DocNo NVARCHAR(50), @TaskDocNo NVARCHAR(50),
-            @SourceDocId UNIQUEIDENTIFIER;
+            @ShipmentId UNIQUEIDENTIFIER;
 
     SELECT
         @WarehouseId = ptl.TargetWarehouseId,
@@ -755,19 +751,29 @@ BEGIN
         @UomId       = ptl.UomId,
         @DocNo       = pt.DocNo,
         @TaskDocNo   = pt.DocNo,
-        @SourceDocId = ISNULL(pt.ShipmentId, pt.SourceDocId)
+        @ShipmentId  = pt.ShipmentId
     FROM PickTaskLine ptl
     JOIN PickTask pt ON pt.Id = ptl.PickTaskId
     WHERE ptl.Id = @LineId;
 
-    -- Stok hareketi: ISSUE
-    INSERT INTO StockMovement
-        (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
-    VALUES
-        (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE',
-         -@Qty, @UomId, @Qty, 'PICKING', @TaskId, @DocNo, @UserId,
-         ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId)));
+    -- İş kuralı (çift-düşüm fix): SEVKİYAT toplaması ledger hareketi yazMAZ — stok yalnız
+    -- sevkiyat POSTED'da (sp_ShippingPost) çıkar. Toplama bir tahsisat/durum adımıdır.
+    -- ISSUE yalnız ledger-kaynağı toplamalarda (üretim hammadde sarfı vb. ShipmentId NULL) yazılır.
+    IF @ShipmentId IS NULL
+    BEGIN
+        -- Dönem kilidi (Plan 14): yalnız gerçek ledger hareketi yazılırken; kilitli dönem → THROW
+        DECLARE @nowGuard DATETIME2 = GETUTCDATE();
+        EXEC dbo.sp_GuardPeriodOpen @CompanyId, @nowGuard, @UserId;
+
+        -- Stok hareketi: ISSUE (sarfiyat)
+        INSERT INTO StockMovement
+            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
+             QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
+        VALUES
+            (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE',
+             -@Qty, @UomId, @Qty, 'PICKING', @TaskId, @DocNo, @UserId,
+             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId)));
+    END
 
     -- Üretim hammadde sarfiyatı güncelle (sadece PRD-PCK- görevleri)
     IF @TaskDocNo LIKE 'PRD-PCK-%'

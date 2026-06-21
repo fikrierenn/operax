@@ -305,17 +305,30 @@ BEGIN
         IF @Status <> 'COMPLETED'
             THROW 51342, N'Yalnızca tamamlanmış üretim emirleri iptal edilebilir.', 1;
 
-        -- Hammadde sarfı (ISSUE) + mamul girişi (RECEIPT) hareketlerini IsCancelled=1 ile kapat
-        -- (bakiye = SUM(QtyBase WHERE IsCancelled=0))
+        -- Mamul girişi (RECEIPT) hareketlerini IsCancelled=1 ile kapat (bakiye = SUM(QtyBase WHERE IsCancelled=0))
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
+        -- hareketleri zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar.
         UPDATE StockMovement
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'PRODUCTION' AND SourceDocId = @OrderId AND IsCancelled = 0;
 
-        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
-        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
-        -- hareketleri zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar.
+        -- İş kuralı: tamamlanmış emirde mamul girişi (RECEIPT) her zaman vardır; yoksa veri tutarsızlığı.
         IF @@ROWCOUNT = 0
             THROW 51343, N'İptal edilecek üretim hareketi bulunamadı (veri tutarsızlığı).', 1;
+
+        -- İş kuralı (IMP-1 fix): hammadde sarfı (ISSUE) bu emrin pick task'larından
+        -- SourceDocType='PICKING', SourceDocId=@TaskId ile yazılır (sp_PickLinePost). PickTask.SourceDocId
+        -- üretim emrine bağlar. RECEIPT iptali bunları kapsamadığından ayrı kapatılır — aksi halde iptal
+        -- sonrası hammadde sarf edilmiş kalır (hayalet sarfiyat). Malzeme toplanmamışsa 0 satır (hata değil).
+        -- pt.ShipmentId IS NULL: yalnız sarfiyat (üretim) pick'leri — sp_PickLinePost ISSUE'yu da bu
+        -- koşulla yazar (sevkiyat pick'i ledger yazmaz). Simetrik guard; sevkiyat pick'inden kesin izolasyon.
+        UPDATE sm
+        SET sm.IsCancelled = 1, sm.CancelledAt = GETUTCDATE(), sm.CancelledBy = @UserId
+        FROM StockMovement sm
+        JOIN PickTask pt ON pt.Id = sm.SourceDocId
+        WHERE sm.SourceDocType = 'PICKING' AND sm.IsCancelled = 0
+          AND pt.SourceDocId = @OrderId AND pt.CompanyId = @CompanyId
+          AND pt.ShipmentId IS NULL;
 
         UPDATE ProductionOrder
         SET Status = 'CANCELLED', UpdatedBy = @UserId

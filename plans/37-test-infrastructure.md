@@ -17,7 +17,7 @@ Solution'da test projesi YOK. `dotnet test` 0 testle "başarılı" döner. ERP/W
   - **CompanyId izolasyon:** SYSTEM'de post edilen kalem DEMO şirketinin tvf_InventoryBalance'ında görünmüyor ✅.
   - **28/28 test yeşil.**
 - **Faz 3d — Dönem kilidi ✅ (2026-06-21):** Bulgu giderildi — 7 ledger SP'sine `sp_GuardPeriodOpen` eklendi (sp_ReceivingPost/ShippingPost/PickLinePost + finans sp_PayCreditCardStatement/CreateLoan/PayLoanInstallment + sp_PurchaseInvoiceReverse). Regresyon testi: LOCKED döneme sp_ReceivingPost → THROW 51201 ✅. sql-sp-reviewer IMP-1 fix (PurchaseInvoiceReverse guard belge tarihiyle). **29/29 test yeşil.**
-- **Faz 3e — UOM/fiyat (KALAN):** fn_GetConversionRate dönüşüm + sp_CheckPriceVariance. INFO: finans SP'lerinde @UserId UNIQUEIDENTIFIER→NVARCHAR implicit conversion CLOSED-dönem override'da smoke ile doğrulanmalı (güvenli taraf: uyuşmazlıkta reddeder).
+- **Faz 3e — UOM/fiyat ✅ (2026-06-22):** `UomConversionTests` (fn_GetConversionRate: baz→1.0, tanımlı alt birim→ItemUOM oranı, tanımsız→1.0 fallback) + `PriceVarianceTests` (sp_CheckPriceVariance: eşit fiyat→kayıt yok, sapma→PriceVariance DRAFT + Variance/VariancePct doğru, liste yok→kayıt yok). **35/35 test yeşil.** INFO (kalan): finans SP'lerinde @UserId UNIQUEIDENTIFIER→NVARCHAR implicit conversion CLOSED-dönem override'da smoke ile doğrulanmalı (güvenli taraf: uyuşmazlıkta reddeder).
 - **Faz 4 — Auth/role/company-switch:** DapperUserStore concurrency (H-4 regresyon), UserCompany IsActive guard (H-2), fallback authz (H-1).
 
 ## Alternatifler (reddedilen)

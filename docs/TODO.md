@@ -4,16 +4,16 @@
 
 ## 🔧 PLAN 33 — SQL/SP + MİMARİ BÜTÜNLÜK DÜZELTMELERİ (2026-06-04 — denetim çıktısı)
 
-Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/33-sql-arch-conformance-fixes.md`. **Onay bekliyor.**
+Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mimari uyum 35 ajan/99 PageModel). Her bulgu adversarial doğrulandı. Plan: `plans/archive/33-sql-arch-conformance-fixes.md`. **✅ TAMAMLANDI 2026-06-19 (Faz A-F) — arşivde.** Kalan: sadece DEBT satırları (aşağıda).
 
 - [x] ✅ **Faz A — Ledger immutability (VUK-kritik, lokalize):** TAMAM 2026-06-04 commit b22db21. C3+H1 `sp_CorrectPurchaseInvoiceLine` UPDATE→ters REVERSAL+yeni satır (CompanyId+Currency) · H2 `sp_PurchaseInvoiceReverse` Currency faturadan · H5 `sp_MaterialIssueReverse` TRY_CAST (canlı VT: CancelledBy uniqueidentifier). migrate 0 fail · sql-sp-reviewer temiz (conf 93).
 - [x] ✅ **Faz B — Terminal/Putaway SP'ye taşı:** TAMAM 2026-06-04 commit ce9f318. AC1 `sp_PutawayPost` (negatif-stok guard+dönem kilidi) · AC2 `sp_PickConfirm` (durum-only, davranış birebir) · AH4 Transfer/Terminal catch+ILogger. CRIT-1 CreatedBy TRY_CAST + IMP-1 guard. build 0 · sql-sp+security temiz · putaway smoke (net-korundu + guard THROW).
   - [ ] **DEBT · Pick smoke:** açık PickTask seed yok → sp_PickConfirm uçtan-uca test edilmedi. Seed eklenince doğrula.
   - [ ] **DEBT · Pick-vs-shipping çift düşüm riski (sql-sp-reviewer):** `sp_PickLinePost` StockMovement ISSUE yazıyor, `sp_PickConfirm` yazmıyor — iki toplama yolu tutarsız. Doğru semantik: stok çıkışı yalnız sevkiyat POSTED (`sp_ShippingPost`). `sp_PickLinePost` ISSUE'sı çift-sayım kaynağı olabilir; ayrı denetle, tek-nokta stok-düşme kararı ver.
-- [ ] **Faz C — SP transaction normalizasyon + idempotency:** C1 8 SP TRY/CATCH+ROLLBACK+THROW · C2 status guard + StockMovement idempotent UNIQUE.
-- [ ] **Faz D — DocumentLock helper + edit guard:** `Lib/DocumentLock.cs` (rule §7, henüz YOK) · AH6/AH7 PO Details guard + SO/Shipping/CycleCount.
-- [ ] **Faz E — THROW kod hizalama + DEAD servis temizliği:** H3 60xxx→50xxx (DepositCheque/ReturnCheque/PayLoanInstallment) · AC3/AH8 ProductionReceiptService+ProductionActivityService sil (DI+caller yok DOĞRULANDI).
-- [ ] **Faz F — Dönem-tarih simetrisi (şema, en büyük):** H6s StockMovement.MovementDate kolonu + trigger INSERTED.MovementDate (AccountMovement ile simetrik) + backfill.
+- [x] ✅ **Faz C — SP transaction normalizasyon + idempotency:** KAPALI 2026-06-19 (stale TODO 2026-06-22'de doğrulandı). C2 gerçek fix: ProductionFinish+PickLinePost UPDLOCK+status/QtyPicked guard+TRY/CATCH (ShippingPost/TransferPost/CycleCountPost zaten UPDLOCK+ValidateStatusTransition korumalıydı). C1 5 SP DEBT-ertelendi (SET XACT_ABORT auto-rollback yeterli, polish). Plan'ın StockMovement(SourceDocType,SourceDocId) UNIQUE fikri çok-satırlı belgede çalışmaz → status guard doğru mekanizma. Kanıt: `db_objects*.sql` UPDLOCK + arşiv plan §C.
+- [x] ✅ **Faz D — DocumentLock helper + edit guard:** KAPALI 2026-06-19 commit 3e15dd2. `Lib/DocumentLock.cs` (4 async helper PO→Receiving/Receiving→PurchaseInvoice/SO→Shipping/Shipping→SalesInvoice) + PO/SO/Shipping edit + add-line guard. code-reviewer 2 bulgu fix + smoke. DEBT: CycleCount guard (gerçek child yok) eklenmedi.
+- [x] ✅ **Faz E — THROW kod hizalama + DEAD servis temizliği:** KAPALI 2026-06-19 commit 57c8877. H3 60xxx→**55xxx** (çakışma engeli) — kalan 60xxx=0 doğrulandı. AC3+AH8 ProductionReceiptService+ProductionActivityService silindi (DI/caller yok, build 0/0).
+- [x] ✅ **Faz F — Dönem-tarih simetrisi (şema):** KAPALI 2026-06-19. H6s StockMovement.MovementDate kolonu (idempotent ADD→backfill→NOT NULL) + trigger INSERTED.MovementDate (AccountMovement simetrik). Backfill 189 satır. sql-sp-reviewer temiz + smoke (THROW 51210). NOT: SP'ler belge tarihini MovementDate'e yazması ileride (şimdilik onay-anı DEFAULT).
 - [ ] **DEBT · MEDIUM/LOW birikimi (kapsam-dışı):** `SELECT *` ~22, magic-string ~14 (DocStatus/MovementType sabiti var, kullanılmamış), timezone DateTime.Now ~3, immutability guard SO/Shipping/CycleCount. Ayrı temizlik turu.
 
 ---

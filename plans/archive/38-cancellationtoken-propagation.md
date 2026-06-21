@@ -68,10 +68,11 @@ public async Task<IActionResult> OnPostAsync(Guid id, CancellationToken ct)
 
 ## 7. Done Criteria
 
-- [ ] Her faz: build 0/0 + ilgili test yeşil + commit (`plan:38`).
-- [ ] Faz sonunda `grep 'await conn\.' modül/ | grep -v CommandDefinition` boş (o modülde ct'siz Dapper yok).
-- [ ] 216 handler ct alır; 443 Dapper çağrısı CommandDefinition+ct.
-- [ ] error-handling §4-5 uyumu (OCE rethrow generic catch'lerde).
+- [x] ✅ Her faz: build 0/0 + test yeşil (45/45) + commit (`plan:38` — Faz 1 c240a44, Faz 2-7 c78b619).
+- [x] ✅ Multiline-aware grep: 0 gerçek ct'siz Dapper (PageModel handler katmanı).
+- [x] ✅ ~211 handler ct alır (Faz 1: 9 + Faz 2-7: 202); ~388 Dapper çağrısı CommandDefinition+ct (27+361). Not: gerçek envanter plan tahminindeki 216/443'ten düşük çıktı (bir kısım zaten ct'liydi / GridReader hariç).
+- [x] ✅ error-handling §4-5: generic catch'lere OCE rethrow eklendi; SqlException-only catch'ler OCE doğal propagate.
+- [ ] **Residual (kapsam dışı):** Servis-katmanı (AutoTraceabilityService, DocumentLock, ParameterStore vb.) ct almaz — ayrı "servis turu" (bu plan yalnız PageModel handler katmanı).
 
 ## 8. Rollback
 

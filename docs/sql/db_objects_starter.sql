@@ -1849,8 +1849,8 @@ BEGIN
         JOIN Partner p ON p.Id = h.PartnerId
         WHERE h.Id = @PoHeaderId;
 
-        IF @CompanyId IS NULL THROW 71001, N'Satınalma siparişi bulunamadı.', 1;
-        IF @TotalAmount IS NULL OR @TotalAmount = 0 THROW 71002, N'Sipariş toplamı sıfır.', 1;
+        IF @CompanyId IS NULL THROW 56001, N'Satınalma siparişi bulunamadı.', 1;
+        IF @TotalAmount IS NULL OR @TotalAmount = 0 THROW 56002, N'Sipariş toplamı sıfır.', 1;
 
         -- Mevcut PaymentPlan kayıtları varsa sil
         DELETE FROM PaymentPlan
@@ -1915,7 +1915,7 @@ BEGIN
         SELECT @Status = Status FROM PurchaseOrderHeader WITH (UPDLOCK)
         WHERE Id = @PoHeaderId AND CompanyId = @CompanyId;
 
-        IF @Status IS NULL THROW 72001, N'Satınalma siparişi bulunamadı.', 1;
+        IF @Status IS NULL THROW 56010, N'Satınalma siparişi bulunamadı.', 1;
 
         EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'PURCHASE_ORDER', @Status, 'POSTED', @UserId;
 

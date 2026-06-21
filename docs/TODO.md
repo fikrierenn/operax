@@ -6,13 +6,14 @@
 
 > Bu oturumda kapandı: Plan 37 (test altyapısı, 45 test) · Plan 38 (CancellationToken handler+servis) · 2 ledger bug (toplama-sevkiyat çift-düşüm + üretim-iptal hayalet-sarfiyat) · DEBT (SELECT*/timezone/magic-string/immutability guard SO-Shipping-CycleCount).
 
-1. **🔴 P1 — Pre-existing CRIT/HIGH borcu (Plan 28/29 review, 2026-06-02).** ÖNCE `todo-verification`: her birini file:line ile doğrula (bu oturum birçok dosyaya dokundu → bazıları stale/kapalı olabilir, ÖZELLİKLE CRIT-4 ILogger DI). Gerçekten açık olanları kapat. Sıra:
-   - CRIT-2 XSS `_PageHeader.Sub @Html.Raw` + ham PartnerName (Shared/_PageHeader.cshtml:33,38 + SalesInvoices/PO/SO Details) — en yüksek risk.
-   - CRIT-1 SP THROW handler catch eksik (PO Approve, Receiving Post, Shipping CreatePickTask+Post, PO Cancel).
-   - CRIT-3 magic-string `"APPROVED"` + `IN ('POSTED','APPROVED')` (SO/PO Index+Details) — DocStatus sabiti kullan.
-   - CRIT-4 ILogger DI eksik (Finance/Sales/PO PageModel'leri) — DOĞRULA, muhtemelen kısmen kapandı.
-   - HIGH-1 THROW kod aralığı 60001-72001→50000-59999 · HIGH-2 PO/SO Cancel sp_ValidateStatusTransition bypass.
-   - IMP-1 Cheques tablo-adı SQL interpolation · IMP-2 sync ExecuteScalar→async · IMP-3 hardcoded 14-gün vade→Partner.PaymentTermDays.
+1. ✅ **P1 — Pre-existing CRIT/HIGH borcu KAPANDI 2026-06-22** (todo-verification ile her biri koddan doğrulandı). Çoğu zaten kapalı/stale çıktı; tek gerçek açık HIGH-1 düzeltildi:
+   - **HIGH-1 ✅ FIX:** `db_objects_starter.sql` sp_PoPost/sp_PoCancel THROW 71001/71002/72001 → **56001/56002/56010** (60000+ kodu C# `<60000` filtresi yakalamıyordu → kullanıcı Türkçe mesaj göremiyordu). Tüm sql'de 6xxxx-9xxxx THROW = 0. migrate 0 fail.
+   - CRIT-1 ✅ stale: Shipping CreatePickTask+Post zaten tam try/catch (SqlException 50000+ + generic log + OCE rethrow). Receiving/PO da öyle.
+   - CRIT-2 ✅ stale: `_PageHeader` `@Html.Raw(SubHtml/ActionsHtml)` mevcut ama hiçbir PageModel/view SubHtml'i user-data ile beslemiyor → canlı XSS vektörü yok. Sub (auto-escape) kullanılıyor.
+   - CRIT-3 ✅ stale: `"APPROVED"` literal 0 (DocStatus.* kullanımda).
+   - CRIT-4 ✅ stale: Cheques/Index + PO/Index'te catch bloğu yok → ILogger gereksiz.
+   - HIGH-2 ✅ stale: PO+SO Cancel zaten `sp_ValidateStatusTransition` çağırıyor (bypass yok).
+   - IMP-1/2/3 ✅ stale: Cheques interpolation yok · sync ExecuteScalar yok · hardcoded 14-gün yok.
 2. **🟡 P2 — Cari Ekstre raporu** (`Partners/Statement/{id}`, yazdırılabilir+tarih filtreli) — ayrı Tier 3 plan. Yüksek kullanıcı değeri.
 3. **🟡 P2 — Mali evrak eksikleri (mali-evrak-mevzuat skill ön koşul):** E2 alış/satış iade · E4 fire/zayi/imha · E11 virman · çek TEMİNAT/kısmi statü.
 4. **🟢 P3 — Partner detay tab'ları (TAB-0..4):** contact/address/bank/CRM + istatistik. Büyük, ayrı plan.

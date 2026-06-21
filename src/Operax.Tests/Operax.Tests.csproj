@@ -18,6 +18,11 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
   </ItemGroup>
 
+  <!-- Authz/Identity testleri ASP.NET Core tiplerini (IMemoryCache, AuthorizationHandler, IdentityUser) kullanır -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Operax.Web\Operax.Web.csproj" />
   </ItemGroup>

@@ -1,17 +1,12 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Aging.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var p = Model.Partner!;
     ViewData["Title"] = $"Yaşlandırma — {p.Name}";
 
-    var riskBadge = p.RiskCategory switch
-    {
-        RiskCategory.Low     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>DÜŞÜK</span>",
-        RiskCategory.High    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>YÜKSEK</span>",
-        RiskCategory.Blocked => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>BLOKE</span>",
-        _                    => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>ORTA</span>"
-    };
+    var riskBadge = Dict.StatusBadge(p.RiskCategory, "RISK_CATEGORY");
 
     var header = new PageHeaderVm(
         Title: p.Name,
@@ -100,20 +95,7 @@
                         <tr>
                             <td class="mono muted">@UiHelpers.FmtDateShort(l.DueDate)</td>
                             <td class="mono">@(l.SourceDocNo ?? "—")</td>
-                            <td>
-                                @if (l.Status == PaymentPlanStatus.Overdue)
-                                {
-                                    <span class="badge badge-danger"><span class="badge-dot"></span>GECİKMİŞ</span>
-                                }
-                                else if (l.Status == PaymentPlanStatus.Partial)
-                                {
-                                    <span class="badge badge-warn"><span class="badge-dot"></span>KISMİ</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-neutral"><span class="badge-dot"></span>AÇIK</span>
-                                }
-                            </td>
+                            <td>@Html.Raw(Dict.StatusBadge(l.Status, "PAYMENT_PLAN_STATUS"))</td>
                             <td>
                                 @if (l.DaysOverdue > 0)
                                 {

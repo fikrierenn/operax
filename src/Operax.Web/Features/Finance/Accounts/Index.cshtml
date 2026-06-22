@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Accounts.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = L.T("Finansal Hesaplar", "Financial Accounts");
 
@@ -59,19 +60,7 @@
                         <tr style="cursor:pointer;" onclick="window.location.href='/Finance/Accounts/Details?id=@a.AccountId'">
                             <td><span class="mono row-strong" style="color:var(--brand-500);">@a.Code</span></td>
                             <td class="row-strong">@a.Name</td>
-                            <td>
-                                @{
-                                    string tBadge = a.AccountType switch
-                                    {
-                                        AccountType.Cash       => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KASA</span>",
-                                        AccountType.Bank       => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>BANKA</span>",
-                                        AccountType.CreditCard => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KART</span>",
-                                        AccountType.Loan       => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KREDİ</span>",
-                                        _             => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{a.AccountType}</span>"
-                                    };
-                                }
-                                @Html.Raw(tBadge)
-                            </td>
+                            <td>@Html.Raw(Dict.StatusBadge(a.AccountType, "ACCOUNT_TYPE"))</td>
                             <td>
                                 @if (!string.IsNullOrEmpty(a.BankName))
                                 {

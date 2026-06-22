@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Cheques.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var noun = Model.Type == "note" ? L.T("Senet", "Note") : L.T("Çek", "Cheque");
     ViewData["Title"] = noun + " " + L.T("Portföyü", "Portfolio");
@@ -75,15 +76,7 @@
                             ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALINAN</span>"
                             : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>VERİLEN</span>";
 
-                        string statusBadge = c.Status switch
-                        {
-                            ChequeStatus.Portfolio => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖY</span>",
-                            ChequeStatus.InBank   => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
-                            ChequeStatus.Collected => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL</span>",
-                            ChequeStatus.Returned  => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
-                            ChequeStatus.Paid      => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
-                            _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{c.Status}</span>"
-                        };
+                        var statusBadge = Dict.StatusBadge(c.Status, "CHEQUE_STATUS");
 
                         string vadeColor = c.DaysToDue < 0 ? "var(--danger-text)"
                             : (c.DaysToDue <= 7 ? "var(--warn-text)" : "var(--text-2)");

@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Loans.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = L.T("Krediler", "Loans");
 
@@ -55,14 +56,7 @@
                 <tbody>
                     @foreach (var l in Model.Loans)
                     {
-                        string statusBadge = l.Status switch
-                        {
-                            LoanStatus.Active => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
-                            LoanStatus.Closed => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPALI</span>",
-                            // OVERDUE Loan.Status'ta yok (taksit gecikmesi LoanPayment'a ait, Plan 41 B2) — savunmacı literal
-                            "OVERDUE" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
-                            _ => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{l.Status}</span>"
-                        };
+                        var statusBadge = Dict.StatusBadge(l.Status, "LOAN_STATUS");
 
                         var progressPct = l.Principal > 0
                             ? (int)(100 - (l.OutstandingBalance / l.Principal * 100))

@@ -34,6 +34,14 @@ public static class UiHelpers
         SerialStatus.InStock or LotStatus.Available                    => "badge-success",
         SerialStatus.Scrapped or LotStatus.Blocked                     => "badge-danger",
         SerialStatus.Quarantine                                        => "badge-warn",
+        // Finansal hesap tipi (Accounts listesi rozeti)
+        AccountType.Cash                                               => "badge-success",
+        AccountType.Bank                                               => "badge-info",
+        AccountType.CreditCard                                         => "badge-warn",
+        AccountType.Loan                                               => "badge-danger",
+        // Cari risk kategorisi (BLOCKED zaten LotStatus.Blocked ile danger)
+        RiskCategory.Low                                               => "badge-success",
+        RiskCategory.High                                              => "badge-warn",
         _                                                              => "badge-neutral",
     };
 

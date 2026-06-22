@@ -73,14 +73,7 @@
                             ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALACAK</span>"
                             : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BORÇ</span>";
 
-                        string statusBadge = pp.Status switch
-                        {
-                            PaymentPlanStatus.Open    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AÇIK</span>",
-                            PaymentPlanStatus.Partial => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KISMİ</span>",
-                            PaymentPlanStatus.Paid    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
-                            PaymentPlanStatus.Overdue => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
-                            _         => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{pp.Status}</span>"
-                        };
+                        var statusBadge = Dict.StatusBadge(pp.Status, "PAYMENT_PLAN_STATUS");
 
                         var remaining = pp.Amount - pp.PaidAmount;
                         var vadeColor = pp.DaysOverdue > 0 && pp.Status != PaymentPlanStatus.Paid ? "var(--danger-text)"

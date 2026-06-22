@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.SalesInvoices.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = L.T("Satış Faturaları", "Sales Invoices");
 
@@ -67,14 +68,7 @@
                 <tbody>
                     @foreach (var i in Model.Invoices)
                     {
-                        string statusBadge = i.Status switch
-                        {
-                            DocStatus.Draft     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
-                            DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
-                            DocStatus.Paid      => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>TAHSİL</span>",
-                            DocStatus.Cancelled => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
-                            _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{i.Status}</span>"
-                        };
+                        var statusBadge = Dict.StatusBadge(i.Status);
 
                         string eBadge = i.EBelgeStatus switch
                         {

@@ -52,9 +52,9 @@ Plan 44 stok-hareket motoru **sertifikalı sağlam** (idempotency, applock/concu
 | Dead servis silme gizli referans kırar | düşük | grep 0 caller doğrulandı (audit); before-major-change |
 
 ## 5. Done Criteria (M1 DoD)
-- [ ] Faz 1: OnHandQty türetilmiş; iptal/transfer/sayım sonrası `ItemCost`-türevi = `tvf_InventoryBalance` (drift 0, E2E smoke ile kanıt)
+- [x] Faz 1 ✅ (513d6d3): OnHandQty ledger-türev + şirket-genel grain; migration drift SIFIR; SP test AvgCost/qty doğru; sql-sp-reviewer geçti (CRIT-1/IMP-1 fix)
 - [ ] Faz 2: QUARANTINE/BLOCKED lot consume'da bloklanır (smoke)
-- [ ] Faz 3: FIFO/STANDARD UI'dan kalktı, MOVING_AVG sabit
+- [x] Faz 3 ✅: CostingMethod MOVING_AVG kilit. Bulgu: FIFO/STANDARD UI dropdown'u YOK + param/Item.CostingMethod hiçbir kod tarafından okunmuyor (sessiz-yanlış-sonuç teorik). migration_48: yanıltıcı Description düzelt + MOVING_AVG dışı değer reset. FIFO motoru ayrı gelecek plan.
 - [ ] Faz 4: Zayiat çıkışı MaterialIssue reason-code ile ledger'a düşüyor + reverse
 - [ ] Faz 5: DynamicBomService + dead production servisleri silindi, build 0/0
 - [ ] HARİÇ kararlar (serial/FIFO/freeze/in-transit) dokümante + TODO

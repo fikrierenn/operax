@@ -109,7 +109,8 @@ class Program
                         "migration_44_stock_consume.sql",     // Plan 44: StockMovement.SourceLineId + consume key-range index + idempotency unique
                         "migration_44b_idempotency_multibin.sql", // Plan 44 Faz 3: idempotency index'e BinId+LotNo (multi-bin split)
                         "migration_46_dict_crud_flag.sql",    // Plan 46 M0: DictionaryType.AllowValueCrud (kod-çıpalı vs dinamik CRUD)
-                        "migration_47_itemcost_company_grain.sql" // Plan 47 M1 Faz 1: ItemCost per-depo→şirket-genel collapse + OnHandQty ledger senkron
+                        "migration_47_itemcost_company_grain.sql", // Plan 47 M1 Faz 1: ItemCost per-depo→şirket-genel collapse + OnHandQty ledger senkron
+                        "migration_48_costing_method_lock.sql"  // Plan 47 M1 Faz 3: CostingMethod MOVING_AVG kilit (FIFO/STANDARD motoru yok)
 
                     })
                     {

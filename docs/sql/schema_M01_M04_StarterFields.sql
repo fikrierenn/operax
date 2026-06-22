@@ -170,7 +170,7 @@ GO
 
 INSERT INTO Parameter (Id, CompanyId, ModuleCode, Code, Value, Description, CreatedAt)
 SELECT NEWID(), c.Id, 'M02', 'CostingMethod', 'MOVING_AVG',
-       N'Maliyetlendirme yontemi: MOVING_AVG (varsayilan), FIFO, STANDARD',
+       N'Maliyetlendirme yöntemi: yalnızca MOVING_AVG uygulanır (FIFO/STANDARD motoru henüz yok).',
        GETUTCDATE()
 FROM Company c
 WHERE NOT EXISTS (

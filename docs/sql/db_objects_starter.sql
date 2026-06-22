@@ -2665,6 +2665,7 @@ BEGIN
               AND MovementDate < DATEADD(DAY, 1, @To)
         ),
         TotCredit AS (SELECT ISNULL(SUM(Credit), 0) AS C FROM AllMov),
+        TotDebit  AS (SELECT ISNULL(SUM(Debit),  0) AS D FROM AllMov),
         Debits AS (
             SELECT Id, MovementDate, SourceDocType, SourceDocNo, Description, Debit,
                    SUM(Debit) OVER (ORDER BY MovementDate, Id ROWS UNBOUNDED PRECEDING) - Debit AS PriorDebit
@@ -2678,14 +2679,25 @@ BEGIN
                        ELSE (SELECT C FROM TotCredit) - PriorDebit
                    END AS UnpaidAmt
             FROM Debits
+        ),
+        -- Açık kalemler: kapanmamış borçlar (Ord=1) + (varsa) fazla ödeme/avans tek satırı (Ord=2).
+        -- FIFO gereği ikisi birbirini dışlar: alacak>borç ise tüm borçlar kapalı (UnpaidAmt=0), kalan = avans.
+        OpenRows AS (
+            SELECT Id, MovementDate, SourceDocType, SourceDocNo, Description,
+                   UnpaidAmt AS Debit, CAST(0 AS DECIMAL(18,2)) AS Credit, 1 AS Ord
+            FROM Unpaid WHERE UnpaidAmt > 0
+            UNION ALL
+            -- Fazla ödeme (kapatılmamış avans): toplam alacak > toplam borç → fark cari lehine (Alacaklı)
+            SELECT CONVERT(UNIQUEIDENTIFIER, '00000000-0000-0000-0000-000000000000'),
+                   @To, 'AVANS', NULL, N'Fazla ödeme / avans (kapatılmamış)',
+                   CAST(0 AS DECIMAL(18,2)), (SELECT C FROM TotCredit) - (SELECT D FROM TotDebit), 2
+            WHERE (SELECT C FROM TotCredit) > (SELECT D FROM TotDebit)
         )
         SELECT
-            Id, MovementDate, SourceDocType, SourceDocNo, Description,
-            UnpaidAmt AS Debit, CAST(0 AS DECIMAL(18,2)) AS Credit,
-            SUM(UnpaidAmt) OVER (ORDER BY MovementDate, Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
-        FROM Unpaid
-        WHERE UnpaidAmt > 0
-        ORDER BY MovementDate, Id;
+            Id, MovementDate, SourceDocType, SourceDocNo, Description, Debit, Credit,
+            SUM(Debit - Credit) OVER (ORDER BY Ord, MovementDate, Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
+        FROM OpenRows
+        ORDER BY Ord, MovementDate, Id;
     END
     ELSE
     BEGIN

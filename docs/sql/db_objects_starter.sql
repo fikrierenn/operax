@@ -33,43 +33,35 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- Item cost satiri yoksa olustur
+    -- İş kuralı: ItemCost satırı yoksa oluştur. UPDLOCK+HOLDLOCK = key-range kilit → eşzamanlı
+    -- ilk-kabul yarışı serialize olur (UX_ItemCost_Key 2627'ye düşmeden, temiz). Caller tx'inde tutulur.
     IF NOT EXISTS (
-        SELECT 1 FROM ItemCost
+        SELECT 1 FROM ItemCost WITH (UPDLOCK, HOLDLOCK)
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId
           AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL))
     )
-    BEGIN
         INSERT INTO ItemCost (Id, CompanyId, ItemId, WarehouseId, AvgCost, OnHandQty)
         VALUES (NEWID(), @CompanyId, @ItemId, @WarehouseId, 0, 0);
-    END
-
-    DECLARE @OldAvg DECIMAL(18,4), @OldQty DECIMAL(18,6);
-    SELECT @OldAvg = AvgCost, @OldQty = OnHandQty
-    FROM ItemCost
-    WHERE CompanyId = @CompanyId AND ItemId = @ItemId
-      AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL));
 
     IF @MovementType = 'RECEIPT'
     BEGIN
-        -- İş kuralı: Hareketli ağırlıklı ortalama formülü
-        DECLARE @NewQty DECIMAL(18,6) = @OldQty + @Qty;
-        DECLARE @NewAvg DECIMAL(18,4) =
-            CASE WHEN @NewQty > 0
-                 THEN ((@OldQty * @OldAvg) + (@Qty * ISNULL(@UnitCost, @OldAvg))) / @NewQty
-                 ELSE ISNULL(@UnitCost, @OldAvg)
-            END;
+        -- İş kuralı: hareketli ağırlıklı ortalama — ATOMİK tek-statement UPDATE.
+        -- Yeni ortalama satırın GÜNCEL OnHandQty/AvgCost'undan UPDATE'in X-lock'u altında hesaplanır
+        -- (RHS pre-update değerleri kullanır) → read-modify-write yarışı YOK, kayıp güncelleme yok.
         UPDATE ItemCost
-        SET AvgCost          = @NewAvg,
-            OnHandQty        = @NewQty,
-            LastReceiptDate  = GETUTCDATE(),
-            UpdatedAt        = GETUTCDATE()
+        SET AvgCost = CASE WHEN OnHandQty + @Qty > 0
+                           THEN ((OnHandQty * AvgCost) + (@Qty * ISNULL(@UnitCost, AvgCost))) / (OnHandQty + @Qty)
+                           ELSE ISNULL(@UnitCost, AvgCost)
+                      END,
+            OnHandQty       = OnHandQty + @Qty,
+            LastReceiptDate = GETUTCDATE(),
+            UpdatedAt       = GETUTCDATE()
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId
           AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL));
     END
     ELSE IF @MovementType IN ('ISSUE', 'ADJUSTMENT')
     BEGIN
-        -- Çıkışta AvgCost değişmez; sadece OnHandQty düşer
+        -- Çıkışta AvgCost değişmez; yalnız OnHandQty düşer (atomik tek-statement, yarış yok)
         UPDATE ItemCost
         SET OnHandQty = OnHandQty - @Qty,
             UpdatedAt = GETUTCDATE()

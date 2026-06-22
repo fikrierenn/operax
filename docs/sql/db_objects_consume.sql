@@ -18,7 +18,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_ConsumeInventory
     @ItemId       UNIQUEIDENTIFIER,
     @UomId        UNIQUEIDENTIFIER,
     @QtyBase      DECIMAL(18,6),             -- pozitif tüketim miktarı (taban birim)
-    @LotNo        NVARCHAR(50)  = NULL,
+    @LotNo        NVARCHAR(100) = NULL,      -- şema LotNo NVARCHAR(100) ile hizalı (truncation yok)
     @SourceDocType NVARCHAR(30),
     @SourceDocId  UNIQUEIDENTIFIER,
     @SourceLineId UNIQUEIDENTIFIER,          -- forensic + idempotency anahtarı (ZORUNLU)
@@ -39,8 +39,10 @@ BEGIN
     -- Bu, key-range kilidinin düz-eşitlikle deterministik alınmasını da sağlar (OR-predikatı yasak).
     IF @BinId IS NULL THROW 53000, N'sp_ConsumeInventory: BinId zorunlu (hedef hücre belirsiz).', 1;
 
-    -- İdempotency hızlı yol (dostça mesaj): aynı kaynak satır+tip zaten işlendiyse reddet.
-    -- Asıl garanti UX_StockMovement_Idempotency unique index'tir (race'i de kapatır).
+    -- İdempotency hızlı yol (dostça mesaj): aynı kaynak satır+tip AKTİF olarak zaten işlendiyse reddet.
+    -- Asıl garanti UX_StockMovement_Idempotency unique index'tir (race'te ikinci aktif insert 2627 alır).
+    -- KASITLI: IsCancelled=0 filtresi → iptal sonrası AYNI satır yeniden tüketilebilir (cancel→re-post
+    -- meşru akışı). İptal-edilmiş satır bakiyeden dışlandığı için çift-AKTİF imkânsız, drift YOK.
     IF EXISTS (
         SELECT 1 FROM StockMovement
         WHERE SourceDocType = @SourceDocType AND SourceDocId = @SourceDocId

@@ -1746,7 +1746,7 @@ BEGIN
         FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
 
         -- Stok çıkışı: her satır için ATOMİK consume (Plan 44 — oversell/concurrency/idempotency).
-        -- sp_ConsumeInventory bakiyeyi UPDLOCK+HOLDLOCK ile kilitler, yetersizse THROW; bu transaction
+        -- sp_ConsumeInventory bakiyeyi sp_getapplock (item/bin exclusive) ile serialize eder, yetersizse THROW; bu transaction
         -- içinde çağrılır → kilitler COMMIT'e kadar tutulur (eşzamanlı sevkiyatlar serialize olur).
         -- UnitCost scalar subquery ile tek değer (ItemCost çok-depo satırı çoğaltma riski kapandı).
         DECLARE @ShipBranchId UNIQUEIDENTIFIER =

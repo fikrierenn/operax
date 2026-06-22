@@ -100,6 +100,12 @@ Faz bazlı commit. SP'ler `CREATE OR ALTER` → önceki sürüme revert. Schema 
 - ⚪ **Outsider:** "WMS oversell yapıyor mu?" — ilk depo gününde yakalanır; en utandırıcı bug.
 - 🟡 **Executor:** Pazartesi — index doğrula, primitive yaz, shipping bağla, 30 worker test.
 
+## 10.b Faz 4+5 review (sql-sp-reviewer, 0 CRITICAL) — kalan notlar
+- **HIGH-2 (deployment guard, kod değil):** `TRUNCATE TABLE StockMovement` immutability trigger'ını bypass eder (DELETE trigger'ı tetiklemez). **Mitigasyon: uygulama DB login'ine StockMovement üzerinde `ALTER`/`CONTROL`/DDL yetkisi VERİLMEMELİ** (single-tenant kurulum dökümanına eklenecek). DDL trigger ağır; yetki kısıtı yeterli.
+- **HIGH-1 (yanıt):** idempotency `IsCancelled=0` filtresi KASITLI — cancel→re-post meşru akışı; çift-aktif unique index ile engelli (2627), bakiye iptal-edilmişi dışlar → drift YOK. Tasarım korundu, yorum netleştirildi.
+- **LOW:** @LotNo NVARCHAR(50)→100 hizalandı; shipping stale "UPDLOCK+HOLDLOCK" yorumu düzeltildi.
+- **IMP-3 (Faz 1):** race'te ikinci aktif insert ham 2627 (53002'ye çevrilmiyor) — düşük, PageModel generic gösterir.
+
 ## 11. İlişkili
 - `.claude/rules/document-immutability.md` §1.b (ledger append-only, IsCancelled) · `.claude/rules/sql-conventions.md` (XACT_ABORT/THROW/SARGable) · `.claude/rules/phase-review-gate.md` (her faz sql-sp-reviewer+smoke).
 - Kapsam DIŞI (direktif): Profitability Engine yeni tabloları, MRP/APS/MES, genel muhasebe.

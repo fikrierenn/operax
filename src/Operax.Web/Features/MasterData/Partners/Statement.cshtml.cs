@@ -97,7 +97,7 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
         if (!IsOpenItem)
             yield return ["", "DEVİR", "", "", "", "", OpeningBalance];
         foreach (var r in Lines)
-            yield return [r.MovementDate, r.SourceDocType, r.SourceDocNo, r.Description,
+            yield return [r.MovementDate, UiHelpers.SourceDocLabel(r.SourceDocType), r.SourceDocNo, r.Description,
                           r.Debit, r.Credit, r.RunningBalance];
         yield return ["", IsOpenItem ? "AÇIK TOPLAM" : "KAPANIŞ", "", "", "", "", ClosingBalance];
     }

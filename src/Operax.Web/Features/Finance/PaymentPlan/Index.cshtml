@@ -89,7 +89,7 @@
                             <td>@Html.Raw(dirBadge)</td>
                             <td>
                                 <div class="row-strong"><span class="mono">@pp.SourceDocNo</span></div>
-                                <div class="row-sub">@pp.SourceDocType</div>
+                                <div class="row-sub">@UiHelpers.SourceDocLabel(pp.SourceDocType)</div>
                             </td>
                             <td>@(pp.PartnerName ?? "—")</td>
                             <td class="mono muted">@pp.InstallmentNo / @pp.TotalInstallments</td>

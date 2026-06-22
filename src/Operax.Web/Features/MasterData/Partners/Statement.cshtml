@@ -87,7 +87,7 @@
                 {
                     <tr>
                         <td class="mono muted">@r.MovementDate.ToString("dd.MM.yyyy")</td>
-                        <td>@r.SourceDocType</td>
+                        <td>@UiHelpers.SourceDocLabel(r.SourceDocType)</td>
                         <td class="mono muted">@(string.IsNullOrEmpty(r.SourceDocNo) ? "—" : r.SourceDocNo)</td>
                         <td class="muted">@r.Description</td>
                         <td class="num">@(r.Debit != 0 ? UiHelpers.FmtTL(r.Debit) : "")</td>

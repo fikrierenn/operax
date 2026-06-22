@@ -77,7 +77,12 @@ ADR-02 (kod-çıpalı vs dinamik) uyumlu CRUD — "tam CRUD" değil, **gating'li
 4. `Admin/Modules/Index.cshtml.cs` — POST'ta `cache.Remove(ModuleAccess.CacheKey(company.Id))` + display sorgusu efektif (no-row=ON: `cm.CompanyId IS NULL OR cm.IsActive=1`).
 **Kapanış:** build 0/0 · code-reviewer · security-reviewer (yeni servis) · E2E smoke (modül kapat → sidebar grubu kaybolur → aç → döner; login etkilenmez).
 
-### Faz 3.5 — Sidebar yeniden organizasyon (BACKLOG — erp-isleyis-danismani önerisi 2026-06-22)
+### Faz 3.5 — Sidebar yeniden organizasyon ✅ TAMAMLANDI 2026-06-23 (commit 444a268)
+**Gerçekleşen:** Tam reorg (kullanıcı onayı) — TANIMLAR ayrı bölüm, DEPO/WMS + ÜRETİM yeni bölümler (mevcut sayfalar bağlandı, modül-gate'li), FİNANS alt-gruplandı (gate'siz çekirdek). Yanlış M11 yorumu silindi.
+**Yan-bug'lar yakalandı (yeni linkleyince yüzeye çıktı):** (1) CycleCount/Index nested-aggregate SQL 500 → düzeltildi + IsDeleted=0 eklendi. (2) /Production/Terminal 500 (`ProductionOrder.CurrentRouteStepId` kolonu yok) = bilinen DEAD/WIP → menüye EKLENMEDİ.
+**Finans M11 kararı:** Seçenek 3 uygulandı (yeni kod yok, gate'siz çekirdek, yanlış yorum silindi). M11=B2B Portal canonical korundu. Tam çözüm (B2B taşıma/yeni Finans kodu) hâlâ açık backlog.
+
+### Faz 3.5 (orijinal backlog notu — referans için korundu)
 Kullanıcı sidebar gruplaması "alakasız" buldu. ERP danışmanı önerisi (SAP B1/Logo/Mikro/Netsis/Odoo referansı):
 - **Ana Veri'yi OPERASYON altından çıkar → ayrı üst-bölüm** (4/4 olgun ERP master data'yı operasyondan ayırır; ürün/cari/depo operasyon değil kaynak).
 - **Finans'ı alt-grupla:** Kasa&Banka (Hesaplar/Ödeme-Tahsilat) · Çek&Senet · Kredi (Krediler/Kredi-Kartları) · Vade&Plan (Ödeme Planı) · Raporlar (Yaşlandırma/Mali Durum). Şu an 8 düz öğe.

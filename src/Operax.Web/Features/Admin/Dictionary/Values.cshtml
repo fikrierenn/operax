@@ -2,67 +2,149 @@
 @model Operax.Web.Features.Admin.Dictionary.ValuesModel
 @{
     ViewData["Title"] = $"{Model.Type?.NameTr} Değerleri";
+    var t = Model.Type!;
 }
 
-<div class="page-hdr">
-    <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <a asp-page="./Index" class="btn btn-secondary btn-sm">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-                Geri (Sözlük)
-            </a>
-            <span style="font-size:11px;color:#64748b">Sistem / Sözlük / @Model.Type?.NameTr</span>
-        </div>
-        <h1>@Model.Type?.NameTr</h1>
-        <p>Tip Kodu: <span style="font-family:monospace;font-weight:700;color:#818cf8">@Model.Type?.Code</span></p>
-    </div>
-    <div class="page-hdr-r">
-        <button class="btn btn-primary" data-shortcut="Alt+N">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Yeni Değer
-        </button>
-    </div>
-</div>
+<div class="page" data-screen-label="Sözlük Değerleri">
 
-<div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th style="width:60px">Sıra</th>
-                <th>Kod</th>
-                <th>Ad (TR)</th>
-                <th>Ad (EN)</th>
-                <th>Durum</th>
-                <th style="text-align:right">İşlem</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var val in Model.Values)
-            {
-                <tr class="group">
-                    <td style="font-family:monospace;color:#64748b">@val.OrderNo</td>
-                    <td><span style="font-family:monospace;font-size:12px;color:#818cf8;font-weight:700">@val.Code</span></td>
-                    <td style="font-weight:600">@val.NameTr</td>
-                    <td style="color:#94a3b8">@val.NameEn</td>
-                    <td>
-                        @if (val.IsActive) { <span class="badge b-green">AKTİF</span> }
-                        else { <span class="badge b-gray">PASİF</span> }
-                    </td>
-                    <td style="text-align:right">
-                        <button class="btn btn-secondary btn-sm">Düzenle</button>
-                    </td>
-                </tr>
-            }
-            @if (!Model.Values.Any())
-            {
+    <div class="stmt-toolbar no-print" style="margin-bottom:14px;">
+        <a asp-page="./Index" class="btn btn-ghost">‹ Geri (Sözlük)</a>
+        <div>
+            <h1 style="margin:0;">@t.NameTr</h1>
+            <div class="muted">Tip Kodu: <span class="mono text-brand">@t.Code</span>
+                @if (t.AllowValueCrud) { <span class="badge badge-info">Dinamik — tam yönetim</span> }
+                else { <span class="badge badge-neutral">Sistem tipi — yalnız etiket</span> }
+            </div>
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info" style="margin-bottom:12px;">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger" style="margin-bottom:12px;">@err</div> }
+
+    @if (!t.AllowValueCrud)
+    {
+        <div class="alert-banner alert-warn" style="margin-bottom:12px;">
+            Bu tip iş mantığında (SP/ledger) kullanılır — kod eklenemez/silinemez (kayıtlar bozulur).
+            Yalnız görünen <strong>etiket</strong> (Türkçe/İngilizce ad, sıra) düzenlenebilir; etiket değişikliği her ekrana yansır.
+        </div>
+    }
+
+    @* ───── Yeni değer (yalnız dinamik tipte) ───── *@
+    @if (t.AllowValueCrud)
+    {
+        <div class="card" style="margin-bottom:14px;">
+            <form method="post" asp-page-handler="Add" class="card-body">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="typeId" value="@t.Id" />
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Kod <span class="req">*</span></label>
+                        <input name="code" class="form-ctrl" placeholder="örn. NET45" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Türkçe Ad <span class="req">*</span></label>
+                        <input name="nameTr" class="form-ctrl" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">İngilizce Ad</label>
+                        <input name="nameEn" class="form-ctrl" />
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top:8px;align-items:end;">
+                    <div class="form-group" style="max-width:120px;">
+                        <label class="form-label">Sıra</label>
+                        <input name="orderNo" type="number" class="form-ctrl" value="100" />
+                    </div>
+                    <div class="form-group" style="align-self:end;">
+                        <button type="submit" class="btn btn-primary">Değer Ekle</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    }
+
+    @* ───── Değer listesi ───── *@
+    <div class="card">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <td colspan="6">
-                        <div class="empty-state">
-                            <p>Henüz değer tanımlanmamış</p>
-                        </div>
-                    </td>
+                    <th style="width:60px;">Sıra</th>
+                    <th>Kod</th>
+                    <th>Ad (TR)</th>
+                    <th>Ad (EN)</th>
+                    <th>Durum</th>
+                    <th class="text-right">İşlem</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var v in Model.Values)
+                {
+                    <tr x-data="{ edit: false }">
+                        @* ── Görüntüleme modu (6 hücre) ── *@
+                        <td x-show="!edit" class="mono muted">@v.OrderNo</td>
+                        <td x-show="!edit" class="mono text-brand">@v.Code
+                            @if (v.IsGlobal) { <span class="badge badge-neutral" style="margin-left:4px;">global</span> }
+                        </td>
+                        <td x-show="!edit" class="row-strong">@v.NameTr</td>
+                        <td x-show="!edit" class="muted">@(string.IsNullOrEmpty(v.NameEn) ? "—" : v.NameEn)</td>
+                        <td x-show="!edit">
+                            @if (v.IsActive) { <span class="badge badge-success">AKTİF</span> }
+                            else { <span class="badge badge-neutral">PASİF</span> }
+                        </td>
+                        <td x-show="!edit" class="text-right">
+                            <button type="button" class="btn btn-secondary btn-sm" @@click="edit = true">Düzenle</button>
+                            <form method="post" asp-page-handler="ToggleActive" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="typeId" value="@t.Id" />
+                                <input type="hidden" name="valueId" value="@v.Id" />
+                                <button type="submit" class="btn btn-ghost btn-sm">@(v.IsActive ? "Pasife Al" : "Aktif Et")</button>
+                            </form>
+                            @if (t.AllowValueCrud)
+                            {
+                                <form method="post" asp-page-handler="Delete" style="display:inline;" onsubmit="return confirm('Bu değer silinsin mi?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="typeId" value="@t.Id" />
+                                    <input type="hidden" name="valueId" value="@v.Id" />
+                                    <button type="submit" class="btn btn-ghost btn-sm text-danger">Sil</button>
+                                </form>
+                            }
+                        </td>
+
+                        @* ── Düzenleme modu (tüm satırı kaplar; CODE değişmez) ── *@
+                        <td x-show="edit" x-cloak colspan="6">
+                            <form method="post" asp-page-handler="Edit" class="row" style="gap:8px;align-items:end;flex-wrap:wrap;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="typeId" value="@t.Id" />
+                                <input type="hidden" name="valueId" value="@v.Id" />
+                                <div class="form-group" style="max-width:80px;">
+                                    <label class="form-label">Kod</label>
+                                    <input class="form-ctrl mono" value="@v.Code" readonly />
+                                </div>
+                                <div class="form-group" style="max-width:80px;">
+                                    <label class="form-label">Sıra</label>
+                                    <input name="orderNo" type="number" class="form-ctrl" value="@v.OrderNo" />
+                                </div>
+                                <div class="form-group" style="flex:1;min-width:150px;">
+                                    <label class="form-label">Türkçe Ad</label>
+                                    <input name="nameTr" class="form-ctrl" value="@v.NameTr" required />
+                                </div>
+                                <div class="form-group" style="flex:1;min-width:150px;">
+                                    <label class="form-label">İngilizce Ad</label>
+                                    <input name="nameEn" class="form-ctrl" value="@v.NameEn" />
+                                </div>
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @@click="edit = false">Vazgeç</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Values.Any())
+                {
+                    <tr><td colspan="6" class="muted" style="text-align:center;padding:24px;">Henüz değer tanımlanmamış.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>

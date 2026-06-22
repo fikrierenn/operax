@@ -47,13 +47,14 @@ Ayarlar/Tanımlar/Sabitler katmanı (her şeyin temeli — sözlük, UDF, parame
 
 ## 4. Fazlar
 
-### Faz 1 — Sözlük tam CRUD (CRITICAL, Plan 42 unlock)
-- `Values.cshtml.cs`: query'yi global+şirket göster (`TypeId=@TypeId AND (CompanyId=@CompanyId OR CompanyId='000...') AND IsDeleted=0`). Handler'lar: `OnPostAddAsync` (yeni değer — şirket-kapsamlı default), `OnPostEditAsync` (NameTr/NameEn/OrderNo/Code), `OnPostDeleteAsync` (soft IsDeleted=1), `OnPostToggleActiveAsync`.
+### Faz 1 — Sözlük CRUD (ADR-02 hibrit) ✅ TAMAMLANDI 2026-06-22
+ADR-02 (kod-çıpalı vs dinamik) uyumlu CRUD — "tam CRUD" değil, **gating'li**:
+- **migration_46:** `DictionaryType.AllowValueCrud` BIT (kod-çıpalı=0 / dinamik=1) + eksik `DictionaryValue.UpdatedAt` audit kolonu.
+- `Values.cshtml.cs`: query global+şirket göster (`(CompanyId=@CompanyId OR CompanyId=@Global) AND IsDeleted=0`). Handler'lar: `OnPostEditAsync` (NameTr/NameEn/OrderNo — **Code asla, identity**; TÜM tiplerde — Plan 42 vaadi), `OnPostToggleActiveAsync` (TÜM tipler), `OnPostAddAsync`/`OnPostDeleteAsync` (**yalnız AllowValueCrud=1**, server-side `IsCrudAllowedAsync` ile yeniden kontrol — UI gizlese de). Yazma WHERE'leri CompanyId-simetrik + `UpdatedBy=@UserId` (security §8, audit).
 - `IMemoryCache` inject → her değişiklikte `Remove("dict-labels-v1")` (Plan 42 cache invalidation → anında yansır).
-- `Values.cshtml`: add/edit (inline veya modal) + sil + aktif-toggle UI; "Yeni Değer" butonu çalışır.
-- Ölü `Details.cshtml(.cs)` SİL (kırık + linksiz, D8 hijyen).
-- (Ops: DictionaryType create/edit — eğer gerek; aksi sistem-tipleri yeterli.)
-- **Kapanış:** build + code-reviewer + security-reviewer (Admin PageModel, IDOR/authz) + smoke (değer ekle/düzenle/sil → ekranda + DictionaryLabels'ta yansır).
+- `Values.cshtml`: kod-çıpalı tipte uyarı banner + add-form/sil gizli; dinamik tipte tam UI. Alpine inline edit-toggle.
+- Ölü `Details.cshtml(.cs)` SİLİNDİ (kırık + linksiz, D8 hijyen).
+- **Kapanış ✅:** build 0/0 · code-reviewer (audit/UpdatedBy fix) · security-reviewer (IDOR/gating KAPALI, CompanyId asimetri fix) · E2E smoke (dinamik add/edit/del + kod-çıpalı gating + forged-delete red + global edit + UpdatedBy runtime).
 
 ### Faz 2 — NumberSeries create/delete
 - `OnPostCreateAsync` (yeni DocType serisi: Prefix/Padding/Separator/NextNo) + `OnPostDeleteAsync` (soft veya IsActive=0). UI: yeni seri formu + sil.

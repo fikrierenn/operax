@@ -56,9 +56,10 @@ ADR-02 (kod-çıpalı vs dinamik) uyumlu CRUD — "tam CRUD" değil, **gating'li
 - Ölü `Details.cshtml(.cs)` SİLİNDİ (kırık + linksiz, D8 hijyen).
 - **Kapanış ✅:** build 0/0 · code-reviewer (audit/UpdatedBy fix) · security-reviewer (IDOR/gating KAPALI, CompanyId asimetri fix) · E2E smoke (dinamik add/edit/del + kod-çıpalı gating + forged-delete red + global edit + UpdatedBy runtime).
 
-### Faz 2 — NumberSeries create/delete
-- `OnPostCreateAsync` (yeni DocType serisi: Prefix/Padding/Separator/NextNo) + `OnPostDeleteAsync` (soft veya IsActive=0). UI: yeni seri formu + sil.
-- **Kapanış:** build + smoke (seri ekle → sp_NextNumber yeni seriden üretir).
+### Faz 2 — NumberSeries create/delete ✅ TAMAMLANDI 2026-06-22 (commit e9ca652)
+- `OnPostCreateAsync` (katalog-whitelist 9 tip + soft-delete revive) + `OnPostDeleteAsync` (soft-delete, yalnızca NextNo=1). UI: AvailableDocTypes dropdown'lu yeni seri formu + NextNo=1 satırlarda Sil. DocTypeLabel magic-string → sabit.
+- **Karar:** Free-text DocType yerine whitelist (caller'sız orphan seri engeli). Delete=soft (mevcut IsActive toggle ile redundant değil); NextNo>1 silinemez (kod çakışması). Revive: soft-delete'li tip Create'te diriltilir (unique ihlali önlenir).
+- **Kapanış ✅:** build 0/0 · code-reviewer (DocTypeLabel sabit fix) · security-reviewer (IDOR/CSRF/whitelist temiz) · E2E smoke (render + Sil gating + Çek soft-delete → dropdown → Create revive tek-satır duplicate'siz + console hatasız).
 
 ### Faz 3 — Modül aktivasyon (G3 — KARAR gerek)
 - Modüller ekranına CompanyModule aktif/pasif toggle. **Onay sorusu:** V1'de modül aç/kapa gerekli mi, yoksa hepsi-açık mı?

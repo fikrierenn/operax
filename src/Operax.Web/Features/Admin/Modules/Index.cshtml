@@ -39,7 +39,8 @@
                 </span>
                 <form method="post">
                     <input type="hidden" name="moduleId" value="@m.Id" />
-                    <input type="hidden" name="active" value="@(!m.IsActive)" />
+                    @* Bool değil string olarak yaz: Razor bool attribute minimization value="@(true)" → value="value" üretir, bool bind kırılır (enable çalışmaz) *@
+                    <input type="hidden" name="active" value="@((!m.IsActive).ToString().ToLowerInvariant())" />
                     <button type="submit" class="text-xs font-bold uppercase tracking-widest @(m.IsActive ? "text-red-600 hover:text-red-800" : "text-indigo-600 hover:text-indigo-800") transition-colors">
                         @(m.IsActive ? "Devre Dışı Bırak" : "Etkinleştir")
                     </button>

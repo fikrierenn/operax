@@ -1,11 +1,12 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.SalesInvoices.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var h = Model.Header!;
     ViewData["Title"] = h.InvoiceNo;
 
-    var statusBadgeHtml = UiHelpers.StatusBadge(h.Status);
+    var statusBadgeHtml = Dict.StatusBadge(h.Status);
 
     var header = new PageHeaderVm(
         Title: h.InvoiceNo,

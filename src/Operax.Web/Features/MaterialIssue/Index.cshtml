@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.MaterialIssue.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Sarf Fişleri";
 }
@@ -50,7 +51,7 @@
                         <td class="text-sm">@r.WarehouseName</td>
                         <td class="text-sm text-slate-500">@(r.CostCenterName ?? "—")</td>
                         <td class="text-center">@r.LineCount</td>
-                        <td class="text-center">@Html.Raw(UiHelpers.StatusBadge(r.Status))</td>
+                        <td class="text-center">@Html.Raw(Dict.StatusBadge(r.Status))</td>
                     </tr>
                 }
                 @if (!Model.Rows.Any())

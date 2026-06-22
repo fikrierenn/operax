@@ -1,5 +1,6 @@
 @using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var fTotal = Model.Invoices.Sum(x => x.GrandTotal);
     var fPaid  = Model.Invoices.Sum(x => x.PaidAmount);
@@ -50,7 +51,7 @@
                         <td class="mono muted">@(f.InvoiceDate.HasValue ? UiHelpers.FmtDateShort(f.InvoiceDate.Value) : "—")</td>
                         <td class="num">@UiHelpers.FmtTL(f.GrandTotal)</td>
                         <td class="num muted">@UiHelpers.FmtTL(f.PaidAmount)</td>
-                        <td>@Html.Raw(UiHelpers.StatusBadge(f.Status))</td>
+                        <td>@Html.Raw(Dict.StatusBadge(f.Status))</td>
                     </tr>
                 }
             </tbody>

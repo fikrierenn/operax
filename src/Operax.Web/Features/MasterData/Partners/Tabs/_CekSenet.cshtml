@@ -1,5 +1,6 @@
 @using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var iIn  = Model.Instruments.Where(x => x.Direction == ChequeDirection.Received).Sum(x => x.Amount);
     var iOut = Model.Instruments.Where(x => x.Direction == ChequeDirection.Issued).Sum(x => x.Amount);
@@ -49,7 +50,7 @@
                         <td class="mono row-strong">@ins.No</td>
                         <td class="num">@UiHelpers.FmtTL(ins.Amount)</td>
                         <td class="mono muted">@(ins.DueDate.HasValue ? UiHelpers.FmtDateShort(ins.DueDate.Value) : "—")</td>
-                        <td>@Html.Raw(UiHelpers.FinanceStatusBadge(ins.Status))</td>
+                        <td>@Html.Raw(Dict.StatusBadge(ins.Status, "CHEQUE_STATUS"))</td>
                     </tr>
                 }
             </tbody>

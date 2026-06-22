@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Dashboard.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = L.T("Anasayfa", "Dashboard");
 
@@ -271,7 +272,7 @@
                                 </td>
                                 <td class="mono muted">@UiHelpers.FmtDateShort(po.OrderDate)</td>
                                 <td class="num"><span class="row-strong">@UiHelpers.FmtTL(po.TotalAmount)</span></td>
-                                <td>@Html.Raw(UiHelpers.StatusBadge(po.Status))</td>
+                                <td>@Html.Raw(Dict.StatusBadge(po.Status))</td>
                                 <td>
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
                                 </td>

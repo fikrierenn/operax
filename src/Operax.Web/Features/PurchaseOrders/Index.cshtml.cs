@@ -12,7 +12,7 @@ namespace Operax.Web.Features.PurchaseOrders;
 /// Tüm sayısal değerler veritabanından gelir; hardcoded fallback yoktur.
 /// </summary>
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, IDictionaryLabels labels) : PageModel
 {
     // Query-string parametreleri: ?tab=DRAFT&q=...
     [BindProperty(SupportsGet = true)] public string Tab { get; set; } = "all";
@@ -155,7 +155,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
         var headers = new[] { "Sipariş No", "Tarih", "Durum", "Cari", "Cari Kodu", "Şehir", "VKN", "Tutar", "Satır", "Vade" };
         var csvRows = rows.Select(r => new object?[]
-            { r.OrderNo, r.OrderDate, UiHelpers.StatusText(r.Status), r.PartnerName, r.PartnerCode,
+            { r.OrderNo, r.OrderDate, labels.Label("STATUS", r.Status), r.PartnerName, r.PartnerCode,
               r.PartnerCity, r.TaxNumber, r.TotalAmount, r.LineCount, r.DueDate });
         return CsvExport.ToFile($"Satinalma_Siparis_{DateTime.Today:yyyyMMdd}.csv", headers, csvRows);
     }

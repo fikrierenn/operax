@@ -1,6 +1,7 @@
 @page "{id:guid?}"
 @using Operax.Web.Lib
 @model Operax.Web.Features.MaterialIssue.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = Model.IsNew ? "Yeni Sarf Fişi" : $"Sarf Fişi — {Model.Header.DocNo}";
 }
@@ -43,7 +44,7 @@
 
     @if (!Model.IsNew)
     {
-        <div class="row" style="gap:8px;margin-bottom:14px;">@Html.Raw(UiHelpers.StatusBadge(Model.Header.Status))</div>
+        <div class="row" style="gap:8px;margin-bottom:14px;">@Html.Raw(Dict.StatusBadge(Model.Header.Status))</div>
     }
 
     <div class="card p-6 mb-6">

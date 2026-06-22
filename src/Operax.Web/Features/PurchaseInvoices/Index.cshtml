@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.PurchaseInvoices.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Alış Faturaları";
 }
@@ -70,7 +71,7 @@
                         <td class="text-xs text-slate-500">@(i.SupplierInvoiceDate?.ToString("dd.MM.yyyy") ?? i.InvoiceDate.ToString("dd.MM.yyyy"))</td>
                         <td class="text-center">@i.LineCount</td>
                         <td class="text-right mono font-bold">@i.GrandTotal.ToString("N2") ₺</td>
-                        <td class="text-center">@Html.Raw(UiHelpers.StatusBadge(i.Status))</td>
+                        <td class="text-center">@Html.Raw(Dict.StatusBadge(i.Status))</td>
                     </tr>
                 }
                 @if (!Model.Invoices.Any())

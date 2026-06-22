@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Cheques.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var c = Model.Cheque!;
     var kind = Model.IsNote ? "Senet" : "Çek";
@@ -26,7 +27,7 @@
     @* ───── Durum + işlemler ───── *@
     <div class="card" style="margin-bottom:14px;">
         <div class="card-hdr">
-            <div class="card-title">Durum: @Html.Raw(UiHelpers.StatusBadge(c.Status))</div>
+            <div class="card-title">Durum: @Html.Raw(Dict.StatusBadge(c.Status, "CHEQUE_STATUS"))</div>
             <div class="row" style="gap:6px;">
                 @if (c.Status == ChequeStatus.Portfolio)
                 {

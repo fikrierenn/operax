@@ -11,45 +11,44 @@ namespace Operax.Web.Lib;
 public static class UiHelpers
 {
     /// <summary>
-    /// Verilen evrak durum koduna göre uygun .badge HTML'i üretir.
-    /// Magic string yerine DocStatus sabitleri kullanılır.
+    /// Statü kodu → .badge CSS sınıfı (RENK = sunum, kodda kalır — Plan 42). Etiket sözlükten gelir.
+    /// Belge + finansal araç + stok statülerini tek haritada toplar (kodlar tekil).
     /// </summary>
-    public static string StatusBadge(string? statusCode)
+    public static string BadgeClass(string? code) => code switch
     {
-        // İş kuralı: Boş değer için nötr rozet döner
-        if (string.IsNullOrWhiteSpace(statusCode))
-            return "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>—</span>";
-
-        return statusCode switch
-        {
-            DocStatus.Draft     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
-            DocStatus.Approved  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
-            DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>İŞLENDİ</span>",
-            DocStatus.Cancelled     => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
-            DocStatus.Pending       => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BEKLİYOR</span>",
-            DocStatus.Closed        => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>KAPANDI</span>",
-            DocStatus.ClosedPartial => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>KISMİ KAPANDI</span>",
-            // Güvenlik (A-8): bilinmeyen kod doğrudan HTML'e gömülür → XSS'e karşı encode
-            _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{System.Net.WebUtility.HtmlEncode(statusCode)}</span>",
-        };
-    }
+        DocStatus.Draft or BudgetStatus.Draft                          => "badge-warn",
+        DocStatus.Approved or DocStatus.Posted or DocStatus.Completed
+            or DocStatus.Received or DocStatus.Paid                    => "badge-success",
+        DocStatus.Cancelled or DocStatus.Rejected                      => "badge-danger",
+        DocStatus.Pending or DocStatus.Partial                         => "badge-warn",
+        DocStatus.Closed                                               => "badge-neutral",
+        DocStatus.ClosedPartial or DocStatus.Counting
+            or DocStatus.InProgress or DocStatus.Assigned              => "badge-info",
+        // Finansal araç / ödeme planı
+        ChequeStatus.Portfolio or PaymentPlanStatus.Open or LoanStatus.Active => "badge-info",
+        ChequeStatus.InBank                                            => "badge-warn",
+        ChequeStatus.Collected or ChequeStatus.Paid                    => "badge-success",
+        ChequeStatus.Returned or PaymentPlanStatus.Overdue            => "badge-danger",
+        ChequeStatus.Endorsed or LoanStatus.Restructured              => "badge-neutral",
+        // Stok (seri/lot/lpn)
+        SerialStatus.InStock or LotStatus.Available                    => "badge-success",
+        SerialStatus.Scrapped or LotStatus.Blocked                     => "badge-danger",
+        SerialStatus.Quarantine                                        => "badge-warn",
+        _                                                              => "badge-neutral",
+    };
 
     /// <summary>
-    /// Evrak durum kodunun düz-metin Türkçe karşılığı (CSV export / yazdırma için — HTML değil).
-    /// StatusBadge ile aynı sözlük, rozet işaretlemesi olmadan.
+    /// Statü rozeti HTML'i — RENK koddan (BadgeClass), ETİKET çağrandan (sözlük). Plan 42 tek-kaynak.
+    /// Genelde IDictionaryLabels.StatusBadge uzantısı üzerinden çağrılır; label boşsa koda düşer.
     /// </summary>
-    public static string StatusText(string? statusCode) => statusCode switch
+    public static string StatusBadgeHtml(string? code, string? label)
     {
-        null or ""              => "—",
-        DocStatus.Draft         => "Taslak",
-        DocStatus.Approved      => "Onaylı",
-        DocStatus.Posted        => "İşlendi",
-        DocStatus.Cancelled     => "İptal",
-        DocStatus.Pending       => "Bekliyor",
-        DocStatus.Closed        => "Kapandı",
-        DocStatus.ClosedPartial => "Kısmi Kapandı",
-        _                       => statusCode
-    };
+        if (string.IsNullOrWhiteSpace(code))
+            return "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>—</span>";
+        // Güvenlik: sözlük metni de olsa HTML encode (XSS savunması)
+        var text = System.Net.WebUtility.HtmlEncode(string.IsNullOrEmpty(label) ? code : label);
+        return $"<span class=\"badge {BadgeClass(code)}\"><span class=\"badge-dot\"></span>{text}</span>";
+    }
 
     /// <summary>
     /// Türk Lirası para birimi formatı: 12.345 ₺
@@ -78,64 +77,6 @@ public static class UiHelpers
         var tr = new CultureInfo("tr-TR");
         return dt.ToString("d MMM yyyy", tr);
     }
-
-    /// <summary>
-    /// Finansal araç durum kodu → Türkçe rozet (çek/senet/kredi statüleri).
-    /// </summary>
-    public static string FinanceStatusBadge(string? code) => code switch
-    {
-        ChequeStatus.Portfolio    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖYDE</span>",
-        ChequeStatus.InBank       => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
-        ChequeStatus.Collected    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL EDİLDİ</span>",
-        ChequeStatus.Returned     => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
-        ChequeStatus.Endorsed     => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>CİROLANDI</span>",
-        ChequeStatus.Paid         => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
-        LoanStatus.Active         => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
-        LoanStatus.Closed         => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPANDI</span>",
-        PaymentPlanStatus.Overdue => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
-        _            => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{code}</span>",
-    };
-
-    /// <summary>
-    /// Kredi hesap yöntemi kodu → Türkçe etiket.
-    /// </summary>
-    public static string LoanMethodLabel(string? code) => code switch
-    {
-        "ANUITE"          => "Anüite",
-        "EQUAL_PRINCIPAL" => "Eşit Anapara",
-        "BALLOON"         => "Balon Ödemeli",
-        "SPOT"            => "Spot",
-        "ROTATIVE"        => "Rotatif",
-        "KMH"             => "KMH",
-        "DBS"             => "DBS",
-        _                 => code ?? "—",
-    };
-
-    /// <summary>
-    /// Finansal hesap tipi kodu → Türkçe etiket.
-    /// </summary>
-    public static string AccountTypeLabel(string? code) => code switch
-    {
-        "CASH"        => "Kasa",
-        "BANK"        => "Banka",
-        "CREDIT_CARD" => "Kredi Kartı",
-        "LOAN"        => "Kredi",
-        "POS"         => "POS",
-        _             => code ?? "—",
-    };
-
-    /// <summary>
-    /// Ürün tipi kodu → Türkçe etiket.
-    /// </summary>
-    public static string ItemTypeLabel(string? code) => code switch
-    {
-        "STOCK"       => "Stok",
-        "CONSUMABLE"  => "Sarf Malzeme",
-        "SERVICE"     => "Hizmet",
-        "EXPENSE"     => "Gider",
-        "FIXED_ASSET" => "Sabit Kıymet",
-        _             => code ?? "—",
-    };
 
     /// <summary>
     /// Guid'in kısa gösterimi: ilk 8 karakter, büyük harf (UUID/TX kısaltması için).

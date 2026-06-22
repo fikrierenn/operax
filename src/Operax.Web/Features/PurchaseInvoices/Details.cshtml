@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.PurchaseInvoices.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     var h = Model.Header!;
     ViewData["Title"] = h.DocNo;
@@ -43,7 +44,7 @@
     @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
 
     <div class="row" style="gap:8px;margin-bottom:14px;">
-        @Html.Raw(UiHelpers.StatusBadge(h.Status))
+        @Html.Raw(Dict.StatusBadge(h.Status))
     </div>
 
     @if (Model.DocFlow is not null)
@@ -236,7 +237,7 @@
                                 else
                                 {
                                     <div class="text-xs">
-                                        @Html.Raw(UiHelpers.StatusBadge(v.Status))
+                                        @Html.Raw(Dict.StatusBadge(v.Status))
                                         @if (!string.IsNullOrEmpty(v.OverrideReason))
                                         {
                                             <div class="mt-1 text-slate-600">@v.OverrideReason</div>

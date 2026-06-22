@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Loans.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = $"Kredi {Model.Loan?.LoanNo}";
     var l = Model.Loan!;
@@ -8,7 +9,7 @@
     var header = new PageHeaderVm(
         Title: $"Kredi {l.LoanNo}",
         Crumbs: new[] { "Anasayfa", "Finans", "Krediler", l.LoanNo },
-        SubHtml: $"{l.BankName} · {UiHelpers.LoanMethodLabel(l.CalcMethod)} · Anapara <span class=\"mono text-strong\">{UiHelpers.FmtTL(l.Principal)}</span> · " +
+        SubHtml: $"{l.BankName} · {Dict.Label("LOAN_CALC_METHOD", l.CalcMethod)} · Anapara <span class=\"mono text-strong\">{UiHelpers.FmtTL(l.Principal)}</span> · " +
              $"Kalan <span class=\"mono text-strong\" style=\"color:var(--danger-text);\">{UiHelpers.FmtTL(l.OutstandingBalance)}</span>",
         ActionsHtml: "<a href=\"/Finance/Loans/Index\" class=\"btn btn-secondary btn-sm\">Geri</a>"
     );

@@ -53,3 +53,12 @@ public sealed class DictionaryLabels(Db db, ICurrentCompany company, IMemoryCach
 
     private sealed record LabelRow(Guid CompanyId, string TypeCode, string Code, string NameTr);
 }
+
+/// <summary>Sözlük etiket okuyucu için view yardımcı uzantıları (Plan 42).</summary>
+public static class DictionaryLabelExtensions
+{
+    /// <summary>Statü rozeti: renk koddan (UiHelpers.BadgeClass), etiket sözlükten (type, varsayılan STATUS).
+    /// Finansal/stok statüsü için type geçilir (CHEQUE_STATUS, LOAN_STATUS, PAYMENT_PLAN_STATUS vb.).</summary>
+    public static string StatusBadge(this IDictionaryLabels d, string? code, string type = "STATUS")
+        => UiHelpers.StatusBadgeHtml(code, string.IsNullOrEmpty(code) ? null : d.Label(type, code));
+}

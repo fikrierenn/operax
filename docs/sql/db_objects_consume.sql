@@ -6,8 +6,8 @@
 
 -- =============================================================================
 -- sp_ConsumeInventory — bir item/warehouse/bin/lot için atomik stok düşümü.
--- NE YAPAR: bakiyeyi UPDLOCK+HOLDLOCK ile kilitler (eşzamanlı tüketiciler serialize olur),
---   yeterlilik kontrol eder, yetersizse THROW, yeterli ise ISSUE hareketi yazar.
+-- NE YAPAR: sp_getapplock (item/bin exclusive) ile eşzamanlı tüketicileri FIFO serialize eder,
+--   yeterlilik kontrol eder, yetersizse THROW, yeterli ise ISSUE hareketi yazar (deadlock'suz).
 -- IDEMPOTENCY: (SourceDocType, SourceDocId, SourceLineId, MovementType) tekildir; çift çağrı reddedilir.
 -- ÇAĞRAN: caller bir TRANSACTION içinde çağırır (primitive kendi tx'ini açmaz — atomiklik caller'da).
 -- =============================================================================
@@ -94,5 +94,36 @@ BEGIN
          -@QtyBase, @UomId, @QtyBase, ISNULL(@MovementDate, GETUTCDATE()),
          @SourceDocType, @SourceDocId, @SourceLineId, @SourceDocNo, @LotNo,
          @UnitCost, @UserId, @BranchId);
+END
+GO
+
+-- =============================================================================
+-- tr_StockMovement_Immutable — Ledger immutability (Plan 44 Faz 4)
+-- StockMovement append-only: fiziksel DELETE yasak; UPDATE yalnız iptal bayrağı
+-- (IsCancelled/CancelledAt/CancelledBy) için. Qty/Item/Bin/Date/Type vb. immutable.
+-- Yetkili reversal SP'leri flag-only UPDATE yapar → geçer. Yetkisiz mutasyon → THROW.
+-- (Dönem guard'ı tr_GuardPeriod_StockMovement AFTER INSERT'tedir; bu onun UPDATE/DELETE tamamlayıcısı.)
+-- =============================================================================
+CREATE OR ALTER TRIGGER dbo.tr_StockMovement_Immutable
+ON dbo.StockMovement
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 0-satır işlem (örn. MovementDate backfill IS NULL = 0 satır) → no-op, izin ver
+    IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
+
+    -- DELETE: append-only defter → fiziksel silme yok (iptal için IsCancelled kullanılır)
+    IF EXISTS (SELECT 1 FROM deleted) AND NOT EXISTS (SELECT 1 FROM inserted)
+        THROW 53010, N'StockMovement append-only: fiziksel silme yasak (iptal için IsCancelled=1).', 1;
+
+    -- UPDATE: yalnız iptal bayrağı değişebilir. Immutable kolonlardan biri SET edildiyse RED.
+    IF EXISTS (SELECT 1 FROM inserted) AND (
+           UPDATE(CompanyId)  OR UPDATE(WarehouseId) OR UPDATE(BinId)       OR UPDATE(ItemId)
+        OR UPDATE(MovementType) OR UPDATE(QtyBase)   OR UPDATE(UomId)       OR UPDATE(QtyOriginal)
+        OR UPDATE(MovementDate) OR UPDATE(LotNo)     OR UPDATE(SerialNo)    OR UPDATE(UnitCost)
+        OR UPDATE(SourceDocType) OR UPDATE(SourceDocId) OR UPDATE(SourceLineId))
+        THROW 53011, N'StockMovement immutable: yalnız iptal (IsCancelled) güncellenebilir, hareket alanları değişmez.', 1;
 END
 GO

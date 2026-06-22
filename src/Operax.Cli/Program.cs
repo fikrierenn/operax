@@ -602,9 +602,11 @@ class Program
             WHERE CompanyId=@c AND ItemId=@i AND WarehouseId=@w AND BinId=@b AND IsCancelled=0",
             new { c = pick.CompanyId, i = pick.ItemId, w = pick.WarehouseId, b = pick.BinId });
 
-        // Temizlik: bu koşumun STRESS hareketlerini sil (bakiye geri gelir)
+        // Temizlik: bu koşumun STRESS hareketlerini iptal et (IsCancelled=1 — append-only ledger,
+        // fiziksel DELETE trigger ile yasak). Bakiye SUM(WHERE IsCancelled=0) ile geri gelir.
         var cleaned = await setup.ExecuteAsync(
-            "DELETE FROM StockMovement WHERE SourceDocType='STRESS' AND SourceDocId=@s", new { s = stamp });
+            "UPDATE StockMovement SET IsCancelled=1, CancelledAt=GETUTCDATE() WHERE SourceDocType='STRESS' AND SourceDocId=@s AND IsCancelled=0",
+            new { s = stamp });
 
         Console.WriteLine($"\nSonuç: başarı={success} red={reject} deadlock={deadlock} diğer={other}");
         Console.WriteLine($"Son bakiye {finalBal} (başlangıç {initialBal}, {success}×{qty} düşüldü) · temizlenen {cleaned} hareket");

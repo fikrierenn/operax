@@ -1,0 +1,93 @@
+/* =====================================================================
+   Cari Ekstre + Yazdırma (Plan 39 Faz 1)
+   Ekran: kart benzeri belge gövdesi. Baskı: shell gizlenir, A4 sade.
+===================================================================== */
+
+/* --- Ekran görünümü --- */
+.statement-page .stmt-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.statement-page .stmt-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.statement-page .stmt-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.stmt-doc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    box-shadow: var(--shadow-sm);
+    max-width: 920px;
+}
+
+.stmt-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid var(--border-strong);
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+}
+.stmt-company-name { font-size: 18px; font-weight: 700; color: var(--text); }
+.stmt-title-box { text-align: right; }
+.stmt-title { font-size: 16px; font-weight: 700; color: var(--brand-500); letter-spacing: .5px; }
+.stmt-muted { font-size: 12px; color: var(--text-3); }
+.stmt-label { color: var(--text-3); font-size: 13px; }
+
+.stmt-partner {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    line-height: 1.7;
+    font-size: 13px;
+}
+
+.stmt-table { width: 100%; margin-bottom: 18px; }
+.stmt-table .stmt-opening td { background: var(--surface-2); font-weight: 600; }
+.stmt-table .stmt-closing td { background: var(--brand-tint-15); border-top: 2px solid var(--border-strong); }
+.stmt-empty { text-align: center; padding: 14px; }
+
+.stmt-aging { margin-bottom: 16px; }
+.stmt-aging-title { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.stmt-aging-table { width: 100%; max-width: 620px; }
+
+.stmt-footer { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* --- Baskı görünümü ---
+   NOT: Bu blokta #fff/#f3f3f3 sabit değerleri BİLİNÇLİDİR (token değil): baskı çıktısı kağıt =
+   beyaz, tema-bağımsız olmalı. Karanlık tema token'ları (var(--surface)) baskıda okunmaz çıktı
+   üretir. Token kuralı (ui-standard) ekran içindir; baskı sabit açık renk kullanır. */
+@media print {
+    /* Uygulama kabuğu + araç çubuğu gizlenir (shell class'ları: .side / .topbar / .main) */
+    .side, .topbar, .stmt-toolbar, .no-print { display: none !important; }
+    html, body { height: auto !important; overflow: visible !important; }
+    body, .app, .main, .page { margin: 0 !important; padding: 0 !important; background: #fff !important; overflow: visible !important; }
+
+    .stmt-doc {
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        max-width: none;
+        padding: 0;
+    }
+    .stmt-partner { background: #fff; }
+    .stmt-table .stmt-opening td,
+    .stmt-table .stmt-closing td { background: #f3f3f3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Satır kırılması engelle */
+    .stmt-table tr, .stmt-aging { page-break-inside: avoid; }
+    @page { margin: 1.4cm; size: A4; }
+}

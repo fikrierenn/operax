@@ -399,15 +399,29 @@ BEGIN
     EXEC dbo.sp_ValidateStatusTransition @CompanyId, 'TRANSFER', @Status, 'POSTED', @UserId;
 
 
-    -- Çıkış hareketi (kaynak depo, eksi) — BranchId kaynak depodan türetilir
-    INSERT INTO StockMovement
-        (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-         QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
-    SELECT
-        @CompanyId, @FromWarehouseId, l.FromBinId, l.ItemId, 'TRANSFER',
-        -l.QtyBase, l.UomId, l.QtyBase, 'TRANSFER', @HeaderId, @DocNo, @UserId,
-        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @FromWarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
-    FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
+    -- Çıkış hareketi (kaynak depo, eksi) — ATOMİK consume (Plan 44 — oversell/idempotency).
+    -- MovementType='TRANSFER' (raporlama/reversal TRANSFER tipini bekler). Bin-yeterlilik atomik.
+    DECLARE @TransUser UNIQUEIDENTIFIER = TRY_CAST(@UserId AS UNIQUEIDENTIFIER);
+    DECLARE @FromBranchId UNIQUEIDENTIFIER =
+        ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @FromWarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
+    DECLARE @tlId UNIQUEIDENTIFIER, @tlItem UNIQUEIDENTIFIER, @tlUom UNIQUEIDENTIFIER,
+            @tlQty DECIMAL(18,6), @tlBin UNIQUEIDENTIFIER;
+    DECLARE c_trn CURSOR LOCAL FAST_FORWARD FOR
+        SELECT l.Id, l.ItemId, l.UomId, l.QtyBase, l.FromBinId
+        FROM StockTransferLine l WHERE l.TransferId = @HeaderId;
+    OPEN c_trn;
+    FETCH NEXT FROM c_trn INTO @tlId, @tlItem, @tlUom, @tlQty, @tlBin;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        EXEC dbo.sp_ConsumeInventory
+            @CompanyId = @CompanyId, @WarehouseId = @FromWarehouseId, @BinId = @tlBin,
+            @ItemId = @tlItem, @UomId = @tlUom, @QtyBase = @tlQty, @LotNo = NULL,
+            @SourceDocType = 'TRANSFER', @SourceDocId = @HeaderId, @SourceLineId = @tlId,
+            @SourceDocNo = @DocNo, @UnitCost = 0, @UserId = @TransUser,
+            @MovementDate = @nowT, @BranchId = @FromBranchId, @MovementType = 'TRANSFER';
+        FETCH NEXT FROM c_trn INTO @tlId, @tlItem, @tlUom, @tlQty, @tlBin;
+    END
+    CLOSE c_trn; DEALLOCATE c_trn;
 
     -- Giriş hareketi (hedef depo, artı) — BranchId hedef depodan türetilir
     INSERT INTO StockMovement

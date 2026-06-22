@@ -26,7 +26,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_ConsumeInventory
     @UnitCost     DECIMAL(18,6) = 0,
     @UserId       UNIQUEIDENTIFIER,        -- StockMovement.CreatedBy uniqueidentifier'dır
     @MovementDate DATETIME2     = NULL,
-    @BranchId     UNIQUEIDENTIFIER = NULL
+    @BranchId     UNIQUEIDENTIFIER = NULL,
+    @MovementType NVARCHAR(20)  = 'ISSUE'  -- çıkış tipi: ISSUE (sevkiyat/sarf) | TRANSFER (transfer-out)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -43,7 +44,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM StockMovement
         WHERE SourceDocType = @SourceDocType AND SourceDocId = @SourceDocId
-          AND SourceLineId = @SourceLineId AND MovementType = 'ISSUE' AND IsCancelled = 0)
+          AND SourceLineId = @SourceLineId AND MovementType = @MovementType AND IsCancelled = 0)
         THROW 53002, N'Bu belge satırı zaten stoktan düşülmüş (idempotency).', 1;
 
     -- İş kuralı: ATOMİK yeterlilik kilidi. UPDLOCK+HOLDLOCK = key-range; aynı item/bin/lot'u tüketen
@@ -81,7 +82,7 @@ BEGIN
          SourceDocType, SourceDocId, SourceLineId, SourceDocNo, LotNo,
          UnitCost, CreatedBy, BranchId)
     VALUES
-        (@CompanyId, @WarehouseId, @BinId, @ItemId, 'ISSUE',
+        (@CompanyId, @WarehouseId, @BinId, @ItemId, @MovementType,
          -@QtyBase, @UomId, @QtyBase, ISNULL(@MovementDate, GETUTCDATE()),
          @SourceDocType, @SourceDocId, @SourceLineId, @SourceDocNo, @LotNo,
          @UnitCost, @UserId, @BranchId);

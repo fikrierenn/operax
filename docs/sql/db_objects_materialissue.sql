@@ -65,28 +65,37 @@ BEGIN
         DECLARE @BranchId UNIQUEIDENTIFIER =
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
 
-        -- Stok çıkışı: her satır ISSUE (eksi QtyBase), UnitCost = anlık Moving Avg maliyet.
-        -- BinId NULL ise stok OLAN bin seçilir (en çok stoklu); picking bin yalnız son çare.
-        -- (Sarf storage bin'den çıkmalı; picking bin'e fallback negatif stok yaratırdı.)
-        -- NOT: Tek-bin varsayımı — talep tek bin bakiyesini aşarsa bin negatife düşebilir
-        -- (depo toplamı yukarıda guard'lı). Multi-bin split tahsis kapsam dışı (basit sarf).
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal, UnitCost,
-             SourceDocType, SourceDocId, SourceDocNo, CreatedBy, BranchId)
-        SELECT
-            @CompanyId, @WarehouseId,
-            ISNULL(l.BinId, ISNULL(
-                (SELECT TOP 1 inv.BinId FROM tvf_InventoryBalance(@CompanyId) inv
-                 WHERE inv.WarehouseId = @WarehouseId AND inv.ItemId = l.ItemId AND inv.QtyBalance > 0
-                 ORDER BY inv.QtyBalance DESC),
-                @PickingBinId)),
-            l.ItemId, 'ISSUE',
-            -l.QtyBase, l.UomId, l.Qty, ISNULL(ic.AvgCost, 0),
-            'CONSUMPTION', @HeaderId, @DocNo, @UserId, @BranchId
-        FROM MaterialIssueLine l
-        LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = l.ItemId
-        WHERE l.HeaderId = @HeaderId;
+        -- Stok çıkışı: her satır ATOMİK consume (Plan 44 — oversell/idempotency). Bin seçimi:
+        -- satır bini → en stoklu bin → picking (son çare). Bin-seviyesi yeterlilik consume içinde
+        -- UPDLOCK+HOLDLOCK ile atomik kontrol edilir (audit High: tek-bin negatifleşmesi kapandı).
+        DECLARE @miUser UNIQUEIDENTIFIER = TRY_CAST(@UserId AS UNIQUEIDENTIFIER);
+        DECLARE @mlId UNIQUEIDENTIFIER, @mlItem UNIQUEIDENTIFIER, @mlUom UNIQUEIDENTIFIER,
+                @mlQty DECIMAL(18,6), @mlBin UNIQUEIDENTIFIER, @mlCost DECIMAL(18,6);
+        DECLARE c_mi CURSOR LOCAL FAST_FORWARD FOR
+            SELECT l.Id, l.ItemId, l.UomId, l.QtyBase,
+                   ISNULL(l.BinId, ISNULL(
+                       -- En stoklu bin: tvf UomId-grain'i bin başına TOPLA (yanlış bin seçimi önlenir, IMP-1)
+                       (SELECT TOP 1 inv.BinId FROM tvf_InventoryBalance(@CompanyId) inv
+                        WHERE inv.WarehouseId = @WarehouseId AND inv.ItemId = l.ItemId
+                        GROUP BY inv.BinId HAVING SUM(inv.QtyBalance) > 0
+                        ORDER BY SUM(inv.QtyBalance) DESC), @PickingBinId)),
+                   ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
+                           WHERE ic.CompanyId = @CompanyId AND ic.ItemId = l.ItemId), 0)
+            FROM MaterialIssueLine l
+            WHERE l.HeaderId = @HeaderId;
+        OPEN c_mi;
+        FETCH NEXT FROM c_mi INTO @mlId, @mlItem, @mlUom, @mlQty, @mlBin, @mlCost;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC dbo.sp_ConsumeInventory
+                @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @mlBin,
+                @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty, @LotNo = NULL,
+                @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
+                @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
+                @MovementDate = @now, @BranchId = @BranchId;
+            FETCH NEXT FROM c_mi INTO @mlId, @mlItem, @mlUom, @mlQty, @mlBin, @mlCost;
+        END
+        CLOSE c_mi; DEALLOCATE c_mi;
 
         UPDATE MaterialIssueHeader
         SET Status = 'POSTED', UpdatedAt = @now, UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)

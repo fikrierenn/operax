@@ -153,7 +153,7 @@ class Program
                 case "seed":
                     // Baseline (operable kurulum) — sahte/demo veri YOK. Demo için: seed-demo.
                     var seedDir = FindDir("docs/sql") ?? ".";
-                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
+                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_dictionary_labels.sql", "seed_receiving_bin.sql", "seed_business_params.sql" })
                     {
                         var p = Path.Combine(seedDir, seedFile);
                         if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);

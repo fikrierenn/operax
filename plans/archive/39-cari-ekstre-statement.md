@@ -1,6 +1,6 @@
 # Plan 39 — Cari Hesap Ekstresi (Partner Statement)
 
-**Durum:** Faz 1 ✅ + Faz 2a (OPEN tipi) ✅ 2026-06-22 · Faz 2b/3/4 altyapı-bloklu (aşağıda)
+**Durum:** ✅ TAMAMLANDI (kapsam daraltıldı) 2026-06-22 · Faz 1 + Faz 2a (OPEN tipi). **Faz 2b/3/4 (toplu/gönderim/WhatsApp) İPTAL** — kullanıcı kararı: ekstre GÖNDERİMİ olmayacak; tek-cari Excel indirme + ekranda görüntüleme + PDF (tarayıcı Yazdır→kaydet) yeterli.
 **Tier:** 3 (yeni ekran + SP/TVF + Hangfire job + harici entegrasyon — çok fazlı)
 **Kaynak:** Web rakip araştırması (reference-researcher, 2026-06-22) + COMPETITOR_ANALYSIS M11.E1 (⚠️→✅). Ba/Bs mutabakat mektubu KAPSAM DIŞI (GİB 2025'te kaldırdı).
 
@@ -46,10 +46,7 @@ Tek nesne: **`tvf_PartnerStatement(@CompanyId, @PartnerId, @From, @To, @Statemen
 - ⛔ **Faz 2b — Toplu (batch) BLOKLU:** İlk Hangfire job olur (kaynak job pattern YOK) + çıktının değeri Faz 3 e-postaya bağlı. **Karar gerek:** (1) batch çıktı formatı — CSV ZIP (PDF lib yok) vs QuestPDF NuGet ekle, (2) e-posta altyapısı (aşağı). E-posta gelmeden batch tek başına düşük değer.
 - **Kapanış:** sql-sp-reviewer + smoke.
 
-> **⛔ ALTYAPI BLOKERİ (Faz 2b/3/4 — kod yazmadan karar gerek):**
-> - **E-posta altyapısı YOK** (kaynak taraması: SmtpClient/MailKit/IEmailSender = 0). M16 sadece planda. Faz 3 (zamanlanmış gönderim) + Faz 2b/4 (dağıtım) bunsuz çalışmaz. Karar: MailKit mı SMTP mi, config (env), provider?
-> - **Hangfire job framework YOK** (lib var, kaynak job = 0). Faz 2b/3 ilk recurring/background job'u kuracak — pattern + DI + dashboard yetki kararı.
-> - **WhatsApp/QR (Faz 4)** harici sağlayıcı kararı (Twilio/Meta Cloud API/yerel).
+> **❌ Faz 2b/3/4 İPTAL (kullanıcı kararı 2026-06-22):** Ekstre gönderimi (e-posta/WhatsApp) + toplu ZIP **yapılmayacak**. Gerekçe: 1000 cari ZIP indirme dağıtımsız değersiz; gönderim de istenmiyor. Tek-cari ekstre yeterli: **Excel (CSV) indirme + ekranda görüntüleme + PDF (tarayıcı Yazdır→PDF kaydet, print CSS hazır)**. Server-PDF (QuestPDF) gerekmedi — print yeterli. E-posta/Hangfire-job/WhatsApp altyapısı bu plan kapsamından çıktı (ileride ayrı ihtiyaç olursa ayrı plan).
 
 ### Faz 3 — Zamanlanmış otomatik gönderim
 - Hangfire recurring job + `Partner.StatementSchedule` (aylık/haftalık/kapalı) kolonu.

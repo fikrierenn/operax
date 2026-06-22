@@ -1,6 +1,6 @@
 # Plan 39 — Cari Hesap Ekstresi (Partner Statement)
 
-**Durum:** Onay bekliyor
+**Durum:** Faz 1 ✅ + Faz 2a (OPEN tipi) ✅ 2026-06-22 · Faz 2b/3/4 altyapı-bloklu (aşağıda)
 **Tier:** 3 (yeni ekran + SP/TVF + Hangfire job + harici entegrasyon — çok fazlı)
 **Kaynak:** Web rakip araştırması (reference-researcher, 2026-06-22) + COMPETITOR_ANALYSIS M11.E1 (⚠️→✅). Ba/Bs mutabakat mektubu KAPSAM DIŞI (GİB 2025'te kaldırdı).
 
@@ -42,9 +42,14 @@ Tek nesne: **`tvf_PartnerStatement(@CompanyId, @PartnerId, @From, @To, @Statemen
 - **Kapanış:** sql-sp-reviewer + code-reviewer + security-reviewer (yeni PageModel) + smoke (devir+running+aging doğru).
 
 ### Faz 2 — Statement tipi + toplu (batch)
-- `@StatementType='OPEN'` (açık kalem) — PaymentPlan/eşleşme bazlı kapanmamış evrak filtresi.
-- Toplu ekstre ekranı: cari grubu + tarih → Hangfire job N PDF/CSV üret + (Faz 3 e-posta).
+- ✅ **Faz 2a — `@StatementType='OPEN'` (açık kalem) BİTTİ 2026-06-22.** AccountMovement FIFO ile kapanmamış borçlar (aging FIFO'suyla birebir; PaymentPlan eşleşme tablosu GEREKMEDİ — "kapanmamış = FIFO ile karşılanmamış borç" yaklaşımı). Statement sayfası ALL/OPEN toggle. sql-sp-reviewer 6/6 temiz, smoke tutarlı. Commit (plan:39 Faz 2a).
+- ⛔ **Faz 2b — Toplu (batch) BLOKLU:** İlk Hangfire job olur (kaynak job pattern YOK) + çıktının değeri Faz 3 e-postaya bağlı. **Karar gerek:** (1) batch çıktı formatı — CSV ZIP (PDF lib yok) vs QuestPDF NuGet ekle, (2) e-posta altyapısı (aşağı). E-posta gelmeden batch tek başına düşük değer.
 - **Kapanış:** sql-sp-reviewer + smoke.
+
+> **⛔ ALTYAPI BLOKERİ (Faz 2b/3/4 — kod yazmadan karar gerek):**
+> - **E-posta altyapısı YOK** (kaynak taraması: SmtpClient/MailKit/IEmailSender = 0). M16 sadece planda. Faz 3 (zamanlanmış gönderim) + Faz 2b/4 (dağıtım) bunsuz çalışmaz. Karar: MailKit mı SMTP mi, config (env), provider?
+> - **Hangfire job framework YOK** (lib var, kaynak job = 0). Faz 2b/3 ilk recurring/background job'u kuracak — pattern + DI + dashboard yetki kararı.
+> - **WhatsApp/QR (Faz 4)** harici sağlayıcı kararı (Twilio/Meta Cloud API/yerel).
 
 ### Faz 3 — Zamanlanmış otomatik gönderim
 - Hangfire recurring job + `Partner.StatementSchedule` (aylık/haftalık/kapalı) kolonu.

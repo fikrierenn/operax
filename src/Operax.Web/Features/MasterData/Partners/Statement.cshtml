@@ -1,0 +1,126 @@
+@page "{id:guid}"
+@using Operax.Web.Lib
+@model Operax.Web.Features.MasterData.Partners.StatementModel
+@{
+    ViewData["Title"] = "Cari Ekstre";
+    var p = Model.Partner!;
+    var qs = $"from={Model.DateFrom:yyyy-MM-dd}&to={Model.DateTo:yyyy-MM-dd}";
+}
+
+<div class="page statement-page" data-screen-label="Cari Ekstre">
+
+    @* Yazdırma/aktarım çubuğu — baskıda gizlenir (.no-print) *@
+    <div class="stmt-toolbar no-print">
+        <a class="btn btn-ghost" href="/MasterData/Partners/Details/@Model.PartnerId">‹ Geri</a>
+        <form method="get" class="stmt-filter">
+            <input type="date" name="from" value="@Model.DateFrom.ToString("yyyy-MM-dd")" class="form-ctrl" />
+            <span>–</span>
+            <input type="date" name="to" value="@Model.DateTo.ToString("yyyy-MM-dd")" class="form-ctrl" />
+            <button type="submit" class="btn btn-secondary">Uygula</button>
+        </form>
+        <div class="stmt-actions">
+            <a class="btn btn-secondary" href="?handler=Export&@qs">Excel (CSV)</a>
+            <button type="button" class="btn btn-primary" onclick="window.print()">Yazdır</button>
+        </div>
+    </div>
+
+    @* Yazdırılabilir ekstre gövdesi *@
+    <div class="stmt-doc">
+
+        @* Başlık: firma + belge adı *@
+        <div class="stmt-head">
+            <div class="stmt-company">
+                <div class="stmt-company-name">@Model.CompanyInfo.Name</div>
+                @if (!string.IsNullOrEmpty(Model.CompanyInfo.TaxNumber))
+                {
+                    <div class="stmt-muted">VKN: @Model.CompanyInfo.TaxNumber</div>
+                }
+            </div>
+            <div class="stmt-title-box">
+                <div class="stmt-title">CARİ HESAP EKSTRESİ</div>
+                <div class="stmt-muted">@Model.DateFrom.ToString("dd.MM.yyyy") – @Model.DateTo.ToString("dd.MM.yyyy")</div>
+            </div>
+        </div>
+
+        @* Cari bilgisi *@
+        <div class="stmt-partner">
+            <div><span class="stmt-label">Cari:</span> <strong>@p.Name</strong> (@p.Code)</div>
+            @if (!string.IsNullOrEmpty(p.TaxNumber)) { <div><span class="stmt-label">VKN/TCKN:</span> @p.TaxNumber @(string.IsNullOrEmpty(p.TaxOffice) ? "" : $"· {p.TaxOffice}")</div> }
+            @if (!string.IsNullOrEmpty(p.Address)) { <div><span class="stmt-label">Adres:</span> @p.Address</div> }
+            @if (!string.IsNullOrEmpty(p.Phone)) { <div><span class="stmt-label">Tel:</span> @p.Phone</div> }
+        </div>
+
+        @* Hareket tablosu *@
+        <table class="data-table stmt-table">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>İşlem</th>
+                    <th>Belge No</th>
+                    <th>Açıklama</th>
+                    <th class="num">Borç</th>
+                    <th class="num">Alacak</th>
+                    <th class="num">Bakiye</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="stmt-opening">
+                    <td class="mono">—</td>
+                    <td><strong>DEVİR</strong></td>
+                    <td>—</td>
+                    <td></td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num mono">@UiHelpers.FmtTL(Model.OpeningBalance)</td>
+                </tr>
+                @foreach (var r in Model.Lines)
+                {
+                    <tr>
+                        <td class="mono muted">@r.MovementDate.ToString("dd.MM.yyyy")</td>
+                        <td>@r.SourceDocType</td>
+                        <td class="mono muted">@(string.IsNullOrEmpty(r.SourceDocNo) ? "—" : r.SourceDocNo)</td>
+                        <td class="muted">@r.Description</td>
+                        <td class="num">@(r.Debit != 0 ? UiHelpers.FmtTL(r.Debit) : "")</td>
+                        <td class="num">@(r.Credit != 0 ? UiHelpers.FmtTL(r.Credit) : "")</td>
+                        <td class="num mono row-strong">@UiHelpers.FmtTL(r.RunningBalance)</td>
+                    </tr>
+                }
+                @if (Model.Lines.Count == 0)
+                {
+                    <tr><td colspan="7" class="stmt-empty muted">Seçili dönemde hareket yok.</td></tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="stmt-closing">
+                    <td colspan="6"><strong>KAPANIŞ BAKİYESİ</strong></td>
+                    <td class="num mono"><strong>@UiHelpers.FmtTL(Model.ClosingBalance)</strong>
+                        <span class="stmt-muted">(@(Model.ClosingBalance >= 0 ? "Borçlu" : "Alacaklı"))</span>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+
+        @* Yaşlandırma kovaları — vadesi geçen alacak dağılımı (@To itibarıyla, FIFO) *@
+        <div class="stmt-aging">
+            <div class="stmt-aging-title">Yaşlandırma (@Model.DateTo.ToString("dd.MM.yyyy") itibarıyla)</div>
+            <table class="data-table stmt-aging-table">
+                <thead>
+                    <tr><th class="num">0–30 gün</th><th class="num">31–60 gün</th><th class="num">61–90 gün</th><th class="num">90+ gün</th><th class="num">Toplam Açık</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="num mono">@UiHelpers.FmtTL(Model.Aging.B0_30)</td>
+                        <td class="num mono">@UiHelpers.FmtTL(Model.Aging.B31_60)</td>
+                        <td class="num mono">@UiHelpers.FmtTL(Model.Aging.B61_90)</td>
+                        <td class="num mono @(Model.Aging.B90Plus > 0 ? "text-danger" : "")">@UiHelpers.FmtTL(Model.Aging.B90Plus)</td>
+                        <td class="num mono row-strong">@UiHelpers.FmtTL(Model.Aging.Total)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="stmt-footer stmt-muted">
+            Bu ekstre @DateTime.Now.ToString("dd.MM.yyyy HH:mm") tarihinde @Model.CompanyInfo.Name tarafından oluşturulmuştur.
+        </div>
+    </div>
+</div>

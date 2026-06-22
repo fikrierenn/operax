@@ -59,8 +59,11 @@ else
     @* Hareketler — tarih filtresi + Borç/Alacak/Bakiye ekstresi *@
     <div class="card" style="margin-top:14px;">
         <div class="card-hdr">
-            <div class="card-title">Cari Ekstre</div>
-            <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Ledger.Count hareket</div>
+            <div>
+                <div class="card-title">Cari Ekstre</div>
+                <div class="card-sub">@Model.DateFrom?.ToString("dd MMM yyyy") – @Model.DateTo?.ToString("dd MMM yyyy") · @Model.Ledger.Count hareket</div>
+            </div>
+            <a class="btn btn-secondary" href="/MasterData/Partners/Statement/@Model.Partner.Id?from=@Model.DateFrom?.ToString("yyyy-MM-dd")&to=@Model.DateTo?.ToString("yyyy-MM-dd")">Yazdırılabilir Ekstre</a>
         </div>
         <div class="card-body">
             <partial name="Tabs/_DateFilter" model="@(new Operax.Web.Features.MasterData.Partners.DetailsModel.DateFilterVm(Model.Partner.Id, "ekstre", Model.DateFrom!.Value, Model.DateTo!.Value))" />

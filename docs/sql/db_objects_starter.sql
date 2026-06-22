@@ -24,7 +24,8 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_UpdateItemCostMovingAvg
     @CompanyId   UNIQUEIDENTIFIER,
     @ItemId      UNIQUEIDENTIFIER,
-    @WarehouseId UNIQUEIDENTIFIER = NULL,
+    @WarehouseId UNIQUEIDENTIFIER = NULL, -- KULLANILMIYOR (geriye-uyum imzası): maliyet ŞİRKET-GENEL,
+                                          -- per-depo grain terk edildi (Plan 47 Faz 1). Caller NULL geçer.
     @Qty         DECIMAL(18,6),       -- pozitif (RECEIPT) veya pozitif (ISSUE — adet, isaret @MovementType'tan)
     @UnitCost    DECIMAL(18,4) = NULL, -- RECEIPT'ta dolu, ISSUE'da NULL (mevcut AvgCost kullanilir)
     @MovementType NVARCHAR(20)        -- RECEIPT, ISSUE, ADJUSTMENT
@@ -33,41 +34,48 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- İş kuralı: ItemCost satırı yoksa oluştur. UPDLOCK+HOLDLOCK = key-range kilit → eşzamanlı
-    -- ilk-kabul yarışı serialize olur (UX_ItemCost_Key 2627'ye düşmeden, temiz). Caller tx'inde tutulur.
-    IF NOT EXISTS (
-        SELECT 1 FROM ItemCost WITH (UPDLOCK, HOLDLOCK)
-        WHERE CompanyId = @CompanyId AND ItemId = @ItemId
-          AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL))
-    )
+    -- Maliyet ŞİRKET-GENEL (WarehouseId NULL). Okuyucular (PO öneri, fiyat listesi) WarehouseId
+    -- filtrelemeden okur; per-depo grain çoklu-satır belirsizliği + OnHandQty snapshot drift'i üretiyordu.
+    -- OnHandQty artık OTORİTER DEĞİL — tek doğruluk kaynağı StockMovement ledger (tvf_InventoryBalance);
+    -- burada yalnız bilgi amaçlı ledger'a senkronlanır. AvgCost meşru moving-avg snapshot'ı olarak kalır.
+
+    -- Costing serileştirme: aynı ürünün eşzamanlı maliyet güncellemesini sırala (ledger-türev qty yarışını
+    -- önler). Kilit sırası: shipping'de consume applock (item/bin) ÖNCE, costing applock SONRA → tutarlı.
+    DECLARE @lock NVARCHAR(255) = CONCAT('itemcost:', LOWER(CONVERT(NVARCHAR(36), @CompanyId)), ':', LOWER(CONVERT(NVARCHAR(36), @ItemId)));
+    DECLARE @rc INT;
+    EXEC @rc = sp_getapplock @Resource = @lock, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000;
+    IF @rc < 0 THROW 53050, N'Maliyet güncelleme kilidi alınamadı (eşzamanlılık).', 1;
+
+    -- İş kuralı: şirket-genel ItemCost satırı yoksa oluştur (applock altında, yarış yok)
+    IF NOT EXISTS (SELECT 1 FROM ItemCost WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId IS NULL)
         INSERT INTO ItemCost (Id, CompanyId, ItemId, WarehouseId, AvgCost, OnHandQty)
-        VALUES (NEWID(), @CompanyId, @ItemId, @WarehouseId, 0, 0);
+        VALUES (NEWID(), @CompanyId, @ItemId, NULL, 0, 0);
+
+    -- Ledger-türev güncel miktar (TEK doğruluk kaynağı). StockMovement bu SP'den ÖNCE yazıldığı için
+    -- ledger bu hareketi zaten içerir → @QtyNow hareket-SONRASI, @QtyBefore avg ağırlığı için hareket-ÖNCESİ.
+    -- İade (RECEIVING_RETURN) fiziksel bakiyeyi artırır ama COGS havuzuna GİRMEZ (sp_ReceivingPost:1638-1639
+    -- kasıtlı tasarımı) → maliyet tabanı miktarından dışla. NULL SourceDocType maliyetlenir (ISNULL ile korunur).
+    DECLARE @QtyNow DECIMAL(18,6) = (
+        SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement
+        WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND IsCancelled = 0
+          AND ISNULL(SourceDocType, '') <> 'RECEIVING_RETURN');
+    DECLARE @QtyBefore DECIMAL(18,6) = @QtyNow - CASE WHEN @MovementType = 'RECEIPT' THEN @Qty ELSE -@Qty END;
 
     IF @MovementType = 'RECEIPT'
-    BEGIN
-        -- İş kuralı: hareketli ağırlıklı ortalama — ATOMİK tek-statement UPDATE.
-        -- Yeni ortalama satırın GÜNCEL OnHandQty/AvgCost'undan UPDATE'in X-lock'u altında hesaplanır
-        -- (RHS pre-update değerleri kullanır) → read-modify-write yarışı YOK, kayıp güncelleme yok.
+        -- Hareketli ağırlıklı ortalama: ledger-türev @QtyBefore ile ağırlıklandır (payda = @QtyNow).
         UPDATE ItemCost
-        SET AvgCost = CASE WHEN OnHandQty + @Qty > 0
-                           THEN ((OnHandQty * AvgCost) + (@Qty * ISNULL(@UnitCost, AvgCost))) / (OnHandQty + @Qty)
+        SET AvgCost = CASE WHEN @QtyNow > 0
+                           THEN ((@QtyBefore * AvgCost) + (@Qty * ISNULL(@UnitCost, AvgCost))) / @QtyNow
                            ELSE ISNULL(@UnitCost, AvgCost)
                       END,
-            OnHandQty       = OnHandQty + @Qty,
+            OnHandQty       = @QtyNow,
             LastReceiptDate = GETUTCDATE(),
             UpdatedAt       = GETUTCDATE()
-        WHERE CompanyId = @CompanyId AND ItemId = @ItemId
-          AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL));
-    END
-    ELSE IF @MovementType IN ('ISSUE', 'ADJUSTMENT')
-    BEGIN
-        -- Çıkışta AvgCost değişmez; yalnız OnHandQty düşer (atomik tek-statement, yarış yok)
+        WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId IS NULL;
+    ELSE -- ISSUE / ADJUSTMENT: ortalama değişmez; OnHandQty yalnız ledger'a senkron (bilgi amaçlı)
         UPDATE ItemCost
-        SET OnHandQty = OnHandQty - @Qty,
-            UpdatedAt = GETUTCDATE()
-        WHERE CompanyId = @CompanyId AND ItemId = @ItemId
-          AND ((WarehouseId = @WarehouseId) OR (WarehouseId IS NULL AND @WarehouseId IS NULL));
-    END
+        SET OnHandQty = @QtyNow, UpdatedAt = GETUTCDATE()
+        WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId IS NULL;
 END
 GO
 
@@ -1670,14 +1678,15 @@ BEGIN
             FROM ReceivingLine rl
             LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
             WHERE rl.HeaderId = @HeaderId
-            GROUP BY rl.ItemId;
+            GROUP BY rl.ItemId
+            HAVING SUM(rl.QtyBase) > 0;   -- iade-only/sıfır kabul satırını costing'e sokma (qty=0 RECEIPT'i atla)
         OPEN c_lines;
         FETCH NEXT FROM c_lines INTO @ItemId, @Qty, @UC;
         WHILE @@FETCH_STATUS = 0
         BEGIN
             EXEC dbo.sp_UpdateItemCostMovingAvg
                 @CompanyId = @CompanyId, @ItemId = @ItemId,
-                @WarehouseId = @WarehouseId, @Qty = @Qty,
+                @WarehouseId = NULL, @Qty = @Qty,   -- maliyet şirket-genel (Plan 47): depo geçilmez
                 @UnitCost = @UC, @MovementType = 'RECEIPT';
             FETCH NEXT FROM c_lines INTO @ItemId, @Qty, @UC;
         END
@@ -1790,7 +1799,7 @@ BEGIN
         BEGIN
             EXEC dbo.sp_UpdateItemCostMovingAvg
                 @CompanyId = @CompanyId, @ItemId = @ItemId,
-                @WarehouseId = @WarehouseId, @Qty = @Qty,
+                @WarehouseId = NULL, @Qty = @Qty,   -- maliyet şirket-genel (Plan 47): depo geçilmez
                 @UnitCost = NULL, @MovementType = 'ISSUE';
             FETCH NEXT FROM c_lines INTO @ItemId, @Qty;
         END

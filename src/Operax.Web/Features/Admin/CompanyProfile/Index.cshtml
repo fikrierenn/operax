@@ -1,0 +1,43 @@
+@page
+@using Operax.Web.Lib
+@model Operax.Web.Features.Admin.CompanyProfile.IndexModel
+@{
+    ViewData["Title"] = "Şirket Profili";
+    var header = new PageHeaderVm(
+        Title: "Şirket Profili",
+        Crumbs: new[] { "Anasayfa", "Yönetim", "Şirket Profili" },
+        Sub: "Aktif şirketin ünvanı ve vergi kimlik bilgisi — e-Belge ve evrak başlıklarında kullanılır"
+    );
+}
+
+<div class="page" data-screen-label="Şirket Profili">
+    <partial name="_PageHeader" model="header" />
+
+    @if (TempData["Success"] is string ok) { <div class="alert-banner alert-info">@ok</div> }
+    @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger">@err</div> }
+
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Kimlik Bilgileri</div>
+            <div class="card-sub">Yalnızca yöneticiler düzenleyebilir</div>
+        </div>
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Şirket Ünvanı <span class="req">*</span></label>
+                    <input name="name" value="@Model.Profile.Name" class="form-ctrl" maxlength="200" required />
+                    <span class="form-hint">Sidebar ve evrak başlıklarında görünür.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">VKN / TCKN</label>
+                    <input name="taxNumber" value="@Model.Profile.TaxNumber" class="form-ctrl" maxlength="11" inputmode="numeric" />
+                    <span class="form-hint">Vergi kimlik no (10 hane) veya TC kimlik no (11 hane).</span>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end">
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>

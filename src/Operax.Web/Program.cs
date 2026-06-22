@@ -213,7 +213,7 @@ var forwardedOptions = new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     ForwardLimit     = 1
 };
-forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownIPNetworks.Clear();   // KnownNetworks deprecated (ASPDEPR005) → KnownIPNetworks
 forwardedOptions.KnownProxies.Clear();
 forwardedOptions.KnownProxies.Add(System.Net.IPAddress.Loopback);      // 127.0.0.1 (aynı-host Nginx)
 forwardedOptions.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);  // ::1

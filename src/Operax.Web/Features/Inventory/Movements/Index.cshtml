@@ -80,8 +80,8 @@
                         <div class="text-[10px] text-slate-400 font-mono">@m.CreatedAt.ToString("HH:mm:ss")</div>
                     </td>
                     <td>
-                        <span class="badge @(m.MovementType == "RECEIPT" ? "b-green" : m.MovementType == "ISSUE" ? "b-red" : "b-blue")">
-                            @(m.MovementType == "RECEIPT" ? "Giriş" : m.MovementType == "ISSUE" ? "Çıkış" : "Transfer")
+                        <span class="badge @(m.MovementType == MovementType.Receipt ? "b-green" : m.MovementType == MovementType.Issue ? "b-red" : "b-blue")">
+                            @(m.MovementType == MovementType.Receipt ? "Giriş" : m.MovementType == MovementType.Issue ? "Çıkış" : "Transfer")
                         </span>
                     </td>
                     <td>

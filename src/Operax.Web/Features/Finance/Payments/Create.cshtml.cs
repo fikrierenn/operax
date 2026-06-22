@@ -114,7 +114,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
         public string  TxType         { get; set; } = TransactionType.Income;
         public decimal Amount         { get; set; }
         public string  Currency       { get; set; } = "TRY";
-        public string  InstrumentType { get; set; } = "EFT";
+        public string  InstrumentType { get; set; } = Operax.Web.Lib.InstrumentType.Eft;
         public string? Description    { get; set; }
         // Belge zinciri ön-doldurma (opsiyonel)
         public Guid?   SourceDocId    { get; set; }

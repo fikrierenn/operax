@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-06-22
 **Yazan:** Fikri / Claude
-**Durum:** `Uygulamada` (TAM kapsam — kullanıcı onayı 2026-06-22, audit code-reviewer ile genişletildi)
+**Durum:** `TAMAMLANDI` ✅ 2026-06-22 (TAM kapsam — Faz 1-7 bitti, build 0/0, sql-sp-reviewer temiz, CHECK smoke OK)
 **Modül:** M00 (cross-cutting) + M11 (Finans)
 **Paket:** STARTER
 
@@ -68,14 +68,15 @@ Statü/yön kodları (Direction, Cheque/PromissoryNote status, Loan status, Paym
 
 ## 5. Done Criteria
 
-- [ ] `Dtos.cs` 5 sabit sınıfı (VT vokabüleriyle birebir)
-- [ ] ~9 dosyada literal → sabit; `Expenses` `"PAID"` → `DocStatus.Paid`
-- [ ] `UiHelpers.FinanceStatusBadge` sabitleştirildi
-- [ ] CHECK constraint migration (6 kolon, idempotent, `WITH CHECK`)
-- [ ] `operax-cli migrate` 0 hata; CHECK'ler canlıya uygulandı
-- [ ] `dotnet build` 0 hata 0 uyarı
-- [ ] code-reviewer (magic string temiz) + sql-sp-reviewer (CHECK doğru)
-- [ ] Smoke: Aging/PaymentPlan/Cheques/Loans listeleri render + yanlış-kod insert THROW (CHECK çalışıyor)
+- [x] `Dtos.cs` 23 sabit sınıfı (VT vokabüleriyle birebir) — commit C1
+- [x] ~50 dosyada literal → sabit; `Expenses` `"PAID"` → `DocStatus.Paid` — commit C2
+- [x] `UiHelpers.FinanceStatusBadge` sabitleştirildi — ayrı commit
+- [x] CHECK constraint migration (23 kolon, idempotent, `WITH CHECK`) — commit C3
+- [x] migration canlıya uygulandı (23 CHECK aktif); veri uzlaştı (HAVALE→GIRO/NEW→DRAFT/''→NET)
+- [x] `dotnet build` 0 hata 0 uyarı (Web + Cli)
+- [x] code-reviewer (değer eşleme hatası YOK) + sql-sp-reviewer (CHECK doğru, ledger immutability korunuyor)
+- [x] Smoke: yanlış-kod UPDATE CHECK ile reddedildi (`CK_Partner_RiskCategory` conflict)
+- [ ] **BORÇ:** `FinancialTransaction.InstrumentType` (3× '') + `UserFieldDefinition.DataSourceType` (8× '') CHECK dışı bırakıldı. '' değeri iş kararıyla sınıflandırılıp ayrı migration'da migrate + CHECK eklenmeli. DataSourceType '' = non-lookup alan (meşru) → CHECK'e `OR ''` ile eklenebilir.
 
 ## 6. Rollback Planı
 
@@ -133,13 +134,27 @@ Statü/yön kodları (Direction, Cheque/PromissoryNote status, Loan status, Paym
 - **LoanCalcMethod** ANUITE/EQUAL_PRINCIPAL/BALLOON/SPOT/ROTATIVE/KMH/DBS · **CardType** CREDIT/BUSINESS/CORPORATE/DEBIT · **InstrumentType** (BUG-1 netleşince) · **UdfFieldType** BOOLEAN/DATE/NUMBER/SELECT/TEXT · **UdfDataSourceType** DICTIONARY/STATIC/TABLE
 - Kontrol: **NumberSeriesType** zaten var mı (Partners/Details.cshtml.cs:336,337 kullanıyor) · StatusTransitionLog.DocumentType (PURCHASE_ORDER/SALES_ORDER) SourceDoc'a eksik · AccountMovement/FinancialTransaction.SourceDocType (COLLECTION/PAYMENT/REVERSAL/CHEQUE_COLLECTION/LOAN_INSTALLMENT) SourceDoc'a eksik
 
-### 6 VT-kod uyumsuzluğu (Faz 4 — DANIŞMANA SORULDU, karar bekliyor)
-1. InstrumentType: VT `EFT,HAVALE,CHEQUE,LOAN` · kod hep EFT, HAVALE yetim? · EFT≠Havale mı?
-2. Partner.DefaultPaymentMethod VT=`EFT` vs PaymentMethod.BankTransfer=`BANK_TRANSFER` kavram çakışması
-3. ProductionOrder VT=`NEW,IN_PROGRESS` · kod `RELEASED/COMPLETED` — yaşam döngüsü
-4. ShippingHeader VT=`DRAFT,NEW,PENDING,POSTED` — DocStatus'ta NEW yok
-5. View `CONSUMPTION/PRODUCTION` MovementType — VT StockMovement'ta yok (ölü/üretim-bekliyor)
-6. `"SUPPLIER"` literal (Partners/Index:34) — VT'de yok, ölü dal
+### 6 VT-kod uyumsuzluğu (Faz 4 — DANIŞMAN + KULLANICI KARARI 2026-06-22, ÇÖZÜLDÜ)
+Danışman: erp-isleyis-danismani (confidence + VT teyitli). Netleştirme: kullanıcı.
+
+| # | Sorun | KARAR | Canonical küme | Aksiyon |
+|---|---|---|---|---|
+| A1 | InstrumentType EFT/HAVALE yetim? + dil karışık | **AYIR — ikisi de meşru** (TR'de EFT≠Havale). **Hepsi İngilizce** (kullanıcı): `HAVALE→GIRO`, EFT korunur (uluslararası kısaltma) | `CASH,EFT,GIRO,CHEQUE,NOTE,CARD,LOAN,CC` | Faz 2: `InstrumentType` sabit sınıfı · Faz 4: VT `HAVALE→GIRO` migrate |
+| A2 | DefaultPaymentMethod (EFT) vs PaymentMethod (BANK_TRANSFER) | **DefaultPaymentMethod → InstrumentType taksonomisi** (kullanıcı: "sen karar ver" → araç tipi). PaymentMethod ayrı kalır (kasa-banka fişi yöntemi) | DefaultPaymentMethod = InstrumentType küme | Faz 3: kolon InstrumentType'a bağlan; PaymentMethod.BankTransfer bu kolonda KULLANMA |
+| A3 | ProductionOrder NEW/IN_PROGRESS vs RELEASED/COMPLETED | **NEW=yetim→DRAFT. RELEASED EKLEME** (SP'de yok, ölü olur) | `DRAFT,IN_PROGRESS,COMPLETED,CANCELLED` | Faz 4: VT `NEW`→`DRAFT` migrate; Faz 2 `ProductionStatus` bu küme |
+| A4 | ShippingHeader NEW/PENDING | **legacy→DRAFT migrate** (kullanıcı: "sen karar ver" → DocStatus ile yürür, SP-desteksiz ara statü şişirme) | `DRAFT,POSTED,CANCELLED` (DocStatus) | Faz 4: VT `NEW`+`PENDING`→`DRAFT` migrate |
+| A5 | CONSUMPTION/PRODUCTION MovementType | **YANLIŞ TEŞHİS: CONSUMPTION=SourceDocType, MovementType değil.** PRODUCTION hem MovementType (üretim girişi) hem SourceDoc | MovementType: `+PRODUCTION` · SourceDoc: `+CONSUMPTION` | Faz 2: MovementType.Production + SourceDoc.Consumption ekle (ölü DEĞİL) |
+| A6 | "SUPPLIER" literal (Partners/Index) | **SUPPLIER=PARTNER_CATEGORY dict değeri, Partner.Type DEĞİL.** Type sorgusundaki SUPPLIER dalı ölü | Partner.Type: `CUSTOMER,VENDOR,BOTH` (SUPPLIER dict'te kalır) | Faz 3: Index.cshtml.cs WHERE'den `'SUPPLIER'` dalını kaldır |
+
+### Tartışmalı vokabüler (B — DANIŞMAN + KULLANICI KARARI, ÇÖZÜLDÜ)
+| # | Domain | KARAR | Küme |
+|---|---|---|---|
+| B1 | ChequeStatus | **+ENDORSED** (TR ciro pratiği, UiHelpers badge hazır) | `PORTFOLIO,IN_BANK,COLLECTED,RETURNED,PAID,ENDORSED` |
+| B2 | LoanStatus | **+RESTRUCTURED** (kullanıcı seçti). OVERDUE EKLEME (Loan değil LoanPayment'a ait) | `ACTIVE,CLOSED,RESTRUCTURED` |
+| B3 | PickTaskStatus | **Ayrı küme** (DocStatus alt kümesi değil — görev atama yaşam döngüsü) | `DRAFT,ASSIGNED,IN_PROGRESS,COMPLETED,CANCELLED` |
+| B4 | InstrumentType vs PaymentMethod | **Ayrı kavram, birleştirme** (araç tipi ≠ ödeme yöntemi) | iki ayrı sınıf |
+
+> **DOĞRULANMADI (impl sırasında teyit et):** A3 RELEASED kod literal'i SP/SQL'de bulunamadı (sadece COMPLETED canlı) · A4 PENDING kaynağı · B2 RESTRUCTURED VT'de henüz yok. CHECK migration öncesi A1 (HAVALE→GIRO) + A3/A4 (NEW→DRAFT) veri migrate ŞART yoksa WITH CHECK fail.
 
 ### Mevcut CHECK'li kolonlar (DOKUNMA): AccountingPeriod.Status(OPEN/CLOSED/LOCKED) · PartnerReconciliationLog.Status/SentChannel · PeriodOverrideLog.LockType/ReasonCategory · PriceList.Direction(SALES/PURCHASE) · PriceListLine.LineType(FIXED/DISCOUNT)
 ### CHECK YOK (Faz 5 ekle): Cheque.Status/Direction · PaymentPlan.Status/Direction · Loan.Status/CalcMethod · ItemSerial.Status · ItemLot.Status · LPN.Status/LpnType · ProductionOrder.Status · PickTask.Status · Budget.Status/Type · Partner.RiskCategory/ItemType/PaymentTermPolicy · Branch.BranchType · FinancialTransaction.InstrumentType

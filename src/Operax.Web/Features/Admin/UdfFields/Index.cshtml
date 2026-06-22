@@ -122,7 +122,7 @@
                                     <input type="hidden" name="id" value="@d.Id" />
                                     <input name="labelText" value="@d.LabelText" class="form-ctrl" style="height:30px;font-size:12px;flex:1;min-width:120px;" />
                                     <input name="orderNo" type="number" value="@d.OrderNo" class="form-ctrl" style="height:30px;width:60px;font-size:12px;" title="Sıra" />
-                                    @if (d.FieldType == "SELECT")
+                                    @if (d.FieldType == UdfFieldType.Select)
                                     {
                                         <input name="dataSourceKey" value="@d.DataSourceKey" class="form-ctrl" style="height:30px;font-size:12px;flex:1;min-width:120px;" title="Seçenekler (virgüllü)" placeholder="Kırmızı,Mavi,..." />
                                     }

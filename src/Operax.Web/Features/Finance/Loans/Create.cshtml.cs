@@ -22,7 +22,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         await LoadBankAccountsAsync(ct);
         // Varsayılanlar
         Form.StartDate    = DateTime.Today;
-        Form.CalcMethod   = "ANUITE";
+        Form.CalcMethod   = LoanCalcMethod.Annuity;
         Form.TermMonths   = 12;
         Form.InterestRate = 0;
     }
@@ -94,7 +94,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         public decimal  InterestRate      { get; set; }
         public int      TermMonths        { get; set; } = 12;
         public DateTime StartDate         { get; set; } = DateTime.Today;
-        public string   CalcMethod        { get; set; } = "ANUITE";
+        public string   CalcMethod        { get; set; } = LoanCalcMethod.Annuity;
         public int      GracePeriodMonths { get; set; }
         public decimal? BalloonAmount     { get; set; }
     }

@@ -21,12 +21,12 @@
                     }
                 </label>
 
-                @if (f.FieldType == "NUMBER")
+                @if (f.FieldType == UdfFieldType.Number)
                 {
                     <input type="number" step="any" name="@name" value="@val" class="form-ctrl"
                            readonly="@Model.ReadOnly" required="@f.IsRequired" />
                 }
-                else if (f.FieldType == "SELECT")
+                else if (f.FieldType == UdfFieldType.Select)
                 {
                     // Seçenekler PageModel'de çözülür (STATIC/DICTIONARY); yoksa STATIC fallback
                     var opts = (Model.Options != null && Model.Options.TryGetValue(f.FieldName, out var o))
@@ -40,19 +40,19 @@
                         }
                     </select>
                 }
-                else if (f.FieldType == "TEXT")
+                else if (f.FieldType == UdfFieldType.Text)
                 {
                     <input type="text" name="@name" value="@val" class="form-ctrl"
                            readonly="@Model.ReadOnly" required="@f.IsRequired" />
                 }
-                else if (f.FieldType == "DATE")
+                else if (f.FieldType == UdfFieldType.Date)
                 {
                     // Varsayılan 'TODAY' → bugünün tarihi (invariant yyyy-MM-dd)
                     var dateVal = val == "TODAY" ? DateTime.Today.ToString("yyyy-MM-dd") : val;
                     <input type="date" name="@name" value="@dateVal" class="form-ctrl"
                            readonly="@Model.ReadOnly" required="@f.IsRequired" />
                 }
-                else if (f.FieldType == "BOOLEAN")
+                else if (f.FieldType == UdfFieldType.Boolean)
                 {
                     <label class="switch">
                         <input type="checkbox" name="@name" value="true"

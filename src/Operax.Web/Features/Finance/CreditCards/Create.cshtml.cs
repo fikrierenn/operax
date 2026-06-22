@@ -90,7 +90,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, ILog
         public string    CardNoMasked        { get; set; } = "";
         public string    HolderName          { get; set; } = "";
         public string    BankName            { get; set; } = "";
-        public string    CardType            { get; set; } = "CREDIT";
+        public string    CardType            { get; set; } = Operax.Web.Lib.CardType.Credit;
         public decimal   CreditLimit         { get; set; }
         public int       StatementDay        { get; set; } = 1;
         public int       DueDay              { get; set; } = 10;

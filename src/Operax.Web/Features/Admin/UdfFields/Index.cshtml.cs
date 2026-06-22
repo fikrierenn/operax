@@ -71,21 +71,21 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             return RedirectToPage();
         }
         // SELECT veri kaynağı: STATIC (virgüllü) | DICTIONARY (sözlük tipi) | TABLE (beyaz-liste lookup)
-        var srcType = fieldType == "SELECT"
-            ? (dataSourceType is "DICTIONARY" or "TABLE" ? dataSourceType : "STATIC")
+        var srcType = fieldType == UdfFieldType.Select
+            ? (dataSourceType is UdfDataSourceType.Dictionary or UdfDataSourceType.Table ? dataSourceType : UdfDataSourceType.Static)
             : null;
-        if (fieldType == "SELECT" && string.IsNullOrWhiteSpace(dataSourceKey))
+        if (fieldType == UdfFieldType.Select && string.IsNullOrWhiteSpace(dataSourceKey))
         {
             TempData["Error"] = srcType switch
             {
-                "DICTIONARY" => "Sözlük kaynağı için sözlük tipi kodu zorunludur (örn. BRAND).",
-                "TABLE"      => "Tablo kaynağı için anahtar zorunludur (Partner / Warehouse / Item).",
+                UdfDataSourceType.Dictionary => "Sözlük kaynağı için sözlük tipi kodu zorunludur (örn. BRAND).",
+                UdfDataSourceType.Table      => "Tablo kaynağı için anahtar zorunludur (Partner / Warehouse / Item).",
                 _            => "Sabit liste için virgülle ayrılmış değerler zorunludur."
             };
             return RedirectToPage();
         }
         // TABLE anahtarı yalnız beyaz-listede olabilir (SQL injection koruması)
-        if (srcType == "TABLE" && UdfWhitelist.GetQuery(dataSourceKey) == null)
+        if (srcType == UdfDataSourceType.Table && UdfWhitelist.GetQuery(dataSourceKey) == null)
         {
             TempData["Error"] = $"Geçersiz tablo kaynağı. İzinli: {string.Join(", ", UdfWhitelist.Keys)}.";
             return RedirectToPage();
@@ -118,7 +118,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
                     CompanyId = company.Id, EntityName = entityName, FieldName = fieldName,
                     LabelText = labelText, FieldType = fieldType,
                     DataSourceType = srcType,
-                    DataSourceKey = fieldType == "SELECT" ? dataSourceKey : null,
+                    DataSourceKey = fieldType == UdfFieldType.Select ? dataSourceKey : null,
                     OrderNo = orderNo, IsRequired = isRequired, UserId = User.Identity?.Name
                 }, cancellationToken: ct));
             TempData["Success"] = $"'{labelText}' özel alanı oluşturuldu.";

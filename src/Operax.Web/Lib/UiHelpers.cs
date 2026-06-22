@@ -84,15 +84,15 @@ public static class UiHelpers
     /// </summary>
     public static string FinanceStatusBadge(string? code) => code switch
     {
-        "PORTFOLIO"  => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖYDE</span>",
-        "IN_BANK"    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
-        "COLLECTED"  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL EDİLDİ</span>",
-        "RETURNED"   => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
-        "ENDORSED"   => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>CİROLANDI</span>",
-        "PAID"       => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
-        "ACTIVE"     => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
-        "CLOSED"     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPANDI</span>",
-        "OVERDUE"    => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
+        ChequeStatus.Portfolio    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖYDE</span>",
+        ChequeStatus.InBank       => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
+        ChequeStatus.Collected    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL EDİLDİ</span>",
+        ChequeStatus.Returned     => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
+        ChequeStatus.Endorsed     => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>CİROLANDI</span>",
+        ChequeStatus.Paid         => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+        LoanStatus.Active         => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AKTİF</span>",
+        LoanStatus.Closed         => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KAPANDI</span>",
+        PaymentPlanStatus.Overdue => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
         _            => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{code}</span>",
     };
 

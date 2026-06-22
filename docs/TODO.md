@@ -26,7 +26,7 @@
 
 Plan: `plans/archive/40-generic-export-print.md`. `Lib/CsvExport.cs` (tipli hücre + formula guard + BOM + RFC-4180) + generic print sınıfları (`.no-print/.print-only/.print-doc/.print-title`). Statement dogfood (bayt-aynı) + Aging proof tüketici. security CRIT-1 (önde-boşluk guard bypass) fix.
 
-- [ ] **DEBT · P40-7 Faz 2 — diğer export tüketicileri:** PurchaseOrders/Index + SalesOrders/Index ("Dışa Aktar" butonu kablolu, handler YOK) + Expenses/Report → `CsvExport.ToFile` ile export handler + `.print-doc`. Helper hazır, mekanik iş. Ayrı tur.
+- [x] ✅ **P40-7 Faz 2 — export tüketicileri KAPANDI 2026-06-22:** PurchaseOrders + SalesOrders + Expenses/Report `CsvExport.ToFile` ile export handler'ları (boş "Dışa Aktar" butonları bağlandı) + `UiHelpers.StatusText` düz-metin helper + Expenses'a print-doc/yazdır. PO/SO sayfasız + filtre-korumalı; ortak `BuildOrderFilter`. Build 0/0 · browser smoke (PO/SO export 200 + StatusText doğru; Expenses yapısal OK — demo'da gider verisi yok).
 - [x] ✅ **DEBT · CS0108 (72) + ASPDEPR005 (2) KAPANDI 2026-06-22** (commit c9d7669/fe82e6f/81deb7e/d120679/6906cb2): 36 `Index` PageModel'inde pagination `Page` property'sine `new` eklendi (Tercih B — sıfır davranış değişimi, view'a dokunmadı; `return Page()` çalışıyor — Roles smoke). `Program.cs:216` `KnownNetworks`→`KnownIPNetworks`. **Full rebuild `--no-incremental` → 0 Hata 0 Uyarı** doğrulandı. 5 paginated liste browser smoke 200. Artık faz-kapanış 0/0 kapısı gerçek.
 
 ---

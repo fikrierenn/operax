@@ -47,21 +47,29 @@ BEGIN
           AND SourceLineId = @SourceLineId AND MovementType = @MovementType AND IsCancelled = 0)
         THROW 53002, N'Bu belge satırı zaten stoktan düşülmüş (idempotency).', 1;
 
-    -- İş kuralı: ATOMİK yeterlilik kilidi. UPDLOCK+HOLDLOCK = key-range; aynı item/bin/lot'u tüketen
-    -- eşzamanlı işlemler bu noktada serialize olur → oversell fiziksel olarak imkânsızlaşır.
-    -- KRİTİK: kilit garantisi düz-eşitlik predikatına bağlı (SARGable, IX_StockMovement_Consume prefix
-    -- seek → deterministik key-range). OR-predikatı (@x IS NULL OR ...) plan-sniffing ile kilit
-    -- granülaritesini bozar → bu yüzden LotNo NULL/dolu için ayrı düz-eşitlik dalı kullanılır.
+    -- İş kuralı: ATOMİK yeterlilik kilidi — sp_getapplock (uygulama kilidi) ile aynı item/bin/lot'u
+    -- tüketen eşzamanlı işlemler TEMİZ FIFO kuyruğa girer (key-range HOLDLOCK'un deadlock'u YOK).
+    -- Plan 44 Faz 5 kanıtı: HOLDLOCK 50 worker'da deadlock üretti; applock'ta 0 deadlock + 0 oversell.
+    -- Transaction-owner → COMMIT/ROLLBACK'te otomatik bırakılır (caller transaction içinde çağırır).
+    DECLARE @LockKey NVARCHAR(255) = CONCAT('consume:', @CompanyId, ':', @ItemId, ':',
+                                            @WarehouseId, ':', @BinId, ':', ISNULL(@LotNo, N''));
+    DECLARE @LockRc INT;
+    EXEC @LockRc = sp_getapplock @Resource = @LockKey, @LockMode = 'Exclusive',
+                                 @LockOwner = 'Transaction', @LockTimeout = 15000;
+    IF @LockRc < 0
+        THROW 53003, N'Stok kilidi alınamadı (yoğunluk/zaman aşımı). Lütfen tekrar deneyin.', 1;
+
+    -- Artık bu item/bin/lot için tek worker buradayız → bakiye düz okuma yeterli (applock garantisi).
     -- Bakiye = iptal-edilmemiş hareketlerin işaretli toplamı (RECEIPT +, ISSUE -); taban-birim (UomId grain'siz).
     DECLARE @Balance DECIMAL(18,6);
     IF @LotNo IS NULL
         SELECT @Balance = ISNULL(SUM(QtyBase), 0)
-        FROM StockMovement WITH (UPDLOCK, HOLDLOCK)
+        FROM StockMovement
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId = @WarehouseId
           AND BinId = @BinId AND LotNo IS NULL AND IsCancelled = 0;
     ELSE
         SELECT @Balance = ISNULL(SUM(QtyBase), 0)
-        FROM StockMovement WITH (UPDLOCK, HOLDLOCK)
+        FROM StockMovement
         WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId = @WarehouseId
           AND BinId = @BinId AND LotNo = @LotNo AND IsCancelled = 0;
 

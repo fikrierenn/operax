@@ -220,6 +220,15 @@ class Program
                     await RunPgTestAsync();
                     break;
 
+                case "stress-consume":
+                    // Plan 44 Faz 5: sp_ConsumeInventory'i N paralel worker ile aynı item/bin'de zorla.
+                    // Kanıt: oversell YOK (bakiye hiç negatif olmaz) + serialization doğru (tam floor(stok/qty) başarılı).
+                    var stWorkers = args.Length > 1 && int.TryParse(args[1], out var w) ? w : 30;
+                    var stQty     = args.Length > 2 && int.TryParse(args[2], out var q) ? q : 0;
+                    var stExit = await RunStressConsumeAsync(stWorkers, stQty);
+                    Environment.Exit(stExit);
+                    break;
+
                 case "scan-isolation":
                     // Plan 12: company-kapsamlı tablolara CompanyId'siz dokunan Dapper sorgularını tara
                     var featuresDir = FindDir("src/Operax.Web/Features");
@@ -258,6 +267,7 @@ class Program
         Console.WriteLine("  operax-cli check-fk             -> Foreign key listesi");
         Console.WriteLine("  operax-cli scan-isolation       -> CompanyId'siz company-tablo sorgularini tarar (plan 12)");
         Console.WriteLine("  operax-cli pg-test              -> PostgreSQL pilot: Neon bağlantı + SP smoke (NEON_CONN env)");
+        Console.WriteLine("  operax-cli stress-consume [N] [qty] -> Plan 44: N paralel worker ile sp_ConsumeInventory oversell/deadlock testi");
         Console.WriteLine("\nBaglanti:");
         Console.WriteLine("  Env: OPERAX_CONN");
         Console.WriteLine("  appsettings.json > ConnectionStrings:Default");
@@ -526,6 +536,90 @@ class Program
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("\n=== TÜM TESTLER GEÇTİ — PostgreSQL pilot başarılı ===");
         Console.ResetColor();
+    }
+
+    // Plan 44 Faz 5 — eşzamanlılık kanıtı. N worker aynı item/bin'i tüketir; toplam talep > stok.
+    // Doğru HOLDLOCK ile: oversell imkânsız (bakiye ≥ 0) + tam floor(stok/qty) worker başarılı olur.
+    record StressPick(Guid CompanyId, Guid ItemId, Guid WarehouseId, Guid BinId, Guid UomId, Guid UserId, decimal Bal);
+
+    static async Task<int> RunStressConsumeAsync(int workers, int qtyArg)
+    {
+        Console.WriteLine($"\n=== Concurrency Stress — sp_ConsumeInventory ({workers} paralel worker) ===");
+        var stamp = Guid.NewGuid();  // bu koşumun temizlik etiketi (SourceDocId)
+
+        using var setup = await OpenAsync();
+        // En stoklu item/bin + geçerli UomId/CreatedBy seç
+        var pick = await setup.QueryFirstOrDefaultAsync<StressPick>(@"
+            SELECT TOP 1 sm.CompanyId, sm.ItemId, sm.WarehouseId, sm.BinId,
+                   (SELECT TOP 1 UomId FROM StockMovement WHERE ItemId = sm.ItemId) AS UomId,
+                   (SELECT TOP 1 CreatedBy FROM StockMovement WHERE CreatedBy IS NOT NULL) AS UserId,
+                   SUM(sm.QtyBase) AS Bal
+            FROM StockMovement sm
+            WHERE sm.IsCancelled = 0 AND sm.BinId IS NOT NULL
+            GROUP BY sm.CompanyId, sm.ItemId, sm.WarehouseId, sm.BinId
+            HAVING SUM(sm.QtyBase) > 100
+            ORDER BY SUM(sm.QtyBase) DESC");
+
+        if (pick == null) { Console.WriteLine("Stoklu bin bulunamadı (test atlandı)."); return 0; }
+
+        var initialBal = pick.Bal;
+        // qty verilmemişse: talebin arzı ~%65 aşması için (bazı worker reddedilmeli)
+        var qty = qtyArg > 0 ? qtyArg : (int)Math.Ceiling((double)initialBal / (workers * 0.65));
+        if (qty < 1) qty = 1;
+        var expectedSuccess = (int)Math.Floor(initialBal / qty);
+
+        Console.WriteLine($"Item {pick.ItemId.ToString()[..8]} · Bin {pick.BinId.ToString()[..8]} · başlangıç bakiye {initialBal} · qty/worker {qty} · beklenen başarı {expectedSuccess}/{workers}");
+
+        int success = 0, reject = 0, deadlock = 0, other = 0;
+
+        // N worker'ı AYNI ANDA başlat (her biri kendi bağlantı + transaction)
+        var tasks = Enumerable.Range(0, workers).Select(async _ =>
+        {
+            try
+            {
+                using var c = await OpenAsync();
+                using var tx = c.BeginTransaction();
+                await c.ExecuteAsync(new CommandDefinition("sp_ConsumeInventory", new
+                {
+                    CompanyId = pick.CompanyId, WarehouseId = pick.WarehouseId, BinId = pick.BinId,
+                    ItemId = pick.ItemId, UomId = pick.UomId, QtyBase = (decimal)qty, LotNo = (string?)null,
+                    SourceDocType = "STRESS", SourceDocId = stamp, SourceLineId = Guid.NewGuid(),
+                    SourceDocNo = (string?)null, UnitCost = 0m, UserId = pick.UserId,
+                    MovementDate = (DateTime?)null, BranchId = (Guid?)null, MovementType = "ISSUE"
+                }, transaction: tx, commandType: CommandType.StoredProcedure));
+                tx.Commit();
+                Interlocked.Increment(ref success);
+            }
+            catch (SqlException ex) when (ex.Number == 53001) { Interlocked.Increment(ref reject); }   // yetersiz stok (beklenen)
+            catch (SqlException ex) when (ex.Number == 1205)  { Interlocked.Increment(ref deadlock); }  // deadlock kurbanı (retry'lik)
+            catch (Exception ex) { Interlocked.Increment(ref other); Console.WriteLine($"  [ERR] {ex.Message.Split('\n')[0]}"); }
+        });
+        await Task.WhenAll(tasks);
+
+        // Son bakiye (oversell kontrolü)
+        var finalBal = await setup.ExecuteScalarAsync<decimal>(@"
+            SELECT ISNULL(SUM(QtyBase),0) FROM StockMovement
+            WHERE CompanyId=@c AND ItemId=@i AND WarehouseId=@w AND BinId=@b AND IsCancelled=0",
+            new { c = pick.CompanyId, i = pick.ItemId, w = pick.WarehouseId, b = pick.BinId });
+
+        // Temizlik: bu koşumun STRESS hareketlerini sil (bakiye geri gelir)
+        var cleaned = await setup.ExecuteAsync(
+            "DELETE FROM StockMovement WHERE SourceDocType='STRESS' AND SourceDocId=@s", new { s = stamp });
+
+        Console.WriteLine($"\nSonuç: başarı={success} red={reject} deadlock={deadlock} diğer={other}");
+        Console.WriteLine($"Son bakiye {finalBal} (başlangıç {initialBal}, {success}×{qty} düşüldü) · temizlenen {cleaned} hareket");
+
+        bool noOversell  = finalBal >= 0;
+        bool consistent  = finalBal == initialBal - (decimal)success * qty;
+        bool serialized  = success == expectedSuccess && other == 0;
+
+        Console.ForegroundColor = (noOversell && consistent && serialized) ? ConsoleColor.Green : ConsoleColor.Red;
+        Console.WriteLine($"\n[{(noOversell ? "PASS" : "FAIL")}] OVERSELL YOK — bakiye negatife düşmedi (final {finalBal} ≥ 0)");
+        Console.WriteLine($"[{(serialized ? "PASS" : "FAIL")}] SERIALIZATION — tam {expectedSuccess} worker başarılı (gerçek {success}), 0 beklenmeyen hata");
+        Console.WriteLine($"[{(consistent ? "PASS" : "FAIL")}] TUTARLILIK — final bakiye = başlangıç − başarı×qty");
+        Console.ResetColor();
+
+        return (noOversell && consistent && serialized) ? 0 : 1;
     }
 
     static async Task<SqlConnection> OpenAsync()

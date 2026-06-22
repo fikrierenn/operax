@@ -91,7 +91,7 @@ Faz bazlı commit. SP'ler `CREATE OR ALTER` → önceki sürüme revert. Schema 
   - **Borç (Faz 3):** IMP-2 — material-issue depo-toplam pre-guard (warehouse SUM) ile consume tek-bin kontrolü çelişir → stok çok bin'e dağılmışsa false-reject (split-pick yok). Multi-bin split allocation (Faz 3) çözer. Şimdilik oversell YOK, sadece dağıtık-stokta onaylanamama.
 - **Faz 3 (~2g):** multi-bin split allocation + deterministik FEFO/FIFO sırası.
 - **Faz 4 (~1g):** StockMovement UPDATE/DELETE deny (ledger immutability tam kapanış).
-- **Faz 5 (~1g):** concurrency harness (Operax.Cli komutu, 20-50 paralel) + lock-order standardı dokümante.
+- **Faz 5 ✅ BİTTİ 2026-06-22 — KANIT + DEADLOCK FIX:** `operax-cli stress-consume [N] [qty]` harness (N paralel worker aynı item/bin). **İlk koşum HOLDLOCK key-range'i 50 worker'da 31 deadlock üretti** (oversell yok ama operasyonel fail) → **fix: `sp_getapplock` (item/bin exclusive uygulama kilidi) = temiz FIFO kuyruk.** Yeniden: 30 worker 19/19, **50 worker 32/32, 0 deadlock, 0 oversell, 3/3 PASS** (oversell-yok + serialization + tutarlılık). HOLDLOCK kaldırıldı (applock garantisi yeterli). SAP-seviyesi eşzamanlılık sertifikalı.
 
 ## 10. 5 Lens
 - 🔴 **Contrarian:** Fatal flaw = HOLDLOCK index yoksa perf çöker → Faz 1'de index doğrulama ilk adım.

@@ -4713,6 +4713,43 @@ select.form-ctrl {
     size: A4;
   }
 }
+.print-only {
+  display: none;
+}
+.print-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-500);
+  letter-spacing: .4px;
+  margin-bottom: 10px;
+}
+@media print {
+  .side, .topbar, .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body, .app, .main, .page {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .print-doc, .print-doc .card {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: none !important;
+  }
+  .print-doc tr {
+    page-break-inside: avoid;
+  }
+}
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;

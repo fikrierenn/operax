@@ -91,3 +91,30 @@
     .stmt-table tr, .stmt-aging { page-break-inside: avoid; }
     @page { margin: 1.4cm; size: A4; }
 }
+
+/* =====================================================================
+   Generic rapor yazdırma (Plan 40) — rapor-agnostik, her ekran kullanır.
+   Kullanım: yazdırılacak içerik .print-doc ile sarılır; ekran-only öğeler
+   (buton/filtre/sekme) .no-print, yalnız-baskı öğeler (başlık) .print-only alır.
+   NOT: #fff/#f3f3f3 sabit renk BİLİNÇLİ (token değil) — baskı = kağıt, tema-bağımsız.
+===================================================================== */
+.print-only { display: none; }
+/* Baskı başlığı (rapor adı + dönem) — yalnız .print-only ile birlikte baskıda görünür */
+.print-title { font-size: 15px; font-weight: 700; color: var(--brand-500); letter-spacing: .4px; margin-bottom: 10px; }
+
+@media print {
+    /* Uygulama kabuğu + ekran-only öğeler gizlenir */
+    .side, .topbar, .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    html, body { height: auto !important; overflow: visible !important; }
+    body, .app, .main, .page { margin: 0 !important; padding: 0 !important; background: #fff !important; overflow: visible !important; }
+
+    /* Belge gövdesi: kart süslemeleri kaldırılır, tam genişlik */
+    .print-doc, .print-doc .card {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: none !important;
+    }
+    .print-doc tr { page-break-inside: avoid; }
+}

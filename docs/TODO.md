@@ -14,11 +14,20 @@
    - CRIT-4 ✅ stale: Cheques/Index + PO/Index'te catch bloğu yok → ILogger gereksiz.
    - HIGH-2 ✅ stale: PO+SO Cancel zaten `sp_ValidateStatusTransition` çağırıyor (bypass yok).
    - IMP-1/2/3 ✅ stale: Cheques interpolation yok · sync ExecuteScalar yok · hardcoded 14-gün yok.
-2. **🟡 P2 — Cari Ekstre raporu** (`Partners/Statement/{id}`, yazdırılabilir+tarih filtreli) — ayrı Tier 3 plan. Yüksek kullanıcı değeri.
+2. ✅ **P2 — Cari Ekstre raporu KAPANDI** (Plan 39 Faz 1 + Plan 40): `Partners/Statement/{id}` yazdırılabilir+tarih filtreli + CSV export, browser smoke. Generic `CsvExport` helper + print sınıfları çıkarıldı (Plan 40, arşiv). Kalan: Plan 39 Faz 2-4 (batch/scheduled/WhatsApp).
 3. **🟡 P2 — Mali evrak eksikleri (mali-evrak-mevzuat skill ön koşul):** E2 alış/satış iade · E4 fire/zayi/imha · E11 virman · çek TEMİNAT/kısmi statü.
 4. **🟢 P3 — Partner detay tab'ları (TAB-0..4):** contact/address/bank/CRM + istatistik. Büyük, ayrı plan.
 5. **🟢 P3 — Periyodik GL muhasebeleştirme modülü** — muhasebe-mevzuat skill ön koşul, en büyük.
 6. **⚪ P4 — DEAD production servisleri kararı** (ProductionReceiptService vb. sil-vs-SP) · _PageHeader standardizasyon (65 sayfa, kozmetik) · servis-katmanı ct kalıntısı (varsa).
+
+---
+
+## 📤 PLAN 40 — GENERIC EXPORT/PRINT (2026-06-22 — TAMAMLANDI, arşiv)
+
+Plan: `plans/archive/40-generic-export-print.md`. `Lib/CsvExport.cs` (tipli hücre + formula guard + BOM + RFC-4180) + generic print sınıfları (`.no-print/.print-only/.print-doc/.print-title`). Statement dogfood (bayt-aynı) + Aging proof tüketici. security CRIT-1 (önde-boşluk guard bypass) fix.
+
+- [ ] **DEBT · P40-7 Faz 2 — diğer export tüketicileri:** PurchaseOrders/Index + SalesOrders/Index ("Dışa Aktar" butonu kablolu, handler YOK) + Expenses/Report → `CsvExport.ToFile` ile export handler + `.print-doc`. Helper hazır, mekanik iş. Ayrı tur.
+- [ ] **DEBT · CS0108 proje-geneli uyarı (72 adet) + ASPDEPR005 (2):** 36 `Index` PageModel'inde pagination `Page` property'si `PageModel.Page()`'i gizliyor (CS0108). Full rebuild'de çıkar, incremental'da maskeli — eski "build 0/0" yanıltıcıydı. Faz-kapanış 0/0 kapısı için: `Page`→`PageInfo`/`Pager` rename **veya** property'ye `new` ekle (36 dosya, mekanik). ASPDEPR005: `Program.cs:216` `KnownNetworks`→`KnownIPNetworks`. Kapsam dışıydı (drive-by yasak) — ayrı temizlik turu.
 
 ---
 

@@ -80,14 +80,15 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         TotalPoAmount     = k.TotalPoAmount;
         ApprovedPoCount   = k.ApprovedPoCount;
         DraftPoCount      = k.DraftPoCount;
-        WarehouseFillRate = System.Math.Round(k.WarehouseFillRate, 1);
+        WarehouseFillRate = (decimal)System.Math.Round(k.WarehouseFillRate, 1);
         StockLocations    = k.StockLocations;
         LowStockSkuCount  = k.LowStockSkuCount;
     }
 
     // KPI tek-satır taşıyıcısı (PF-2 konsolide sorgu)
+    // WarehouseFillRate SQL'de FLOAT (CAST ... AS FLOAT) → double; positional record tipi SQL ile birebir olmalı
     private sealed record KpiRow(decimal TotalPoAmount, int ApprovedPoCount, int DraftPoCount,
-        decimal WarehouseFillRate, int StockLocations, int LowStockSkuCount);
+        double WarehouseFillRate, int StockLocations, int LowStockSkuCount);
 
     // Yaklaşan sevkiyatlar (DRAFT durumundaki mal kabul satırları, son 5)
     private async Task LoadIncomingShipmentsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)

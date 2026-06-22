@@ -21,6 +21,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
+    // Sayım oturumu listesini ve KPI toplamlarını tek round-trip ile yükler (PF-1).
     public async Task OnGetAsync(CancellationToken ct)
     {
         using var conn = db.Open();
@@ -29,19 +30,22 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         // Sayfa satırları + KPI'lar (rows yerine SQL aggregate) tek round-trip (PF-1)
         const string sql = @"
             SELECT c.*, w.Code as WarehouseCode,
-                   (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id) as LineCount
+                   (SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id AND IsDeleted = 0) as LineCount
             FROM CycleCount c
             JOIN Warehouse w ON w.Id = c.WarehouseId
-            WHERE c.CompanyId = @CompanyId
+            WHERE c.CompanyId = @CompanyId AND c.IsDeleted = 0
             ORDER BY c.CreatedAt DESC
             OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
             SELECT
                 COUNT(*) AS TotalSessions,
                 COUNT(DISTINCT CASE WHEN c.Status = 'COUNTING' THEN c.WarehouseId END) AS ActiveCountingWarehouses,
-                ISNULL(SUM((SELECT COUNT(*) FROM CycleCountLine WHERE CycleCountId = c.Id)), 0) AS TotalCountedLines
+                -- Toplam sayılan satır: korelasyonsuz skaler alt-sorgu (aggregate içinde aggregate yasağını önler)
+                (SELECT COUNT(*) FROM CycleCountLine ccl
+                   JOIN CycleCount c2 ON c2.Id = ccl.CycleCountId
+                  WHERE c2.CompanyId = @CompanyId AND c2.IsDeleted = 0 AND ccl.IsDeleted = 0) AS TotalCountedLines
             FROM CycleCount c
-            WHERE c.CompanyId = @CompanyId;";
+            WHERE c.CompanyId = @CompanyId AND c.IsDeleted = 0;";
 
         using var grid = await conn.QueryMultipleAsync(new CommandDefinition(sql, new { CompanyId = company.Id, Page = page, PageSize }, cancellationToken: ct));
         Counts = (await grid.ReadAsync<CycleCountDto>()).ToList();

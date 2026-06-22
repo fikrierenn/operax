@@ -23,7 +23,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public decimal          TotalActive   { get; set; }
 
     // Sayfalama (PF-1) — transactional liste varyantı (liste + count + aktif toplam)
-    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    [BindProperty(SupportsGet = true)] public new int Page { get; set; } = 1;
     public int PageSize { get; } = 50;
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);

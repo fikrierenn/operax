@@ -21,7 +21,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     [BindProperty(SupportsGet = true)] public string? StatusFilter { get; set; }
 
     // Sayfalama (PF-1) — GET'ten bind, varsayılan 1; sabit sayfa boyutu
-    [BindProperty(SupportsGet = true)] public int Page { get; set; } = 1;
+    [BindProperty(SupportsGet = true)] public new int Page { get; set; } = 1;
     public int PageSize { get; } = 50;
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);

@@ -61,8 +61,30 @@ ADR-02 (kod-çıpalı vs dinamik) uyumlu CRUD — "tam CRUD" değil, **gating'li
 - **Karar:** Free-text DocType yerine whitelist (caller'sız orphan seri engeli). Delete=soft (mevcut IsActive toggle ile redundant değil); NextNo>1 silinemez (kod çakışması). Revive: soft-delete'li tip Create'te diriltilir (unique ihlali önlenir).
 - **Kapanış ✅:** build 0/0 · code-reviewer (DocTypeLabel sabit fix) · security-reviewer (IDOR/CSRF/whitelist temiz) · E2E smoke (render + Sil gating + Çek soft-delete → dropdown → Create revive tek-satır duplicate'siz + console hatasız).
 
-### Faz 3 — Modül aktivasyon (G3 — KARAR gerek)
-- Modüller ekranına CompanyModule aktif/pasif toggle. **Onay sorusu:** V1'de modül aç/kapa gerekli mi, yoksa hepsi-açık mı?
+### Faz 3 — Modül aktivasyon (Seviye A) ✅ TAMAMLANDI 2026-06-22 (commit 9cd513f + bugfix 645826f)
+**Gerçekleşen:** Plan aynen uygulandı. Servis adı `CompanyModuleAccess` (Authz.ModuleAccessHandler ile çakışmasın). E2E smoke yeşil (Operax Demo LTD: M03 kapat→Satınalma gizlendi → enable→döndü, cache anında, login etkilenmez, console temiz).
+**Yan-bug yakalandı+düzeltildi (645826f):** `Admin/Modules` "Etkinleştir" butonu HİÇ çalışmıyordu (pre-existing) — `value="@(!m.IsActive)"` Razor bool-attribute minimization ile `value="value"` üretiyor → bool bind false → enable no-op. String render'a çevrildi. Faz 3 toggle'ı anlamlı yapınca yakalandı.
+
+
+**Karar (kullanıcı):** Seviye A (sadece sidebar görünürlük) + bağımlılık zorlaması YOK (admin sorumlu) + çekirdek whitelist. Route guard (Seviye B) ertelendi (lisans zorlaması gerçek ihtiyaç olunca).
+**Bulgu:** `Module`(18)+`CompanyModule` tabloları + `Admin/Modules` toggle ZATEN var ama **no-op** — `_Layout` okumuyor. Faz 3 = mevcut toggle'ı sidebar'a bağlamak (yeni şema yok).
+**Etkin kural (opt-out):** Modül, `CompanyModule`'de açıkça `IsActive=0` satırı YOKSA AÇIK. (Mevcut install'larda CompanyModule boş → tümü açık, regresyon yok.)
+**Eşleme (yalnızca 4 temiz grup gate'lenir):** Satınalma→M03 · Satış→M04 · Stok→M02 · Ana Veri→M01. **Gate'siz (çekirdek/eşlemesiz):** Dashboard, Sistem (Ayarlar/Belge Serileri/Özel Alanlar). **Finans gate'siz** — _Layout yorumu M11 diyor ama M11 katalogda "B2B Portal" (semantik uyumsuzluk) → V1'de açık bırak, bilinen gap.
+**Dosyalar:**
+1. `Lib/ModuleAccess.cs` (yeni) — `IModuleAccess`: `EnsureLoadedAsync` (şirket-başına IMemoryCache, 5dk TTL, OFF-kod seti) + `IsActive(code)` (sync, `!off.Contains`).
+2. `Program.cs` — `AddScoped<IModuleAccess, ModuleAccess>()`.
+3. `_Layout.cshtml` — `@inject IModuleAccess` + üstte `@{ await Modules.EnsureLoadedAsync(); }` (Razor async) + 4 `<details>` grubunu `@if (Modules.IsActive("M0x"))` ile sar.
+4. `Admin/Modules/Index.cshtml.cs` — POST'ta `cache.Remove(ModuleAccess.CacheKey(company.Id))` + display sorgusu efektif (no-row=ON: `cm.CompanyId IS NULL OR cm.IsActive=1`).
+**Kapanış:** build 0/0 · code-reviewer · security-reviewer (yeni servis) · E2E smoke (modül kapat → sidebar grubu kaybolur → aç → döner; login etkilenmez).
+
+### Faz 3.5 — Sidebar yeniden organizasyon (BACKLOG — erp-isleyis-danismani önerisi 2026-06-22)
+Kullanıcı sidebar gruplaması "alakasız" buldu. ERP danışmanı önerisi (SAP B1/Logo/Mikro/Netsis/Odoo referansı):
+- **Ana Veri'yi OPERASYON altından çıkar → ayrı üst-bölüm** (4/4 olgun ERP master data'yı operasyondan ayırır; ürün/cari/depo operasyon değil kaynak).
+- **Finans'ı alt-grupla:** Kasa&Banka (Hesaplar/Ödeme-Tahsilat) · Çek&Senet · Kredi (Krediler/Kredi-Kartları) · Vade&Plan (Ödeme Planı) · Raporlar (Yaşlandırma/Mali Durum). Şu an 8 düz öğe.
+- **Yeni DEPO/WMS bölümü:** Stok görünümü (Bakiye/Hareket/Sarf) + Transfer(M07)/Toplama(M06)/Sayım(M08) — şu an menüde YOK ama modül var.
+- **Yeni ÜRETİM bölümü** (M10 açıksa): İş Emirleri/Reçete/Sarf-Mamul.
+- Önerilen grup→M eşlemesi: Anasayfa→M15(gate ekle) · Ana Veri→M01 · Satınalma→M03 · Satış→M04(+M05 alt-gate) · Depo→M02 + M06/M07/M08 · Üretim→M10 · Sistem→M00(çekirdek).
+**BLOKER KARAR — Finans canonical M kodu:** DB `M11=B2B Portal`, ama `_Layout`/`COMPETITOR_ANALYSIS.md` yorumu `M11=Finans` → çelişki. Finans gate'i bu karar verilmeden yazılamaz. Seçenekler: (1) B2B'yi başka koda taşı M11=Finans yap (DB migration), (2) Finans'a yeni kod (M18), (3) Finans çekirdek kalsın gate'siz + yanlış M11 yorumunu sil. Tier 3 — ayrı plan + kullanıcı kararı.
 
 ### Faz 4 — Settings fonksiyonel (G4 — KARAR gerek)
 - Şirket ayarları (logo/VKN/varsayılan depo/para/InvoiceMode) → Parameter tablosuna bağlı form. **Onay sorusu:** hangi ayarlar V1'de düzenlenebilir olmalı?

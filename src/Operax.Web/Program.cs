@@ -131,6 +131,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<ICurrentCompany, CurrentCompany>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
+builder.Services.AddScoped<ICompanyModuleAccess, CompanyModuleAccess>(); // Faz 3: sidebar modül görünürlük gating
 builder.Services.AddScoped<Operax.Web.Lib.ParameterStore>();
 builder.Services.AddScoped<Operax.Web.Lib.PriceListBulkService>();   // Plan 31: fiyat listesi toplu giriş
 builder.Services.AddScoped<Operax.Web.Lib.SupplierItemService>();    // Plan 32: tedarikçi-ürün kataloğu

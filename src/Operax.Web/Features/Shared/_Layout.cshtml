@@ -3,6 +3,7 @@
 @inject ICurrentUser CurrentUser
 @inject ICurrentCompany CurrentCompany
 @inject Db Db
+@inject ICompanyModuleAccess Modules
 @{
     IEnumerable<dynamic> userCompanies = Array.Empty<dynamic>();
     if (CurrentUser.IsAuthenticated)
@@ -102,6 +103,8 @@
         }
 
         <!-- Navigation Menu -->
+        @* Faz 3: şirket-seviyesi modül görünürlüğü — kapalı modülün nav grubu gizlenir *@
+        @{ await Modules.EnsureLoadedAsync(); }
         <nav class="side-nav">
 
             <!-- ==================== GENEL ==================== -->
@@ -121,81 +124,93 @@
                WMS Pro (Picking/Transfer/CycleCount/LPN/Lot/Serial), Üretim (M10), Muhasebe (Expenses) ve Bütçe modülleri başka pakettedir. *@
             <span class="side-group-label">@L.T("Operasyon", "Operations")</span>
 
-            @* ───── Satınalma grubu (M03) ───── *@
-            <details class="side-group">
-                <summary class="side-item">
-                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    @L.T("Satınalma", "Purchasing")
-                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                </summary>
-                <div class="side-sub-list">
-                    <a asp-page="/PurchaseOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
-                    <a asp-page="/Receiving/Index" class="side-sub-item">@L.T("Mal Kabul", "Receiving")</a>
-                    <a asp-page="/PurchaseInvoices/Index" class="side-sub-item">@L.T("Alış Faturaları", "Purchase Invoices")</a>
-                </div>
-            </details>
+            @* ───── Satınalma grubu (M03) — şirkette kapalıysa gizle ───── *@
+            @if (Modules.IsActive("M03"))
+            {
+                <details class="side-group">
+                    <summary class="side-item">
+                        <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        @L.T("Satınalma", "Purchasing")
+                        <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </summary>
+                    <div class="side-sub-list">
+                        <a asp-page="/PurchaseOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
+                        <a asp-page="/Receiving/Index" class="side-sub-item">@L.T("Mal Kabul", "Receiving")</a>
+                        <a asp-page="/PurchaseInvoices/Index" class="side-sub-item">@L.T("Alış Faturaları", "Purchase Invoices")</a>
+                    </div>
+                </details>
+            }
 
-            @* ───── Satış grubu (M04 + e-Fatura) ───── *@
-            <details class="side-group">
-                <summary class="side-item">
-                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                    @L.T("Satış", "Sales")
-                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                </summary>
-                <div class="side-sub-list">
-                    <a asp-page="/SalesOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
-                    <a asp-page="/Shipping/Index" class="side-sub-item">@L.T("Sevkiyat", "Shipping")</a>
-                    <a asp-page="/SalesInvoices/Index" class="side-sub-item">@L.T("Faturalar", "Invoices")</a>
-                </div>
-            </details>
+            @* ───── Satış grubu (M04 + e-Fatura) — şirkette kapalıysa gizle ───── *@
+            @if (Modules.IsActive("M04"))
+            {
+                <details class="side-group">
+                    <summary class="side-item">
+                        <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        @L.T("Satış", "Sales")
+                        <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </summary>
+                    <div class="side-sub-list">
+                        <a asp-page="/SalesOrders/Index" class="side-sub-item">@L.T("Siparişler", "Orders")</a>
+                        <a asp-page="/Shipping/Index" class="side-sub-item">@L.T("Sevkiyat", "Shipping")</a>
+                        <a asp-page="/SalesInvoices/Index" class="side-sub-item">@L.T("Faturalar", "Invoices")</a>
+                    </div>
+                </details>
+            }
 
-            @* ───── Stok grubu (M02) ───── *@
-            <details class="side-group">
-                <summary class="side-item">
-                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                    </svg>
-                    @L.T("Stok", "Stock")
-                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                </summary>
-                <div class="side-sub-list">
-                    <a asp-page="/Inventory/Balance/Index" class="side-sub-item">@L.T("Bakiye", "Balance")</a>
-                    <a asp-page="/Inventory/Movements/Index" class="side-sub-item">@L.T("Hareketler", "Movements")</a>
-                    <a asp-page="/MaterialIssue/Index" class="side-sub-item">@L.T("Sarf Fişleri", "Material Issue")</a>
-                </div>
-            </details>
+            @* ───── Stok grubu (M02) — şirkette kapalıysa gizle ───── *@
+            @if (Modules.IsActive("M02"))
+            {
+                <details class="side-group">
+                    <summary class="side-item">
+                        <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                        </svg>
+                        @L.T("Stok", "Stock")
+                        <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </summary>
+                    <div class="side-sub-list">
+                        <a asp-page="/Inventory/Balance/Index" class="side-sub-item">@L.T("Bakiye", "Balance")</a>
+                        <a asp-page="/Inventory/Movements/Index" class="side-sub-item">@L.T("Hareketler", "Movements")</a>
+                        <a asp-page="/MaterialIssue/Index" class="side-sub-item">@L.T("Sarf Fişleri", "Material Issue")</a>
+                    </div>
+                </details>
+            }
 
-            @* ───── Ana Veri grubu (M01) ───── *@
-            <details class="side-group">
-                <summary class="side-item">
-                    <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                    </svg>
-                    @L.T("Ana Veri", "Master Data")
-                    <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                </summary>
-                <div class="side-sub-list">
-                    <a asp-page="/MasterData/Items/Index" class="side-sub-item">@L.T("Ürünler", "Items")</a>
-                    <a asp-page="/MasterData/Partners/Index" class="side-sub-item">@L.T("Cari Kartlar", "Partners")</a>
-                    <a asp-page="/Warehouses/Index" class="side-sub-item">@L.T("Depolar", "Warehouses")</a>
-                    <a asp-page="/MasterData/Branches/Index" class="side-sub-item">@L.T("Şubeler", "Branches")</a>
-                    <a asp-page="/MasterData/PriceLists/Index" class="side-sub-item">@L.T("Fiyat Listeleri", "Price Lists")</a>
-                </div>
-            </details>
+            @* ───── Ana Veri grubu (M01) — şirkette kapalıysa gizle ───── *@
+            @if (Modules.IsActive("M01"))
+            {
+                <details class="side-group">
+                    <summary class="side-item">
+                        <svg class="side-item-icon" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                        </svg>
+                        @L.T("Ana Veri", "Master Data")
+                        <svg class="side-chevron" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </summary>
+                    <div class="side-sub-list">
+                        <a asp-page="/MasterData/Items/Index" class="side-sub-item">@L.T("Ürünler", "Items")</a>
+                        <a asp-page="/MasterData/Partners/Index" class="side-sub-item">@L.T("Cari Kartlar", "Partners")</a>
+                        <a asp-page="/Warehouses/Index" class="side-sub-item">@L.T("Depolar", "Warehouses")</a>
+                        <a asp-page="/MasterData/Branches/Index" class="side-sub-item">@L.T("Şubeler", "Branches")</a>
+                        <a asp-page="/MasterData/PriceLists/Index" class="side-sub-item">@L.T("Fiyat Listeleri", "Price Lists")</a>
+                    </div>
+                </details>
+            }
 
             @* ==================== FİNANS (M11) ==================== *@
             <span class="side-group-label">@L.T("Finans", "Finance")</span>

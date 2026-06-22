@@ -3,11 +3,12 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Dapper;
 using Operax.Web.Lib;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Operax.Web.Features.Admin.Modules;
 
 [Authorize(Roles = "Administrator")]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, IMemoryCache cache) : PageModel
 {
     public IEnumerable<ModuleDto> Modules { get; set; } = [];
 
@@ -17,6 +18,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
+    // Modül listesini sayfalayarak getirir; CompanyModule LEFT JOIN ile şirket etkin durumunu belirler (opt-out: satır yoksa açık)
     public async Task OnGetAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
@@ -24,7 +26,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
 
         const string sql = @"
             SELECT m.Id, m.Code, m.NameTr, m.NameEn,
-                   CAST(CASE WHEN cm.IsActive = 1 THEN 1 ELSE 0 END AS BIT) as IsActive
+                   -- Etkin durum (opt-out): CompanyModule satırı yoksa (NULL) modül AÇIK; yalnız açık IsActive=0 kapalı
+                   CAST(CASE WHEN cm.CompanyId IS NULL OR cm.IsActive = 1 THEN 1 ELSE 0 END AS BIT) as IsActive
             FROM Module m
             LEFT JOIN CompanyModule cm ON cm.ModuleId = m.Id AND cm.CompanyId = @CompanyId
             WHERE m.IsActive = 1
@@ -38,6 +41,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
+    // Modül etkinlik durumunu günceller (UPSERT) ve sidebar görünürlük cache'ini düşürür
     public async Task<IActionResult> OnPostAsync(Guid moduleId, bool active, CancellationToken ct = default)
     {
         using var conn = db.Open();
@@ -49,6 +53,9 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
                 INSERT INTO CompanyModule (CompanyId, ModuleId, IsActive) VALUES (@CompanyId, @ModuleId, @Active)";
 
         await conn.ExecuteAsync(new CommandDefinition(sql, new { CompanyId = company.Id, ModuleId = moduleId, Active = active }, cancellationToken: ct));
+
+        // Sidebar görünürlük cache'ini düşür — değişiklik anında yansısın (Faz 3)
+        cache.Remove(CompanyModuleAccess.CacheKey(company.Id));
 
         return RedirectToPage();
     }

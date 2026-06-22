@@ -106,7 +106,8 @@ class Program
                         "schema_M00_DictRefCols.sql",         // Plan 35 Faz 1: DictionaryValue.UnEceCode + IsWholeNumber (referans baseline taşıyıcı)
                         "migration_add_updatedby.sql",        // Zorunlu audit kolonu UpdatedBy/At — fresh-install'da SP CREATE bağımlılığı (db_objects.sql ÖNCE çalışmalı)
                         "migration_41_status_checks.sql",     // Plan 41: statü/yön/tip uzlaştırma (HAVALE→GIRO, NEW→DRAFT) + 23 CHECK constraint
-                        "migration_44_stock_consume.sql"      // Plan 44: StockMovement.SourceLineId + consume key-range index + idempotency unique
+                        "migration_44_stock_consume.sql",     // Plan 44: StockMovement.SourceLineId + consume key-range index + idempotency unique
+                        "migration_44b_idempotency_multibin.sql" // Plan 44 Faz 3: idempotency index'e BinId+LotNo (multi-bin split)
 
                     })
                     {

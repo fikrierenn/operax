@@ -57,28 +57,17 @@ BEGIN
         IF @ShortItem IS NOT NULL
             THROW 51554, N'Yetersiz stok — bu üründe depo bakiyesi sarf miktarını karşılamıyor.', 1;
 
-        -- Depo picking bin fallback (son çare — stoklu bin bulunamazsa)
-        DECLARE @PickingBinId UNIQUEIDENTIFIER;
-        SELECT TOP 1 @PickingBinId = Id
-        FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
-
         DECLARE @BranchId UNIQUEIDENTIFIER =
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
 
-        -- Stok çıkışı: her satır ATOMİK consume (Plan 44 — oversell/idempotency). Bin seçimi:
-        -- satır bini → en stoklu bin → picking (son çare). Bin-seviyesi yeterlilik consume içinde
-        -- UPDLOCK+HOLDLOCK ile atomik kontrol edilir (audit High: tek-bin negatifleşmesi kapandı).
+        -- Stok çıkışı: her satır ATOMİK consume (Plan 44). Satır bini BELİRTİLMİŞSE o bin'den (kullanıcı
+        -- seçimi); BELİRTİLMEMİŞSE depo stoğu FEFO/FIFO sırayla bin/lot'lara BÖLÜNÜR (sp_ConsumeInventoryFEFO).
+        -- Bin-seviyesi yeterlilik consume içinde applock ile atomik (oversell yok; dağıtık stokta split).
         DECLARE @miUser UNIQUEIDENTIFIER = TRY_CAST(@UserId AS UNIQUEIDENTIFIER);
         DECLARE @mlId UNIQUEIDENTIFIER, @mlItem UNIQUEIDENTIFIER, @mlUom UNIQUEIDENTIFIER,
                 @mlQty DECIMAL(18,6), @mlBin UNIQUEIDENTIFIER, @mlCost DECIMAL(18,6);
         DECLARE c_mi CURSOR LOCAL FAST_FORWARD FOR
-            SELECT l.Id, l.ItemId, l.UomId, l.QtyBase,
-                   ISNULL(l.BinId, ISNULL(
-                       -- En stoklu bin: tvf UomId-grain'i bin başına TOPLA (yanlış bin seçimi önlenir, IMP-1)
-                       (SELECT TOP 1 inv.BinId FROM tvf_InventoryBalance(@CompanyId) inv
-                        WHERE inv.WarehouseId = @WarehouseId AND inv.ItemId = l.ItemId
-                        GROUP BY inv.BinId HAVING SUM(inv.QtyBalance) > 0
-                        ORDER BY SUM(inv.QtyBalance) DESC), @PickingBinId)),
+            SELECT l.Id, l.ItemId, l.UomId, l.QtyBase, l.BinId,   -- ham bin (NULL → FEFO depodan dağıt)
                    ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
                            WHERE ic.CompanyId = @CompanyId AND ic.ItemId = l.ItemId), 0)
             FROM MaterialIssueLine l
@@ -87,12 +76,20 @@ BEGIN
         FETCH NEXT FROM c_mi INTO @mlId, @mlItem, @mlUom, @mlQty, @mlBin, @mlCost;
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            EXEC dbo.sp_ConsumeInventory
-                @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @mlBin,
-                @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty, @LotNo = NULL,
-                @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
-                @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
-                @MovementDate = @now, @BranchId = @BranchId;
+            IF @mlBin IS NOT NULL
+                EXEC dbo.sp_ConsumeInventory                       -- kullanıcı bin'i seçti → o bin
+                    @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @mlBin,
+                    @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty, @LotNo = NULL,
+                    @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
+                    @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
+                    @MovementDate = @now, @BranchId = @BranchId;
+            ELSE
+                EXEC dbo.sp_ConsumeInventoryFEFO                   -- bin yok → FEFO/FIFO multi-bin tahsis
+                    @CompanyId = @CompanyId, @WarehouseId = @WarehouseId,
+                    @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty,
+                    @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
+                    @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
+                    @MovementDate = @now, @BranchId = @BranchId;
             FETCH NEXT FROM c_mi INTO @mlId, @mlItem, @mlUom, @mlQty, @mlBin, @mlCost;
         END
         CLOSE c_mi; DEALLOCATE c_mi;

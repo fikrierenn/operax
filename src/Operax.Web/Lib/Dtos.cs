@@ -34,6 +34,8 @@ public static class DocStatus
     public const string Partial    = "PARTIAL";    // Kısmi ödeme/tahsilat
     public const string Rejected   = "REJECTED";   // Fiyat farkı reddedildi
     public const string Pending    = "PENDING";    // Onay bekliyor
+    public const string Closed         = "CLOSED";          // Sipariş tamamen kapandı
+    public const string ClosedPartial  = "CLOSED_PARTIAL";  // Sipariş kısmen kapandı (kalan iptal)
 }
 
 /// <summary>Stok hareket tipleri</summary>

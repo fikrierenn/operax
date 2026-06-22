@@ -25,10 +25,10 @@ public static class UiHelpers
             DocStatus.Draft     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
             DocStatus.Approved  => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
             DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>İŞLENDİ</span>",
-            DocStatus.Cancelled => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
-            "PENDING"           => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BEKLİYOR</span>",
-            "CLOSED"            => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>KAPANDI</span>",
-            "CLOSED_PARTIAL"    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>KISMİ KAPANDI</span>",
+            DocStatus.Cancelled     => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
+            DocStatus.Pending       => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BEKLİYOR</span>",
+            DocStatus.Closed        => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>KAPANDI</span>",
+            DocStatus.ClosedPartial => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>KISMİ KAPANDI</span>",
             // Güvenlik (A-8): bilinmeyen kod doğrudan HTML'e gömülür → XSS'e karşı encode
             _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{System.Net.WebUtility.HtmlEncode(statusCode)}</span>",
         };
@@ -40,15 +40,15 @@ public static class UiHelpers
     /// </summary>
     public static string StatusText(string? statusCode) => statusCode switch
     {
-        null or ""          => "—",
-        DocStatus.Draft     => "Taslak",
-        DocStatus.Approved  => "Onaylı",
-        DocStatus.Posted    => "İşlendi",
-        DocStatus.Cancelled => "İptal",
-        "PENDING"           => "Bekliyor",
-        "CLOSED"            => "Kapandı",
-        "CLOSED_PARTIAL"    => "Kısmi Kapandı",
-        _                   => statusCode
+        null or ""              => "—",
+        DocStatus.Draft         => "Taslak",
+        DocStatus.Approved      => "Onaylı",
+        DocStatus.Posted        => "İşlendi",
+        DocStatus.Cancelled     => "İptal",
+        DocStatus.Pending       => "Bekliyor",
+        DocStatus.Closed        => "Kapandı",
+        DocStatus.ClosedPartial => "Kısmi Kapandı",
+        _                       => statusCode
     };
 
     /// <summary>

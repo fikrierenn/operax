@@ -104,7 +104,8 @@ class Program
                         "schema_M01_SupplierItem.sql",        // Plan 32: Tedarikçi-Ürün Kataloğu (SupplierItem)
                         "schema_M_UDF.sql",                   // Plan 34: UserFieldDefinition + Item.AdditionalFields/MinStockLevel/MaxStockLevel
                         "schema_M00_DictRefCols.sql",         // Plan 35 Faz 1: DictionaryValue.UnEceCode + IsWholeNumber (referans baseline taşıyıcı)
-                        "migration_add_updatedby.sql"         // Zorunlu audit kolonu UpdatedBy/At — fresh-install'da SP CREATE bağımlılığı (db_objects.sql ÖNCE çalışmalı)
+                        "migration_add_updatedby.sql",        // Zorunlu audit kolonu UpdatedBy/At — fresh-install'da SP CREATE bağımlılığı (db_objects.sql ÖNCE çalışmalı)
+                        "migration_41_status_checks.sql"      // Plan 41: statü/yön/tip uzlaştırma (HAVALE→GIRO, NEW→DRAFT) + 23 CHECK constraint
 
                     })
                     {

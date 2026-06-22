@@ -53,7 +53,7 @@ Plan 44 stok-hareket motoru **sertifikalı sağlam** (idempotency, applock/concu
 
 ## 5. Done Criteria (M1 DoD)
 - [x] Faz 1 ✅ (513d6d3): OnHandQty ledger-türev + şirket-genel grain; migration drift SIFIR; SP test AvgCost/qty doğru; sql-sp-reviewer geçti (CRIT-1/IMP-1 fix)
-- [ ] Faz 2: QUARANTINE/BLOCKED lot consume'da bloklanır (smoke)
+- [x] Faz 2 ✅: QUARANTINE/BLOCKED lot consume'da bloklanır. sp_ConsumeInventory guard (THROW 53004) + FEFO ön-kontrol/cursor bloke lotu serbest stoktan dışlar. sql-sp-reviewer 6/6 geçti. Smoke (tran-rollback): bloke lot consume → 53004 yakalandı. NOT: IMP-1 nadir TOCTOU (consume sürerken karantinaya çekme → temiz rollback, veri kaybı yok) — lot-statü-değiştirme SP'si yazılınca aynı applock alınmalı.
 - [x] Faz 3 ✅: CostingMethod MOVING_AVG kilit. Bulgu: FIFO/STANDARD UI dropdown'u YOK + param/Item.CostingMethod hiçbir kod tarafından okunmuyor (sessiz-yanlış-sonuç teorik). migration_48: yanıltıcı Description düzelt + MOVING_AVG dışı değer reset. FIFO motoru ayrı gelecek plan.
 - [ ] Faz 4: Zayiat çıkışı MaterialIssue reason-code ile ledger'a düşüyor + reverse
 - [ ] Faz 5: DynamicBomService + dead production servisleri silindi, build 0/0

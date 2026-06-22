@@ -39,6 +39,14 @@ BEGIN
     -- Bu, key-range kilidinin düz-eşitlikle deterministik alınmasını da sağlar (OR-predikatı yasak).
     IF @BinId IS NULL THROW 53000, N'sp_ConsumeInventory: BinId zorunlu (hedef hücre belirsiz).', 1;
 
+    -- İş kuralı (Plan 47 Faz 2): karantina/bloke lottan çıkış yapılamaz (serbest bırakılana dek).
+    -- FEFO bunları zaten atlar; bu son savunma hattı (doğrudan bin/lot consume çağrısı da kapsanır).
+    IF @LotNo IS NOT NULL AND EXISTS (
+        SELECT 1 FROM ItemLot il
+        WHERE il.CompanyId = @CompanyId AND il.ItemId = @ItemId AND il.LotNo = @LotNo
+          AND il.Status IN ('QUARANTINE', 'BLOCKED'))
+        THROW 53004, N'Lot karantinada/bloke — çıkış yapılamaz. Önce serbest bırakın.', 1;
+
     -- İdempotency hızlı yol (dostça mesaj): aynı kaynak satır+tip AKTİF olarak zaten işlendiyse reddet.
     -- Asıl garanti UX_StockMovement_Idempotency unique index'tir (race'te ikinci aktif insert 2627 alır).
     -- KASITLI: IsCancelled=0 filtresi → iptal sonrası AYNI satır yeniden tüketilebilir (cancel→re-post
@@ -136,13 +144,17 @@ BEGIN
                                  @LockOwner = 'Transaction', @LockTimeout = 15000;
     IF @LockRc < 0 THROW 53003, N'Stok kilidi alınamadı (yoğunluk/zaman aşımı). Tekrar deneyin.', 1;
 
-    -- Depo toplam yeterlilik (erken + dostça; bin-bazı consume içinde ayrıca atomik)
+    -- Depo toplam yeterlilik (erken + dostça; bin-bazı consume içinde ayrıca atomik).
+    -- Plan 47 Faz 2: karantina/bloke lot bakiyesi SERBEST stoğa sayılmaz (FEFO bunları tahsis etmez).
     DECLARE @Total DECIMAL(18,6) = (
-        SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement
-        WHERE CompanyId = @CompanyId AND ItemId = @ItemId AND WarehouseId = @WarehouseId AND IsCancelled = 0);
+        SELECT ISNULL(SUM(QtyBase), 0) FROM StockMovement sm
+        WHERE sm.CompanyId = @CompanyId AND sm.ItemId = @ItemId AND sm.WarehouseId = @WarehouseId AND sm.IsCancelled = 0
+          AND NOT EXISTS (SELECT 1 FROM ItemLot il
+                          WHERE il.CompanyId = @CompanyId AND il.ItemId = @ItemId AND il.LotNo = sm.LotNo
+                            AND il.Status IN ('QUARANTINE', 'BLOCKED')));
     IF @Total < @QtyBase
     BEGIN
-        DECLARE @m NVARCHAR(400) = CONCAT(N'Yetersiz stok (depo toplamı). Mevcut: ',
+        DECLARE @m NVARCHAR(400) = CONCAT(N'Yetersiz serbest stok (karantina/bloke lot hariç). Mevcut: ',
             CONVERT(NVARCHAR(40), @Total), N', İstenen: ', CONVERT(NVARCHAR(40), @QtyBase));
         THROW 53001, @m, 1;
     END
@@ -158,6 +170,10 @@ BEGIN
             FROM StockMovement sm
             WHERE sm.CompanyId = @CompanyId AND sm.ItemId = @ItemId
               AND sm.WarehouseId = @WarehouseId AND sm.IsCancelled = 0
+              -- Plan 47 Faz 2: karantina/bloke lotu FEFO tahsisinden dışla
+              AND NOT EXISTS (SELECT 1 FROM ItemLot il
+                              WHERE il.CompanyId = @CompanyId AND il.ItemId = @ItemId AND il.LotNo = sm.LotNo
+                                AND il.Status IN ('QUARANTINE', 'BLOCKED'))
             GROUP BY sm.BinId, sm.LotNo
         )
         SELECT BinId, LotNo, Bal FROM BinBal WHERE Bal > 0

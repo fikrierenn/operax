@@ -35,6 +35,23 @@ public static class UiHelpers
     }
 
     /// <summary>
+    /// Evrak durum kodunun düz-metin Türkçe karşılığı (CSV export / yazdırma için — HTML değil).
+    /// StatusBadge ile aynı sözlük, rozet işaretlemesi olmadan.
+    /// </summary>
+    public static string StatusText(string? statusCode) => statusCode switch
+    {
+        null or ""          => "—",
+        DocStatus.Draft     => "Taslak",
+        DocStatus.Approved  => "Onaylı",
+        DocStatus.Posted    => "İşlendi",
+        DocStatus.Cancelled => "İptal",
+        "PENDING"           => "Bekliyor",
+        "CLOSED"            => "Kapandı",
+        "CLOSED_PARTIAL"    => "Kısmi Kapandı",
+        _                   => statusCode
+    };
+
+    /// <summary>
     /// Türk Lirası para birimi formatı: 12.345 ₺
     /// </summary>
     public static string FmtTL(decimal amount)

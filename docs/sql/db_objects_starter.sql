@@ -2627,3 +2627,74 @@ RETURN
       AND sl.QtyBase - sl.InvoicedQty > 0.000001
 );
 GO
+
+-- =============================================================================
+-- sp_PartnerStatement — Cari Hesap Ekstresi (Plan 39 Faz 1)
+-- NE YAPAR: yazdırılabilir cari ekstre için 3 sonuç kümesi döner (salt-okuma, ledger'a dokunmaz):
+--   1) Devir/açılış bakiyesi (@From öncesi net bakiye) — tek satır
+--   2) Dönem hareketleri + yürüyen bakiye (running balance window function ile, C#'ta döngü yok)
+--   3) Yaşlandırma kovaları (FIFO: tahsilatlar en eski borçları kapatır; kapanmamış borçlar @To'ya göre yaşlandırılır)
+-- PARAMETRELERİ: @CompanyId, @PartnerId, @From, @To
+-- BAĞIMLILIK: fn_PartnerBalanceAsOf (devir), AccountMovement (cari defter)
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PartnerStatement
+    @CompanyId UNIQUEIDENTIFIER,
+    @PartnerId UNIQUEIDENTIFIER,
+    @From      DATETIME2,
+    @To        DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Devir: @From öncesi tüm hareketin net bakiyesi (SARGable: MovementDate < @From)
+    DECLARE @Opening DECIMAL(18,2) = dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, @From);
+
+    -- 1) Açılış/Devir
+    SELECT @Opening AS OpeningBalance;
+
+    -- 2) Dönem hareketleri + yürüyen bakiye (devir + kümülatif net)
+    SELECT
+        am.Id, am.MovementDate, am.SourceDocType, am.SourceDocNo, am.Description,
+        am.Debit, am.Credit,
+        @Opening + SUM(am.Debit - am.Credit) OVER
+            (ORDER BY am.MovementDate, am.Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
+    FROM AccountMovement am
+    WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
+      AND am.MovementDate >= @From
+      AND am.MovementDate < DATEADD(DAY, 1, @To)
+    ORDER BY am.MovementDate, am.Id;
+
+    -- 3) Yaşlandırma (FIFO): @To'ya kadar tüm hareketler; tahsilat (Credit) en eski borcu (Debit) kapatır,
+    --    kapanmamış borç tutarı kendi tarihinin yaşına göre kovaya düşer.
+    ;WITH AllMov AS (
+        SELECT Id, MovementDate, Debit, Credit
+        FROM AccountMovement
+        WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
+          AND MovementDate < DATEADD(DAY, 1, @To)
+    ),
+    TotCredit AS (SELECT ISNULL(SUM(Credit), 0) AS C FROM AllMov),
+    Debits AS (
+        -- Her borç hareketinin kendinden önceki borç toplamı (FIFO sırası).
+        -- Tie-break Id: aynı tarihli borçlarda PriorDebit deterministik (ledger ile aynı sıra).
+        SELECT MovementDate, Debit,
+               SUM(Debit) OVER (ORDER BY MovementDate, Id ROWS UNBOUNDED PRECEDING) - Debit AS PriorDebit
+        FROM AllMov WHERE Debit > 0
+    ),
+    Unpaid AS (
+        -- Kapanmamış borç = Debit - kapatılan. Kapatılan = clamp(C - PriorDebit, 0, Debit)
+        SELECT MovementDate,
+               Debit - CASE
+                   WHEN (SELECT C FROM TotCredit) - PriorDebit >= Debit THEN Debit
+                   WHEN (SELECT C FROM TotCredit) - PriorDebit <= 0     THEN 0
+                   ELSE (SELECT C FROM TotCredit) - PriorDebit
+               END AS UnpaidAmt
+        FROM Debits
+    )
+    SELECT
+        ISNULL(SUM(CASE WHEN DATEDIFF(DAY, MovementDate, @To) <= 30                       THEN UnpaidAmt ELSE 0 END), 0) AS B0_30,
+        ISNULL(SUM(CASE WHEN DATEDIFF(DAY, MovementDate, @To) BETWEEN 31 AND 60           THEN UnpaidAmt ELSE 0 END), 0) AS B31_60,
+        ISNULL(SUM(CASE WHEN DATEDIFF(DAY, MovementDate, @To) BETWEEN 61 AND 90           THEN UnpaidAmt ELSE 0 END), 0) AS B61_90,
+        ISNULL(SUM(CASE WHEN DATEDIFF(DAY, MovementDate, @To) > 90                        THEN UnpaidAmt ELSE 0 END), 0) AS B90Plus
+    FROM Unpaid;
+END
+GO

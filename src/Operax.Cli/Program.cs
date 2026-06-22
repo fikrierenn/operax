@@ -105,7 +105,8 @@ class Program
                         "schema_M_UDF.sql",                   // Plan 34: UserFieldDefinition + Item.AdditionalFields/MinStockLevel/MaxStockLevel
                         "schema_M00_DictRefCols.sql",         // Plan 35 Faz 1: DictionaryValue.UnEceCode + IsWholeNumber (referans baseline taşıyıcı)
                         "migration_add_updatedby.sql",        // Zorunlu audit kolonu UpdatedBy/At — fresh-install'da SP CREATE bağımlılığı (db_objects.sql ÖNCE çalışmalı)
-                        "migration_41_status_checks.sql"      // Plan 41: statü/yön/tip uzlaştırma (HAVALE→GIRO, NEW→DRAFT) + 23 CHECK constraint
+                        "migration_41_status_checks.sql",     // Plan 41: statü/yön/tip uzlaştırma (HAVALE→GIRO, NEW→DRAFT) + 23 CHECK constraint
+                        "migration_44_stock_consume.sql"      // Plan 44: StockMovement.SourceLineId + consume key-range index + idempotency unique
 
                     })
                     {
@@ -148,6 +149,9 @@ class Program
                     // 14. UDF backfill + seed (Plan 34) — Description JSON -> kolon/AdditionalFields + Volume/Weight/TempRange seed
                     var udf = Path.Combine(sqlDir, "db_objects_udf.sql");
                     if (File.Exists(udf)) await ExecuteScriptAsync(udf, tolerant: false);
+                    // 15. Stok çıkış atomik primitive (Plan 44) — sp_ConsumeInventory (oversell/concurrency/idempotency)
+                    var consume = Path.Combine(sqlDir, "db_objects_consume.sql");
+                    if (File.Exists(consume)) await ExecuteScriptAsync(consume, tolerant: false);
                     break;
 
                 case "seed":

@@ -11,7 +11,7 @@ GO
 -- =============================================================================
 -- sp_ReceivingReverse — Mal Kabul İptali
 -- NE YAPAR: POSTED mal kabul belgesini CANCELLED yapar; mevcut RECEIPT hareketlerini
---           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+--           IsCancelled=1 ile kapatır ve ters satır YAZMAZ (flag-only; bakiye SUM WHERE IsCancelled=0 ile düzelir — çift-sayım önlenir).
 -- PARAMETRELERİ:
 --   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek ReceivingHeader.Id
 --   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
@@ -77,7 +77,7 @@ GO
 -- =============================================================================
 -- sp_ShippingReverse — Sevkiyat İptali
 -- NE YAPAR: POSTED sevkiyat belgesini CANCELLED yapar; mevcut ISSUE hareketlerini
---           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+--           IsCancelled=1 ile kapatır ve ters satır YAZMAZ (flag-only; bakiye SUM WHERE IsCancelled=0 ile düzelir — çift-sayım önlenir).
 -- PARAMETRELERİ:
 --   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek ShippingHeader.Id
 --   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
@@ -141,7 +141,7 @@ GO
 -- sp_TransferReverse — Transfer İptali
 -- NE YAPAR: POSTED transfer belgesini CANCELLED yapar; kaynak depodaki çıkış ve
 --           hedef depodaki giriş hareketlerinin tamamını IsCancelled=1 yapar,
---           her ikisi için de negatif QtyBase'li REVERSAL hareketi yazar.
+--           her ikisi için de ters satır YAZMAZ (flag-only; bakiye SUM WHERE IsCancelled=0 ile düzelir — çift-sayım önlenir).
 -- PARAMETRELERİ:
 --   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek StockTransfer.Id
 --   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
@@ -205,7 +205,7 @@ GO
 -- =============================================================================
 -- sp_CycleCountReverse — Döngüsel Sayım İptali
 -- NE YAPAR: COMPLETED sayım belgesini CANCELLED yapar; COUNT_ADJ hareketlerini
---           IsCancelled=1 ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+--           IsCancelled=1 ile kapatır ve ters satır YAZMAZ (flag-only; bakiye SUM WHERE IsCancelled=0 ile düzelir — çift-sayım önlenir).
 -- PARAMETRELERİ:
 --   @HeaderId  UNIQUEIDENTIFIER — iptal edilecek CycleCount.Id
 --   @CompanyId UNIQUEIDENTIFIER — tenant filtresi
@@ -269,7 +269,7 @@ GO
 -- sp_ProductionReverse — Üretim Emri İptali
 -- NE YAPAR: COMPLETED üretim emrini CANCELLED yapar; hammadde sarfı (ISSUE) ve
 --           mamul girişi (RECEIPT) dahil tüm PRODUCTION hareketlerini IsCancelled=1
---           ile kapatır ve negatif QtyBase'li REVERSAL hareketi yazar.
+--           ile kapatır ve ters satır YAZMAZ (flag-only; bakiye SUM WHERE IsCancelled=0 ile düzelir — çift-sayım önlenir).
 -- PARAMETRELERİ:
 --   @OrderId   UNIQUEIDENTIFIER — iptal edilecek ProductionOrder.Id
 --   @CompanyId UNIQUEIDENTIFIER — tenant filtresi

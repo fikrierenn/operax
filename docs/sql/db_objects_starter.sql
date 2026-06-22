@@ -1745,20 +1745,34 @@ BEGIN
         SELECT TOP 1 @PickingBinId = Id
         FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
 
-        -- Stok hareketi: her satir icin ISSUE (eksi tabanlanan QtyBase)
-        -- UnitCost ItemCost.AvgCost'tan alinir (satış maliyeti / COGS)
-        INSERT INTO StockMovement
-            (CompanyId, WarehouseId, BinId, ItemId, MovementType,
-             QtyBase, UomId, QtyOriginal, SourceDocType, SourceDocId, SourceDocNo, LotNo,
-             UnitCost, CreatedBy, BranchId)
-        SELECT
-            @CompanyId, @WarehouseId, ISNULL(sl.BinId, @PickingBinId), sl.ItemId, 'ISSUE',
-            -sl.QtyBase, sl.UomId, sl.QtyBase, 'SHIPPING', @HeaderId, @DocNo, sl.LotNo,
-            ISNULL(ic.AvgCost, 0), @UserId,
-            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
-        FROM ShippingLine sl
-        LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId
-        WHERE sl.HeaderId = @HeaderId;
+        -- Stok çıkışı: her satır için ATOMİK consume (Plan 44 — oversell/concurrency/idempotency).
+        -- sp_ConsumeInventory bakiyeyi UPDLOCK+HOLDLOCK ile kilitler, yetersizse THROW; bu transaction
+        -- içinde çağrılır → kilitler COMMIT'e kadar tutulur (eşzamanlı sevkiyatlar serialize olur).
+        -- UnitCost scalar subquery ile tek değer (ItemCost çok-depo satırı çoğaltma riski kapandı).
+        DECLARE @ShipBranchId UNIQUEIDENTIFIER =
+            ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
+        DECLARE @slId UNIQUEIDENTIFIER, @slItem UNIQUEIDENTIFIER, @slUom UNIQUEIDENTIFIER,
+                @slQty DECIMAL(18,6), @slBin UNIQUEIDENTIFIER, @slLot NVARCHAR(50), @slCost DECIMAL(18,6);
+        DECLARE c_ship CURSOR LOCAL FAST_FORWARD FOR
+            SELECT sl.Id, sl.ItemId, sl.UomId, sl.QtyBase,
+                   ISNULL(sl.BinId, @PickingBinId), sl.LotNo,
+                   ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
+                           WHERE ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId), 0)
+            FROM ShippingLine sl
+            WHERE sl.HeaderId = @HeaderId;
+        OPEN c_ship;
+        FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            EXEC dbo.sp_ConsumeInventory
+                @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @slBin,
+                @ItemId = @slItem, @UomId = @slUom, @QtyBase = @slQty, @LotNo = @slLot,
+                @SourceDocType = 'SHIPPING', @SourceDocId = @HeaderId, @SourceLineId = @slId,
+                @SourceDocNo = @DocNo, @UnitCost = @slCost, @UserId = @UserId,
+                @MovementDate = @nowGuard, @BranchId = @ShipBranchId;
+            FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+        END
+        CLOSE c_ship; DEALLOCATE c_ship;
 
         -- SO satirlarini guncelle
         UPDATE sol

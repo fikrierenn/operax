@@ -84,7 +84,9 @@ Faz bazlı commit. SP'ler `CREATE OR ALTER` → önceki sürüme revert. Schema 
 
 ## 9. Fazlar (efor)
 
-- **Faz 1 (~2-3g) — CRITICAL kapanır:** primitive + idempotency schema + `sp_ShippingPost` pilot rewire + negatif/idempotency/concurrency smoke. **Canlı engeli kalkar.**
+- **Faz 1 ✅ BİTTİ 2026-06-22 — CRITICAL kapandı:** `sp_ConsumeInventory` (UPDLOCK+HOLDLOCK düz-eşitlik key-range, @BinId zorunlu, LotNo IF-branch) + SourceLineId + 2 index + `sp_ShippingPost` rewire. build 0/0 (Web+Cli), sql-sp-reviewer 2 CRIT (OR-predikat key-range + BinId NOT NULL çelişki) → düzeltildi. Smoke 4/4: oversell THROW · normal · idempotency THROW · bin-guard. **E2E: gerçek boş-bin sevkiyatı engellendi (Mevcut:0 İstenen:50, DRAFT kaldı) — eski kod bin'i -50'ye düşürürdü. Canlı engeli kalktı.**
+  - **Borç (sonraki faz):** IMP-1 `tvf_InventoryBalance` UomId-grain'i consume taban-birim toplamıyla tutarsız (ayrı fix). IMP-3 race'te ikinci insert ham 2627 (53002'ye çevrilmiyor, PageModel generic gösterir; düşük).
+  - **Demo-veri bulgusu:** bazı sevkiyat satırları boş bin'e işaret ediyor (eski kör-oversell maskelemiş) — yeni kod doğru reddediyor; demo seed düzeltilmeli (kod değil).
 - **Faz 2 (~2g):** material-issue + picking + production-consume + transfer-out → primitive.
 - **Faz 3 (~2g):** multi-bin split allocation + deterministik FEFO/FIFO sırası.
 - **Faz 4 (~1g):** StockMovement UPDATE/DELETE deny (ledger immutability tam kapanış).

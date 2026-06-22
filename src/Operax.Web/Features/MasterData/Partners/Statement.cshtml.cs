@@ -1,5 +1,4 @@
 using System.Data;
-using System.Text;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,10 +49,8 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
         using var conn = db.Open();
         if (!await LoadAsync(conn, id, ct)) return NotFound();
 
-        var csv = BuildCsv();
-        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
         var fileName = $"Ekstre_{Partner!.Code}_{DateFrom:yyyyMMdd}-{DateTo:yyyyMMdd}.csv";
-        return File(bytes, "text/csv", fileName);
+        return CsvExport.ToFile(fileName, StatementHeaders, BuildRows());
     }
 
     /// <summary>Firma + cari bilgisi ve sp_PartnerStatement 3 sonuç kümesini yükler.</summary>
@@ -81,33 +78,19 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
         return true;
     }
 
-    /// <summary>Ekstre satırlarını CSV metnine dönüştürür (devir + hareketler + kapanış).</summary>
-    private string BuildCsv()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Tarih;İşlem;Belge No;Açıklama;Borç;Alacak;Bakiye");
-        sb.AppendLine($";DEVİR;;;;;{OpeningBalance:N2}");
-        foreach (var r in Lines)
-            sb.AppendLine(string.Join(';',
-                r.MovementDate.ToString("dd.MM.yyyy"),
-                Csv(r.SourceDocType), Csv(r.SourceDocNo), Csv(r.Description),
-                r.Debit.ToString("N2"), r.Credit.ToString("N2"), r.RunningBalance.ToString("N2")));
-        sb.AppendLine($";KAPANIŞ;;;;;{ClosingBalance:N2}");
-        return sb.ToString();
-    }
+    // Ekstre CSV başlıkları (CsvExport ortak helper'ı escape + BOM uygular)
+    private static readonly string[] StatementHeaders =
+        ["Tarih", "İşlem", "Belge No", "Açıklama", "Borç", "Alacak", "Bakiye"];
 
-    // CSV alanı güvenli yazımı: formula injection koruması + RFC-4180 kaçış (ayraç = noktalı virgül)
-    private static string Csv(string? v)
+    /// <summary>Ekstre satırlarını CsvExport için tipli hücre dizisine çevirir (devir + hareketler + kapanış).</summary>
+    private IEnumerable<object?[]> BuildRows()
     {
-        if (string.IsNullOrEmpty(v)) return "";
-        // Güvenlik: =,+,-,@,TAB,CR ile başlayan hücreyi Excel/LibreOffice formül sanır → tek tırnakla nötrle
-        if (v[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
-            v = "'" + v;
-        v = v.Replace('\n', ' ').Replace('\r', ' ');
-        // Ayraç veya tırnak içeren alanı çift-tırnağa al (RFC-4180 — veri bozulmaz)
-        if (v.Contains(';') || v.Contains('"'))
-            v = "\"" + v.Replace("\"", "\"\"") + "\"";
-        return v;
+        // Devir satırı: yalnız İşlem + Bakiye dolu, ara kolonlar boş
+        yield return ["", "DEVİR", "", "", "", "", OpeningBalance];
+        foreach (var r in Lines)
+            yield return [r.MovementDate, r.SourceDocType, r.SourceDocNo, r.Description,
+                          r.Debit, r.Credit, r.RunningBalance];
+        yield return ["", "KAPANIŞ", "", "", "", "", ClosingBalance];
     }
 
     public record CompanyInfoDto(string Name, string? TaxNumber, string? Address);

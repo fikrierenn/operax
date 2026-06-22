@@ -97,8 +97,11 @@ Kullanıcı sidebar gruplaması "alakasız" buldu. ERP danışmanı önerisi (SA
 **Kapanış ✅:** build 0/0 · security-reviewer temiz · code-reviewer (yeni dosyalar uyumlu) · E2E smoke (yükle/edit/persist/guard/link).
 **Debt (pre-existing, kapsam dışı):** Settings/Index.cshtml hub'ı Tailwind utility-salatası + ham renk (ui-standard §1/§2 ihlali, _PageHeader yok). Eklediğim link kartı mevcut pattern'i taklit etti (tutarlılık). Tüm hub'ın semantic-class refactor'ı ayrı Tier 2 iş — TODO'da.
 
-### Faz 5 — DoD doğrulama + kapanış
-- UDF/Parametre/Rol/Kullanıcı D5 güvenlik (CompanyId/authz/IDOR) + D4 UI taraması. StatusTransitions kasıtlı-salt-okuma dokümante. Modül kapanış kapısı: build+reviewer'lar+E2E. Plan arşive.
+### Faz 5 — DoD doğrulama + kapanış ✅ TAMAMLANDI 2026-06-23
+- **D5 güvenlik sweep TEMİZ** (security-reviewer, 9 admin PageModel: UdfFields/Parameters/Roles×3/Users×3/AuditLog): hepsi `[Authorize(Roles=Administrator)]` + CompanyId izolasyonu (UdfFields/Parameters çift filtre `Id+CompanyId` → IDOR yok; Roller/Kullanıcılar Identity global tablo, UserCompany firma-bağlamı) + Dapper parametreli + mass-assign yok.
+- **D4 UI:** admin .cshtml'lerde İngilizce buton kalıntısı yok (grep temiz).
+- **StatusTransitions kasıtlı salt-okuma:** yalnız `OnGetAsync` (POST/create/edit/delete YOK), Administrator + CompanyId + IsDeleted filtreli, sayfalı. Statü geçiş kuralları seed/SP ile yönetilir, UI'dan değiştirilmez (bilinçli).
+- **Non-blocking gözlem → TODO:** self-lockout (admin kendi rolünü düşürebilir / son admini silebilir) — operasyonel guard eksiği, güvenlik açığı değil.
 
 ## 5. Riskler
 | Risk | Etki | Mitigasyon |
@@ -108,15 +111,16 @@ Kullanıcı sidebar gruplaması "alakasız" buldu. ERP danışmanı önerisi (SA
 | Ölü Details silme referans kırar | düşük | linksiz + kırık (zaten çalışmıyor); grep ile referans 0 doğrula |
 | NumberSeries Code/Padding validasyon | orta | format guard + benzersizlik (DocType+CompanyId) |
 
-## 6. Done Criteria (M0 DoD)
-- [ ] Sözlük: add/edit/delete/toggle + global görünür + cache invalidation; ölü Details silindi
-- [ ] NumberSeries: create/delete çalışır
-- [ ] Modül aktivasyon (karar olumlu ise) veya "hepsi-açık" dokümante
-- [ ] Settings fonksiyonel (karar olumlu ise) veya nav-hub dokümante
-- [ ] StatusTransitions kasıtlı salt-okuma notu
-- [ ] UDF/Parametre/Rol/Kullanıcı/AuditLog D5+D4 doğrulandı
-- [ ] build 0/0 · code-reviewer · security-reviewer · E2E smoke
-- [ ] Plan arşive + journal
+## 6. Done Criteria (M0 DoD) — ✅ TÜMÜ TAMAMLANDI 2026-06-23
+- [x] Sözlük: add/edit/delete/toggle + global görünür + cache invalidation (Faz 1, 8d5e67c)
+- [x] NumberSeries: create/delete çalışır (Faz 2, e9ca652)
+- [x] Modül aktivasyon — Seviye A sidebar gating (Faz 3, 9cd513f) + enable bugfix (645826f)
+- [x] Settings fonksiyonel — hub + Parametreler mevcut, Şirket Profili editörü eklendi (Faz 4, feadd9a)
+- [x] StatusTransitions kasıtlı salt-okuma notu (Faz 5 — yalnız OnGet, dokümante)
+- [x] UDF/Parametre/Rol/Kullanıcı/AuditLog D5+D4 doğrulandı (Faz 5 — security-reviewer TEMİZ)
+- [x] build 0/0 · code-reviewer · security-reviewer · E2E smoke (her faz kapanış kapısından geçti)
+- [x] Plan arşive + journal (bu kapanışta)
+- **Bonus:** sidebar ERP-taksonomi reorg (Faz 3.5, 444a268) + CycleCount SQL bug fix.
 
 ## 7. Sonraki oturum başlangıç
 1. **Faz 1 (Sözlük CRUD)** ile başla — en kritik (Plan 42 unlock), karar gerektirmez.

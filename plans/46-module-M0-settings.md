@@ -91,8 +91,11 @@ Kullanıcı sidebar gruplaması "alakasız" buldu. ERP danışmanı önerisi (SA
 - Önerilen grup→M eşlemesi: Anasayfa→M15(gate ekle) · Ana Veri→M01 · Satınalma→M03 · Satış→M04(+M05 alt-gate) · Depo→M02 + M06/M07/M08 · Üretim→M10 · Sistem→M00(çekirdek).
 **BLOKER KARAR — Finans canonical M kodu:** DB `M11=B2B Portal`, ama `_Layout`/`COMPETITOR_ANALYSIS.md` yorumu `M11=Finans` → çelişki. Finans gate'i bu karar verilmeden yazılamaz. Seçenekler: (1) B2B'yi başka koda taşı M11=Finans yap (DB migration), (2) Finans'a yeni kod (M18), (3) Finans çekirdek kalsın gate'siz + yanlış M11 yorumunu sil. Tier 3 — ayrı plan + kullanıcı kararı.
 
-### Faz 4 — Settings fonksiyonel (G4 — KARAR gerek)
-- Şirket ayarları (logo/VKN/varsayılan depo/para/InvoiceMode) → Parameter tablosuna bağlı form. **Onay sorusu:** hangi ayarlar V1'de düzenlenebilir olmalı?
+### Faz 4 — Settings fonksiyonel ✅ TAMAMLANDI 2026-06-23 (commit feadd9a)
+**Doğrulama bulgusu:** Faz 4 büyük ölçüde ZATEN vardı — Settings hub çalışıyor (Dictionary/Parametreler/Roller/Kullanıcılar/AuditLog). Operasyonel ayarlar (CostingMethod/InvoiceMode/KDV/ödeme vadesi) `/Admin/Parameters` ile düzenlenebilir (Parameter tablosu, global+şirket override). Plan'daki "logo/varsayılan depo/para" Company tablosunda YOK (kolon yok) + para birimi sabit ₺ (turkish-ui) → kapsam dışı.
+**Yapılan (tek gerçek boşluk):** Şirket profili editörü — `Features/Admin/CompanyProfile` (Company.Name + TaxNumber/VKN). e-Belge/evrak başlığı için. Administrator-only, oturum-scoped, VKN 10/11 hane guard. Settings hub'a link kartı.
+**Kapanış ✅:** build 0/0 · security-reviewer temiz · code-reviewer (yeni dosyalar uyumlu) · E2E smoke (yükle/edit/persist/guard/link).
+**Debt (pre-existing, kapsam dışı):** Settings/Index.cshtml hub'ı Tailwind utility-salatası + ham renk (ui-standard §1/§2 ihlali, _PageHeader yok). Eklediğim link kartı mevcut pattern'i taklit etti (tutarlılık). Tüm hub'ın semantic-class refactor'ı ayrı Tier 2 iş — TODO'da.
 
 ### Faz 5 — DoD doğrulama + kapanış
 - UDF/Parametre/Rol/Kullanıcı D5 güvenlik (CompanyId/authz/IDOR) + D4 UI taraması. StatusTransitions kasıtlı-salt-okuma dokümante. Modül kapanış kapısı: build+reviewer'lar+E2E. Plan arşive.

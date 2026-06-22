@@ -61,6 +61,7 @@ Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mi
 ## 🏭 PLAN 32 — TEDARİKÇİ-ÜRÜN KATALOĞU (2026-06-03)
 
 - [x] **✅ TAMAMLANDI 2026-06-03 (Faz A–F):** `SupplierItem` tablosu (tedarikçi kodu/lead-time/MOQ/son-fiyat/tercih, UQ + filtered preferred UQ) + `sp_SupplierItemBulkUpsert`/`sp_SetPreferredSupplier` + `SupplierItemService` + Item kartı **Tedarikçiler tab** (Tabulator grid) + `tvf_ReplenishmentSuggestions` tercih edilen tedarikçi wire. security-reviewer temiz; sql-sp-reviewer IMP-1 (reaktivasyon orphan) + IMP-2 (tvf CompanyId) düzeltildi. Browser smoke + migrate 0 fail. Plan arşivde. Commit: 1dfb212/68bbcaf/b2fb0c9.
+- [ ] **DEBT · Settings hub ui-standard refactor (2026-06-23, Tier 2):** `Features/Admin/Settings/Index.cshtml` Tailwind utility-salatası + ham renk utility (`bg-indigo-50/30`, `text-slate-500`, `text-[11px]`) + `card-ttl` (canonical `card-title` değil) + `_PageHeader`/`class="page"` yok → ui-standard §1/§2/§3 ihlali. Pre-existing; Faz 4'te link kartı eklenince code-reviewer flag'ledi. Semantic class'a (`parts/_cards.css` veya `_settings-hub.css`) çıkar. Faz 4 kapsamı dışı (drive-by olurdu).
 - [ ] **DEBT · P32-7 PO satırında SupplierItemCode görünürlük (ERTELENDİ):** PO Details add-line'da tedarikçi seçiliyse ürünün SupplierItemCode'u gösterilsin. Hafif (JS + lookup). PO Details bir sonraki dokunuşta eklenir; gerçek ihtiyaç düşük.
 
 ## 💲 PLAN 30 — PRICELIST KAPSAM BOYUTLARI (2026-06-03)

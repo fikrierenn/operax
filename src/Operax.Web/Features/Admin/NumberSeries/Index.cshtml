@@ -23,7 +23,62 @@
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@s.Id" />
         </form>
+        <form id="d_@s.Id" method="post" asp-page-handler="Delete">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@s.Id" />
+        </form>
     }
+
+    @* Yeni belge serisi — yalnızca tanımlı olmayan katalog tipleri eklenebilir *@
+    <div class="card">
+        <div class="card-hdr">
+            <div class="card-title">Yeni Belge Serisi</div>
+            <div class="card-sub">Tanımlı olmayan belge tipi için seri ekle</div>
+        </div>
+        @if (Model.AvailableDocTypes.Count == 0)
+        {
+            <p class="card-sub">Tüm belge tipleri için seri tanımlı.</p>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="Create">
+                @Html.AntiForgeryToken()
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Belge Tipi <span class="req">*</span></label>
+                        <select name="docType" class="form-ctrl" required>
+                            <option value="">Seçiniz...</option>
+                            @foreach (var o in Model.AvailableDocTypes)
+                            {
+                                <option value="@o.Code">@o.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Önek <span class="req">*</span></label>
+                        <input name="prefix" class="form-ctrl" maxlength="15" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ayraç</label>
+                        <input name="separator" class="form-ctrl" maxlength="3" value="-" />
+                    </div>
+                </div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Sonraki No</label>
+                        <input name="nextNo" type="number" min="1" value="1" class="form-ctrl" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dolgu</label>
+                        <input name="padding" type="number" min="1" max="9" value="6" class="form-ctrl" />
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:flex-end;">
+                        <button type="submit" class="btn btn-primary">Ekle</button>
+                    </div>
+                </div>
+            </form>
+        }
+    </div>
 
     <div class="card">
         <div class="card-hdr">
@@ -61,7 +116,13 @@
                                     <span class="chk"><input form="@fid" name="isActive" type="checkbox" value="true" checked="@s.IsActive" /><span class="chk-box"></span></span>
                                 </label>
                             </td>
-                            <td><button type="submit" form="@fid" class="btn btn-primary btn-sm">Kaydet</button></td>
+                            <td>
+                                <button type="submit" form="@fid" class="btn btn-primary btn-sm">Kaydet</button>
+                                @if (s.NextNo == 1)
+                                {
+                                    <button type="submit" form="d_@s.Id" class="btn btn-danger btn-sm" onclick="return confirm('Bu belge serisini silmek istediğinize emin misiniz?');">Sil</button>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

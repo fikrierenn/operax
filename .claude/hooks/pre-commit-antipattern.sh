@@ -91,8 +91,11 @@ for f in $targets; do
     fi
   fi
 
-  # Hardcoded sifre (tum dosya tipleri)
-  if grep -HnE 'Password\s*=\s*[A-Za-z0-9!@#$%^&*+._-]{4,}' "$f" 2>/dev/null | grep -v 'Password=["'\'']?\s' | grep -v 'Password=\$' | grep -v '\.example'; then
+  # Hardcoded sifre (tum dosya tipleri) — yalnizca GERCEK hardcoded formlari:
+  #   1) C# string literal:        Password = "secret123"
+  #   2) Bosluksuz conn-string:    Password=secret123;
+  # C# property init ifadesi (Password = userInfo.Length > 1 ? ... : null) hardcoded DEGIL — flag'lenmez.
+  if grep -HnE '(Password\s*=\s*["'\''][A-Za-z0-9!@#$%^&*+._-]{3,}|Password=[A-Za-z0-9!@#$%^&*+._-]{4,})' "$f" 2>/dev/null | grep -v 'Password=\$' | grep -v '\.example'; then
     found_issues+=("$f: hardcoded sifre tespit (env var / User Secrets kullan)")
   fi
 

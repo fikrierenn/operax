@@ -10,7 +10,7 @@
         SubHtml: $"{L.T("Toplam", "Total")} <span class=\"mono text-strong\">{Model.StatusCounts.Total}</span> {L.T("evrak", "docs")} · {L.T("Aktif tutar", "Active total")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.TotalActive)}</span>",
         ActionsHtml:
             $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>{L.T("İçeri Aktar", "Import")}</button>" +
-            $"<button class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>{L.T("Dışa Aktar", "Export")}</button>" +
+            $"<a href=\"?handler=Export&tab={Model.Tab}&q={Uri.EscapeDataString(Model.Q ?? "")}\" class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>{L.T("Dışa Aktar", "Export")}</a>" +
             $"<a href=\"/PurchaseOrders/Details\" class=\"btn btn-primary btn-sm\" data-shortcut=\"Alt+N\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>{L.T("Yeni Sipariş", "New Order")}<span class=\"btn-kbd\">Alt+N</span></a>"
     );
 

@@ -67,22 +67,8 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         parms.Add("CompanyId", company.Id);
         parms.Add("Page", page);
         parms.Add("PageSize", PageSize);
-        // İş kuralı: durum filtreleri DocStatus sabitleriyle parametrik olarak eklenir
-        parms.Add("StDraft",     DocStatus.Draft);
-        parms.Add("StPosted",    DocStatus.Posted);
-        parms.Add("StApproved",  DocStatus.Approved);
-        parms.Add("StCancelled", DocStatus.Cancelled);
-
-        // Sekme + arama filtresi tek yerde — hem listede hem count/aktif-toplam aggregate'inde kullanılır
-        var filter = "";
-        if (Tab == DocStatus.Draft)          filter += " AND h.Status = @StDraft";
-        else if (Tab == DocStatus.Posted)    filter += " AND h.Status IN (@StPosted, @StApproved)";
-        else if (Tab == DocStatus.Cancelled) filter += " AND h.Status = @StCancelled";
-        if (!string.IsNullOrWhiteSpace(Q))
-        {
-            filter += " AND (h.OrderNo LIKE @Q OR p.Name LIKE @Q)";
-            parms.Add("Q", $"%{Q.Trim()}%");
-        }
+        // Sekme + arama filtresi tek yerde kurulur — liste, count/aktif-toplam ve export ortak kullanır
+        var filter = BuildOrderFilter(parms);
 
         // İş kuralı: SARGable filtre; sayfa satırları + (toplam adet + iptal-hariç aktif tutar) tek round-trip
         var sql = $@"
@@ -118,6 +104,60 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         var agg = await grid.ReadSingleAsync<AggDto>();
         FilteredCount = agg.Cnt;
         TotalActive = agg.ActiveTotal;
+    }
+
+    // Sekme + arama filtresini DocStatus parametreleriyle kurar (liste ve export ortak kullanır)
+    private string BuildOrderFilter(DynamicParameters parms)
+    {
+        parms.Add("StDraft",     DocStatus.Draft);
+        parms.Add("StPosted",    DocStatus.Posted);
+        parms.Add("StApproved",  DocStatus.Approved);
+        parms.Add("StCancelled", DocStatus.Cancelled);
+
+        var filter = "";
+        if (Tab == DocStatus.Draft)          filter += " AND h.Status = @StDraft";
+        else if (Tab == DocStatus.Posted)    filter += " AND h.Status IN (@StPosted, @StApproved)";
+        else if (Tab == DocStatus.Cancelled) filter += " AND h.Status = @StCancelled";
+        if (!string.IsNullOrWhiteSpace(Q))
+        {
+            filter += " AND (h.OrderNo LIKE @Q OR p.Name LIKE @Q)";
+            parms.Add("Q", $"%{Q.Trim()}%");
+        }
+        return filter;
+    }
+
+    /// <summary>Filtrelenmiş sipariş listesini CSV olarak dışa aktarır (sayfasız — tüm eşleşen satırlar).</summary>
+    public async Task<IActionResult> OnGetExportAsync(CancellationToken ct)
+    {
+        using var conn = db.Open();
+        var parms = new DynamicParameters();
+        parms.Add("CompanyId", company.Id);
+        var filter = BuildOrderFilter(parms);
+
+        // Liste ile aynı projeksiyon, sayfalama yok — kullanıcı filtresi (sekme + arama) korunur
+        var sql = $@"
+            ;WITH HeaderTotals AS (
+                SELECT HeaderId, SUM(QtyOrdered * Price) AS LineTotal, COUNT(*) AS LineCount
+                FROM PurchaseOrderLine GROUP BY HeaderId
+            )
+            SELECT
+                h.Id, h.OrderNo, h.OrderDate, h.Status,
+                p.Name AS PartnerName, p.Code AS PartnerCode, c.Name AS PartnerCity, p.TaxNumber,
+                ISNULL(ht.LineTotal, 0) AS TotalAmount, ISNULL(ht.LineCount, 0) AS LineCount,
+                DATEADD(DAY, ISNULL(h.PaymentTermDays, ISNULL(p.PaymentTermDays, 30)), h.OrderDate) AS DueDate
+            FROM PurchaseOrderHeader h
+            JOIN Partner p ON p.Id = h.PartnerId
+            LEFT JOIN City c ON c.Id = p.CityId
+            LEFT JOIN HeaderTotals ht ON ht.HeaderId = h.Id
+            WHERE h.CompanyId = @CompanyId AND h.IsDeleted = 0{filter}
+            ORDER BY h.OrderDate DESC, h.OrderNo DESC";
+        var rows = (await conn.QueryAsync<OrderDto>(new CommandDefinition(sql, parms, cancellationToken: ct))).ToList();
+
+        var headers = new[] { "Sipariş No", "Tarih", "Durum", "Cari", "Cari Kodu", "Şehir", "VKN", "Tutar", "Satır", "Vade" };
+        var csvRows = rows.Select(r => new object?[]
+            { r.OrderNo, r.OrderDate, UiHelpers.StatusText(r.Status), r.PartnerName, r.PartnerCode,
+              r.PartnerCity, r.TaxNumber, r.TotalAmount, r.LineCount, r.DueDate });
+        return CsvExport.ToFile($"Satinalma_Siparis_{DateTime.Today:yyyyMMdd}.csv", headers, csvRows);
     }
 
     // ─── DTO'lar ────────────────────────────────────────────────

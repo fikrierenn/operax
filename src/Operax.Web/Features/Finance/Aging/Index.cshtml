@@ -6,19 +6,28 @@
 
     var noun = Model.Direction == "PAYABLE" ? L.T("Borç", "Payable") : L.T("Alacak", "Receivable");
 
+    // Dışa aktar + yazdır aksiyonları (ortak export/print — Plan 40). no-print: baskıda gizlenir.
+    var actions = $"<a class=\"btn btn-secondary btn-sm no-print\" href=\"?direction={Model.Direction}&handler=Export\">{L.T("Excel (CSV)", "Excel (CSV)")}</a>"
+                + $" <button type=\"button\" class=\"btn btn-secondary btn-sm no-print\" onclick=\"window.print()\">{L.T("Yazdır", "Print")}</button>";
+
     var header = new PageHeaderVm(
         Title: L.T("Yaşlandırma Raporu", "Aging Report") + " — " + noun,
         Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Finans", "Finance"), L.T("Yaşlandırma", "Aging") },
         SubHtml: $"{L.T("Toplam açık", "Total open")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.Total)}</span>"
                  + $" · {L.T("Açık sipariş", "Open orders")} <span class=\"mono text-strong\">{UiHelpers.FmtTL(Model.Totals.OpenOrder)}</span>",
-        ActionsHtml: ""
+        ActionsHtml: actions
     );
 }
 
 <div class="page" data-screen-label="Yaşlandırma">
     <partial name="_PageHeader" model="header" />
 
-    <div class="row" style="gap:8px;margin-bottom:14px;">
+    @* Yalnız baskıda görünen rapor başlığı *@
+    <div class="print-only print-title">
+        @(L.T("YAŞLANDIRMA RAPORU", "AGING REPORT")) — @noun · @DateTime.Today.ToString("dd.MM.yyyy")
+    </div>
+
+    <div class="row no-print" style="gap:8px;margin-bottom:14px;">
         <a class="btn @(Model.Direction == "RECEIVABLE" ? "btn-primary" : "btn-secondary") btn-sm"
            href="?direction=RECEIVABLE">@L.T("Alacaklar", "Receivable")</a>
         <a class="btn @(Model.Direction == "PAYABLE" ? "btn-primary" : "btn-secondary") btn-sm"
@@ -47,7 +56,7 @@
     </div>
 
     @* Cari bazlı detay *@
-    <div class="card">
+    <div class="card print-doc">
         @if (Model.Rows.Count == 0)
         {
             var empty = new EmptyStateVm(

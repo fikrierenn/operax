@@ -53,6 +53,21 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         }
     }
 
+    // Yaşlandırma tablosunu CSV olarak dışa aktarır (ortak CsvExport — Plan 40). Sayı kolonları
+    // tipli hücre olarak gider: negatif/ondalık değer formül guard'ına takılmaz, Excel'de sayı kalır.
+    public async Task<IActionResult> OnGetExportAsync(CancellationToken ct)
+    {
+        await OnGetAsync(ct);
+        var noun = Direction == "PAYABLE" ? "Borc" : "Alacak";
+        var headers = new[] { "Cari", "Vade Gelmedi", "1-30", "31-60", "61-90", "90+", "Toplam", "Açık Sipariş" };
+        var rows = Rows
+            .Select(r => new object?[] { r.PartnerName, r.NotDue, r.Days1_30, r.Days31_60,
+                                         r.Days61_90, r.Over90, r.TotalOpen, r.OpenOrderAmount })
+            .Append(new object?[] { "TOPLAM", Totals.NotDue, Totals.Days1_30, Totals.Days31_60,
+                                    Totals.Days61_90, Totals.Over90, Totals.Total, Totals.OpenOrder });
+        return CsvExport.ToFile($"Yaslandirma_{noun}_{DateTime.Today:yyyyMMdd}.csv", headers, rows);
+    }
+
     public record AgingRowDto(
         Guid    PartnerId,
         string  PartnerName,

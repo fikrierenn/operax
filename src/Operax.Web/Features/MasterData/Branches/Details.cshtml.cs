@@ -44,7 +44,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         else
         {
             Branch.IsActive = true;
-            Branch.BranchType = "SUBE";
+            Branch.BranchType = BranchType.Sube;
         }
     }
 
@@ -106,7 +106,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public string? City { get; set; }
         public string? Address { get; set; }
         public string? Phone { get; set; }
-        public string BranchType { get; set; } = "SUBE";
+        public string BranchType { get; set; } = Operax.Web.Lib.BranchType.Sube;
         public Guid? ReturnWarehouseId { get; set; }
         public bool IsActive { get; set; }
     }

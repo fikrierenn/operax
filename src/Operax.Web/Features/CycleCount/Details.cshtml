@@ -32,7 +32,7 @@
                     Sayımı Başlat
                 </button>
             }
-            @if (!Model.IsNew && Model.Header.Status != "COMPLETED")
+            @if (!Model.IsNew && Model.Header.Status != DocStatus.Completed)
             {
                 <button type="submit" asp-page-handler="PostAdjustments" class="btn btn-success" data-shortcut="Alt+P">
                     Sayımı Kesinleştir ve Kapat
@@ -74,7 +74,7 @@
     <div class="card mb-6">
         <div class="card-hdr bg-slate-50/50">
             <span class="card-ttl">SAYIM SATIRLARI</span>
-            @if (Model.Header.Status != "COMPLETED")
+            @if (Model.Header.Status != DocStatus.Completed)
             {
                 <button onclick="document.getElementById('add-cnt-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
                     + Sayım Kaydet

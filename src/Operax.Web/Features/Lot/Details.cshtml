@@ -16,15 +16,15 @@
         <div class="flex items-center gap-3 mb-1">
             <h2 class="text-2xl font-bold font-mono tracking-tight">@lot.LotNo</h2>
             <span class="badge @(lot.Status switch {
-                "AVAILABLE"  => "b-green",
-                "QUARANTINE" => "b-amber",
-                "BLOCKED"    => "b-red",
-                _            => "b-gray"
+                LotStatus.Available  => "b-green",
+                LotStatus.Quarantine => "b-amber",
+                LotStatus.Blocked    => "b-red",
+                _                    => "b-gray"
             })">@(lot.Status switch {
-                "AVAILABLE"  => "Müsait",
-                "QUARANTINE" => "Karantina",
-                "BLOCKED"    => "Bloke",
-                _            => lot.Status
+                LotStatus.Available  => "Müsait",
+                LotStatus.Quarantine => "Karantina",
+                LotStatus.Blocked    => "Bloke",
+                _                    => lot.Status
             })</span>
             @if (lot.IsExpired)
             {
@@ -121,18 +121,18 @@
                             </td>
                             <td>
                                 <span class="badge @(mv.MovementType switch {
-                                    "RECEIPT"   => "b-green",
-                                    "ISSUE"     => "b-red",
-                                    "TRANSFER"  => "b-blue",
-                                    "COUNT_ADJ" => "b-amber",
-                                    _           => "b-gray"
+                                    MovementType.Receipt  => "b-green",
+                                    MovementType.Issue    => "b-red",
+                                    MovementType.Transfer => "b-blue",
+                                    MovementType.CountAdj => "b-amber",
+                                    _                     => "b-gray"
                                 })">@(mv.MovementType switch {
-                                    "RECEIPT"     => "Giriş",
-                                    "ISSUE"       => "Çıkış",
-                                    "TRANSFER"    => "Transfer",
-                                    "CONSUMPTION" => "Tüketim",
-                                    "PRODUCTION"  => "Üretim",
-                                    "COUNT_ADJ"   => "Sayım Düz.",
+                                    MovementType.Receipt    => "Giriş",
+                                    MovementType.Issue      => "Çıkış",
+                                    MovementType.Transfer   => "Transfer",
+                                    "CONSUMPTION"           => "Tüketim",
+                                    MovementType.Production  => "Üretim",
+                                    MovementType.CountAdj   => "Sayım Düz.",
                                     _             => mv.MovementType
                                 })</span>
                             </td>

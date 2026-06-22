@@ -30,7 +30,7 @@
     </div>
     <div class="kpi">
         <span class="kpi-label">Bloke</span>
-        <div class="kpi-val text-slate-500">@Model.Lots.Count(x => x.Status == "BLOCKED" || x.Status == "QUARANTINE")</div>
+        <div class="kpi-val text-slate-500">@Model.Lots.Count(x => x.Status == LotStatus.Blocked || x.Status == LotStatus.Quarantine)</div>
         <span class="kpi-sub">Karantina veya bloke</span>
     </div>
 </div>
@@ -84,15 +84,15 @@
                     </td>
                     <td class="text-center">
                         <span class="badge @(l.Status switch {
-                            "AVAILABLE"  => "b-green",
-                            "QUARANTINE" => "b-amber",
-                            "BLOCKED"    => "b-red",
-                            _            => "b-gray"
+                            LotStatus.Available  => "b-green",
+                            LotStatus.Quarantine => "b-amber",
+                            LotStatus.Blocked    => "b-red",
+                            _                    => "b-gray"
                         })">@(l.Status switch {
-                            "AVAILABLE"  => "Müsait",
-                            "QUARANTINE" => "Karantina",
-                            "BLOCKED"    => "Bloke",
-                            _            => l.Status
+                            LotStatus.Available  => "Müsait",
+                            LotStatus.Quarantine => "Karantina",
+                            LotStatus.Blocked    => "Bloke",
+                            _                    => l.Status
                         })</span>
                     </td>
                     <td class="text-right">

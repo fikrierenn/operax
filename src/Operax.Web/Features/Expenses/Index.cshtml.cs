@@ -67,6 +67,6 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         public string   Currency    { get; set; } = "TRY";
         public string   Status      { get; set; } = "";
         public string?  PartnerName { get; set; }
-        public bool     IsOverdue   => Status != "PAID" && DueDate.HasValue && DueDate < DateTime.UtcNow;
+        public bool     IsOverdue   => Status != DocStatus.Paid && DueDate.HasValue && DueDate < DateTime.UtcNow;
     }
 }

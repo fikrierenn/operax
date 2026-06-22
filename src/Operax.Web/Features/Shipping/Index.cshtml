@@ -96,8 +96,8 @@
                         <div class="row-sub text-slate-400">@s.VehiclePlate</div>
                     </td>
                     <td>
-                        @{ var sBadge = s.Status == "POSTED" ? "badge b-green" : s.Status == "CANCELLED" ? "badge b-red" : "badge b-indigo";
-                           var sLabel = s.Status == "POSTED" ? "Tamamlandı" : s.Status == "CANCELLED" ? "İptal" : "Taslak"; }
+                        @{ var sBadge = s.Status == DocStatus.Posted ? "badge b-green" : s.Status == DocStatus.Cancelled ? "badge b-red" : "badge b-indigo";
+                           var sLabel = s.Status == DocStatus.Posted ? "Tamamlandı" : s.Status == DocStatus.Cancelled ? "İptal" : "Taslak"; }
                         <span class="@sBadge">@sLabel</span>
                     </td>
                     <td class="font-mono text-xs text-slate-500">@s.DocDate.ToString("dd.MM.yyyy")</td>

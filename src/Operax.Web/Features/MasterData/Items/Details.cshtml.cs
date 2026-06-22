@@ -300,7 +300,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         public Guid?   CategoryId       { get; set; }
         public string? CategoryName     { get; set; }
         public decimal TaxRate          { get; set; } = 20;
-        public string  ItemType         { get; set; } = "STOCK";  // Kalem türü: STOCK (stok), CONSUMABLE (sarf), SERVICE (hizmet), FIXED_ASSET (sabit kıymet)
+        public string  ItemType         { get; set; } = Operax.Web.Lib.ItemType.Stock;  // Kalem türü: STOCK (stok), CONSUMABLE (sarf), SERVICE (hizmet), FIXED_ASSET (sabit kıymet)
         public bool    IsLotTracked     { get; set; }
         public bool    IsSerialTracked  { get; set; }
         public bool    IsActive         { get; set; }

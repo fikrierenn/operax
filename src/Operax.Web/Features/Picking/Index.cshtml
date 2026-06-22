@@ -19,22 +19,22 @@
 <div class="kpi-row">
     <div class="kpi">
         <span class="kpi-label">Aktif Görevler</span>
-        <div class="kpi-val text-indigo-600">@Model.Tasks.Count(x => x.Status != "COMPLETED")</div>
+        <div class="kpi-val text-indigo-600">@Model.Tasks.Count(x => x.Status != PickTaskStatus.Completed)</div>
         <span class="kpi-sub">Tamamlanmamış görevler</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Atama Bekliyor</span>
-        <div class="kpi-val text-amber-500">@Model.Tasks.Count(x => x.Status == "DRAFT")</div>
+        <div class="kpi-val text-amber-500">@Model.Tasks.Count(x => x.Status == PickTaskStatus.Draft)</div>
         <span class="kpi-sub">Personel atanmamış</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Devam Ediyor</span>
-        <div class="kpi-val text-blue-500">@Model.Tasks.Count(x => x.Status == "IN_PROGRESS")</div>
+        <div class="kpi-val text-blue-500">@Model.Tasks.Count(x => x.Status == PickTaskStatus.InProgress)</div>
         <span class="kpi-sub">Aktif olarak toplanan</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Bugün Tamamlanan</span>
-        <div class="kpi-val text-green-600">@Model.Tasks.Count(x => x.Status == "COMPLETED" && x.CreatedAt.Date == DateTime.Today)</div>
+        <div class="kpi-val text-green-600">@Model.Tasks.Count(x => x.Status == PickTaskStatus.Completed && x.CreatedAt.Date == DateTime.Today)</div>
         <span class="kpi-sub">Bugün biten görevler</span>
     </div>
 </div>
@@ -58,10 +58,10 @@
                     <td class="font-mono font-bold text-indigo-600 tracking-tight">@task.DocNo</td>
                     <td>
                         <span class="badge @(task.Status switch {
-                            "COMPLETED"   => "b-green",
-                            "IN_PROGRESS" => "b-blue",
-                            "ASSIGNED"    => "b-indigo",
-                            _             => "b-gray"
+                            PickTaskStatus.Completed  => "b-green",
+                            PickTaskStatus.InProgress => "b-blue",
+                            PickTaskStatus.Assigned   => "b-indigo",
+                            _                         => "b-gray"
                         })">@task.Status</span>
                     </td>
                     <td>

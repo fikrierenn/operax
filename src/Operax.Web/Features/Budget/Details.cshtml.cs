@@ -29,7 +29,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
             "SELECT Id, Code, Name FROM ExpenseType WHERE CompanyId = @CompanyId ORDER BY Code",
             new { CompanyId = company.Id }, cancellationToken: ct));
 
-        if (!id.HasValue) { Form.Year = DateTime.UtcNow.Year; Form.Type = "OPERATIONAL"; return; }
+        if (!id.HasValue) { Form.Year = DateTime.UtcNow.Year; Form.Type = BudgetType.Operational; return; }
 
         Form = await conn.QueryFirstOrDefaultAsync<BudgetFormDto>(new CommandDefinition(
             "SELECT Id, Year, Code, Name, Type, Status FROM Budget WHERE Id = @Id AND CompanyId = @CompanyId",
@@ -98,7 +98,7 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         public int    Year   { get; set; }
         public string Code   { get; set; } = "";
         public string Name   { get; set; } = "";
-        public string Type   { get; set; } = "OPERATIONAL";
+        public string Type   { get; set; } = BudgetType.Operational;
         public string Status { get; set; } = DocStatus.Draft;
     }
 

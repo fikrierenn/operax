@@ -16,17 +16,17 @@
         <div class="flex items-center gap-3 mb-1">
             <h2 class="text-2xl font-bold font-mono tracking-tight">@s.SerialNo</h2>
             <span class="badge @(s.Status switch {
-                "IN_STOCK"   => "b-green",
-                "SHIPPED"    => "b-gray",
-                "SCRAPPED"   => "b-red",
-                "QUARANTINE" => "b-amber",
-                _            => "b-gray"
+                SerialStatus.InStock    => "b-green",
+                SerialStatus.Shipped    => "b-gray",
+                SerialStatus.Scrapped   => "b-red",
+                SerialStatus.Quarantine => "b-amber",
+                _                       => "b-gray"
             })">@(s.Status switch {
-                "IN_STOCK"   => "Depoda",
-                "SHIPPED"    => "Sevk Edildi",
-                "SCRAPPED"   => "Hurda",
-                "QUARANTINE" => "Karantina",
-                _            => s.Status
+                SerialStatus.InStock    => "Depoda",
+                SerialStatus.Shipped    => "Sevk Edildi",
+                SerialStatus.Scrapped   => "Hurda",
+                SerialStatus.Quarantine => "Karantina",
+                _                       => s.Status
             })</span>
         </div>
         <p class="text-sm text-slate-500">
@@ -71,29 +71,29 @@
                 <!-- Zaman çizelgesi noktası -->
                 <div class="flex flex-col items-center pt-1">
                     <div class="w-3 h-3 rounded-full shrink-0 @(mv.MovementType switch {
-                        "RECEIPT"     => "bg-green-500",
-                        "ISSUE"       => "bg-red-400",
-                        "TRANSFER"    => "bg-blue-500",
-                        "CONSUMPTION" => "bg-orange-500",
-                        "COUNT_ADJ"   => "bg-amber-500",
-                        _             => "bg-slate-400"
+                        MovementType.Receipt  => "bg-green-500",
+                        MovementType.Issue    => "bg-red-400",
+                        MovementType.Transfer => "bg-blue-500",
+                        "CONSUMPTION"         => "bg-orange-500",
+                        MovementType.CountAdj => "bg-amber-500",
+                        _                     => "bg-slate-400"
                     })"></div>
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-0.5">
                         <span class="badge @(mv.MovementType switch {
-                            "RECEIPT"     => "b-green",
-                            "ISSUE"       => "b-red",
-                            "TRANSFER"    => "b-blue",
-                            "CONSUMPTION" => "b-amber",
-                            _             => "b-gray"
+                            MovementType.Receipt  => "b-green",
+                            MovementType.Issue    => "b-red",
+                            MovementType.Transfer => "b-blue",
+                            "CONSUMPTION"         => "b-amber",
+                            _                     => "b-gray"
                         })">@(mv.MovementType switch {
-                            "RECEIPT"     => "Mal Kabul Girişi",
-                            "ISSUE"       => "Sevkiyat Çıkışı",
-                            "TRANSFER"    => "Transfer",
-                            "CONSUMPTION" => "Üretim Tüketimi",
-                            "PRODUCTION"  => "Üretim Kabulü",
-                            "COUNT_ADJ"   => "Sayım Düzeltmesi",
+                            MovementType.Receipt    => "Mal Kabul Girişi",
+                            MovementType.Issue      => "Sevkiyat Çıkışı",
+                            MovementType.Transfer   => "Transfer",
+                            "CONSUMPTION"           => "Üretim Tüketimi",
+                            MovementType.Production  => "Üretim Kabulü",
+                            MovementType.CountAdj   => "Sayım Düzeltmesi",
                             _             => mv.MovementType
                         })</span>
                         @if (mv.SourceDoc != null)

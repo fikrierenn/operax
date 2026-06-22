@@ -7,10 +7,10 @@
 
     string typeLabel = a.AccountType switch
     {
-        "CASH" => L.T("Kasa", "Cash"),
-        "BANK" => L.T("Banka Hesabı", "Bank Account"),
-        "CREDIT_CARD" => L.T("Kredi Kartı", "Credit Card"),
-        "LOAN" => L.T("Kredi Hesabı", "Loan Account"),
+        AccountType.Cash => L.T("Kasa", "Cash"),
+        AccountType.Bank => L.T("Banka Hesabı", "Bank Account"),
+        AccountType.CreditCard => L.T("Kredi Kartı", "Credit Card"),
+        AccountType.Loan => L.T("Kredi Hesabı", "Loan Account"),
         _ => a.AccountType
     };
 
@@ -113,7 +113,7 @@
                 <tbody>
                     @foreach (var t in Model.Transactions)
                     {
-                        var isIncome = t.TransactionType == "INCOME" || t.TransactionType == "TRANSFER_IN";
+                        var isIncome = t.TransactionType == TransactionType.Income || t.TransactionType == TransactionType.TransferIn;
                         var sign = isIncome ? "+" : "−";
                         var color = isIncome ? "var(--success-text)" : "var(--danger-text)";
 

@@ -69,11 +69,11 @@
                     {
                         string statusBadge = i.Status switch
                         {
-                            "DRAFT"     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
-                            "POSTED"    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
-                            "PAID"      => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>TAHSİL</span>",
-                            "CANCELLED" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
-                            _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{i.Status}</span>"
+                            DocStatus.Draft     => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>TASLAK</span>",
+                            DocStatus.Posted    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ONAYLI</span>",
+                            DocStatus.Paid      => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>TAHSİL</span>",
+                            DocStatus.Cancelled => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>İPTAL</span>",
+                            _                   => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{i.Status}</span>"
                         };
 
                         string eBadge = i.EBelgeStatus switch

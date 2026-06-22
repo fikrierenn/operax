@@ -154,8 +154,8 @@
                     <div class="card-title">Kredi Detay Kapama Tablosu</div>
                     <div class="card-sub">
                         @Model.LoanSummary.Count kredi ·
-                        Aktif: <span class="mono text-strong">@Model.LoanSummary.Count(l => l.Status == "ACTIVE")</span> ·
-                        Toplam Kalan Borç: <span class="mono text-strong" style="color:var(--danger-text);">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == "ACTIVE").Sum(l => l.TotalRemainingDebt))</span>
+                        Aktif: <span class="mono text-strong">@Model.LoanSummary.Count(l => l.Status == LoanStatus.Active)</span> ·
+                        Toplam Kalan Borç: <span class="mono text-strong" style="color:var(--danger-text);">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == LoanStatus.Active).Sum(l => l.TotalRemainingDebt))</span>
                     </div>
                 </div>
             </div>
@@ -185,8 +185,8 @@
                                 <td>@l.BankName</td>
                                 <td><span class="badge badge-neutral"><span class="badge-dot"></span>@UiHelpers.LoanMethodLabel(l.CalcMethod)</span></td>
                                 <td>
-                                    @if (l.Status == "ACTIVE") { <span class="badge badge-info"><span class="badge-dot"></span>AKTİF</span> }
-                                    else if (l.Status == "CLOSED") { <span class="badge badge-success"><span class="badge-dot"></span>KAPANDI</span> }
+                                    @if (l.Status == LoanStatus.Active) { <span class="badge badge-info"><span class="badge-dot"></span>AKTİF</span> }
+                                    else if (l.Status == LoanStatus.Closed) { <span class="badge badge-success"><span class="badge-dot"></span>KAPANDI</span> }
                                     else { <span class="badge badge-warn"><span class="badge-dot"></span>@l.Status</span> }
                                 </td>
                                 <td class="num">@UiHelpers.FmtTL(l.Principal)</td>
@@ -228,7 +228,7 @@
                 </div>
                 <div style="font-size:13px;font-weight:700;">
                     Net Toplam Kalan Borç:
-                    <span class="mono" style="color:var(--danger-text);font-size:15px;margin-left:8px;">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == "ACTIVE").Sum(l => l.TotalRemainingDebt))</span>
+                    <span class="mono" style="color:var(--danger-text);font-size:15px;margin-left:8px;">@UiHelpers.FmtTL(Model.LoanSummary.Where(l => l.Status == LoanStatus.Active).Sum(l => l.TotalRemainingDebt))</span>
                 </div>
             </div>
         </div>

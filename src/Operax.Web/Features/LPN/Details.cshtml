@@ -9,7 +9,7 @@
         <div class="flex items-center gap-3 mb-1">
             <h2 class="text-2xl font-bold">@Model.Lpn.Code</h2>
             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase 
-                @(Model.Lpn.Status == "IN_USE" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500")">
+                @(Model.Lpn.Status == LpnStatus.InUse ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500")">
                 @Model.Lpn.Status
             </span>
         </div>

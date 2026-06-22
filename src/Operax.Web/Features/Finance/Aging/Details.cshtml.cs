@@ -14,7 +14,7 @@ namespace Operax.Web.Features.Finance.Aging;
 public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid   PartnerId { get; set; }
-    [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "RECEIVABLE";
+    [BindProperty(SupportsGet = true)] public string Direction { get; set; } = FinanceDirection.Receivable;
 
     public PartnerSummaryDto?   Partner  { get; set; }
     public List<PaymentLineDto> Lines    { get; set; } = [];

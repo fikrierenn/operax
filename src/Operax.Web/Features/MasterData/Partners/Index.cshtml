@@ -30,9 +30,9 @@
         </div>
         <select name="type" class="form-ctrl w-44 text-xs font-semibold" onchange="this.form.submit()">
             <option value="">Tüm Cari Tipleri</option>
-            <option value="CUSTOMER" selected="@(Model.Type == "CUSTOMER")">Müşteri</option>
-            <option value="VENDOR" selected="@(Model.Type == "VENDOR" || Model.Type == "SUPPLIER")">Tedarikçi</option>
-            <option value="BOTH" selected="@(Model.Type == "BOTH")">Hem Alıcı Hem Satıcı</option>
+            <option value="CUSTOMER" selected="@(Model.Type == PartnerType.Customer)">Müşteri</option>
+            <option value="VENDOR" selected="@(Model.Type == PartnerType.Vendor)">Tedarikçi</option>
+            <option value="BOTH" selected="@(Model.Type == PartnerType.Both)">Hem Alıcı Hem Satıcı</option>
         </select>
     </form>
     <table class="data-table w-full">
@@ -54,11 +54,11 @@
                         <div class="font-bold text-slate-800">@p.Name</div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        @if (p.Type == "VENDOR" || p.Type == "SUPPLIER")
+                        @if (p.Type == PartnerType.Vendor)
                         {
                             <span class="badge b-amber">Tedarikçi</span>
                         }
-                        else if (p.Type == "CUSTOMER")
+                        else if (p.Type == PartnerType.Customer)
                         {
                             <span class="badge b-blue">Müşteri</span>
                         }

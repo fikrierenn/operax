@@ -2,7 +2,7 @@
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.Payments.CreateModel
 @{
-    var isTahsilat = Model.Form.TxType == "INCOME";
+    var isTahsilat = Model.Form.TxType == TransactionType.Income;
     ViewData["Title"] = isTahsilat ? "Tahsilat Girişi" : "Ödeme Girişi";
 
     var header = new PageHeaderVm(

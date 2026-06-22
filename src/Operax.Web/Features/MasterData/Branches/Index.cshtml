@@ -66,11 +66,11 @@
                     <td>
                         @{
                             var (cls, lbl) = b.BranchType switch {
-                                "FABRIKA" => ("b-amber", "Fabrika"),
-                                "MAGAZA"  => ("b-green", "Mağaza"),
-                                "OFIS"    => ("b-gray",  "Ofis"),
-                                "MERKEZ"  => ("b-indigo","Merkez"),
-                                _         => ("b-blue",  "Şube")
+                                BranchType.Fabrika => ("b-amber", "Fabrika"),
+                                BranchType.Magaza  => ("b-green", "Mağaza"),
+                                BranchType.Ofis    => ("b-gray",  "Ofis"),
+                                BranchType.Merkez  => ("b-indigo","Merkez"),
+                                _                  => ("b-blue",  "Şube")
                             };
                         }
                         <span class="badge @cls">@lbl</span>

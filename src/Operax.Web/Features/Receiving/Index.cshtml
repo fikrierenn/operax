@@ -134,8 +134,8 @@
                     <td class="font-semibold text-slate-700">@r.PartnerName</td>
                     <td class="text-xs font-bold text-slate-500">@r.WarehouseCode</td>
                     <td>
-                        <span class="badge @(r.Status == "POSTED" ? "b-green" : r.Status == "CANCELLED" ? "b-red" : "b-amber")">
-                            @(r.Status == "POSTED" ? "Tamamlandı" : r.Status == "CANCELLED" ? "İptal" : "Taslak")
+                        <span class="badge @(r.Status == DocStatus.Posted ? "b-green" : r.Status == DocStatus.Cancelled ? "b-red" : "b-amber")">
+                            @(r.Status == DocStatus.Posted ? "Tamamlandı" : r.Status == DocStatus.Cancelled ? "İptal" : "Taslak")
                         </span>
                     </td>
                     <td>

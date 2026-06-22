@@ -54,8 +54,8 @@
                     var vPct = b.TotalPlannedOut > 0 ? (int)(b.TotalActualOut / b.TotalPlannedOut * 100) : 0;
                     var actClass = vPct > 100 ? "font-mono font-bold text-red-600" : "font-mono font-bold text-slate-900";
                     var barClass = vPct > 100 ? "h-full bg-red-500 rounded" : "h-full bg-green-500 rounded";
-                    var sBadge = b.Status == "APPROVED" ? "badge b-green" : b.Status == "CLOSED" ? "badge b-gray" : "badge b-indigo";
-                    var sLabel = b.Status == "DRAFT" ? "Taslak" : b.Status == "APPROVED" ? "Onaylı" : b.Status == "CLOSED" ? "Kapalı" : b.Status;
+                    var sBadge = b.Status == BudgetStatus.Approved ? "badge b-green" : b.Status == BudgetStatus.Closed ? "badge b-gray" : "badge b-indigo";
+                    var sLabel = b.Status == BudgetStatus.Draft ? "Taslak" : b.Status == BudgetStatus.Approved ? "Onaylı" : b.Status == BudgetStatus.Closed ? "Kapalı" : b.Status;
                     <tr>
                         <td><div class="font-mono font-bold text-indigo-600">@b.Year</div><div class="text-[10px] text-slate-400 font-mono">@b.Code</div></td>
                         <td class="font-medium text-slate-700">@b.Name</td>

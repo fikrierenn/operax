@@ -60,7 +60,7 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
         public string Code { get; set; } = "";
         public string Name { get; set; } = "";
         public string? City { get; set; }
-        public string BranchType { get; set; } = "SUBE";
+        public string BranchType { get; set; } = Operax.Web.Lib.BranchType.Sube;
         public bool IsActive { get; set; }
         public int WarehouseCount { get; set; }
     }

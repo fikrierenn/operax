@@ -49,7 +49,7 @@
                         <th class="num">Fark</th>
                         <th class="num">Sapma %</th>
                         <th>Tarih</th>
-                        @if (Model.Tab == "DRAFT")
+                        @if (Model.Tab == DocStatus.Draft)
                         {
                             <th style="width:160px;">İşlem</th>
                         }
@@ -80,7 +80,7 @@
                                 </span>
                             </td>
                             <td class="mono muted">@v.CreatedAt.ToString("dd MMM yyyy")</td>
-                            @if (Model.Tab == "DRAFT")
+                            @if (Model.Tab == DocStatus.Draft)
                             {
                                 <td>
                                     <div class="row" style="gap:4px;">

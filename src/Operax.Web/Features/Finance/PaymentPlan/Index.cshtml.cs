@@ -15,7 +15,7 @@ namespace Operax.Web.Features.Finance.PaymentPlan;
 public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "all";  // all/RECEIVABLE/PAYABLE
-    [BindProperty(SupportsGet = true)] public string Status    { get; set; } = "OPEN"; // OPEN/PARTIAL/PAID/OVERDUE/all
+    [BindProperty(SupportsGet = true)] public string Status    { get; set; } = PaymentPlanStatus.Open; // OPEN/PARTIAL/PAID/OVERDUE/all
 
     // Sayfalama (PF-1) — Items/Index template'i
     [BindProperty(SupportsGet = true)] public new int Page { get; set; } = 1;

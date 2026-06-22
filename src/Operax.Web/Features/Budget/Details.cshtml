@@ -9,7 +9,7 @@
         <h2 class="text-2xl font-bold text-slate-800">@(Model.IsNew ? "Yeni Bütçe Planı" : Model.Form.Name)</h2>
         @if (!Model.IsNew)
         {
-            var typeLabel = Model.Form.Type == "OPERATIONAL" ? "Operasyonel" : Model.Form.Type == "CASH_FLOW" ? "Nakit Akışı" : Model.Form.Type == "INVESTMENT" ? "Yatırım" : Model.Form.Type;
+            var typeLabel = Model.Form.Type == BudgetType.Operational ? "Operasyonel" : Model.Form.Type == BudgetType.CashFlow ? "Nakit Akışı" : Model.Form.Type == BudgetType.Investment ? "Yatırım" : Model.Form.Type;
             <p class="text-sm text-slate-500 mt-0.5">@Model.Form.Year yılı · @typeLabel</p>
         }
     </div>

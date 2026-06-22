@@ -38,14 +38,14 @@
             </a>
         }
 
-        @if (Model.Order.Status != "COMPLETED" && Model.Lines.Any() && Model.Lines.All(l => l.QtyIssued >= l.QtyRequired))
+        @if (Model.Order.Status != ProductionStatus.Completed && Model.Lines.Any() && Model.Lines.All(l => l.QtyIssued >= l.QtyRequired))
         {
             <button onclick="document.getElementById('finish-modal').classList.remove('hidden')" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition-all text-sm shadow-lg shadow-green-100">
                 Üretimi Tamamla
             </button>
         }
 
-        @if (Model.Order.Status == DocStatus.Completed)
+        @if (Model.Order.Status == ProductionStatus.Completed)
         {
             <form method="post" asp-page-handler="Reverse">
                 <button type="submit" class="btn btn-danger"

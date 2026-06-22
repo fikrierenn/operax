@@ -15,8 +15,8 @@
         Tabs: new[]
         {
             new TabVm(L.T("Tümü", "All"),             "all",         Model.DirCounts.Total),
-            new TabVm(L.T("Alacaklar", "Receivable"), "RECEIVABLE",  Model.DirCounts.Receivable),
-            new TabVm(L.T("Borçlar", "Payable"),      "PAYABLE",     Model.DirCounts.Payable),
+            new TabVm(L.T("Alacaklar", "Receivable"), FinanceDirection.Receivable,  Model.DirCounts.Receivable),
+            new TabVm(L.T("Borçlar", "Payable"),      FinanceDirection.Payable,     Model.DirCounts.Payable),
         },
         ActiveValue: Model.Direction,
         QueryParamName: "direction"
@@ -31,13 +31,13 @@
 
         <div class="data-table-toolbar">
             <a href="?direction=@Model.Direction&status=OPEN"
-               class="chip @(Model.Status == "OPEN" ? "active" : "")">@L.T("Açık", "Open")</a>
+               class="chip @(Model.Status == PaymentPlanStatus.Open ? "active" : "")">@L.T("Açık", "Open")</a>
             <a href="?direction=@Model.Direction&status=PARTIAL"
-               class="chip @(Model.Status == "PARTIAL" ? "active" : "")">@L.T("Kısmi", "Partial")</a>
+               class="chip @(Model.Status == PaymentPlanStatus.Partial ? "active" : "")">@L.T("Kısmi", "Partial")</a>
             <a href="?direction=@Model.Direction&status=PAID"
-               class="chip @(Model.Status == "PAID" ? "active" : "")">@L.T("Ödendi", "Paid")</a>
+               class="chip @(Model.Status == PaymentPlanStatus.Paid ? "active" : "")">@L.T("Ödendi", "Paid")</a>
             <a href="?direction=@Model.Direction&status=OVERDUE"
-               class="chip @(Model.Status == "OVERDUE" ? "active" : "")">@L.T("Gecikmiş", "Overdue")</a>
+               class="chip @(Model.Status == PaymentPlanStatus.Overdue ? "active" : "")">@L.T("Gecikmiş", "Overdue")</a>
             <a href="?direction=@Model.Direction&status=all"
                class="chip @(Model.Status == "all" ? "active" : "")">@L.T("Hepsi", "All")</a>
         </div>
@@ -68,22 +68,22 @@
                 <tbody>
                     @foreach (var pp in Model.Plans)
                     {
-                        var dirBadge = pp.Direction == "RECEIVABLE"
+                        var dirBadge = pp.Direction == FinanceDirection.Receivable
                             ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALACAK</span>"
                             : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BORÇ</span>";
 
                         string statusBadge = pp.Status switch
                         {
-                            "OPEN"    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AÇIK</span>",
-                            "PARTIAL" => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KISMİ</span>",
-                            "PAID"    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
-                            "OVERDUE" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
+                            PaymentPlanStatus.Open    => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>AÇIK</span>",
+                            PaymentPlanStatus.Partial => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KISMİ</span>",
+                            PaymentPlanStatus.Paid    => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+                            PaymentPlanStatus.Overdue => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>GECİKMİŞ</span>",
                             _         => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{pp.Status}</span>"
                         };
 
                         var remaining = pp.Amount - pp.PaidAmount;
-                        var vadeColor = pp.DaysOverdue > 0 && pp.Status != "PAID" ? "var(--danger-text)"
-                            : pp.DaysOverdue >= -7 && pp.Status != "PAID" ? "var(--warn-text)" : "var(--text-2)";
+                        var vadeColor = pp.DaysOverdue > 0 && pp.Status != PaymentPlanStatus.Paid ? "var(--danger-text)"
+                            : pp.DaysOverdue >= -7 && pp.Status != PaymentPlanStatus.Paid ? "var(--warn-text)" : "var(--text-2)";
 
                         <tr>
                             <td>@Html.Raw(dirBadge)</td>
@@ -95,7 +95,7 @@
                             <td class="mono muted">@pp.InstallmentNo / @pp.TotalInstallments</td>
                             <td class="mono" style="color:@vadeColor;">
                                 @UiHelpers.FmtDateShort(pp.DueDate)
-                                @if (pp.DaysOverdue > 0 && pp.Status != "PAID")
+                                @if (pp.DaysOverdue > 0 && pp.Status != PaymentPlanStatus.Paid)
                                 {
                                     <div class="row-sub" style="color:var(--danger-text);">+@pp.DaysOverdue @L.T("gün", "day")</div>
                                 }

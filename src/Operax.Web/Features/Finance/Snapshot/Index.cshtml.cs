@@ -62,7 +62,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         logger.LogInformation(
             "Mali durum: tarih={Date}, varlık={Assets}, yükümlülük={Liabilities}, kredi={Loans}",
             EffectiveDate.ToString("yyyy-MM-dd"), AssetTotal, LiabilityTotal,
-            LoanSummary.Where(l => l.Status == "ACTIVE").Sum(l => l.TotalRemainingDebt));
+            LoanSummary.Where(l => l.Status == LoanStatus.Active).Sum(l => l.TotalRemainingDebt));
     }
 
     // ─── DTO'lar ────────────────────────────────────────────────

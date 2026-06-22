@@ -1,8 +1,8 @@
 @using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.DetailsModel
 @{
-    var iIn  = Model.Instruments.Where(x => x.Direction == "RECEIVED").Sum(x => x.Amount);
-    var iOut = Model.Instruments.Where(x => x.Direction == "ISSUED").Sum(x => x.Amount);
+    var iIn  = Model.Instruments.Where(x => x.Direction == ChequeDirection.Received).Sum(x => x.Amount);
+    var iOut = Model.Instruments.Where(x => x.Direction == ChequeDirection.Issued).Sum(x => x.Amount);
 }
 
 <div class="kpi-grid" style="margin-bottom:14px;">
@@ -37,7 +37,7 @@
                     <tr data-route="@route" style="cursor:pointer;" onclick="location.href=this.dataset.route">
                         <td><span class="badge badge-neutral"><span class="badge-dot"></span>@ins.Kind.ToUpper()</span></td>
                         <td>
-                            @if (ins.Direction == "RECEIVED")
+                            @if (ins.Direction == ChequeDirection.Received)
                             {
                                 <span class="badge badge-success">Alınan</span>
                             }

@@ -16,10 +16,10 @@
         Tabs: new[]
         {
             new TabVm(L.T("Tümü", "All"),               "all",       Model.Counts.Total),
-            new TabVm(L.T("Portföyde", "Portfolio"),   "PORTFOLIO", Model.Counts.Portfolio),
-            new TabVm(L.T("Bankada", "In Bank"),        "IN_BANK",   Model.Counts.InBank),
-            new TabVm(L.T("Tahsil", "Collected"),       "COLLECTED", Model.Counts.Collected),
-            new TabVm(L.T("Karşılıksız", "Returned"),   "RETURNED",  Model.Counts.Returned),
+            new TabVm(L.T("Portföyde", "Portfolio"),   ChequeStatus.Portfolio, Model.Counts.Portfolio),
+            new TabVm(L.T("Bankada", "In Bank"),        ChequeStatus.InBank,   Model.Counts.InBank),
+            new TabVm(L.T("Tahsil", "Collected"),       ChequeStatus.Collected, Model.Counts.Collected),
+            new TabVm(L.T("Karşılıksız", "Returned"),   ChequeStatus.Returned,  Model.Counts.Returned),
         },
         ActiveValue: Model.Status,
         QueryParamName: "status"
@@ -37,9 +37,9 @@
         <span class="spacer"></span>
         <a class="btn @(Model.Direction == "all" ? "btn-primary" : "btn-ghost") btn-sm"
            href="?type=@Model.Type&direction=all">@L.T("Tümü", "All")</a>
-        <a class="btn @(Model.Direction == "RECEIVED" ? "btn-primary" : "btn-ghost") btn-sm"
+        <a class="btn @(Model.Direction == ChequeDirection.Received ? "btn-primary" : "btn-ghost") btn-sm"
            href="?type=@Model.Type&direction=RECEIVED">@L.T("Alınan", "Received")</a>
-        <a class="btn @(Model.Direction == "ISSUED" ? "btn-primary" : "btn-ghost") btn-sm"
+        <a class="btn @(Model.Direction == ChequeDirection.Issued ? "btn-primary" : "btn-ghost") btn-sm"
            href="?type=@Model.Type&direction=ISSUED">@L.T("Verilen", "Issued")</a>
     </div>
 
@@ -71,17 +71,17 @@
                 <tbody>
                     @foreach (var c in Model.Items)
                     {
-                        var dirBadge = c.Direction == "RECEIVED"
+                        var dirBadge = c.Direction == ChequeDirection.Received
                             ? "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ALINAN</span>"
                             : "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>VERİLEN</span>";
 
                         string statusBadge = c.Status switch
                         {
-                            "PORTFOLIO" => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖY</span>",
-                            "IN_BANK"   => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
-                            "COLLECTED" => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL</span>",
-                            "RETURNED"  => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
-                            "PAID"      => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
+                            ChequeStatus.Portfolio => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>PORTFÖY</span>",
+                            ChequeStatus.InBank   => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>BANKADA</span>",
+                            ChequeStatus.Collected => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>TAHSİL</span>",
+                            ChequeStatus.Returned  => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KARŞILIKSIZ</span>",
+                            ChequeStatus.Paid      => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>ÖDENDİ</span>",
                             _           => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{c.Status}</span>"
                         };
 
@@ -105,7 +105,7 @@
                             <td class="muted">@(c.PartnerName ?? "—")</td>
                             <td class="mono" style="color:@vadeColor;">
                                 @UiHelpers.FmtDateShort(c.DueDate)
-                                @if (c.Status == "PORTFOLIO" || c.Status == "IN_BANK")
+                                @if (c.Status == ChequeStatus.Portfolio || c.Status == ChequeStatus.InBank)
                                 {
                                     <div class="row-sub" style="color:@vadeColor;">
                                         @(c.DaysToDue >= 0 ? $"+{c.DaysToDue}" : c.DaysToDue.ToString()) @L.T("gün", "day")

@@ -8,7 +8,7 @@
     ViewData["Title"] = titleText;
 
     var isDraft     = Model.Header.Status == DocStatus.Draft;
-    var isPosted    = Model.Header.Status == "APPROVED" || Model.Header.Status == DocStatus.Posted;
+    var isPosted    = Model.Header.Status == DocStatus.Approved || Model.Header.Status == DocStatus.Posted;
     var isCancelled = Model.Header.Status == DocStatus.Cancelled;
 
     var flowSteps = new List<StatusStepVm>

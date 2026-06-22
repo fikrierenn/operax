@@ -20,17 +20,17 @@
     </div>
     <div class="kpi">
         <span class="kpi-label">Kullanımda</span>
-        <div class="kpi-val text-green-600">@Model.Lpns.Count(x => x.Status == "IN_USE")</div>
+        <div class="kpi-val text-green-600">@Model.Lpns.Count(x => x.Status == LpnStatus.InUse)</div>
         <span class="kpi-sub">Stok taşıyan paletler</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Boş / Müsait</span>
-        <div class="kpi-val text-amber-500">@Model.Lpns.Count(x => x.Status == "AVAILABLE")</div>
+        <div class="kpi-val text-amber-500">@Model.Lpns.Count(x => x.Status == LpnStatus.Available)</div>
         <span class="kpi-sub">Kullanılabilir paletler</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Sevk Edildi</span>
-        <div class="kpi-val text-slate-400">@Model.Lpns.Count(x => x.Status == "SHIPPED")</div>
+        <div class="kpi-val text-slate-400">@Model.Lpns.Count(x => x.Status == LpnStatus.Shipped)</div>
         <span class="kpi-sub">Sevkiyat yapılan paletler</span>
     </div>
 </div>
@@ -56,25 +56,25 @@
                     <td class="font-mono font-bold text-indigo-600 tracking-tight">@lpn.Code</td>
                     <td>
                         <span class="badge b-gray">@(lpn.LpnType switch {
-                            "PALLET" => "Palet",
-                            "BOX"    => "Kutu",
-                            "CARTON" => "Koli",
-                            _        => lpn.LpnType
+                            LpnType.Pallet => "Palet",
+                            LpnType.Box    => "Kutu",
+                            LpnType.Carton => "Koli",
+                            _              => lpn.LpnType
                         })</span>
                     </td>
                     <td>
                         <span class="badge @(lpn.Status switch {
-                            "IN_USE"    => "b-green",
-                            "AVAILABLE" => "b-indigo",
-                            "LOADED"    => "b-blue",
-                            "SHIPPED"   => "b-gray",
-                            _           => "b-gray"
+                            LpnStatus.InUse     => "b-green",
+                            LpnStatus.Available => "b-indigo",
+                            LpnStatus.Loaded    => "b-blue",
+                            LpnStatus.Shipped   => "b-gray",
+                            _                   => "b-gray"
                         })">@(lpn.Status switch {
-                            "IN_USE"    => "Kullanımda",
-                            "AVAILABLE" => "Müsait",
-                            "LOADED"    => "Yüklendi",
-                            "SHIPPED"   => "Sevk Edildi",
-                            _           => lpn.Status
+                            LpnStatus.InUse     => "Kullanımda",
+                            LpnStatus.Available => "Müsait",
+                            LpnStatus.Loaded    => "Yüklendi",
+                            LpnStatus.Shipped   => "Sevk Edildi",
+                            _                   => lpn.Status
                         })</span>
                     </td>
                     <td>

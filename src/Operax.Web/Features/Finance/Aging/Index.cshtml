@@ -4,7 +4,7 @@
 @{
     ViewData["Title"] = L.T("Yaşlandırma", "Aging Report");
 
-    var noun = Model.Direction == "PAYABLE" ? L.T("Borç", "Payable") : L.T("Alacak", "Receivable");
+    var noun = Model.Direction == FinanceDirection.Payable ? L.T("Borç", "Payable") : L.T("Alacak", "Receivable");
 
     // Dışa aktar + yazdır aksiyonları (ortak export/print — Plan 40). no-print: baskıda gizlenir.
     var actions = $"<a class=\"btn btn-secondary btn-sm no-print\" href=\"?direction={Model.Direction}&handler=Export\">{L.T("Excel (CSV)", "Excel (CSV)")}</a>"
@@ -28,9 +28,9 @@
     </div>
 
     <div class="row no-print" style="gap:8px;margin-bottom:14px;">
-        <a class="btn @(Model.Direction == "RECEIVABLE" ? "btn-primary" : "btn-secondary") btn-sm"
+        <a class="btn @(Model.Direction == FinanceDirection.Receivable ? "btn-primary" : "btn-secondary") btn-sm"
            href="?direction=RECEIVABLE">@L.T("Alacaklar", "Receivable")</a>
-        <a class="btn @(Model.Direction == "PAYABLE" ? "btn-primary" : "btn-secondary") btn-sm"
+        <a class="btn @(Model.Direction == FinanceDirection.Payable ? "btn-primary" : "btn-secondary") btn-sm"
            href="?direction=PAYABLE">@L.T("Borçlar", "Payable")</a>
     </div>
 

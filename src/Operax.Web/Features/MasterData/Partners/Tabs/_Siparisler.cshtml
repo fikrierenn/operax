@@ -31,11 +31,11 @@
         <label class="form-label" style="margin:0;">Durum</label>
         <select name="sf" class="form-ctrl" onchange="this.form.submit()" style="width:180px;">
             <option value="">Tüm Durumlar</option>
-            <option value="DRAFT" selected="@(Model.OrderStatus == "DRAFT")">Taslak</option>
-            <option value="APPROVED" selected="@(Model.OrderStatus == "APPROVED")">Onaylı</option>
-            <option value="POSTED" selected="@(Model.OrderStatus == "POSTED")">İşlendi</option>
-            <option value="PENDING" selected="@(Model.OrderStatus == "PENDING")">Bekliyor</option>
-            <option value="CANCELLED" selected="@(Model.OrderStatus == "CANCELLED")">İptal</option>
+            <option value="DRAFT" selected="@(Model.OrderStatus == DocStatus.Draft)">Taslak</option>
+            <option value="APPROVED" selected="@(Model.OrderStatus == DocStatus.Approved)">Onaylı</option>
+            <option value="POSTED" selected="@(Model.OrderStatus == DocStatus.Posted)">İşlendi</option>
+            <option value="PENDING" selected="@(Model.OrderStatus == DocStatus.Pending)">Bekliyor</option>
+            <option value="CANCELLED" selected="@(Model.OrderStatus == DocStatus.Cancelled)">İptal</option>
         </select>
     </form>
 

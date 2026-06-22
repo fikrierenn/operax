@@ -96,9 +96,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             // İş kuralı: eski/eksik veride null sayısal alanlar 0 olarak gelir; form min kısıtını
             // ihlal edip kaydetmeyi engeller (örn. RiskScore=0 < min 1). Geçerli varsayılana çek.
             if (Partner.RiskScore is < 1 or > 5)               Partner.RiskScore = 3;
-            if (string.IsNullOrWhiteSpace(Partner.RiskCategory)) Partner.RiskCategory = "MEDIUM";
-            if (string.IsNullOrWhiteSpace(Partner.DefaultPaymentMethod)) Partner.DefaultPaymentMethod = "EFT";
-            if (string.IsNullOrWhiteSpace(Partner.PaymentTermPolicy)) Partner.PaymentTermPolicy = "NET";
+            if (string.IsNullOrWhiteSpace(Partner.RiskCategory)) Partner.RiskCategory = RiskCategory.Medium;
+            if (string.IsNullOrWhiteSpace(Partner.DefaultPaymentMethod)) Partner.DefaultPaymentMethod = InstrumentType.Eft;
+            if (string.IsNullOrWhiteSpace(Partner.PaymentTermPolicy)) Partner.PaymentTermPolicy = PaymentTermPolicy.Net;
 
             // İş kuralı: ağır tab verisi yalnızca ilgili tab seçiliyse çekilir (lazy)
             if (Partner.Id != Guid.Empty)
@@ -114,14 +114,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         else
         {
             Partner.IsActive             = true;
-            Partner.Type                 = "BOTH";
+            Partner.Type                 = PartnerType.Both;
             Partner.RiskScore            = 3;
-            Partner.RiskCategory         = "MEDIUM";
+            Partner.RiskCategory         = RiskCategory.Medium;
             // Yeni cari varsayılan ödeme vadesi parametreden (Plan 29)
             var termDays                 = await parameters.GetIntAsync("DEFAULT_PAYMENT_TERM_DAYS", 30);
             Partner.MaxOverdueDays       = termDays;
             Partner.PaymentTermDays      = termDays;
-            Partner.DefaultPaymentMethod = "EFT";
+            Partner.DefaultPaymentMethod = InstrumentType.Eft;
         }
     }
 
@@ -333,8 +333,8 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     {
         var docType = type switch
         {
-            "CUSTOMER" => NumberSeriesType.PartnerCustomer,
-            "VENDOR"   => NumberSeriesType.PartnerVendor,
+            PartnerType.Customer => NumberSeriesType.PartnerCustomer,
+            PartnerType.Vendor   => NumberSeriesType.PartnerVendor,
             _          => NumberSeriesType.PartnerBoth
         };
         return await numberSeries.NextAsync(company.Id, docType);
@@ -440,7 +440,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public Guid    Id                    { get; set; }
         public string  Code                  { get; set; } = "";
         public string  Name                  { get; set; } = "";
-        public string  Type                  { get; set; } = "BOTH";
+        public string  Type                  { get; set; } = PartnerType.Both;
         public string? TaxNumber             { get; set; }
         public string? Email                 { get; set; }
         public string? Phone                 { get; set; }
@@ -449,13 +449,13 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public string? Notes                 { get; set; }
         public string? AdditionalFields      { get; set; }   // Dinamik UDF JSON çantası (servisle doldurulur)
         public int     PaymentTermDays       { get; set; } = 30;
-        public string  PaymentTermPolicy     { get; set; } = "NET";
+        public string  PaymentTermPolicy     { get; set; } = Operax.Web.Lib.PaymentTermPolicy.Net;
         public decimal CreditLimit           { get; set; }
         public bool    BlockOnLimitExceed    { get; set; }
         public byte    RiskScore             { get; set; } = 3;
-        public string  RiskCategory          { get; set; } = "MEDIUM";
+        public string  RiskCategory          { get; set; } = Operax.Web.Lib.RiskCategory.Medium;
         public int     MaxOverdueDays        { get; set; } = 30;
-        public string  DefaultPaymentMethod  { get; set; } = "EFT";
+        public string  DefaultPaymentMethod  { get; set; } = InstrumentType.Eft;
         public bool    EFaturaMukellef       { get; set; }
         public string? EFaturaAlias          { get; set; }
         public string? IbanForRefund         { get; set; }

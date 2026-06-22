@@ -7,16 +7,16 @@
 
     var riskBadge = p.RiskCategory switch
     {
-        "LOW"     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>DÜŞÜK</span>",
-        "HIGH"    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>YÜKSEK</span>",
-        "BLOCKED" => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>BLOKE</span>",
-        _         => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>ORTA</span>"
+        RiskCategory.Low     => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>DÜŞÜK</span>",
+        RiskCategory.High    => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>YÜKSEK</span>",
+        RiskCategory.Blocked => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>BLOKE</span>",
+        _                    => "<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>ORTA</span>"
     };
 
     var header = new PageHeaderVm(
         Title: p.Name,
         Crumbs: new[] { "Anasayfa", "Finans", "Yaşlandırma", p.Code },
-        Sub: $"{p.Code} · {(Model.Direction == "RECEIVABLE" ? "Alacak" : "Borç")}",
+        Sub: $"{p.Code} · {(Model.Direction == FinanceDirection.Receivable ? "Alacak" : "Borç")}",
         ActionsHtml: $"<a href=\"/Finance/Aging\" class=\"btn btn-ghost btn-sm\">Geri</a>"
     );
 }
@@ -101,11 +101,11 @@
                             <td class="mono muted">@UiHelpers.FmtDateShort(l.DueDate)</td>
                             <td class="mono">@(l.SourceDocNo ?? "—")</td>
                             <td>
-                                @if (l.Status == "OVERDUE")
+                                @if (l.Status == PaymentPlanStatus.Overdue)
                                 {
                                     <span class="badge badge-danger"><span class="badge-dot"></span>GECİKMİŞ</span>
                                 }
-                                else if (l.Status == "PARTIAL")
+                                else if (l.Status == PaymentPlanStatus.Partial)
                                 {
                                     <span class="badge badge-warn"><span class="badge-dot"></span>KISMİ</span>
                                 }

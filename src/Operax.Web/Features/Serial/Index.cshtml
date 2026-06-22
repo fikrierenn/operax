@@ -20,17 +20,17 @@
     </div>
     <div class="kpi">
         <span class="kpi-label">Depoda</span>
-        <div class="kpi-val text-green-600">@Model.Serials.Count(x => x.Status == "IN_STOCK")</div>
+        <div class="kpi-val text-green-600">@Model.Serials.Count(x => x.Status == SerialStatus.InStock)</div>
         <span class="kpi-sub">Stokta bulunan</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Sevk Edildi</span>
-        <div class="kpi-val text-slate-500">@Model.Serials.Count(x => x.Status == "SHIPPED")</div>
+        <div class="kpi-val text-slate-500">@Model.Serials.Count(x => x.Status == SerialStatus.Shipped)</div>
         <span class="kpi-sub">Müşteriye gönderilen</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Karantina</span>
-        <div class="kpi-val text-amber-500">@Model.Serials.Count(x => x.Status == "QUARANTINE")</div>
+        <div class="kpi-val text-amber-500">@Model.Serials.Count(x => x.Status == SerialStatus.Quarantine)</div>
         <span class="kpi-sub">Kontrol bekleyen</span>
     </div>
 </div>
@@ -73,17 +73,17 @@
                     </td>
                     <td>
                         <span class="badge @(s.Status switch {
-                            "IN_STOCK"   => "b-green",
-                            "SHIPPED"    => "b-gray",
-                            "SCRAPPED"   => "b-red",
-                            "QUARANTINE" => "b-amber",
-                            _            => "b-gray"
+                            SerialStatus.InStock    => "b-green",
+                            SerialStatus.Shipped    => "b-gray",
+                            SerialStatus.Scrapped   => "b-red",
+                            SerialStatus.Quarantine => "b-amber",
+                            _                       => "b-gray"
                         })">@(s.Status switch {
-                            "IN_STOCK"   => "Depoda",
-                            "SHIPPED"    => "Sevk Edildi",
-                            "SCRAPPED"   => "Hurda",
-                            "QUARANTINE" => "Karantina",
-                            _            => s.Status
+                            SerialStatus.InStock    => "Depoda",
+                            SerialStatus.Shipped    => "Sevk Edildi",
+                            SerialStatus.Scrapped   => "Hurda",
+                            SerialStatus.Quarantine => "Karantina",
+                            _                       => s.Status
                         })</span>
                     </td>
                     <td class="font-mono text-slate-600 text-xs">@(s.LotNo ?? "—")</td>

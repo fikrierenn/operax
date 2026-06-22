@@ -24,13 +24,13 @@
             <a asp-page="./Index" class="btn btn-secondary">
                 Listeye Dön
             </a>
-            @if (Model.IsNew || Model.Header.Status == "DRAFT")
+            @if (Model.IsNew || Model.Header.Status == DocStatus.Draft)
             {
                 <button type="submit" class="btn btn-primary" data-shortcut="Alt+S">
                     Taslak Kaydet
                 </button>
             }
-            @if (!Model.IsNew && Model.Header.Status == "DRAFT")
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Draft)
             {
                 <button type="submit" asp-page-handler="Post" class="btn btn-success" data-shortcut="Alt+P">
                     Stoğa Aktar (Onayla)
@@ -116,7 +116,7 @@
         <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
             <label class="form-label md:text-right">Belge Durumu</label>
             <div class="mt-1">
-                <span class="badge @(Model.Header.Status == "POSTED" ? "b-green" : "b-amber") font-mono font-bold">
+                <span class="badge @(Model.Header.Status == DocStatus.Posted ? "b-green" : "b-amber") font-mono font-bold">
                     @Model.Header.Status
                 </span>
             </div>
@@ -203,7 +203,7 @@
     <div class="card mb-6">
         <div class="card-hdr bg-slate-50/50">
             <span class="card-ttl">KABUL EDİLEN ÜRÜNLER</span>
-            @if (Model.Header.Status == "DRAFT")
+            @if (Model.Header.Status == DocStatus.Draft)
             {
                 <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
                     + Ürün Ekle
@@ -235,7 +235,7 @@
                                 @(string.IsNullOrEmpty(line.LotNo) ? "-" : line.LotNo)
                             </td>
                             <td class="text-right">
-                                @if (Model.Header.Status == "DRAFT")
+                                @if (Model.Header.Status == DocStatus.Draft)
                                 {
                                     <button class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition" type="button">Çıkar</button>
                                 }

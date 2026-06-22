@@ -27,7 +27,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, IAud
         // Ödeme formunu yükler; belge zinciri ön-doldurma parametrelerini destekler
         await LoadDropdownsAsync(ct);
         Form.TxType         = txType ?? TransactionType.Income;
-        Form.InstrumentType = "EFT";
+        Form.InstrumentType = InstrumentType.Eft;
         Form.Currency       = "TRY";
         if (partnerId.HasValue)  Form.PartnerId = partnerId.Value;
         if (amount.HasValue)     Form.Amount    = amount.Value;

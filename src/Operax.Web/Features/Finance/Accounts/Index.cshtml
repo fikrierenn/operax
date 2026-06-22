@@ -15,10 +15,10 @@
         Tabs: new[]
         {
             new TabVm(L.T("Tümü", "All"),          "all",         Model.Counts.Total),
-            new TabVm(L.T("Kasa", "Cash"),         "CASH",        Model.Counts.Cash),
-            new TabVm(L.T("Banka", "Bank"),        "BANK",        Model.Counts.Bank),
-            new TabVm(L.T("Kredi Kartı", "Card"),  "CREDIT_CARD", Model.Counts.Card),
-            new TabVm(L.T("Kredi", "Loan"),        "LOAN",        Model.Counts.Loan),
+            new TabVm(L.T("Kasa", "Cash"),         AccountType.Cash,       Model.Counts.Cash),
+            new TabVm(L.T("Banka", "Bank"),        AccountType.Bank,       Model.Counts.Bank),
+            new TabVm(L.T("Kredi Kartı", "Card"),  AccountType.CreditCard, Model.Counts.Card),
+            new TabVm(L.T("Kredi", "Loan"),        AccountType.Loan,       Model.Counts.Loan),
         },
         ActiveValue: Model.Type,
         QueryParamName: "type"
@@ -63,10 +63,10 @@
                                 @{
                                     string tBadge = a.AccountType switch
                                     {
-                                        "CASH"        => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KASA</span>",
-                                        "BANK"        => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>BANKA</span>",
-                                        "CREDIT_CARD" => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KART</span>",
-                                        "LOAN"        => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KREDİ</span>",
+                                        AccountType.Cash       => "<span class=\"badge badge-success\"><span class=\"badge-dot\"></span>KASA</span>",
+                                        AccountType.Bank       => "<span class=\"badge badge-info\"><span class=\"badge-dot\"></span>BANKA</span>",
+                                        AccountType.CreditCard => "<span class=\"badge badge-warn\"><span class=\"badge-dot\"></span>KART</span>",
+                                        AccountType.Loan       => "<span class=\"badge badge-danger\"><span class=\"badge-dot\"></span>KREDİ</span>",
                                         _             => $"<span class=\"badge badge-neutral\"><span class=\"badge-dot\"></span>{a.AccountType}</span>"
                                     };
                                 }

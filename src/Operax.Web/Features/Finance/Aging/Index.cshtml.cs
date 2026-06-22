@@ -14,7 +14,7 @@ namespace Operax.Web.Features.Finance.Aging;
 [Authorize]
 public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
-    [BindProperty(SupportsGet = true)] public string Direction { get; set; } = "RECEIVABLE";
+    [BindProperty(SupportsGet = true)] public string Direction { get; set; } = FinanceDirection.Receivable;
 
     public List<AgingRowDto> Rows   { get; set; } = [];
     public AgingTotalsDto    Totals { get; set; } = new(0, 0, 0, 0, 0, 0, 0);
@@ -58,7 +58,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public async Task<IActionResult> OnGetExportAsync(CancellationToken ct)
     {
         await OnGetAsync(ct);
-        var noun = Direction == "PAYABLE" ? "Borc" : "Alacak";
+        var noun = Direction == FinanceDirection.Payable ? "Borc" : "Alacak";
         var headers = new[] { "Cari", "Vade Gelmedi", "1-30", "31-60", "61-90", "90+", "Toplam", "Açık Sipariş" };
         var rows = Rows
             .Select(r => new object?[] { r.PartnerName, r.NotDue, r.Days1_30, r.Days31_60,

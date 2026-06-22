@@ -9,7 +9,7 @@
     var header = new PageHeaderVm(
         Title: $"{kind} {c.DocNo}",
         Crumbs: new[] { "Anasayfa", "Finans", "Çek & Senet", c.DocNo },
-        SubHtml: $"{(c.Direction == "RECEIVED" ? "Alınan" : "Verilen")} · {System.Net.WebUtility.HtmlEncode(c.DrawerName)} · " +
+        SubHtml: $"{(c.Direction == ChequeDirection.Received ? "Alınan" : "Verilen")} · {System.Net.WebUtility.HtmlEncode(c.DrawerName)} · " +
              $"Tutar <span class=\"mono text-strong\">{UiHelpers.FmtTL(c.Amount)}</span> · " +
              $"Vade <span class=\"mono\">{c.DueDate:dd MMM yyyy}</span>",
         ActionsHtml: $"<a href=\"/Finance/Cheques/Index?type={(Model.IsNote ? "note" : "cheque")}\" class=\"btn btn-secondary btn-sm\">Geri</a>"
@@ -28,7 +28,7 @@
         <div class="card-hdr">
             <div class="card-title">Durum: @Html.Raw(UiHelpers.StatusBadge(c.Status))</div>
             <div class="row" style="gap:6px;">
-                @if (c.Status == "PORTFOLIO")
+                @if (c.Status == ChequeStatus.Portfolio)
                 {
                     <form method="post" asp-page-handler="Deposit" class="row" style="gap:4px;">
                         <select name="accountId" class="form-ctrl" style="height:30px;width:160px;" required>
@@ -41,7 +41,7 @@
                         <button class="btn btn-primary btn-sm">Bankaya Ver</button>
                     </form>
                 }
-                @if (c.Status == "IN_BANK")
+                @if (c.Status == ChequeStatus.InBank)
                 {
                     <form method="post" asp-page-handler="Collect">
                         <button class="btn btn-success btn-sm">Tahsil Et</button>
@@ -51,7 +51,7 @@
                 }
             </div>
         </div>
-        @if (c.Status == "IN_BANK")
+        @if (c.Status == ChequeStatus.InBank)
         {
             <div class="card-body" id="returnForm" style="display:none;">
                 <form method="post" asp-page-handler="Return" class="row" style="gap:8px;">
@@ -80,7 +80,7 @@
                 }
                 <div class="form-group">
                     <label class="form-label">Yön</label>
-                    <div>@(c.Direction == "RECEIVED" ? "Alınan" : "Verilen")</div>
+                    <div>@(c.Direction == ChequeDirection.Received ? "Alınan" : "Verilen")</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Tutar</label>

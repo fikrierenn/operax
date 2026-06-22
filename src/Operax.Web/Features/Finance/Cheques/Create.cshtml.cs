@@ -22,7 +22,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
     public async Task OnGetAsync(CancellationToken ct)
     {
         await LoadPartnersAsync(ct);
-        Form.Direction = "RECEIVED";
+        Form.Direction = ChequeDirection.Received;
         Form.DocDate   = DateTime.Today;
         Form.DueDate   = DateTime.Today.AddDays(30);
         Form.Currency  = "TRY";
@@ -91,7 +91,7 @@ public class CreateModel(Db db, ICurrentCompany company, ICurrentUser user, INum
 
     public class ChequeForm
     {
-        public string   Direction   { get; set; } = "RECEIVED";
+        public string   Direction   { get; set; } = ChequeDirection.Received;
         public string   DocNo       { get; set; } = "";
         public string?  BankName    { get; set; }
         public string?  BranchName  { get; set; }

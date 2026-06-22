@@ -37,10 +37,11 @@
                     <td class="text-right font-mono font-bold text-green-600">@order.QtyProduced.ToString("N2")</td>
                     <td class="text-center">
                         <span class="badge @(order.Status switch {
-                            "COMPLETED"   => "b-green",
-                            "IN_PROGRESS" => "b-blue",
-                            "RELEASED"    => "b-indigo",
-                            _             => "b-gray"
+                            ProductionStatus.Completed  => "b-green",
+                            ProductionStatus.InProgress => "b-blue",
+                            // RELEASED ProductionStatus'ta yok (SP DRAFT→IN_PROGRESS→COMPLETED, Plan 41 A3) — savunmacı literal
+                            "RELEASED"                  => "b-indigo",
+                            _                           => "b-gray"
                         })">@order.Status</span>
                     </td>
                     <td class="text-right">

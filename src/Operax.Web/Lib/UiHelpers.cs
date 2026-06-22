@@ -125,41 +125,6 @@ public static class UiHelpers
     };
 
     /// <summary>
-    /// Kaynak belge tipi (SourceDocType) kodu → Türkçe etiket. Cari ekstre "İşlem/Evrak Türü" + stok
-    /// hareket kaynağı ekranlarında ham İngilizce kod yerine kullanılır (turkish-ui kuralı).
-    /// </summary>
-    public static string SourceDocLabel(string? code) => code switch
-    {
-        // Cari (AccountMovement) kaynakları
-        "SALES_INVOICE"     => "Satış Faturası",
-        "PURCHASE_INVOICE"  => "Alış Faturası",
-        "COLLECTION"        => "Tahsilat",
-        "PAYMENT"           => "Ödeme",
-        "INCOME"            => "Tahsilat",
-        "EXPENSE"           => "Ödeme",
-        "CHEQUE_COLLECTION" => "Çek Tahsilatı",
-        "LOAN_INSTALLMENT"  => "Kredi Taksiti",
-        "REVERSAL"          => "İptal / Ters Kayıt",
-        "CANCELLED"         => "İptal",
-        "FX_DIFF"           => "Kur Farkı",
-        "BACKFILL"          => "Devir",
-        "SEED"              => "Açılış",
-        "AVANS"             => "Avans",
-        // Stok / sipariş (StockMovement) kaynakları
-        "RECEIVING"         => "Mal Kabul",
-        "SHIPPING"          => "Sevkiyat",
-        "TRANSFER"          => "Transfer",
-        "CYCLE_COUNT"       => "Sayım",
-        "COUNT"             => "Sayım",
-        "PRODUCTION"        => "Üretim",
-        "CONSUMPTION"       => "Sarfiyat",
-        "PICKING"           => "Toplama",
-        "PURCHASE_ORDER"    => "Satınalma Siparişi",
-        "SALES_ORDER"       => "Satış Siparişi",
-        _                   => code ?? "—",
-    };
-
-    /// <summary>
     /// Ürün tipi kodu → Türkçe etiket.
     /// </summary>
     public static string ItemTypeLabel(string? code) => code switch

@@ -1,5 +1,6 @@
 @page
 @model Operax.Web.Features.Inventory.Movements.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Stok Hareketleri";
 }
@@ -103,7 +104,7 @@
                     </td>
                     <td>
                         <div class="text-xs font-bold text-slate-700">@m.SourceDocNo</div>
-                        <div class="text-[10px] text-slate-400 uppercase">@UiHelpers.SourceDocLabel(m.SourceDocType)</div>
+                        <div class="text-[10px] text-slate-400 uppercase">@Dict.Label("SOURCE_DOC_TYPE", m.SourceDocType)</div>
                     </td>
                 </tr>
             }

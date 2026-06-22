@@ -1,6 +1,7 @@
 @page "{id:guid}"
 @using Operax.Web.Lib
 @model Operax.Web.Features.MasterData.Partners.StatementModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Cari Ekstre";
     var p = Model.Partner!;
@@ -87,7 +88,7 @@
                 {
                     <tr>
                         <td class="mono muted">@r.MovementDate.ToString("dd.MM.yyyy")</td>
-                        <td>@UiHelpers.SourceDocLabel(r.SourceDocType)</td>
+                        <td>@Dict.Label("SOURCE_DOC_TYPE", r.SourceDocType)</td>
                         <td class="mono muted">@(string.IsNullOrEmpty(r.SourceDocNo) ? "—" : r.SourceDocNo)</td>
                         <td class="muted">@r.Description</td>
                         <td class="num">@(r.Debit != 0 ? UiHelpers.FmtTL(r.Debit) : "")</td>

@@ -12,7 +12,7 @@ namespace Operax.Web.Features.MasterData.Partners;
 /// hareketleri (yürüyen bakiye) + yaşlandırma kovalarını okur. Salt-okuma rapor — ledger'a dokunmaz.
 /// </summary>
 [Authorize]
-public class StatementModel(Db db, ICurrentCompany company) : PageModel
+public class StatementModel(Db db, ICurrentCompany company, IDictionaryLabels labels) : PageModel
 {
     public Guid PartnerId { get; set; }
     public CompanyInfoDto CompanyInfo { get; set; } = new("", null, null);
@@ -97,7 +97,7 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
         if (!IsOpenItem)
             yield return ["", "DEVİR", "", "", "", "", OpeningBalance];
         foreach (var r in Lines)
-            yield return [r.MovementDate, UiHelpers.SourceDocLabel(r.SourceDocType), r.SourceDocNo, r.Description,
+            yield return [r.MovementDate, labels.Label("SOURCE_DOC_TYPE", r.SourceDocType), r.SourceDocNo, r.Description,
                           r.Debit, r.Credit, r.RunningBalance];
         yield return ["", IsOpenItem ? "AÇIK TOPLAM" : "KAPANIŞ", "", "", "", "", ClosingBalance];
     }

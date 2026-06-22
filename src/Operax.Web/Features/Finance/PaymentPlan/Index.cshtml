@@ -1,6 +1,7 @@
 @page
 @using Operax.Web.Lib
 @model Operax.Web.Features.Finance.PaymentPlan.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = L.T("Ödeme Planı", "Payment Plan");
 
@@ -89,7 +90,7 @@
                             <td>@Html.Raw(dirBadge)</td>
                             <td>
                                 <div class="row-strong"><span class="mono">@pp.SourceDocNo</span></div>
-                                <div class="row-sub">@UiHelpers.SourceDocLabel(pp.SourceDocType)</div>
+                                <div class="row-sub">@Dict.Label("SOURCE_DOC_TYPE", pp.SourceDocType)</div>
                             </td>
                             <td>@(pp.PartnerName ?? "—")</td>
                             <td class="mono muted">@pp.InstallmentNo / @pp.TotalInstallments</td>

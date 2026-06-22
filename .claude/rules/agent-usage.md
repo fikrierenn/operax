@@ -33,6 +33,7 @@ Bu kural, ana ajanın (ben) işleri alt-ajanlara (subagent) NASIL dağıtacağı
 | Şema dosyaları ↔ canlı DB farkı | `db-schema-checker` | haiku |
 | T-SQL → PostgreSQL port (SP/TVF/View/sorgu) | `pgsql-porter` | opus |
 | Demo/test verisi seed SQL üret (FK-tutarlı, ledger SP'den, demo CompanyId) | `demo-data-builder` | sonnet |
+| Statü-vokabüler/yaşam-döngüsü/finansal-araç modelleme kararı (VT-kod uyumsuzluğu, kod kümesi tasarımı) | `erp-isleyis-danismani` | opus |
 | Hiçbiri uymuyor (genel çok-adımlı) | `general-purpose` | işe göre elle ata |
 
 ## 4. Paralellik ve Fan-out

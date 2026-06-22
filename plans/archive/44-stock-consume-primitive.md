@@ -1,7 +1,7 @@
 # Plan 44 — Stock Consume Primitive (Oversell/Concurrency Go-Live Blocker)
 
 **Tarih:** 2026-06-22
-**Durum:** Onay bekliyor
+**Durum:** ✅ TAMAMLANDI 2026-06-22 — 5 faz, her biri sql-sp-reviewer 0-CRITICAL. Stok motoru oversell/concurrency/idempotency/reversal/immutability/multi-bin sertifikalı (50-worker harness). Go-live blocker kapandı.
 **Tier:** 3 (ledger çekirdeği — yeni SP pattern + schema + 5 SP rewire + concurrency)
 **Paket:** V1 (go-live blocker)
 **Direktif:** EXECUTION-FIRST — Stock Movement Engine SAP-seviyesi güvenilirlik = birinci öncelik.

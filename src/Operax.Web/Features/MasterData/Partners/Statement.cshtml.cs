@@ -21,6 +21,10 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
     public DateTime DateFrom { get; set; }
     public DateTime DateTo { get; set; }
 
+    // Ekstre tipi: ALL = tüm hareket (devir+yürüyen) · OPEN = açık kalem (FIFO kapanmamış borçlar). Plan 39 Faz 2.
+    public string StatementType { get; set; } = "ALL";
+    public bool IsOpenItem => StatementType == "OPEN";
+
     public decimal OpeningBalance { get; set; }
     public List<StatementLineDto> Lines { get; set; } = [];
     public AgingDto Aging { get; set; } = new(0, 0, 0, 0);
@@ -28,12 +32,14 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
     // Kapanış bakiyesi: son satırın yürüyen bakiyesi (hareket yoksa devir)
     public decimal ClosingBalance => Lines.Count > 0 ? Lines[^1].RunningBalance : OpeningBalance;
 
-    public async Task<IActionResult> OnGetAsync(Guid id, DateTime? from, DateTime? to, CancellationToken ct)
+    public async Task<IActionResult> OnGetAsync(Guid id, DateTime? from, DateTime? to, string? type, CancellationToken ct)
     {
         // İş kuralı: tarih aralığı varsayılan son 90 gün (ekstre tipik dönem)
         DateFrom = from ?? DateTime.Today.AddDays(-90);
         DateTo   = to   ?? DateTime.Today;
         PartnerId = id;
+        // Güvenli beyaz-liste: yalnız ALL/OPEN SP'ye gider (geçersiz değer ALL'a düşer)
+        StatementType = type == "OPEN" ? "OPEN" : "ALL";
 
         using var conn = db.Open();
         if (!await LoadAsync(conn, id, ct)) return NotFound();
@@ -41,15 +47,17 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
     }
 
     /// <summary>Ekstreyi CSV olarak dışa aktarır (Excel uyumlu — UTF-8 BOM).</summary>
-    public async Task<IActionResult> OnGetExportAsync(Guid id, DateTime? from, DateTime? to, CancellationToken ct)
+    public async Task<IActionResult> OnGetExportAsync(Guid id, DateTime? from, DateTime? to, string? type, CancellationToken ct)
     {
         DateFrom = from ?? DateTime.Today.AddDays(-90);
         DateTo   = to   ?? DateTime.Today;
+        StatementType = type == "OPEN" ? "OPEN" : "ALL";
 
         using var conn = db.Open();
         if (!await LoadAsync(conn, id, ct)) return NotFound();
 
-        var fileName = $"Ekstre_{Partner!.Code}_{DateFrom:yyyyMMdd}-{DateTo:yyyyMMdd}.csv";
+        var typeSuffix = IsOpenItem ? "_AcikKalem" : "";
+        var fileName = $"Ekstre{typeSuffix}_{Partner!.Code}_{DateFrom:yyyyMMdd}-{DateTo:yyyyMMdd}.csv";
         return CsvExport.ToFile(fileName, StatementHeaders, BuildRows());
     }
 
@@ -69,7 +77,7 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
         if (Partner is null) return false;
 
         using var multi = await conn.QueryMultipleAsync(new CommandDefinition("sp_PartnerStatement",
-            new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo },
+            new { CompanyId = company.Id, PartnerId = partnerId, From = DateFrom, To = DateTo, StatementType },
             commandType: CommandType.StoredProcedure, cancellationToken: ct));
 
         OpeningBalance = await multi.ReadFirstOrDefaultAsync<decimal>();
@@ -85,12 +93,13 @@ public class StatementModel(Db db, ICurrentCompany company) : PageModel
     /// <summary>Ekstre satırlarını CsvExport için tipli hücre dizisine çevirir (devir + hareketler + kapanış).</summary>
     private IEnumerable<object?[]> BuildRows()
     {
-        // Devir satırı: yalnız İşlem + Bakiye dolu, ara kolonlar boş
-        yield return ["", "DEVİR", "", "", "", "", OpeningBalance];
+        // Devir satırı yalnız ALL'da anlamlı (OPEN'de açılış 0, liste açık kalemin kendisi)
+        if (!IsOpenItem)
+            yield return ["", "DEVİR", "", "", "", "", OpeningBalance];
         foreach (var r in Lines)
             yield return [r.MovementDate, r.SourceDocType, r.SourceDocNo, r.Description,
                           r.Debit, r.Credit, r.RunningBalance];
-        yield return ["", "KAPANIŞ", "", "", "", "", ClosingBalance];
+        yield return ["", IsOpenItem ? "AÇIK TOPLAM" : "KAPANIŞ", "", "", "", "", ClosingBalance];
     }
 
     public record CompanyInfoDto(string Name, string? TaxNumber, string? Address);

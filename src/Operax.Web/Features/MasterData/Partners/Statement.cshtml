@@ -4,7 +4,8 @@
 @{
     ViewData["Title"] = "Cari Ekstre";
     var p = Model.Partner!;
-    var qs = $"from={Model.DateFrom:yyyy-MM-dd}&to={Model.DateTo:yyyy-MM-dd}";
+    var qs = $"from={Model.DateFrom:yyyy-MM-dd}&to={Model.DateTo:yyyy-MM-dd}" + (Model.IsOpenItem ? "&type=OPEN" : "");
+    var dateQs = $"from={Model.DateFrom:yyyy-MM-dd}&to={Model.DateTo:yyyy-MM-dd}";
 }
 
 <div class="page statement-page" data-screen-label="Cari Ekstre">
@@ -16,8 +17,14 @@
             <input type="date" name="from" value="@Model.DateFrom.ToString("yyyy-MM-dd")" class="form-ctrl" />
             <span>–</span>
             <input type="date" name="to" value="@Model.DateTo.ToString("yyyy-MM-dd")" class="form-ctrl" />
+            <input type="hidden" name="type" value="@Model.StatementType" />
             <button type="submit" class="btn btn-secondary">Uygula</button>
         </form>
+        @* Ekstre tipi: tüm hareket / açık kalem (Plan 39 Faz 2) *@
+        <div class="stmt-type-toggle">
+            <a class="btn @(Model.IsOpenItem ? "btn-ghost" : "btn-primary")" href="?@dateQs">Tüm Hareket</a>
+            <a class="btn @(Model.IsOpenItem ? "btn-primary" : "btn-ghost")" href="?@dateQs&type=OPEN">Açık Kalem</a>
+        </div>
         <div class="stmt-actions">
             <a class="btn btn-secondary" href="?handler=Export&@qs">Excel (CSV)</a>
             <button type="button" class="btn btn-primary" onclick="window.print()">Yazdır</button>
@@ -37,7 +44,7 @@
                 }
             </div>
             <div class="stmt-title-box">
-                <div class="stmt-title">CARİ HESAP EKSTRESİ</div>
+                <div class="stmt-title">CARİ HESAP EKSTRESİ@(Model.IsOpenItem ? " — AÇIK KALEM" : "")</div>
                 <div class="stmt-muted">@Model.DateFrom.ToString("dd.MM.yyyy") – @Model.DateTo.ToString("dd.MM.yyyy")</div>
             </div>
         </div>
@@ -64,15 +71,18 @@
                 </tr>
             </thead>
             <tbody>
-                <tr class="stmt-opening">
-                    <td class="mono">—</td>
-                    <td><strong>DEVİR</strong></td>
-                    <td>—</td>
-                    <td></td>
-                    <td class="num">—</td>
-                    <td class="num">—</td>
-                    <td class="num mono">@UiHelpers.FmtTL(Model.OpeningBalance)</td>
-                </tr>
+                @if (!Model.IsOpenItem)
+                {
+                    <tr class="stmt-opening">
+                        <td class="mono">—</td>
+                        <td><strong>DEVİR</strong></td>
+                        <td>—</td>
+                        <td></td>
+                        <td class="num">—</td>
+                        <td class="num">—</td>
+                        <td class="num mono">@UiHelpers.FmtTL(Model.OpeningBalance)</td>
+                    </tr>
+                }
                 @foreach (var r in Model.Lines)
                 {
                     <tr>
@@ -87,14 +97,17 @@
                 }
                 @if (Model.Lines.Count == 0)
                 {
-                    <tr><td colspan="7" class="stmt-empty muted">Seçili dönemde hareket yok.</td></tr>
+                    <tr><td colspan="7" class="stmt-empty muted">@(Model.IsOpenItem ? "Açık (kapanmamış) kalem yok." : "Seçili dönemde hareket yok.")</td></tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="stmt-closing">
-                    <td colspan="6"><strong>KAPANIŞ BAKİYESİ</strong></td>
+                    <td colspan="6"><strong>@(Model.IsOpenItem ? "TOPLAM AÇIK BAKİYE" : "KAPANIŞ BAKİYESİ")</strong></td>
                     <td class="num mono"><strong>@UiHelpers.FmtTL(Model.ClosingBalance)</strong>
-                        <span class="stmt-muted">(@(Model.ClosingBalance >= 0 ? "Borçlu" : "Alacaklı"))</span>
+                        @if (!Model.IsOpenItem)
+                        {
+                            <span class="stmt-muted">(@(Model.ClosingBalance >= 0 ? "Borçlu" : "Alacaklı"))</span>
+                        }
                     </td>
                 </tr>
             </tfoot>

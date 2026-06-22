@@ -2638,10 +2638,11 @@ GO
 -- BAĞIMLILIK: fn_PartnerBalanceAsOf (devir), AccountMovement (cari defter)
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PartnerStatement
-    @CompanyId UNIQUEIDENTIFIER,
-    @PartnerId UNIQUEIDENTIFIER,
-    @From      DATETIME2,
-    @To        DATETIME2
+    @CompanyId     UNIQUEIDENTIFIER,
+    @PartnerId     UNIQUEIDENTIFIER,
+    @From          DATETIME2,
+    @To            DATETIME2,
+    @StatementType VARCHAR(10) = 'ALL'   -- 'ALL' tüm hareket (devir+running) · 'OPEN' açık kalem (Plan 39 Faz 2: FIFO kapanmamış borçlar)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -2649,20 +2650,56 @@ BEGIN
     -- Devir: @From öncesi tüm hareketin net bakiyesi (SARGable: MovementDate < @From)
     DECLARE @Opening DECIMAL(18,2) = dbo.fn_PartnerBalanceAsOf(@CompanyId, @PartnerId, @From);
 
-    -- 1) Açılış/Devir
-    SELECT @Opening AS OpeningBalance;
+    -- 1) Açılış/Devir — OPEN'de devir yoktur (liste açık kalemin kendisidir, kümülatif 0'dan başlar)
+    SELECT CASE WHEN @StatementType = 'OPEN' THEN CAST(0 AS DECIMAL(18,2)) ELSE @Opening END AS OpeningBalance;
 
-    -- 2) Dönem hareketleri + yürüyen bakiye (devir + kümülatif net)
-    SELECT
-        am.Id, am.MovementDate, am.SourceDocType, am.SourceDocNo, am.Description,
-        am.Debit, am.Credit,
-        @Opening + SUM(am.Debit - am.Credit) OVER
-            (ORDER BY am.MovementDate, am.Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
-    FROM AccountMovement am
-    WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
-      AND am.MovementDate >= @From
-      AND am.MovementDate < DATEADD(DAY, 1, @To)
-    ORDER BY am.MovementDate, am.Id;
+    -- 2) Dönem hareketleri + yürüyen bakiye
+    IF @StatementType = 'OPEN'
+    BEGIN
+        -- Açık kalem: @To'ya kadar FIFO kapanmamış borçlar (tahsilat en eski borcu kapatır).
+        -- ALL'daki yaşlandırma FIFO'sunun aynısı; doküman kolonları taşınır, RunningBalance = kümülatif kalan açık tutar.
+        ;WITH AllMov AS (
+            SELECT Id, MovementDate, SourceDocType, SourceDocNo, Description, Debit, Credit
+            FROM AccountMovement
+            WHERE CompanyId = @CompanyId AND PartnerId = @PartnerId
+              AND MovementDate < DATEADD(DAY, 1, @To)
+        ),
+        TotCredit AS (SELECT ISNULL(SUM(Credit), 0) AS C FROM AllMov),
+        Debits AS (
+            SELECT Id, MovementDate, SourceDocType, SourceDocNo, Description, Debit,
+                   SUM(Debit) OVER (ORDER BY MovementDate, Id ROWS UNBOUNDED PRECEDING) - Debit AS PriorDebit
+            FROM AllMov WHERE Debit > 0
+        ),
+        Unpaid AS (
+            SELECT Id, MovementDate, SourceDocType, SourceDocNo, Description,
+                   Debit - CASE
+                       WHEN (SELECT C FROM TotCredit) - PriorDebit >= Debit THEN Debit
+                       WHEN (SELECT C FROM TotCredit) - PriorDebit <= 0     THEN 0
+                       ELSE (SELECT C FROM TotCredit) - PriorDebit
+                   END AS UnpaidAmt
+            FROM Debits
+        )
+        SELECT
+            Id, MovementDate, SourceDocType, SourceDocNo, Description,
+            UnpaidAmt AS Debit, CAST(0 AS DECIMAL(18,2)) AS Credit,
+            SUM(UnpaidAmt) OVER (ORDER BY MovementDate, Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
+        FROM Unpaid
+        WHERE UnpaidAmt > 0
+        ORDER BY MovementDate, Id;
+    END
+    ELSE
+    BEGIN
+        SELECT
+            am.Id, am.MovementDate, am.SourceDocType, am.SourceDocNo, am.Description,
+            am.Debit, am.Credit,
+            @Opening + SUM(am.Debit - am.Credit) OVER
+                (ORDER BY am.MovementDate, am.Id ROWS UNBOUNDED PRECEDING) AS RunningBalance
+        FROM AccountMovement am
+        WHERE am.CompanyId = @CompanyId AND am.PartnerId = @PartnerId
+          AND am.MovementDate >= @From
+          AND am.MovementDate < DATEADD(DAY, 1, @To)
+        ORDER BY am.MovementDate, am.Id;
+    END
 
     -- 3) Yaşlandırma (FIFO): @To'ya kadar tüm hareketler; tahsilat (Credit) en eski borcu (Debit) kapatır,
     --    kapanmamış borç tutarı kendi tarihinin yaşına göre kovaya düşer.

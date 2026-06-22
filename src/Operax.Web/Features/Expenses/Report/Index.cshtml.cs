@@ -47,6 +47,18 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         }
     }
 
+    // Gider kırılım raporunu CSV olarak dışa aktarır (ortak CsvExport — Plan 40). Sayı kolonları tipli.
+    public async Task<IActionResult> OnGetExportAsync(CancellationToken ct)
+    {
+        await OnGetAsync(ct);
+        var headers = new[] { "Gider Merkezi", "Gider Tipi", "Net", "KDV", "Toplam", "Satır" };
+        var csvRows = Rows
+            .Select(r => new object?[] { r.CostCenterName ?? "—", r.ExpenseTypeName ?? "—",
+                                         r.NetAmount, r.TaxAmount, r.TotalAmount, r.LineCount })
+            .Append(new object?[] { "TOPLAM", "", GrandNet, GrandTax, GrandTotal, Rows.Sum(r => r.LineCount) });
+        return CsvExport.ToFile($"Gider_Raporu_{From:yyyyMMdd}-{To:yyyyMMdd}.csv", headers, csvRows);
+    }
+
     public record RowDto(
         Guid? CostCenterId, string? CostCenterName,
         Guid? ExpenseTypeId, string? ExpenseTypeName,

@@ -22,7 +22,9 @@
 
     @if (TempData["Error"] is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
 
-    <div class="card overflow-hidden mb-4">
+    <div class="print-only print-title">GİDER RAPORU · @Model.From?.ToString("dd.MM.yyyy") – @Model.To?.ToString("dd.MM.yyyy")</div>
+
+    <div class="card overflow-hidden mb-4 no-print">
         <div class="filter-bar">
             <form method="get" class="row" style="gap:12px;align-items:flex-end">
                 <div class="form-group mb-0">
@@ -34,6 +36,8 @@
                     <input type="date" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" class="form-ctrl text-xs" />
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Raporla</button>
+                <a href="?handler=Export&from=@(Model.From?.ToString("yyyy-MM-dd"))&to=@(Model.To?.ToString("yyyy-MM-dd"))" class="btn btn-secondary btn-sm no-print">Excel (CSV)</a>
+                <button type="button" class="btn btn-secondary btn-sm no-print" onclick="window.print()">Yazdır</button>
             </form>
         </div>
     </div>
@@ -54,7 +58,7 @@
         </div>
     </div>
 
-    <div class="card overflow-hidden mt-6">
+    <div class="card overflow-hidden mt-6 print-doc">
         <table class="data-table">
             <thead>
                 <tr>

@@ -15,7 +15,7 @@
    - HIGH-2 ✅ stale: PO+SO Cancel zaten `sp_ValidateStatusTransition` çağırıyor (bypass yok).
    - IMP-1/2/3 ✅ stale: Cheques interpolation yok · sync ExecuteScalar yok · hardcoded 14-gün yok.
 2. ✅ **P2 — Cari Ekstre raporu KAPANDI** (Plan 39 Faz 1 + Plan 40): `Partners/Statement/{id}` yazdırılabilir+tarih filtreli + CSV export, browser smoke. Generic `CsvExport` helper + print sınıfları çıkarıldı (Plan 40, arşiv). Kalan: Plan 39 Faz 2-4 (batch/scheduled/WhatsApp).
-2b. ✅ **P2 — Plan 41 statü kod sabitleri + CHECK KAPANDI 2026-06-22** (arşiv): 23 sabit sınıfı + ~50 dosya magic-string→sabit + 23 CHECK constraint. HAVALE→GIRO/NEW→DRAFT/''→NET uzlaştırıldı. **DEBT:** `FinancialTransaction.InstrumentType` (3× '') + `UserFieldDefinition.DataSourceType` (8× '') CHECK dışı — '' iş kararıyla sınıflandırılıp ayrı migration'da CHECK eklenmeli.
+2b. ✅ **P2 — Plan 41 statü kod sabitleri + CHECK KAPANDI 2026-06-22** (arşiv): 23 sabit sınıfı + ~55 dosya magic-string→sabit + **25 CHECK constraint** (tüm statü/yön/tip kolonları). HAVALE→GIRO/NEW→DRAFT/''→NET uzlaştırıldı. InstrumentType+DataSourceType '' açıkça izinli CHECK ile kapatıldı (borç kalmadı). Smoke: typo red, '' kabul.
 3. **🟡 P2 — Mali evrak eksikleri (mali-evrak-mevzuat skill ön koşul):** E2 alış/satış iade · E4 fire/zayi/imha · E11 virman · çek TEMİNAT/kısmi statü.
 4. **🟢 P3 — Partner detay tab'ları (TAB-0..4):** contact/address/bank/CRM + istatistik. Büyük, ayrı plan.
 5. **🟢 P3 — Periyodik GL muhasebeleştirme modülü** — muhasebe-mevzuat skill ön koşul, en büyük.

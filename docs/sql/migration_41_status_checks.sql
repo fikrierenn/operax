@@ -119,4 +119,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Item_ItemTyp
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_UserFieldDefinition_FieldType')
     ALTER TABLE UserFieldDefinition WITH CHECK ADD CONSTRAINT CK_UserFieldDefinition_FieldType
         CHECK (FieldType IN ('BOOLEAN','DATE','NUMBER','SELECT','TEXT'));
+
+-- Boş-string '' = "belirtilmemiş" meşru durum (legacy + non-lookup alan). Kapalı küme yine kilitli,
+-- yalnız '' ek olarak izinli. Typo (örn. 'EF') yine reddedilir. Plan 41 borcu kapatıldı.
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_FinancialTransaction_InstrumentType')
+    ALTER TABLE FinancialTransaction WITH CHECK ADD CONSTRAINT CK_FinancialTransaction_InstrumentType
+        CHECK (InstrumentType IN ('CASH','EFT','GIRO','CHEQUE','NOTE','CARD','LOAN','CC') OR InstrumentType = '');
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_UserFieldDefinition_DataSourceType')
+    ALTER TABLE UserFieldDefinition WITH CHECK ADD CONSTRAINT CK_UserFieldDefinition_DataSourceType
+        CHECK (DataSourceType IN ('DICTIONARY','STATIC','TABLE') OR DataSourceType = '' OR DataSourceType IS NULL);
 GO

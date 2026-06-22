@@ -76,7 +76,7 @@ Statü/yön kodları (Direction, Cheque/PromissoryNote status, Loan status, Paym
 - [x] `dotnet build` 0 hata 0 uyarı (Web + Cli)
 - [x] code-reviewer (değer eşleme hatası YOK) + sql-sp-reviewer (CHECK doğru, ledger immutability korunuyor)
 - [x] Smoke: yanlış-kod UPDATE CHECK ile reddedildi (`CK_Partner_RiskCategory` conflict)
-- [ ] **BORÇ:** `FinancialTransaction.InstrumentType` (3× '') + `UserFieldDefinition.DataSourceType` (8× '') CHECK dışı bırakıldı. '' değeri iş kararıyla sınıflandırılıp ayrı migration'da migrate + CHECK eklenmeli. DataSourceType '' = non-lookup alan (meşru) → CHECK'e `OR ''` ile eklenebilir.
+- [x] **BORÇ KAPATILDI:** `FinancialTransaction.InstrumentType` + `UserFieldDefinition.DataSourceType` CHECK eklendi — '' (belirtilmemiş/legacy/non-lookup) açıkça izinli, kapalı küme yine kilitli. Toplam **25/25 kolon CHECK**. Smoke: typo `BOGUS` reddedildi, '' kabul edildi.
 
 ## 6. Rollback Planı
 

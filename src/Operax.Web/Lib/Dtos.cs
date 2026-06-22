@@ -119,16 +119,221 @@ public static class TransactionType
     public const string TransferOut = "TRANSFER_OUT";  // Virman çıkış
 }
 
-/// <summary>Ödeme yöntemi (Plan 35) — DB PAYMENT_METHOD dict ile birebir.</summary>
+/// <summary>Ödeme yöntemi (Plan 35) — DB PAYMENT_METHOD dict ile birebir. Kasa/banka fişi yöntemi (araç tipi değil — onun için InstrumentType).</summary>
 public static class PaymentMethod
 {
     public const string Cash           = "CASH";             // Nakit
-    public const string BankTransfer   = "BANK_TRANSFER";    // Havale / EFT
+    public const string BankTransfer   = "BANK_TRANSFER";    // Havale / EFT (fiş yöntemi)
     public const string CreditCard     = "CREDIT_CARD";      // Kredi kartı
     public const string Cheque         = "CHEQUE";           // Çek
     public const string PromissoryNote = "PROMISSORY_NOTE";  // Senet
     public const string Offset         = "OFFSET";           // Mahsup
     public const string Other          = "OTHER";            // Diğer
+}
+
+// ============================================================
+// Plan 41 — Statü/Yön/Tip kapalı kümeleri (VT CHECK ile birebir)
+// ============================================================
+
+/// <summary>Finansal araç tipi (Plan 41) — FinancialTransaction.InstrumentType + Partner.DefaultPaymentMethod.
+/// PaymentMethod (fiş yöntemi) ile AYRI eksen: bu "hangi araçla" (EFT/Havale/Çek...). HAVALE→GIRO (İngilizce tutarlılık).</summary>
+public static class InstrumentType
+{
+    public const string Cash   = "CASH";    // Nakit
+    public const string Eft    = "EFT";     // Elektronik Fon Transferi (bankalar arası)
+    public const string Giro   = "GIRO";    // Havale (banka içi virman)
+    public const string Cheque = "CHEQUE";  // Çek
+    public const string Note   = "NOTE";    // Senet
+    public const string Card   = "CARD";    // Kredi/banka kartı
+    public const string Loan   = "LOAN";    // Kredi
+    public const string Cc     = "CC";      // Kredi kartı ekstre kapama
+}
+
+/// <summary>Tahsilat/ödeme yönü (Plan 41) — PaymentPlan.Direction + cari yaşlandırma.</summary>
+public static class FinanceDirection
+{
+    public const string Receivable = "RECEIVABLE";  // Alacak (tahsil edilecek)
+    public const string Payable    = "PAYABLE";     // Borç (ödenecek)
+}
+
+/// <summary>Çek/senet yönü (Plan 41) — Cheque.Direction / PromissoryNote.Direction.</summary>
+public static class ChequeDirection
+{
+    public const string Received = "RECEIVED";  // Alınan (müşteri çeki — portföy)
+    public const string Issued   = "ISSUED";    // Verilen (kendi çekimiz)
+}
+
+/// <summary>Çek/senet statüsü (Plan 41) — Cheque.Status + PromissoryNote.Status. document-immutability §2.4 zinciri.</summary>
+public static class ChequeStatus
+{
+    public const string Portfolio = "PORTFOLIO";  // Portföyde (alınan, henüz işlem yok)
+    public const string InBank    = "IN_BANK";    // Tahsile/teminata bankada
+    public const string Collected = "COLLECTED";  // Tahsil edildi
+    public const string Returned  = "RETURNED";   // Karşılıksız / iade
+    public const string Paid      = "PAID";       // Ödendi (verilen çek)
+    public const string Endorsed  = "ENDORSED";   // Ciro edildi (3. tarafa)
+}
+
+/// <summary>Kredi statüsü (Plan 41) — Loan.Status.</summary>
+public static class LoanStatus
+{
+    public const string Active       = "ACTIVE";        // Aktif (taksitler ödeniyor)
+    public const string Closed       = "CLOSED";        // Kapandı (tamamı ödendi)
+    public const string Restructured = "RESTRUCTURED";  // Yapılandırıldı (yeni krediye taşındı)
+}
+
+/// <summary>Ödeme planı statüsü (Plan 41) — PaymentPlan.Status.</summary>
+public static class PaymentPlanStatus
+{
+    public const string Open      = "OPEN";       // Açık (vadesi gelmedi)
+    public const string Partial   = "PARTIAL";    // Kısmi ödendi
+    public const string Paid      = "PAID";       // Tamamı ödendi
+    public const string Overdue   = "OVERDUE";    // Vadesi geçti
+    public const string Cancelled = "CANCELLED";  // İptal
+}
+
+/// <summary>Kredi taksit hesap yöntemi (Plan 41) — Loan.CalcMethod.</summary>
+public static class LoanCalcMethod
+{
+    public const string Annuity        = "ANUITE";           // Eşit taksit (anüite)
+    public const string EqualPrincipal = "EQUAL_PRINCIPAL";  // Eşit anapara
+    public const string Balloon        = "BALLOON";          // Balon ödeme
+    public const string Spot           = "SPOT";             // Spot (tek ödeme)
+    public const string Rotative       = "ROTATIVE";         // Rotatif
+    public const string Kmh            = "KMH";              // Kredili mevduat hesabı
+    public const string Dbs            = "DBS";              // Doğrudan borçlandırma sistemi
+}
+
+/// <summary>Kredi kartı tipi (Plan 41) — CreditCard.CardType.</summary>
+public static class CardType
+{
+    public const string Credit    = "CREDIT";     // Bireysel kredi kartı
+    public const string Business  = "BUSINESS";   // Ticari kart
+    public const string Corporate = "CORPORATE";  // Kurumsal kart
+    public const string Debit     = "DEBIT";      // Banka kartı
+}
+
+/// <summary>Seri no statüsü (Plan 41) — ItemSerial.Status.</summary>
+public static class SerialStatus
+{
+    public const string InStock    = "IN_STOCK";    // Stokta
+    public const string Shipped    = "SHIPPED";     // Sevk edildi
+    public const string Scrapped   = "SCRAPPED";    // Hurda
+    public const string Quarantine = "QUARANTINE";  // Karantina
+}
+
+/// <summary>Lot statüsü (Plan 41) — ItemLot.Status.</summary>
+public static class LotStatus
+{
+    public const string Available  = "AVAILABLE";   // Kullanılabilir
+    public const string Quarantine = "QUARANTINE";  // Karantina
+    public const string Blocked    = "BLOCKED";     // Bloke
+}
+
+/// <summary>LPN (taşıma birimi) statüsü (Plan 41) — LPN.Status.</summary>
+public static class LpnStatus
+{
+    public const string InUse     = "IN_USE";     // Kullanımda (dolduruluyor)
+    public const string Available = "AVAILABLE";  // Boş/hazır
+    public const string Loaded    = "LOADED";     // Yüklendi
+    public const string Shipped   = "SHIPPED";    // Sevk edildi
+}
+
+/// <summary>LPN tipi (Plan 41) — LPN.LpnType.</summary>
+public static class LpnType
+{
+    public const string Pallet = "PALLET";  // Palet
+    public const string Box    = "BOX";     // Kutu
+    public const string Carton = "CARTON";  // Koli
+}
+
+/// <summary>Üretim emri statüsü (Plan 41) — ProductionOrder.Status. NEW yetim→DRAFT, RELEASED yok (SP desteksiz).</summary>
+public static class ProductionStatus
+{
+    public const string Draft      = "DRAFT";        // Taslak
+    public const string InProgress = "IN_PROGRESS";  // Üretimde
+    public const string Completed  = "COMPLETED";    // Tamamlandı
+    public const string Cancelled  = "CANCELLED";    // İptal
+}
+
+/// <summary>Toplama görevi statüsü (Plan 41) — PickTask.Status. DocStatus'tan ayrı (görev atama yaşam döngüsü).</summary>
+public static class PickTaskStatus
+{
+    public const string Draft      = "DRAFT";        // Oluşturuldu
+    public const string Assigned   = "ASSIGNED";     // Personele atandı
+    public const string InProgress = "IN_PROGRESS";  // Toplanıyor
+    public const string Completed  = "COMPLETED";    // Tamamlandı
+    public const string Cancelled  = "CANCELLED";    // İptal
+}
+
+/// <summary>Bütçe statüsü (Plan 41) — Budget.Status.</summary>
+public static class BudgetStatus
+{
+    public const string Draft    = "DRAFT";     // Taslak
+    public const string Approved = "APPROVED";  // Onaylı
+    public const string Closed   = "CLOSED";    // Kapalı
+}
+
+/// <summary>Bütçe tipi (Plan 41) — Budget.Type.</summary>
+public static class BudgetType
+{
+    public const string Operational = "OPERATIONAL";  // Operasyonel
+    public const string CashFlow    = "CASH_FLOW";    // Nakit akış
+    public const string Investment  = "INVESTMENT";   // Yatırım
+}
+
+/// <summary>Cari risk kategorisi (Plan 41) — Partner.RiskCategory.</summary>
+public static class RiskCategory
+{
+    public const string Low     = "LOW";      // Düşük
+    public const string Medium  = "MEDIUM";   // Orta
+    public const string High    = "HIGH";     // Yüksek
+    public const string Blocked = "BLOCKED";  // Bloke
+}
+
+/// <summary>Cari ödeme vade politikası (Plan 41) — Partner.PaymentTermPolicy.</summary>
+public static class PaymentTermPolicy
+{
+    public const string Net          = "NET";           // Net gün (fatura + N gün)
+    public const string NetEom       = "NET_EOM";       // Ay sonu + N gün
+    public const string Installments = "INSTALLMENTS";  // Taksitli
+}
+
+/// <summary>Ürün tipi (Plan 41) — Item.ItemType.</summary>
+public static class ItemType
+{
+    public const string Stock      = "STOCK";        // Stok malı
+    public const string Consumable = "CONSUMABLE";   // Sarf malzeme
+    public const string Service    = "SERVICE";      // Hizmet
+    public const string FixedAsset = "FIXED_ASSET";  // Demirbaş
+}
+
+/// <summary>Şube tipi (Plan 41) — Branch.BranchType.</summary>
+public static class BranchType
+{
+    public const string Sube    = "SUBE";     // Şube
+    public const string Merkez  = "MERKEZ";   // Merkez
+    public const string Fabrika = "FABRIKA";  // Fabrika
+    public const string Magaza  = "MAGAZA";   // Mağaza
+    public const string Ofis    = "OFIS";     // Ofis
+}
+
+/// <summary>Kullanıcı tanımlı alan veri tipi (Plan 41) — UserFieldDefinition.FieldType.</summary>
+public static class UdfFieldType
+{
+    public const string Boolean = "BOOLEAN";  // Evet/Hayır
+    public const string Date    = "DATE";     // Tarih
+    public const string Number  = "NUMBER";   // Sayı
+    public const string Select  = "SELECT";   // Seçim listesi
+    public const string Text    = "TEXT";     // Metin
+}
+
+/// <summary>UDF veri kaynağı tipi (Plan 41) — UserFieldDefinition.DataSourceType.</summary>
+public static class UdfDataSourceType
+{
+    public const string Dictionary = "DICTIONARY";  // Sözlük tanımı
+    public const string Static     = "STATIC";      // Sabit liste
+    public const string Table      = "TABLE";       // Whitelist tablo lookup
 }
 
 /// <summary>Mal Kabulü (Receiving) detay DTO</summary>

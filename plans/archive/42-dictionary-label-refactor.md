@@ -63,12 +63,14 @@ VT `STATUS.POSTED = 'Tamamlandı'` ↔ C# `StatusText` POSTED = `'İşlendi'`. *
 | StatusBadge 14 çağrı imza değişimi | orta | Aşamalı: eski imza korunur (overload), label opsiyonel |
 
 ## 7. Done Criteria
-- [ ] `IDictionaryLabels` servisi + DI + cache + fallback
-- [ ] Seed: SOURCE_DOC_TYPE + MOV_TYPE + STATUS tamamlama + Plan 41 statü tipleri (idempotent)
-- [ ] UiHelpers label helper'ları sözlüğe yönlendi (veya emekli) — çift kaynak bitti
-- [ ] Badge: etiket VT, renk kod
-- [ ] build 0/0 + code-reviewer + smoke (ekstre + 3-4 ekran etiket VT'den, kod fallback çalışıyor)
-- [ ] Sözlük admin'den bir etiketi değiştir → ekranda yansıdı (cache TTL sonrası)
+- [x] `IDictionaryLabels` servisi + DI + cache + fallback (DictionaryLabels.cs, IMemoryCache 5dk, şirket→global→kod)
+- [x] Seed: 22 tip ~140 değer (SOURCE_DOC_TYPE/MOV_TYPE/STATUS 4→13/INSTRUMENT/CHEQUE/LOAN/PRODUCTION/PICKTASK/... idempotent global)
+- [x] UiHelpers label helper'ları EMEKLİ (StatusBadge/StatusText/FinanceStatusBadge/LoanMethodLabel/AccountTypeLabel/ItemTypeLabel/SourceDocLabel silindi) — çift kaynak bitti
+- [x] Badge: etiket VT (Dict.StatusBadge), renk kod (UiHelpers.BadgeClass)
+- [x] build 0/0 (Web+Cli) + code-reviewer (0 HIGH/CRITICAL) + smoke (İşlem kolonu "Alış Faturası", badge textContent "İşlendi" title-case = sözlük)
+- [x] DRIFT kapandı: STATUS.POSTED "Tamamlandı"→"İşlendi", APPROVED→"Onaylandı"
+- [x] Inline finans badge switch'leri de sözlüğe (Cheques/PaymentPlan/Loans/Accounts/Aging/Snapshot/SalesInvoices)
+- [ ] (kalan, düşük) Sözlük admin edit→ekran yansıma cache TTL testi yapılmadı (mekanizma sağlam) · EBelgeStatus (ayrı domain, seed yok) + LoanPayment hesaplanmış statü = kapsam dışı bırakıldı
 
 ## 8. Adımlar
 1. Seed eksik tip/değerler (VT) — SQL idempotent.

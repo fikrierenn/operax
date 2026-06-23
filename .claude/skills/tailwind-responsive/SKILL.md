@@ -102,6 +102,10 @@ Ekran yazınca/düzeltince **`preview_resize` ile mobil(375) + desktop(1280) tes
 - `parts/_page.css` `.doc-layout/.form-grid/.table-scroll` (semantic responsive helper — utility ile değiştirilebilir/birlikte).
 - `parts/_shell.css` mobil off-canvas sidebar (hamburger).
 
+## Derin Framework Referansı (Tailwind v4 — utility/layout/responsive ayrıntısı)
+Bilmediğin utility/variant/breakpoint detayı gerektiğinde **kapsamlı kaynak:**
+[hairyf/skills · tailwindcss](https://github.com/hairyf/skills/tree/main/skills/tailwindcss) (Tailwind v4.1, resmi-doküman sync, 40+ konu). Bu skill = Operax uygulama katmanı (recipe+kural); o = framework ansiklopedisi. Yerel kurulum istenirse vendor edilir (`pnpx skills add hairyf/skills` 60+ skill getirir → sadece tailwindcss vendor önerilir).
+
 ## İlişkili
 - `.claude/rules/ui-standard.md §2` (kural değişikliği) · `.claude/rules/inline-style-guard.md`
 - `.claude/skills/screen-ux-standard/SKILL.md` (etkileşim/klavye/mobil) · `ux-design-patterns` (kanıtlı UX)

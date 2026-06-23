@@ -25,3 +25,10 @@
   background: var(--surface-2);
   border-radius: 0 0 14px 14px;
 }
+
+/* ── Mobil: kart içindeki geniş tablo KESİLMEZ → yatay kaydırılır ──────────────
+   .main overflow:hidden olduğundan dar ekranda tablo kolonları görünmez kalıyordu.
+   Bu global kural TÜM kart-içi tabloları (list/detay/rapor) mobilde kaydırılabilir yapar. */
+@media (max-width: 900px) {
+  .card-body-flush, .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

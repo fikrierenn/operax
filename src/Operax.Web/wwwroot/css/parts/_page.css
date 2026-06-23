@@ -36,3 +36,11 @@
 
 /* Sayfa kenar boşluğu telefonda daralır (içerik genişlesin). */
 @media (max-width: 600px) { .page { padding: 12px 12px 24px; } }
+
+/* Sayfa başlığı: mobilde DİKEY stack. Bug: flex-row'da aksiyon butonları sığmayıp
+   başlık (.page-hdr-l) 0px'e sıkışıyor → metin kelime-kelime alt alta sarıyordu.
+   Mobilde başlık üstte tam-genişlik, aksiyonlar altta (gerekirse satır kırar). Global → tüm sayfalar. */
+@media (max-width: 700px) {
+  .page-hdr { flex-direction: column; align-items: stretch; gap: 10px; }
+  .page-hdr-r { flex-wrap: wrap; }
+}

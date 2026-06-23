@@ -129,3 +129,31 @@ Tek seferde tüm ekranlar elden geçmez. Sıra:
 4. **Admin/ayar ekranları:** en son.
 
 Her ekran ayrı commit; faz sonu `phase-review-gate.md` zinciri.
+
+---
+
+## 10. Klavye / Mousesuz Kullanım (ZORUNLU)
+
+Veri-giriş ekranı fare olmadan da uçtan uca kullanılabilmeli (hızlı operatör + erişilebilirlik):
+
+- **Aranabilir dropdown = `data-combobox`** (`wwwroot/js/combobox.js`): yaz=filtrele · ↑↓=gez · Enter=seç · Esc=kapat · Tab=uygula. Uzun listede plain `<select>` YASAK.
+- **Birincil aksiyon kısayolu = `data-shortcut="Alt+S"` + `<span class="btn-kbd">Alt+S</span>`** (`Shortcuts.js` işler). Onayla/Kaydet'e ekle, kullanıcı görsün.
+- **İlk alana `autofocus`** (özellikle satır-ekle formunda gider/ürün seçimine → ardışık hızlı giriş).
+- **Enter = satır ekle** (satır-ekle bir `<form>` ise Enter zaten submit eder; koru).
+- **Tab sırası doğal** (üst→alt, sol→sağ); `tabindex` ile bozma.
+- **Esc = modal/panel kapat.**
+
+## 11. Mobil / Responsive (ZORUNLU)
+
+Ekran telefonda da kullanılabilmeli. Sabit-genişlik grid YASAK — breakpoint'li semantic class kullan (`parts/_page.css`):
+
+- **`.doc-layout`** — evrak iki-kolon (ana + özet kenar çubuğu) → mobilde (≤900px) tek kolona düşer.
+- **`.form-grid`** — form alanları 4 kolon → tablet 2 → telefon 1 (≤760/≤460px).
+- **`.table-scroll`** (tabloyu sar) — geniş data-table mobilde TAŞMAZ, yatay kaydırılır (kolon/sayı kesilmez).
+- Sayfa kenar boşluğu telefonda daralır (≤600px).
+- **Dokunma hedefi** ≥ rahat tıklanır (buton/satır); minik metin-link mobilde zor.
+- **⚠️ App-shell:** sidebar mobilde gizlenmeli (hamburger/off-canvas) — bu platform-seviyesi (shell-mobil işi); içerik-katmanı yukarıdaki class'larla hazır olsa da shell olmadan tam mobil olmaz.
+
+## 12. Referans Prototip
+
+**`Features/Expenses/Details.cshtml`** = "olması gereken" altın-standart (Plan 53). Yeni evrak ekranı yazarken / mevcut ekranı standardize ederken bunu **kopya-şablon** al: `page`+`_PageHeader`+`_StatusFlow`+`.doc-layout`+`card/card-hdr/card-title`+`form-ctrl/form-label/form-hint`+`.table-scroll>data-table`+combobox+Alt+S+autofocus+otomatik-doldurma+hint+sağ toplam-özeti. SalesOrders/PurchaseOrders/Partners da uyumlu örnekler.

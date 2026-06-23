@@ -2,6 +2,27 @@
 @model Operax.Web.Features.MasterData.Items.IndexModel
 @{
     ViewData["Title"] = L.T("Ürün Yönetimi", "Item Management");
+
+    // KPI kartları: anasayfayla AYNI canonical _KpiCard partial'ı kullanır (tek kaynak).
+    // Eski inline markup tanımsız class (.kpi-icon/.kpi-val/.kpi-sub) kullanıyordu → ikon 445px bozuluyordu.
+    // Açıklama satırı TrendText'e taşındı; SKU sayımlarında dönem-kıyas (delta) yok.
+    var kpiTotal = new Operax.Web.Lib.KpiCardVm(
+        Label: L.T("TOPLAM AKTİF SKU", "TOTAL ACTIVE SKU"),
+        Value: Model.TotalSkuCount.ToString(),
+        Glow: "brand",
+        TrendText: L.T("Tanımlı tüm ürünler", "All defined items"));
+
+    var kpiCritical = new Operax.Web.Lib.KpiCardVm(
+        Label: L.T("KRİTİK EMNİYET ALTI", "CRITICAL BELOW SAFETY"),
+        Value: Model.CriticalSkuCount.ToString(),
+        Glow: "danger",
+        TrendText: L.T("Min stok altındaki SKU'lar", "SKUs below minimum stock"));
+
+    var kpiNoCategory = new Operax.Web.Lib.KpiCardVm(
+        Label: L.T("KATEGORİSİZ SKU", "UNCATEGORIZED SKU"),
+        Value: Model.NoCategoryCount.ToString(),
+        Glow: "warn",
+        TrendText: L.T("Kategori atanmamış ürün", "Items with no category"));
 }
 
 <div class="page-hdr">
@@ -26,29 +47,11 @@
     </div>
 </div>
 
-<!-- KPI kartları: renkler token (slate/indigo/red/amber sabit değil → tema tek nokta) -->
+@* KPI kartları — anasayfayla aynı canonical _KpiCard partial (kpi-grid responsive: 4→2→1 kolon) *@
 <div class="kpi-grid">
-    <div class="kpi">
-        <div class="kpi-glow brand"></div>
-        <div class="kpi-icon bg-[var(--brand-tint-15)] text-[var(--brand-500)]">📦</div>
-        <span class="kpi-label">@L.T("Toplam Aktif SKU", "Total Active SKU")</span>
-        <div class="kpi-val text-[var(--text)]">@Model.TotalSkuCount</div>
-        <span class="kpi-sub">@L.T("Tanımlı tüm ürünler", "All defined items")</span>
-    </div>
-    <div class="kpi">
-        <div class="kpi-glow danger"></div>
-        <div class="kpi-icon bg-[var(--danger-bg)] text-[var(--danger-text)]">🚨</div>
-        <span class="kpi-label">@L.T("Kritik Emniyet Altı", "Critical Below Safety")</span>
-        <div class="kpi-val text-[var(--text)]">@Model.CriticalSkuCount</div>
-        <span class="kpi-sub">@L.T("Min stok altındaki SKU'lar", "SKUs below minimum stock")</span>
-    </div>
-    <div class="kpi">
-        <div class="kpi-glow warn"></div>
-        <div class="kpi-icon bg-[var(--warn-bg)] text-[var(--warn-text)]">📁</div>
-        <span class="kpi-label">@L.T("Kategorisiz SKU", "Uncategorized SKU")</span>
-        <div class="kpi-val text-[var(--text)]">@Model.NoCategoryCount</div>
-        <span class="kpi-sub">@L.T("Kategori atanmamış ürün", "Items with no category")</span>
-    </div>
+    <partial name="_KpiCard" model="kpiTotal" />
+    <partial name="_KpiCard" model="kpiCritical" />
+    <partial name="_KpiCard" model="kpiNoCategory" />
 </div>
 
 @* Filtre çubuğu: mobilde dikey-stack (flex-col), tablet+ yatay. Sabit w-48/w-40 yerine

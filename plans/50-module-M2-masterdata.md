@@ -1,6 +1,6 @@
 # Plan 50 — M2 Master Veri Modül Tamamlama (DoD'a kapat)
 
-**Durum:** Taslak · onay bekliyor
+**Durum:** AKTİF · kod tarafı bekliyor. **NOT (2026-06-24):** Faz 3'ün TASARIM kısmı (page-hdr/card/data-table/token — MasterData ekranları) `plans/53` modül pass'inde YAPILDI. Bu plandan KALAN = Faz 1/2 (kod: schema+lifecycle+handler) + Faz 3 hijyen (magic string/URL/sayaç/logger) + Faz 4 (split+smoke). Tasarım rollout = plan 53; bu plan KOD revizyonunu kapsar. (Kayıp 2026-06-23 öğleden sonra oturumu audit'i — journal Oturum 3.)
 **Tier:** 3 (çok dosya, schema + UI + SP, go-live kritik fresh-install bug)
 **Tarih:** 2026-06-23
 **Roadmap:** Plan 45 §3 sıra — M0 ✅ · M1 ✅ · **M2 sıradaki.** EXECUTION-FIRST: mevcut modülü DoD D1-D8'e kapat.

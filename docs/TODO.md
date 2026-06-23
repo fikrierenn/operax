@@ -2,6 +2,33 @@
 
 ---
 
+## ⭐⭐ SONRAKİ OTURUM — 2026-06-25 (modül modül: KOD revizyonu + TASARIM standardı)
+
+> **Program (kullanıcı kararı):** M0'dan başlayarak her modülde HEM kod revizyonu HEM tasarım standardı. Standart = `ui-standard.md §4.6` bileşen kataloğu + `plans/53` rollout. Her modül: code-reviewer (+gerekirse security/sql-sp) → kod fix → tasarım semantic → build + screenshot → batch commit.
+> **Tamamlanan modüller:** Dashboard ✅ · MasterData (tasarım) ✅ · Warehouses (tasarım) ✅ · **M0 Platform Core (kod+tasarım) ✅** (2026-06-24).
+
+### A. Sıradaki modüller (worst-first, tasarım + kod birlikte) — plan 53
+- [ ] **M1 Manufacturing** (BOM/WorkCenters/WorkOrders ×5): util-renk AĞIR (~74/ekran) + `class="input"/"label"`→`.form-ctrl`/`.form-label` + bespoke help-panel (`bg-amber-50`→semantic). + code-reviewer Manufacturing PageModels.
+- [ ] **WMS-ops** (Transfer/Picking non-terminal): bespoke buton (`bg-indigo-600 rounded-lg`)+panel+header+table → semantic; util-renk.
+- [ ] **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): bespoke header + **🔴 İngilizce badge enum (Draft/Posted/Paid…) → `Dict.StatusBadge()` Türkçe** + util.
+- [ ] **Finance** (17, çoğu std): inline-renk (Aging/Details, CreditCards/Index bespoke kart, Payments/Create) → semantic.
+- [ ] **Admin kalan** (zaten M0'da Roles/Create·Modules·StatusTransitions·Parameters yapıldı) — Dictionary/Values vanilla teyit, gerisi std.
+- [ ] **Misc** (Lot/LPN/Serial/Budget/Inventory): bespoke header (`<h2>`→page-hdr) + **LPN/Details** (bespoke buton+panel+`bg-indigo-900`) + **Budget/Details** `.input`/`.label`→form-ctrl.
+
+### B. KAYIP OTURUM'dan kalan KOD işi — **Plan 50 (M2 Master Veri) AKTİF, 4 faz açık**
+`plans/50-module-M2-masterdata.md` — kayıp 2026-06-23 öğleden sonra oturumunun audit'i; **kod tarafı yapılmadı** (tasarım Faz 3 kısmen 2026-06-24 MasterData pass'inde yapıldı):
+- [ ] **Faz 1 (CRITICAL):** `Bin.IsStorageArea` schema migration + fresh-DB ritüeli · Item "Pasif Yap" handler fix · Warehouse ModelState guard.
+- [ ] **Faz 2 (HIGH):** Item/Warehouse/Branch soft-delete handler · Bin Create/Edit işlevsel · Warehouse/Branch try-catch+ILogger · BranchType CHECK constraint · P32-7 SupplierItemCode liste.
+- [~] **Faz 3 (UI):** ⚠️ tasarım kısmı 2026-06-24 MasterData modül pass'inde YAPILDI (page-hdr/card/data-table/token); kalan: magic string→sabit (ItemType/BranchType/PartnerType) · hardcoded URL→asp-page · PriceLists sayaç fix · reconciliation ILogger.
+- [ ] **Faz 4:** Partners/Details 554→<300 (tab/service split) · Items/Details <300 · cari-leg + raf-ekle E2E smoke.
+
+### C. KAYIP OTURUM tasarım/debt kalıntıları
+- [ ] **Expenses/Details + Report/Index** Tailwind utility-salata (`class="label"/"input"`) → form-ctrl/form-label/_PageHeader (M18 UX-pass etkileşimi tamam, GÖRSEL katman ayrı — Belgeler modülünde).
+- [ ] **M0 borcu:** Users/Edit IDOR (`Input.Id`→route+`[BindNever]`) · Dashboard `MovementType` magic string.
+- [ ] **P32-7** PO add-line SupplierItemCode görünürlük (hafif, PO Details dokunuşunda).
+
+---
+
 ## ⭐ SONRAKİ OTURUM — ÖNCELİK SIRASI (2026-06-22 notu)
 
 > Bu oturumda kapandı: Plan 37 (test altyapısı, 45 test) · Plan 38 (CancellationToken handler+servis) · 2 ledger bug (toplama-sevkiyat çift-düşüm + üretim-iptal hayalet-sarfiyat) · DEBT (SELECT*/timezone/magic-string/immutability guard SO-Shipping-CycleCount).

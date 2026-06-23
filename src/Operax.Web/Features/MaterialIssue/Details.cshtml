@@ -71,29 +71,65 @@
                     </select>
                 </div>
             </div>
-            <div x-data="{ reason: '@Model.Header.ReasonCode' }">
+            @*
+              Zayiat alanları seçilen nedene göre vanilla JS ile gösterilir/gizlenir.
+              NEDEN Alpine DEĞİL: site CSP'si script-src'de 'unsafe-eval' içermiyor; Alpine 3 standard build
+              x-data/x-show ifadelerini eval ile değerlendirdiğinden CSP altında çalışmaz. CSP'yi gevşetmek
+              yerine (güvenlik) CSP-uyumlu vanilla JS kullanılır (razor-conventions vanilla fallback).
+              KDV-davranış haritası (data-kdv) sözlük flag'inden render edilir — hardcoded değil.
+            *@
+            <div id="reason-block">
                 <div class="form-group">
                     <label class="form-label">Sarf Nedeni</label>
-                    <select asp-for="Header.ReasonCode" x-model="reason" class="form-ctrl" disabled="@(!Model.IsDraft)">
+                    <select asp-for="Header.ReasonCode" id="reason-select" class="form-ctrl" disabled="@(!Model.IsDraft)">
                         <option value="">Normal Tüketim (genel/idari sarf)</option>
                         @foreach (var r in Model.Reasons)
                         {
-                            <option value="@r.Code">Zayiat — @r.Name</option>
+                            <option value="@r.Code" data-kdv="@(r.RequiresKdv ? "1" : "0")">Zayiat — @r.Name</option>
                         }
                     </select>
                     <span class="form-hint">Zayiat → stok hareketi SCRAP. Olağanüstü zayiatta indirilen KDV düzeltilir (md.30/c); normal fire KDV-nötr.</span>
                 </div>
-                <div class="form-group" x-show="reason" x-cloak>
+                @* KDV mevzuat açıklaması — seçilen nedenin KDV-davranışına göre (md.30/c). Bilgilendirme amaçlı. *@
+                <div id="reason-mevzuat" class="alert-banner alert-info mb-2 hidden">
+                    <strong>KDV Mevzuatı (md.30/c):</strong>
+                    <span data-kdv-yes>Olağanüstü zayiat — bu mala ait <strong>indirilen KDV indirilemez</strong>; daha önce indirildiyse düzeltilir (ilave edilecek KDV). Belgeleme: takdir komisyonu kararı veya itfaiye/sigorta raporu. İstisna: Maliye'nin <strong>mücbir sebep</strong> ilan ettiği afet (deprem/sel/yangın) → KDV korunur.</span>
+                    <span data-kdv-no>Normal fire (üretim/işletme firesi) <strong>zayiat sayılmaz</strong> — KDV md.30/c kapsamı dışındadır, indirilen KDV düzeltilmez (KDV nötr).</span>
+                </div>
+                <div class="form-group reason-extra hidden">
                     <label class="chk">
                         <input asp-for="Header.IsForceMajeure" type="checkbox" disabled="@(!Model.IsDraft)" />
                         <span>Mücbir sebep (Maliye-ilan afet: deprem/sel/yangın) — bu durumda KDV korunur</span>
                     </label>
                 </div>
-                <div class="form-group" x-show="reason" x-cloak>
+                <div class="form-group reason-extra hidden">
                     <label class="form-label">Yasal Belge No</label>
                     <input asp-for="Header.LegalDocRef" class="form-ctrl" readonly="@(!Model.IsDraft)" placeholder="Takdir komisyonu kararı / itfaiye / sigorta rapor no" />
                 </div>
             </div>
+            @* CSP-uyumlu vanilla toggle (IIFE): neden seçimine göre mevzuat metni + ek alanları gösterir/gizler *@
+            <script>
+                (function () {
+                    var sel = document.getElementById('reason-select');
+                    if (!sel) return;
+                    var block = document.getElementById('reason-block');
+                    var mevzuat = document.getElementById('reason-mevzuat');
+                    var yes = mevzuat.querySelector('[data-kdv-yes]');
+                    var no = mevzuat.querySelector('[data-kdv-no]');
+                    function apply() {
+                        var opt = sel.options[sel.selectedIndex];
+                        var isReason = sel.value !== '';                 // bir zayiat nedeni seçili mi
+                        var requiresKdv = opt && opt.getAttribute('data-kdv') === '1'; // sözlük flag'i
+                        // Ek alanlar (mücbir + belge-ref) yalnız zayiat nedeninde görünür
+                        block.querySelectorAll('.reason-extra').forEach(function (el) { el.classList.toggle('hidden', !isReason); });
+                        // Mevzuat kutusu + doğru metin
+                        mevzuat.classList.toggle('hidden', !isReason);
+                        if (isReason) { yes.style.display = requiresKdv ? '' : 'none'; no.style.display = requiresKdv ? 'none' : ''; }
+                    }
+                    sel.addEventListener('change', apply);
+                    apply(); // ilk yüklemede mevcut seçime göre uygula
+                })();
+            </script>
             @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted && Model.Header.KdvAdjustmentAmount > 0)
             {
                 <div class="alert-banner alert-warn mb-2">İlave Edilecek KDV (md.30/c — indirilen KDV düzeltmesi): <strong>@Model.Header.KdvAdjustmentAmount.ToString("N2") ₺</strong></div>

@@ -49,10 +49,16 @@ public static class MovementType
     public const string Scrap      = "SCRAP";       // Zayiat çıkışı (sarf fişi ReasonCode set ise)
 }
 
-/// <summary>Sözlük tipi kodları (DictionaryType.Code) — vokabüler veri-driven, hardcoded değer yok</summary>
+/// <summary>
+/// Sözlük (DictionaryType) tip kodları. NEDEN sabit: vokabüler DEĞERLER veritabanında (admin yönetir,
+/// ui-standard §1.5 sıfır-hardcoded), ama tipin KOD'u (sorguların eşleştiği anahtar) kodda magic-string
+/// olmasın diye burada tek yerde tutulur. Tip-kodu değişirse yalnız burası güncellenir.
+/// </summary>
 public static class DictType
 {
-    public const string MaterialIssueReason = "MATERIAL_ISSUE_REASON"; // Sarf/zayiat nedeni (KDV davranışı RequiresKdvAdjustment flag'inde)
+    /// <summary>Sarf/zayiat nedeni tipi. Değerleri seed'de (DAMAGE/FIRE/SCRAP/NORMAL_FIRE + admin ekleri);
+    /// her değerin KDV-davranışı DictionaryValue.RequiresKdvAdjustment flag'inde (mevzuat md.30/c).</summary>
+    public const string MaterialIssueReason = "MATERIAL_ISSUE_REASON";
 }
 
 /// <summary>Kaynak belge tipleri (SourceDocType kolonu)</summary>

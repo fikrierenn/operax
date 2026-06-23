@@ -38,9 +38,12 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         // Sarf edilebilir ürünler: STOCK + CONSUMABLE (SERVICE hariç — stoksuz); magic-string yerine ItemType sabitleri
         Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType IN (@StockType, @ConsumableType) ORDER BY Code", p, cancellationToken: ct));
-        // Sarf/zayiat nedenleri sözlükten (Code=İngilizce sistem-çapa, NameTr=Türkçe label) — hardcoded değil
+        // Sarf/zayiat nedenleri sözlükten gelir (hardcoded liste DEĞİL — ui-standard §1.5 sıfır-hardcoded-veri).
+        // Code=İngilizce sistem-çapa (SP'nin baktığı), NameTr=Türkçe etiket (kullanıcının gördüğü),
+        // RequiresKdvAdjustment=KDV-davranışı flag'i (view'da mevzuat açıklamasını seçmek için taşınır).
+        // OrderNo ile sıralanır ki dropdown sırası admin'in belirlediği gibi olsun. Yalnız aktif+silinmemiş.
         Reasons = await conn.QueryAsync<ReasonDto>(new CommandDefinition(@"
-            SELECT dv.Code AS Code, dv.NameTr AS Name
+            SELECT dv.Code AS Code, dv.NameTr AS Name, ISNULL(dv.RequiresKdvAdjustment, 0) AS RequiresKdv
             FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId
             WHERE dt.Code = @ReasonType AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0
             ORDER BY dv.OrderNo",
@@ -227,5 +230,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     }
 
     public record LineDto(Guid Id, string ItemCode, string ItemName, string? UomCode, decimal Qty);
-    public record ReasonDto(string Code, string Name);   // Sözlük nedeni (Code=İngilizce, Name=NameTr)
+
+    // Sözlükten gelen tek zayiat/sarf nedeni satırı.
+    //   Code     : sistem-çapa İngilizce kod (örn. DAMAGE) — SP/iş mantığı buna bakar, kullanıcıya gösterilmez.
+    //   Name     : DictionaryValue.NameTr — kullanıcıya gösterilen Türkçe etiket (örn. "Hasar / Bozulma").
+    //   RequiresKdv : DictionaryValue.RequiresKdvAdjustment — bu neden indirilen KDV'nin düzeltilmesini (md.30/c)
+    //                 gerektiriyor mu? UI'da mevzuat açıklamasını seçmek için view'a taşınır (true=düzeltme, false=nötr).
+    public record ReasonDto(string Code, string Name, bool RequiresKdv);
 }

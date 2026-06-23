@@ -28,6 +28,13 @@ BEGIN
         DECLARE @now DATETIME2 = GETUTCDATE();
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
 
+        -- Başlık alanlarını TEK okumada çek. UPDLOCK+ROWLOCK: aynı fişi iki kullanıcı eşzamanlı onaylarsa
+        -- ikincisi bu satırı bekler (çift-post yarışı önlenir). Okunan değişkenler:
+        --   @WarehouseId    = sarfın çıkacağı depo (stok consume + branch türetimi için)
+        --   @Status         = mevcut durum (DRAFT/POSTED/CANCELLED — guard kontrolleri)
+        --   @DocNo          = fiş no (StockMovement.SourceDocNo izi)
+        --   @ReasonCode     = sarf/zayiat nedeni kodu (NULL=normal sarf; set=zayiat → SCRAP + KDV mantığı)
+        --   @IsForceMajeure = mücbir sebep mi (Maliye-ilan afet → md.30/c istisnası → KDV korunur)
         DECLARE @WarehouseId UNIQUEIDENTIFIER, @Status NVARCHAR(20), @DocNo NVARCHAR(50),
                 @ReasonCode NVARCHAR(20), @IsForceMajeure BIT;
         SELECT @WarehouseId = WarehouseId, @Status = Status, @DocNo = DocNo, @ReasonCode = ReasonCode,
@@ -100,18 +107,32 @@ BEGIN
         END
         CLOSE c_mi; DEALLOCATE c_mi;
 
-        -- İlave edilecek KDV (ön-muhasebe): zayiat nedeni KDV-düzeltme gerektiriyorsa (sözlük flag'i,
-        -- mevzuat md.30/c — hardcoded liste DEĞİL) + mücbir-sebep DEĞİLSE → indirilen KDV düzeltilir.
-        -- KDV = Σ(QtyBase × AvgCost × Item.TaxRate/100). Mücbir/KDV-nötr neden → 0. Tam GL fişi ayrı modül.
+        -- ===== İLAVE EDİLECEK KDV HESABI (ön-muhasebe — KDV Kanunu md.30/c) =====
+        -- NEDEN: Zayi olan mala ait DAHA ÖNCE İNDİRİLEN KDV, md.30/c gereği indirilemez; indirildiyse
+        --        düzeltilir (beyannamede "ilave edilecek KDV"). Operax'ta tam GL fişi (360/391) henüz yok;
+        --        bu adım ön-muhasebe: tutarı HESAPLAYIP belgede SAKLAR ki muhasebeci/GL modülü işleyebilsin.
+        --
+        -- @RequiresKdv: Bu zayiat nedeni KDV düzeltmesi gerektiriyor mu? Kararı KOD'a gömmüyoruz —
+        --   sözlükteki (MATERIAL_ISSUE_REASON) RequiresKdvAdjustment flag'inden OKUYORUZ (admin yönetir,
+        --   mevzuat-bağlı). DAMAGE/FIRE/SCRAP=1 (olağanüstü zayiat → düzelt), NORMAL_FIRE=0 (üretim firesi
+        --   zayiat değil → KDV nötr). Neden NULL ise (normal sarf) hesap hiç çalışmaz → @RequiresKdv 0 kalır.
         DECLARE @RequiresKdv BIT = 0;
         IF @ReasonCode IS NOT NULL
             SELECT @RequiresKdv = ISNULL(dv.RequiresKdvAdjustment, 0)
             FROM DictionaryValue dv
             JOIN DictionaryType dt ON dt.Id = dv.TypeId
-            WHERE dt.Code = 'MATERIAL_ISSUE_REASON' AND dt.CompanyId = @CompanyId
+            WHERE dt.Code = 'MATERIAL_ISSUE_REASON' AND dt.CompanyId = @CompanyId   -- yalnız bu firmanın sözlüğü
               AND dv.Code = @ReasonCode AND dv.IsDeleted = 0;
 
-        -- ItemCost şirket-genel grain (Plan 47) → item başına tek satır, LEFT JOIN fan-out yok
+        -- @KdvAdj: hesaplanan ilave-KDV tutarı. KOŞUL: neden KDV-düzeltme gerektirir (@RequiresKdv=1)
+        --   VE mücbir-sebep DEĞİL (@IsForceMajeure=0). Mücbir sebep (Maliye-ilan deprem/sel/yangın) →
+        --   md.30/c istisnası → KDV korunur → tutar 0 kalır. NORMAL_FIRE de buraya hiç girmez (@RequiresKdv=0).
+        -- FORMÜL: her satır için (temel-birim miktar × birim-maliyet × KDV-oranı/100), satırlar toplanır.
+        --   l.QtyBase   = sarf/zayiat miktarı (temel birim)
+        --   ic.AvgCost  = ürünün hareketli-ortalama birim maliyeti (ItemCost; Plan 47'de ŞİRKET-GENEL grain
+        --                 = item başına TEK satır → LEFT JOIN fan-out üretmez, KDV şişmez)
+        --   it.TaxRate  = ürünün KDV oranı (% — Item.TaxRate, varsayılan 20)
+        --   NOT: gerçek lot-bazlı yüklenilen-KDV tutulmadığından emsal-bedel yaklaşımı (ön-muhasebe kabul).
         DECLARE @KdvAdj DECIMAL(18,2) = 0;
         IF @RequiresKdv = 1 AND ISNULL(@IsForceMajeure, 0) = 0
             SELECT @KdvAdj = ISNULL(SUM(l.QtyBase * ISNULL(ic.AvgCost, 0) * ISNULL(it.TaxRate, 0) / 100.0), 0)

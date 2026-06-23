@@ -12,7 +12,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     [BindProperty]
     public InvoiceFormDto Form { get; set; } = new();
     public IEnumerable<InvoiceLineDto> Lines { get; set; } = [];
-    public IEnumerable<DdlDto> Partners     { get; set; } = [];
+    public IEnumerable<PartnerDto> Partners { get; set; } = [];   // PaymentTermDays taşır — tedarikçi seçilince vade otomatik gelir (UX §1)
     public DocFlowVm?           DocFlow     { get; set; }
     public IEnumerable<ExpenseTypeDto> ExpenseTypes { get; set; } = [];   // birim (UnitOfMeasure) taşır — UI miktarın birimini gösterir
     public IEnumerable<DdlDto> CostCenters  { get; set; } = [];
@@ -24,8 +24,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         // Gider faturası formunu ve satırlarını yükler
         using var conn = db.Open();
 
-        Partners = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
+        // PaymentTermDays: tedarikçinin vade gün sayısı → UI fatura tarihine ekleyip vade'yi otomatik doldurur
+        Partners = await conn.QueryAsync<PartnerDto>(new CommandDefinition(
+            "SELECT Id, Code, Name, ISNULL(PaymentTermDays, 0) AS PaymentTermDays FROM Partner WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
             new { CompanyId = company.Id }, cancellationToken: ct));
         // UnitOfMeasure: gider tipinin birimi (Elektrik→kWh, Su→m3, Kira→NULL=götürü). UI miktar yanında gösterir.
         ExpenseTypes = await conn.QueryAsync<ExpenseTypeDto>(new CommandDefinition(
@@ -251,6 +252,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public string    Currency    { get; set; } = "TRY";
         public string    Status      { get; set; } = DocStatus.Draft;
     }
+
+    // Tedarikçi DDL satırı + vade gün sayısı (UI fatura tarihine ekleyip vade'yi öne-doldurur)
+    public record PartnerDto(Guid Id, string Code, string Name, int PaymentTermDays);
 
     // Gider tipi DDL satırı + birimi (UI'da miktar yanında gösterilir; NULL=götürü/flat gider)
     public record ExpenseTypeDto(Guid Id, string Code, string Name, string? UnitOfMeasure);

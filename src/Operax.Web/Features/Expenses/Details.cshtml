@@ -58,9 +58,10 @@
                         @foreach (var p in Model.Partners) { <option value="@p.Id" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
                     </select>
                 } else {
-                    <select asp-for="Form.PartnerId" class="input w-full" required>
+                    @* data-combobox: aranabilir (uzun tedarikçi listesi) · data-term: vade gün sayısı (JS vade'yi öne-doldurur) *@
+                    <select asp-for="Form.PartnerId" id="partner-select" data-combobox class="input w-full" required>
                         <option value="">— Seçiniz —</option>
-                        @foreach (var p in Model.Partners) { <option value="@p.Id" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
+                        @foreach (var p in Model.Partners) { <option value="@p.Id" data-term="@p.PaymentTermDays" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
                     </select>
                 }
             </div>
@@ -85,7 +86,7 @@
                 @if (locked) {
                     <input asp-for="Form.InvoiceDate" type="date" class="input w-full" disabled />
                 } else {
-                    <input asp-for="Form.InvoiceDate" type="date" class="input w-full" required />
+                    <input asp-for="Form.InvoiceDate" id="inv-date" type="date" class="input w-full" required />
                 }
             </div>
             <div>
@@ -93,7 +94,7 @@
                 @if (locked) {
                     <input asp-for="Form.DueDate" type="date" class="input w-full" disabled />
                 } else {
-                    <input asp-for="Form.DueDate" type="date" class="input w-full" />
+                    <input asp-for="Form.DueDate" id="due-date" type="date" class="input w-full" />
                 }
             </div>
         </div>
@@ -104,6 +105,25 @@
             </div>
         }
     </form>
+    @if (!locked)
+    {
+        @* UX §1 otomatik doldurma: tedarikçi seçilince vade = fatura tarihi + vade gün sayısı (boşsa öne-doldur, override serbest) *@
+        <script>
+            (function () {
+                var ps = document.getElementById('partner-select');
+                var invd = document.getElementById('inv-date');
+                var due = document.getElementById('due-date');
+                if (!ps || !invd || !due) return;
+                ps.addEventListener('change', function () {
+                    var opt = ps.options[ps.selectedIndex];
+                    var days = opt ? parseInt(opt.getAttribute('data-term') || '0', 10) : 0;
+                    if (!days || !invd.value || due.value) return;          // vade gün yok / tarih boş / kullanıcı zaten girmiş → dokunma
+                    var d = new Date(invd.value); d.setDate(d.getDate() + days);
+                    due.value = d.toISOString().slice(0, 10);
+                });
+            })();
+        </script>
+    }
 </div>
 @if (!Model.IsNew)
 {

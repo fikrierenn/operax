@@ -71,8 +71,8 @@ Her faz ayrı commit → `git revert <faz-commit>`. Faz A CSS additive olduğu i
 
 | # | Ekran | utility-renk | inline-renk style |
 |---|---|---|---|
-| 1 | `MasterData/Items/Details.cshtml` | 111 | — | ✅ KAPALI (renk→token, computed-verify) |
-| 2 | `Warehouses/Details.cshtml` | 49 | — |
+| ✅ | **MasterData modülü TAMAM** (Items yapısal + 7 ekran token+yapısal, modül batch commit) | — | — |
+| ✅ | **Warehouses modülü TAMAM** (Details yapısal + Index token) | — | — |
 | 3 | `Production/Details.cshtml` | 40 | — |
 | 4 | `Picking/Details.cshtml` | 31 | — |
 | 5 | `Manufacturing/BOM/Details.cshtml` | 28 | — |

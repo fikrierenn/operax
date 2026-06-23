@@ -79,20 +79,21 @@
             <tbody>
                 @foreach (var v in Model.Values)
                 {
-                    <tr x-data="{ edit: false }">
+                    @* Satır-içi düzenleme toggle'ı vanilla JS ile (CSP'de unsafe-eval yok → Alpine x-data/x-show sessizce kırıktı). *@
+                    <tr>
                         @* ── Görüntüleme modu (6 hücre) ── *@
-                        <td x-show="!edit" class="mono muted">@v.OrderNo</td>
-                        <td x-show="!edit" class="mono text-brand">@v.Code
+                        <td data-dict-view class="mono muted">@v.OrderNo</td>
+                        <td data-dict-view class="mono text-brand">@v.Code
                             @if (v.IsGlobal) { <span class="badge badge-neutral" style="margin-left:4px;">global</span> }
                         </td>
-                        <td x-show="!edit" class="row-strong">@v.NameTr</td>
-                        <td x-show="!edit" class="muted">@(string.IsNullOrEmpty(v.NameEn) ? "—" : v.NameEn)</td>
-                        <td x-show="!edit">
+                        <td data-dict-view class="row-strong">@v.NameTr</td>
+                        <td data-dict-view class="muted">@(string.IsNullOrEmpty(v.NameEn) ? "—" : v.NameEn)</td>
+                        <td data-dict-view>
                             @if (v.IsActive) { <span class="badge badge-success">AKTİF</span> }
                             else { <span class="badge badge-neutral">PASİF</span> }
                         </td>
-                        <td x-show="!edit" class="text-right">
-                            <button type="button" class="btn btn-secondary btn-sm" @@click="edit = true">Düzenle</button>
+                        <td data-dict-view class="text-right">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="dictRowEdit(this, true)">Düzenle</button>
                             <form method="post" asp-page-handler="ToggleActive" style="display:inline;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="typeId" value="@t.Id" />
@@ -111,7 +112,7 @@
                         </td>
 
                         @* ── Düzenleme modu (tüm satırı kaplar; CODE değişmez) ── *@
-                        <td x-show="edit" x-cloak colspan="6">
+                        <td data-dict-edit colspan="6" style="display:none;">
                             <form method="post" asp-page-handler="Edit" class="row" style="gap:8px;align-items:end;flex-wrap:wrap;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="typeId" value="@t.Id" />
@@ -134,7 +135,7 @@
                                 </div>
                                 <div class="form-group">
                                     <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
-                                    <button type="button" class="btn btn-ghost btn-sm" @@click="edit = false">Vazgeç</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" onclick="dictRowEdit(this, false)">Vazgeç</button>
                                 </div>
                             </form>
                         </td>
@@ -148,3 +149,19 @@
         </table>
     </div>
 </div>
+
+@* Satır-içi düzenleme toggle — vanilla (CSP unsafe-eval yok; Alpine yerine).
+   Düzenle → görüntü hücrelerini gizle, edit hücresini göster; Vazgeç → tersi. *@
+<script>
+    function dictRowEdit(btn, on) {
+        var tr = btn.closest('tr');
+        if (!tr) return;
+        // Görüntüleme hücreleri (6 adet) açık/kapalı
+        tr.querySelectorAll('[data-dict-view]').forEach(function (el) {
+            el.style.display = on ? 'none' : 'table-cell';
+        });
+        // Tam-genişlik düzenleme hücresi
+        var ed = tr.querySelector('[data-dict-edit]');
+        if (ed) ed.style.display = on ? 'table-cell' : 'none';
+    }
+</script>

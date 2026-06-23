@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Admin.Users;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class EditModel(
     UserManager<IdentityUser> userManager,
     ICurrentCompany company,
@@ -43,6 +43,20 @@ public class EditModel(
         var user = await userManager.FindByIdAsync(Input.Id);
         if (user == null) return NotFound();
 
+        // İş kuralı (self-lockout guard): sistemdeki SON Administrator rolden düşürülemez — aksi
+        // halde yetkili kullanıcı kalmaz, admin kendini/sistemi kilitler. Kendi düşürme dahil tüm
+        // yollar buradan geçer; başka admin varsa düşürme serbest (geri alınabilir). Mutasyondan ÖNCE.
+        var existingRoles = await userManager.GetRolesAsync(user);
+        if (existingRoles.Contains(Operax.Web.Lib.Roles.Administrator) && Input.Role != Operax.Web.Lib.Roles.Administrator)
+        {
+            var admins = await userManager.GetUsersInRoleAsync(Operax.Web.Lib.Roles.Administrator);
+            if (admins.Count <= 1)
+            {
+                ModelState.AddModelError("", "Sistemdeki son yönetici rolden düşürülemez. Önce başka bir kullanıcıya Yönetici rolü atayın.");
+                return Page();
+            }
+        }
+
         // E-posta güncelle
         user.Email    = Input.Email;
         user.UserName = Input.Email;
@@ -65,10 +79,9 @@ public class EditModel(
             }
         }
 
-        // Rol güncelleme — önce mevcut rolleri kaldır, sonra yenisini ata
-        var currentRoles = await userManager.GetRolesAsync(user);
-        if (currentRoles.Any())
-            await userManager.RemoveFromRolesAsync(user, currentRoles);
+        // Rol güncelleme — önce mevcut rolleri kaldır, sonra yenisini ata (existingRoles guard'da alındı)
+        if (existingRoles.Any())
+            await userManager.RemoveFromRolesAsync(user, existingRoles);
         if (!string.IsNullOrEmpty(Input.Role))
             await userManager.AddToRoleAsync(user, Input.Role);
 

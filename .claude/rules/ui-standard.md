@@ -242,6 +242,13 @@ Razor içinde: `@Html.Raw(UiHelpers.StatusBadge(po.Status))`
 
 ## 8. Yeni Ekran Yazım Checklist'i
 
+> **ÖNCE DANIŞ (ZORUNLU):** Ekran oluştururken VEYA mevcut ekranı revize ederken, kod yazmadan önce ilgili UX/tasarım danışman skill'ine danışılır (hangi pattern/akış/responsive reçete uygulanacak netleşsin):
+> - **`screen-ux-standard`** — form akışı, otomatik doldurma, klavye, boş durum, hata geri bildirimi, satır girişi (etkileşim/akış).
+> - **`ux-design-patterns`** — data grid, form, combobox/typeahead, inline validasyon, görsel hiyerarşi (kanıtlı NNGroup/Baymard/Fiori desenleri).
+> - **`tailwind-responsive`** — mobil-first breakpoint reçeteleri (header stack, kart-grid collapse, geniş-tablo scroll, KPI/form grid).
+> - Finans/muhasebe ekranıysa AYRICA `coding-discipline.md §5` (muhasebe-mevzuat / mali-evrak-mevzuat / mali-islem-akislari).
+> "Ekran iyi görünüyor" yetmez — etkileşim/responsive/pattern skill ile teyit edilir. Bileşen seçimi §4.6 kataloğundan.
+
 Yeni bir Razor sayfası açarken bu sırayla doğrulanır:
 1. `class="page"` wrapper var mı?
 2. `_PageHeader` partial'ı kullanıldı mı?

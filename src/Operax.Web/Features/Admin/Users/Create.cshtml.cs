@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,7 @@ public class CreateModel(
 
     public void OnGet() { }
 
+    // Yeni kullanıcı oluşturur: Identity hesabı + şirket claim'i + (firma-bağlamlı) rol atar.
     public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         if (!ModelState.IsValid) return Page();
@@ -70,7 +72,10 @@ public class CreateModel(
 
     public class InputModel
     {
+        [Required(ErrorMessage = "E-posta adresi zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
         public string Email    { get; set; } = "";
+        [Required(ErrorMessage = "Şifre zorunludur.")]
         public string Password { get; set; } = "";
         /// <summary>"Administrator" veya "" (rol yok = normal kullanıcı)</summary>
         public string Role     { get; set; } = "";

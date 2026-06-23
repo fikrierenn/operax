@@ -86,3 +86,31 @@ Her faz ayrı commit → `git revert <faz-commit>`. Faz A CSS additive olduğu i
 
 **Kural (her ekran):** renk-only token-swap (`bg-white`→`bg-[var(--surface)]`/`.card`, `text-slate-*`→`var(--text-*)`, inline renk style→semantic), layout/responsive utility KALIR, **computed-style doğrula** (screenshot subsystemi bu oturumda wedged → getComputedStyle ile gerçek renk teyidi), ayrı commit + build 0/0.
 **Terminal ekranları (Receiving/Shipping/Picking/Transfer Terminal):** ayrı el-terminali yüzeyi — bu sweep KAPSAMI DIŞI (kendi standardı).
+
+## Faz C — TAM EKRAN DENETİMİ (6 paralel ajan, 2026-06-24)
+
+~89 ekran (MasterData/Warehouses/Dashboard hariç) denetlendi. **Standart = §4.6 bileşen kataloğu.** Genel: çoğu ekran `.btn`/`.card`/`.data-table` kullanıyor; sapmalar 6 tipte yoğunlaşıyor.
+
+### Tekrarlayan sapma tipleri
+1. **Utility-renk yığını** (en yaygın): `text-slate-*`/`text-indigo-*`/`bg-indigo-50`/`bg-amber-50`… token değil. EN AĞIR: Manufacturing (~74/ekran), WMS-ops (toplam ~361), PurchaseInvoices (26/23), Expenses/Index (21).
+2. **Legacy form `class="input"`/`class="label"`** (→ `.form-ctrl`/`.form-label`): Manufacturing (BOM/WorkCenters/WorkOrders), Budget/Details, Serial/Index.
+3. **Bespoke buton** (`bg-indigo-600 … rounded-lg`): Transfer/Putaway+Replenishment, Picking/Index+Details, LPN/Details, Admin/Roles/Create.
+4. **Bespoke panel** (`bg-white rounded-xl border shadow` → `.card`) + bespoke `<table>`: Transfer/Putaway, Picking/Details, Replenishment, LPN/Details.
+5. **Bespoke header** (`<h2>` → `page-hdr`): Lot/LPN/Serial/Budget Index, Picking, Transfer/Putaway+Replenishment, PurchaseInvoices ×2, Expenses/Index, MaterialIssue ×2.
+6. **Inline renk style**: Admin/Roles/Create (6, tamamen inline), StatusTransitions, Parameters, Finance Aging/Details (10), CreditCards/Index, Payments/Create.
+
+### 🔴 KRİTİK (işlevsel — turkish-ui)
+- **Expenses/Index + MaterialIssue/Index badge'leri İngilizce enum gösteriyor** (Draft/Posted/Paid/Cancelled/Overdue) — `Dict.StatusBadge()` kullanmıyor. Türkçe badge helper'a çevrilmeli.
+
+### Modül rollout sırası (worst-first, her modül = batch commit + screenshot-verify)
+| Sıra | Modül | Ana iş |
+|---|---|---|
+| ✅ | MasterData · Warehouses · Dashboard | TAMAM |
+| 1 | **Manufacturing** (BOM/WorkCenters/WorkOrders ×5) | util-renk ağır + `.input`/`.label`→form-ctrl + help-panel |
+| 2 | **WMS-ops** (Transfer/Picking non-terminal) | bespoke buton+panel+header+table→semantic; util-renk |
+| 3 | **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue) | bespoke header + İngilizce badge→Dict.StatusBadge + util |
+| 4 | **Finance** (17, çoğu std) | inline-renk (Aging/CreditCards/Payments) + CreditCards/Index bespoke kart |
+| 5 | **Admin** (Roles/Create, Parameters, StatusTransitions, Modules) | inline-style + bespoke buton/form→semantic |
+| 6 | **Misc** (Lot/LPN/Serial/Budget/Inventory + Shipping/Receiving/CycleCount Index/Details) | bespoke header→page-hdr + LPN/Details (bespoke buton+panel+indigo-900) + Budget/Details `.input` |
+
+### İstisna (dokunma): Auth/Login (Layout=null), Auth/Logout/AccessDenied, Error, Help/Index (layout-inline serbest).

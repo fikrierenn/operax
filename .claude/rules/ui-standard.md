@@ -126,6 +126,28 @@ Anasayfa üst-satır metrik kartlarının **kanonik semantic bileşeni** (`_stat
 - `.stat-card` radius = `--radius-lg` (16px, hero metrik); içerik panelleri `.card` (`--radius` 14px).
 - İçerik panelleri (grafik/liste/tablo) `.card` + `.card-hdr` + `.card-title`/`.card-sub` + `.card-body`.
 
+### 4.6 Standart Bileşen Kataloğu — HER ekran bunları kullanır (bespoke YASAK)
+
+Her UI öğesi için **tek kanonik bileşen**. Aynı işi gören ad-hoc/bespoke markup (özel `bg-…rounded` buton, elle KPI kutusu, `w-full px-4…rounded-xl` input) **yazılmaz** — aşağıdaki sınıf kullanılır. Modül standardizasyonunda her ekran bu kataloğa çekilir.
+
+| Öğe | Kanonik bileşen | Bespoke (YASAK) |
+|---|---|---|
+| Sayfa başlığı | `.page-hdr` (`.page-hdr-l`/`.breadcrumb`/`h1`/`.page-hdr-sub`/`.page-hdr-r`) veya `_PageHeader` | elle `flex justify-between` + `text-3xl font-black` |
+| KPI / metrik kutusu | `.stat-card` (+`.stat-label`/`.stat-value`/`.stat-sub`/`.stat-spark`/`.stat-bar`) veya liste sayfasında `.kpi-grid`+`.kpi` | elle `.card p-4` + özel font/etiket |
+| Delta/trend rozeti | `.delta-pill` (`up`/`down`) | elle renkli pill |
+| Buton | `.btn` + `.btn-primary`/`.btn-secondary`/`.btn-ghost`/`.btn-danger` (+`.btn-sm`) | `bg-[var(--brand-500)] text-white px-4 py-2 rounded-lg` |
+| İçerik paneli | `.card` + `.card-hdr` + `.card-title`/`.card-sub` + `.card-body` | elle `bg-[var(--surface)] rounded-xl border shadow-sm` |
+| Tablo | `.data-table` | elle `<table class="w-full text-sm">` + özel thead |
+| Form | `.form-row`/`.form-row-3` · `.form-group` · `.form-label`(+`.req`) · `.form-ctrl` · `.form-hint`/`.form-error` | `w-full px-4 py-2.5 …rounded-xl` input, elle label, **legacy `class="input"`/`class="label"`** (→ `.form-ctrl`/`.form-label`) |
+| Switch / Checkbox | `.switch`(+`.switch-track`) · `.chk-row`/`.chk`/`.chk-box` | `accent-emerald-600` ham checkbox |
+| Durum rozeti | `.badge`+`.badge-success`/`-warn`/`-danger`/`-neutral` (veya `b-green`/`b-amber`/`b-indigo`/`b-gray`) + `UiHelpers.StatusBadge` | elle renkli span |
+| Boş durum | `_EmptyState` veya `.card` içi ortalanmış ikon+metin | — |
+| Sayfalama / sekme | `_Pager` · `_Tabs` (veya `.page-hdr` altı tab şeridi) | — |
+| Grid/yerleşim | Tailwind responsive utility (`grid grid-cols-* gap-*` + `sm:`/`md:`/`xl:`) — SERBEST | sabit px genişlik |
+| Modal scrim | `bg-[var(--overlay)]` | `bg-slate-900/40` / `bg-[var(--text)]/40` |
+
+**Renk:** tüm renk/gölge/radius token (`var(--…)`); ham `bg-white`/`text-slate-*`/hex YASAK (§1/§2). **Dil:** görünür metin %100 Türkçe (`turkish-ui.md`) — `UOM`→Birim, `Zone`→Bölge, `Staging`→Hazırlık gibi İngilizce kelime kalmaz (kod identifier `bin.Zone` hariç).
+
 ### View Model'leri (DTO'lar)
 
 `Lib/UiVms.cs` dosyasında tek bir yerde:

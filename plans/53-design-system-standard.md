@@ -61,6 +61,28 @@ Tasarım dili tutarsız. 102 feature ekranından **60'ı semantic `.card` sistem
 Her faz ayrı commit → `git revert <faz-commit>`. Faz A CSS additive olduğu için izole geri alınabilir.
 
 ## Adımlar (sıra)
-1. Faz A: token + stat CSS + ui-standard doküman → build → temsili ekran verify → commit.
-2. Faz B: Dashboard refactor → build → görsel-doğrula (birebir) → commit.
-3. Faz C: divergence sweep raporu → worst-first batch → her ekran commit+verify.
+1. Faz A: token + stat CSS + ui-standard doküman → build → temsili ekran verify → commit. ✅ (commit Faz A+B)
+2. Faz B: Dashboard refactor → build → görsel-doğrula (birebir) → commit. ✅
+3. Faz C: divergence sweep raporu → worst-first batch → her ekran commit+verify. ⏳ başladı
+
+## Faz C — Worst-first divergence kuyruğu (2026-06-23 sweep)
+
+**utility renk-class sayısı** (terminal ekranları HARİÇ — el-terminali ayrı UI yüzeyi, `_TerminalLayout`):
+
+| # | Ekran | utility-renk | inline-renk style |
+|---|---|---|---|
+| 1 | `MasterData/Items/Details.cshtml` | 111 | — | ✅ KAPALI (renk→token, computed-verify) |
+| 2 | `Warehouses/Details.cshtml` | 49 | — |
+| 3 | `Production/Details.cshtml` | 40 | — |
+| 4 | `Picking/Details.cshtml` | 31 | — |
+| 5 | `Manufacturing/BOM/Details.cshtml` | 28 | — |
+| 6 | `LPN/Details.cshtml` | 27 | — |
+| 7 | `MasterData/PriceLists/Index.cshtml` | 25 | — |
+| 8 | `Transfer/Replenishment` · `CycleCount/Details` · `Transfer/Details` | 24/24/23 | — |
+| 9 | `Shipping/Details` · `Lot/Details` · `Receiving/Details` | 21/21/20 | — |
+| 10 | `SalesOrders/Details.cshtml` | — | 12 (inline renk) |
+| 11 | `Finance/Aging/Details` · `Finance/Snapshot/Index` | — | 10/7 |
+| 12 | DEBT (TODO): `Expenses/Details` · `Report/Index` · `MaterialIssue/Details` | — | 5 + utility-salata |
+
+**Kural (her ekran):** renk-only token-swap (`bg-white`→`bg-[var(--surface)]`/`.card`, `text-slate-*`→`var(--text-*)`, inline renk style→semantic), layout/responsive utility KALIR, **computed-style doğrula** (screenshot subsystemi bu oturumda wedged → getComputedStyle ile gerçek renk teyidi), ayrı commit + build 0/0.
+**Terminal ekranları (Receiving/Shipping/Picking/Transfer Terminal):** ayrı el-terminali yüzeyi — bu sweep KAPSAMI DIŞI (kendi standardı).

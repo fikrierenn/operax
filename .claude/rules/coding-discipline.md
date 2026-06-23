@@ -48,3 +48,17 @@ Tüm `.cs` ve `.cshtml.cs` dosyalarında **Türkçe yorum** yazılması zorunlud
 
 *   **DataTable.Compute() Yasağı:** Kullanıcı girdisi içeren matematiksel ve mantıksal formüllerin değerlendirilmesinde kesinlikle `DataTable.Compute()` kullanılmaz. Bu metot formula/SQL injection açıklarına sebep olur.
 *   **NCalc Tercihi:** Formül değerlendirme işleri, tip-güvenli parametrelerle ve sandboxed ortamda çalışan **NCalc** kütüphanesi üzerinden yürütülmelidir.
+
+---
+
+## 5. Domain Uzmanı Skill'e Danışma (ZORUNLU — finans/muhasebe/mali-evrak)
+
+Finans, muhasebe, mali-evrak veya stok-maliyet işleyişine dokunan kod/SP/şema yazmadan **ÖNCE** ilgili domain skill'e danışılır (kod yazmadan; hangi iş kuralı/mevzuat geçerli netleşsin diye). Bu skill'ler SALT-REHBER — kod yazmaz, doğrulanacak noktaları + kaynakları verir.
+
+| Konu | Skill | Örnek tetik |
+|---|---|---|
+| TDHP hesap planı, borç/alacak yönü, çek/senet muhasebe kaydı, cari kapama, şüpheli alacak, yevmiye/mizan | **`muhasebe-mevzuat`** | "muhasebe kaydı", "hesap kodu", "çek muhasebe", "TDHP", GL · M5-M8/M11 |
+| İade faturası, e-Belge senaryo, fatura iptal/düzelt, VUK tarih kuralı, irsaliye↔fatura, tevkifat, KDV iade | **`mali-evrak-mevzuat`** | "iade faturası", "e-fatura", "fatura iptal", "VUK" · M03/M04/M11/e-Belge |
+| Mutabakat (GL↔subledger/banka/cari), varyans analizi, yevmiye doğruluğu, dönem kapanışı | **`mali-islem-akislari`** | "mutabakat", "varyans", "cari kapatma", "dönem kapanışı", "ters kayıt" · M11/M02 |
+
+**Kural:** Bu konularda "kod doğru görünüyor" yetmez — mevzuat/işleyiş doğruluğu skill ile teyit edilmeden finans SP'si/ekranı yazılmaz. Statü kümesi / finansal araç tipi / evrak zinciri **modelleme** kararı için ayrıca `erp-isleyis-danismani` ajanı. (Bu skill'ler 2026-06-23 oturumunda üretildi.)

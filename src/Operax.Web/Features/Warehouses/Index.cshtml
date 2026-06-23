@@ -7,7 +7,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Tanımlamalar</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-500)]">Tanımlamalar</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">Depolar & Raflar</span>
         </div>
@@ -26,23 +26,23 @@
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <div class="kpi-icon bg-indigo-50 text-indigo-600">🏭</div>
+        <div class="kpi-icon bg-[var(--brand-tint-08)] text-[var(--brand-500)]">🏭</div>
         <span class="kpi-label">Aktif Depolar</span>
-        <div class="kpi-val text-slate-800">@Model.ActiveWarehouses</div>
+        <div class="kpi-val text-[var(--text)]">@Model.ActiveWarehouses</div>
         <span class="kpi-sub">Kullanımdaki fiziki depolar</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <div class="kpi-icon bg-emerald-50 text-emerald-600">🔢</div>
+        <div class="kpi-icon bg-[var(--success-bg)] text-[var(--success)]">🔢</div>
         <span class="kpi-label">Toplam Hücre / Raf</span>
-        <div class="kpi-val text-slate-800">@Model.TotalBins</div>
+        <div class="kpi-val text-[var(--text)]">@Model.TotalBins</div>
         <span class="kpi-sub">Aktif tanımlı lokasyonlar</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow success"></div>
         <div class="kpi-icon bg-sky-50 text-sky-600">📈</div>
         <span class="kpi-label">Lokasyonel Doluluk</span>
-        <div class="kpi-val text-slate-800">%@Model.AverageCapacity.ToString("F1")</div>
+        <div class="kpi-val text-[var(--text)]">%@Model.AverageCapacity.ToString("F1")</div>
         <span class="kpi-sub">Hücre doluluk simülasyonu</span>
     </div>
 </div>
@@ -70,12 +70,12 @@
         <tbody>
             @foreach (var wh in Model.Warehouses)
             {
-                <tr class="cursor-pointer hover:bg-slate-50/50 transition-colors" onclick="window.location='@Url.Page("./Details", new { id = wh.Id })'">
+                <tr class="cursor-pointer hover:bg-[var(--surface-2)]/50 transition-colors" onclick="window.location='@Url.Page("./Details", new { id = wh.Id })'">
                     <td>
                         <span class="badge b-indigo font-bold font-mono">@wh.Code</span>
                     </td>
                     <td>
-                        <div class="font-bold text-slate-700 text-sm">@wh.Name</div>
+                        <div class="font-bold text-[var(--text-2)] text-sm">@wh.Name</div>
                     </td>
                     <td class="text-center">
                         @if (wh.IsActive)
@@ -99,7 +99,7 @@
                 <tr>
                     <td colspan="4">
                         <div class="empty-state">
-                            <svg class="w-12 h-12 text-slate-200 mb-4" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <svg class="w-12 h-12 text-[var(--text-mute)] mb-4" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                             <p>Henüz tanımlanmış bir depo bulunmuyor.</p>
                         </div>
                     </td>

@@ -12,10 +12,10 @@
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
                 Geri
             </a>
-            <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Depo Yönetimi / @(Model.IsNew ? "Yeni" : Model.Warehouse.Code)</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-4)]">Depo Yönetimi / @(Model.IsNew ? "Yeni" : Model.Warehouse.Code)</span>
         </div>
-        <h1 class="text-2xl font-black text-slate-800 tracking-tight">@(Model.IsNew ? "Yeni Depo Kartı" : Model.Warehouse.Name)</h1>
-        <p class="text-sm text-slate-500 mt-1">Depo bilgileri ve raf (hücre) organizasyonu</p>
+        <h1 class="text-2xl font-bold text-[var(--text)] tracking-tight">@(Model.IsNew ? "Yeni Depo Kartı" : Model.Warehouse.Name)</h1>
+        <p class="text-sm text-[var(--text-3)] mt-1">Depo bilgileri ve raf (hücre) organizasyonu</p>
     </div>
     <div>
         <button type="submit" form="warehouse-form" class="btn btn-primary px-8">
@@ -29,21 +29,21 @@
     <!-- SOL KOLON: Depo Bilgileri -->
     <div class="col-span-1">
         <div class="card p-6">
-            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Genel Bilgiler</div>
+            <div class="text-xs font-bold uppercase tracking-wider text-[var(--text-4)] mb-6 pb-2 border-b">Genel Bilgiler</div>
             <form id="warehouse-form" method="post">
                 <input type="hidden" asp-for="Warehouse.Id" />
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Depo Kodu *</label>
-                        <input asp-for="Warehouse.Code" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold" placeholder="örn. W01" required />
+                        <label class="form-label">Depo Kodu *</label>
+                        <input asp-for="Warehouse.Code" class="form-ctrl" placeholder="örn. W01" required />
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Depo Adı *</label>
-                        <input asp-for="Warehouse.Name" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold" placeholder="örn. Merkez Lojistik" required />
+                        <label class="form-label">Depo Adı *</label>
+                        <input asp-for="Warehouse.Name" class="form-ctrl" placeholder="örn. Merkez Lojistik" required />
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Bağlı Şube</label>
-                        <select asp-for="Warehouse.BranchId" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm">
+                        <label class="form-label">Bağlı Şube</label>
+                        <select asp-for="Warehouse.BranchId" class="form-ctrl">
                             <option value="">— Şubesiz / Merkez —</option>
                             @foreach (var b in Model.BranchDdl)
                             {
@@ -53,13 +53,13 @@
                     </div>
                 </div>
 
-                <div class="mt-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                <div class="mt-8 p-4 bg-[var(--brand-tint-08)] rounded-2xl border border-[var(--brand-tint-15)] flex items-center justify-between">
                     <div>
-                        <div class="text-xs font-bold text-indigo-900">Aktif Durum</div>
-                        <div class="text-[10px] text-indigo-600 font-medium">Bu depo kullanıma açık mı?</div>
+                        <div class="text-xs font-bold text-[var(--brand-600)]">Aktif Durum</div>
+                        <div class="text-[10px] text-[var(--brand-500)] font-medium">Bu depo kullanıma açık mı?</div>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" asp-for="Warehouse.IsActive" class="w-5 h-5 accent-indigo-600 rounded">
+                        <input type="checkbox" asp-for="Warehouse.IsActive" class="w-5 h-5 accent-[var(--brand-500)] rounded">
                     </label>
                 </div>
             </form>
@@ -71,22 +71,22 @@
         @if (!Model.IsNew)
         {
             <div class="card overflow-hidden">
-                <div class="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
+                <div class="card-hdr">
                     <div>
-                        <h3 class="text-sm font-bold text-slate-800">Tanımlı Hücreler (Raflar)</h3>
-                        <p class="text-[11px] text-slate-500">@Model.Bins.Count() adet adres kayıtlı</p>
+                        <h3 class="text-sm font-bold text-[var(--text)]">Tanımlı Hücreler (Raflar)</h3>
+                        <p class="text-[11px] text-[var(--text-3)]">@Model.Bins.Count() adet adres kayıtlı</p>
                     </div>
-                    <button type="button" onclick="document.getElementById('bin-modal').style.display='flex'" class="btn btn-secondary hover:bg-white py-1.5">
+                    <button type="button" onclick="document.getElementById('bin-modal').style.display='flex'" class="btn btn-secondary hover:bg-[var(--surface)] py-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                         Yeni Hücre Ekle
                     </button>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400">
+                    <table class="data-table w-full">
+                        <thead class="bg-[var(--surface-2)] text-[10px] font-bold uppercase text-[var(--text-4)]">
                             <tr>
                                 <th class="px-6 py-3 text-left">Hücre Kodu</th>
-                                <th class="px-6 py-3 text-left">Bölge (Zone)</th>
+                                <th class="px-6 py-3 text-left">Bölge</th>
                                 <th class="px-6 py-3 text-center">İşlev</th>
                                 <th class="px-6 py-3 text-right"></th>
                             </tr>
@@ -94,20 +94,20 @@
                         <tbody class="divide-y border-t">
                             @foreach (var bin in Model.Bins)
                             {
-                                <tr class="hover:bg-slate-50 transition-colors">
-                                    <td class="px-6 py-4 font-black font-mono text-indigo-600">@bin.Code</td>
-                                    <td class="px-6 py-4 text-slate-500">@(string.IsNullOrEmpty(bin.Zone) ? "-" : bin.Zone)</td>
+                                <tr class="hover:bg-[var(--surface-2)] transition-colors">
+                                    <td class="px-6 py-4 font-bold font-mono text-[var(--brand-500)]">@bin.Code</td>
+                                    <td class="px-6 py-4 text-[var(--text-3)]">@(string.IsNullOrEmpty(bin.Zone) ? "-" : bin.Zone)</td>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center justify-center gap-1.5">
-                                            @if (bin.IsPickingArea) { <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black" title="Toplama Alanı">T</span> }
-                                            @if (bin.IsReceivingArea) { <span class="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black" title="Mal Kabul Alanı">M</span> }
+                                            @if (bin.IsPickingArea) { <span class="px-2 py-0.5 bg-[var(--info-bg)] text-[var(--info-text)] rounded text-[9px] font-bold" title="Toplama Alanı">T</span> }
+                                            @if (bin.IsReceivingArea) { <span class="px-2 py-0.5 bg-[var(--warn-bg)] text-[var(--warn)] rounded text-[9px] font-bold" title="Mal Kabul Alanı">M</span> }
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-right">
                                         <form method="post" asp-page-handler="DeleteBin" onsubmit="return confirm('Bu hücreyi silmek istediğinize emin misiniz?')">
                                             <input type="hidden" name="id" value="@Model.Warehouse.Id" />
                                             <input type="hidden" name="binId" value="@bin.Id" />
-                                            <button type="submit" class="text-slate-300 hover:text-red-500 p-1 rounded-lg transition-colors">
+                                            <button type="submit" class="text-[var(--text-mute)] hover:text-[var(--danger)] p-1 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
                                         </form>
@@ -117,7 +117,7 @@
                             @if (!Model.Bins.Any())
                             {
                                 <tr>
-                                    <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">
+                                    <td colspan="4" class="px-6 py-12 text-center text-[var(--text-4)] italic">
                                         Bu depoda henüz tanımlanmış bir hücre bulunmuyor.
                                     </td>
                                 </tr>
@@ -129,56 +129,56 @@
         }
         else
         {
-            <div class="h-full flex flex-col items-center justify-center border-2 border-dashed rounded-3xl p-12 text-center bg-white">
-                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            <div class="h-full flex flex-col items-center justify-center border-2 border-dashed rounded-3xl p-12 text-center bg-[var(--surface)]">
+                <div class="w-16 h-16 bg-[var(--surface-2)] rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-[var(--text-mute)]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                 </div>
-                <h4 class="font-bold text-slate-800">Hücre Yönetimi Pasif</h4>
-                <p class="text-sm text-slate-400 max-w-[280px] mt-1">Önce depo bilgilerini kaydederek raf adreslerini tanımlamaya başlayabilirsiniz.</p>
+                <h4 class="font-bold text-[var(--text)]">Hücre Yönetimi Pasif</h4>
+                <p class="text-sm text-[var(--text-4)] max-w-[280px] mt-1">Önce depo bilgilerini kaydederek raf adreslerini tanımlamaya başlayabilirsiniz.</p>
             </div>
         }
     </div>
 </div>
 
 <!-- Yeni Hücre Modal -->
-<div id="bin-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" style="display:none">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div class="p-6 bg-slate-50 border-b">
-            <h3 class="font-black text-slate-800 tracking-tight">Yeni Hücre Ekle</h3>
-            <p class="text-xs text-slate-500">Raf adresini ve özelliklerini belirleyin</p>
+<div id="bin-modal" class="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-sm flex items-center justify-center p-4" style="display:none">
+    <div class="bg-[var(--surface)] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 bg-[var(--surface-2)] border-b">
+            <h3 class="font-bold text-[var(--text)] tracking-tight">Yeni Hücre Ekle</h3>
+            <p class="text-xs text-[var(--text-3)]">Raf adresini ve özelliklerini belirleyin</p>
         </div>
         <form method="post" asp-page-handler="AddBin">
             <div class="p-6 space-y-5">
                 <input type="hidden" name="id" value="@Model.Warehouse.Id" />
-                <div class="grid grid-cols-2 gap-4">
+                <div class="form-row">
                     <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Hücre Kodu</label>
-                        <input name="code" class="w-full px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="A-01-01" required />
+                        <label class="form-label">Hücre Kodu</label>
+                        <input name="code" class="form-ctrl" placeholder="A-01-01" required />
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 ml-1">Bölge (Zone)</label>
-                        <input name="zone" class="w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Raf Kat-1" />
+                        <label class="form-label">Bölge</label>
+                        <input name="zone" class="form-ctrl" placeholder="Raf Kat-1" />
                     </div>
                 </div>
                 <div class="space-y-3 pt-2">
-                    <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 transition-colors group">
-                        <input type="checkbox" name="isPicking" value="true" checked class="w-5 h-5 accent-indigo-600 rounded">
+                    <label class="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded-xl cursor-pointer hover:bg-[var(--brand-tint-08)] transition-colors group">
+                        <input type="checkbox" name="isPicking" value="true" checked class="w-5 h-5 accent-[var(--brand-500)] rounded">
                         <div>
-                            <div class="text-[11px] font-bold text-slate-700 group-hover:text-indigo-900">Toplama Alanı</div>
-                            <div class="text-[9px] text-slate-400">Sipariş sevkiyatları için kullanılır</div>
+                            <div class="text-[11px] font-bold text-[var(--text-2)] group-hover:text-[var(--brand-600)]">Toplama Alanı</div>
+                            <div class="text-[9px] text-[var(--text-4)]">Sipariş sevkiyatları için kullanılır</div>
                         </div>
                     </label>
-                    <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-amber-50 transition-colors group">
-                        <input type="checkbox" name="isReceiving" value="true" class="w-5 h-5 accent-amber-600 rounded">
+                    <label class="flex items-center gap-3 p-3 bg-[var(--surface-2)] rounded-xl cursor-pointer hover:bg-[var(--warn-bg)] transition-colors group">
+                        <input type="checkbox" name="isReceiving" value="true" class="w-5 h-5 accent-[var(--warn)] rounded">
                         <div>
-                            <div class="text-[11px] font-bold text-slate-700 group-hover:text-amber-900">Mal Kabul Alanı</div>
-                            <div class="text-[9px] text-slate-400">Staging ve giriş alanları için</div>
+                            <div class="text-[11px] font-bold text-[var(--text-2)] group-hover:text-[var(--warn-text)]">Mal Kabul Alanı</div>
+                            <div class="text-[9px] text-[var(--text-4)]">Hazırlık ve giriş alanları için</div>
                         </div>
                     </label>
                 </div>
             </div>
-            <div class="p-4 bg-slate-50 border-t flex justify-end gap-3">
-                <button type="button" onclick="document.getElementById('bin-modal').style.display='none'" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">İptal</button>
+            <div class="p-4 bg-[var(--surface-2)] border-t flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('bin-modal').style.display='none'" class="px-4 py-2 text-sm font-bold text-[var(--text-3)] hover:text-[var(--text)]">İptal</button>
                 <button type="submit" class="btn btn-primary px-6">Kaydet</button>
             </div>
         </form>

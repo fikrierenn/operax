@@ -72,6 +72,16 @@
                 </div>
             </div>
             <div class="form-group">
+                <label class="form-label">Sarf Nedeni</label>
+                <select asp-for="Header.ReasonCode" class="form-ctrl" disabled="@(!Model.IsDraft)">
+                    <option value="">Normal Tüketim (genel/idari sarf)</option>
+                    <option value="@ScrapReason.Damage">Zayiat — Hasar</option>
+                    <option value="@ScrapReason.Fire">Zayiat — Yangın / Su Baskını</option>
+                    <option value="@ScrapReason.Waste">Zayiat — Hurda / Fire</option>
+                </select>
+                <span class="form-hint">Zayiat seçilirse stok hareketi SCRAP olarak işlenir (VUK zayiat ayrımı).</span>
+            </div>
+            <div class="form-group">
                 <label class="form-label">Açıklama</label>
                 <input asp-for="Header.Notes" class="form-ctrl" readonly="@(!Model.IsDraft)" placeholder="Sarf gerekçesi" />
             </div>

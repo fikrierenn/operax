@@ -40,7 +40,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         if (id.HasValue)
         {
             Header = await conn.QueryFirstOrDefaultAsync<HeaderDto>(new CommandDefinition(
-                "SELECT Id, WarehouseId, DocNo, IssueDate, CostCenterId, Notes, Status FROM MaterialIssueHeader WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, Notes, Status FROM MaterialIssueHeader WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
             Lines = (await conn.QueryAsync<LineDto>(new CommandDefinition(@"
@@ -67,11 +67,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             // Yeni fiş: DocNo SARF-{UTC zaman damgası} ile benzersiz üretilir
             Header.Id = Guid.NewGuid();
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO MaterialIssueHeader (Id, CompanyId, WarehouseId, DocNo, IssueDate, CostCenterId, Notes, Status, CreatedBy)
-                VALUES (@Id, @CompanyId, @WarehouseId, @DocNo, @IssueDate, @CostCenterId, @Notes, @St, @UserId)",
+                INSERT INTO MaterialIssueHeader (Id, CompanyId, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, Notes, Status, CreatedBy)
+                VALUES (@Id, @CompanyId, @WarehouseId, @DocNo, @IssueDate, @CostCenterId, @ReasonCode, @Notes, @St, @UserId)",
                 new { Header.Id, CompanyId = company.Id, Header.WarehouseId,
                       DocNo = $"SARF-{DateTime.UtcNow:yyyyMMddHHmm}", Header.IssueDate,
-                      Header.CostCenterId, Header.Notes, St = DocStatus.Draft, UserId = user.Id },
+                      Header.CostCenterId, ReasonCode = NormalizeReason(Header.ReasonCode), Header.Notes, St = DocStatus.Draft, UserId = user.Id },
                 cancellationToken: ct));
         }
         else
@@ -80,9 +80,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
             await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE MaterialIssueHeader
                 SET WarehouseId = @WarehouseId, IssueDate = @IssueDate, CostCenterId = @CostCenterId,
-                    Notes = @Notes, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+                    ReasonCode = @ReasonCode, Notes = @Notes, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
                 WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @St",
-                new { Header.WarehouseId, Header.IssueDate, Header.CostCenterId, Header.Notes,
+                new { Header.WarehouseId, Header.IssueDate, Header.CostCenterId,
+                      ReasonCode = NormalizeReason(Header.ReasonCode), Header.Notes,
                       UserId = user.Id, Header.Id, CompanyId = company.Id, St = DocStatus.Draft },
                 cancellationToken: ct));
         }
@@ -174,6 +175,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         return RedirectToPage(new { id });
     }
 
+    // Sarf nedeni doğrulama: boş/geçersiz → NULL (normal tüketim); yalnız izinli zayiat kodları geçer
+    private static string? NormalizeReason(string? code)
+        => code is ScrapReason.Damage or ScrapReason.Fire or ScrapReason.Waste ? code : null;
+
     // Belgenin DRAFT olduğunu firma-ait doğrular
     private async Task<bool> IsDraftAsync(IDbConnection conn, Guid id, CancellationToken ct)
         => await conn.ExecuteScalarAsync<int>(new CommandDefinition(
@@ -187,6 +192,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         public string  DocNo        { get; set; } = "";
         public DateTime IssueDate   { get; set; }
         public Guid?   CostCenterId { get; set; }
+        public string? ReasonCode   { get; set; }   // NULL=normal tüketim · HASAR/FIRE/HURDA=zayiat
         public string? Notes        { get; set; }
         public string  Status       { get; set; } = DocStatus.Draft;
     }

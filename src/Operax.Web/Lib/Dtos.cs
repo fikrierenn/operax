@@ -46,6 +46,15 @@ public static class MovementType
     public const string Transfer   = "TRANSFER";
     public const string CountAdj   = "COUNT_ADJ";
     public const string Production = "PRODUCTION";
+    public const string Scrap      = "SCRAP";       // Zayiat çıkışı (sarf fişi ReasonCode set ise)
+}
+
+/// <summary>Zayiat (scrap) nedenleri — MaterialIssueHeader.ReasonCode (NULL=normal tüketim)</summary>
+public static class ScrapReason
+{
+    public const string Damage = "DAMAGE";  // Hasarlı/kırık mal
+    public const string Fire   = "FIRE";    // Yangın/su baskını vb.
+    public const string Waste  = "WASTE";   // Hurda/fire kullanılamaz
 }
 
 /// <summary>Kaynak belge tipleri (SourceDocType kolonu)</summary>

@@ -110,7 +110,8 @@ class Program
                         "migration_44b_idempotency_multibin.sql", // Plan 44 Faz 3: idempotency index'e BinId+LotNo (multi-bin split)
                         "migration_46_dict_crud_flag.sql",    // Plan 46 M0: DictionaryType.AllowValueCrud (kod-çıpalı vs dinamik CRUD)
                         "migration_47_itemcost_company_grain.sql", // Plan 47 M1 Faz 1: ItemCost per-depo→şirket-genel collapse + OnHandQty ledger senkron
-                        "migration_48_costing_method_lock.sql"  // Plan 47 M1 Faz 3: CostingMethod MOVING_AVG kilit (FIFO/STANDARD motoru yok)
+                        "migration_48_costing_method_lock.sql", // Plan 47 M1 Faz 3: CostingMethod MOVING_AVG kilit (FIFO/STANDARD motoru yok)
+                        "migration_49_materialissue_scrap.sql"  // Plan 47 M1 Faz 4: MaterialIssue.ReasonCode (zayiat HASAR/FIRE/HURDA → StockMovement SCRAP)
 
                     })
                     {

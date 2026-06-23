@@ -28,10 +28,15 @@ BEGIN
         DECLARE @now DATETIME2 = GETUTCDATE();
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
 
-        DECLARE @WarehouseId UNIQUEIDENTIFIER, @Status NVARCHAR(20), @DocNo NVARCHAR(50);
-        SELECT @WarehouseId = WarehouseId, @Status = Status, @DocNo = DocNo
+        DECLARE @WarehouseId UNIQUEIDENTIFIER, @Status NVARCHAR(20), @DocNo NVARCHAR(50),
+                @ReasonCode NVARCHAR(20);
+        SELECT @WarehouseId = WarehouseId, @Status = Status, @DocNo = DocNo, @ReasonCode = ReasonCode
         FROM MaterialIssueHeader WITH (UPDLOCK, ROWLOCK)
         WHERE Id = @HeaderId AND CompanyId = @CompanyId;
+
+        -- Hareket tipi: ReasonCode set ise zayiat (SCRAP), değilse normal sarf (ISSUE).
+        -- Zayiat VUK ayrımı için StockMovement.MovementType='SCRAP' yazılır; stok düşüşü aynıdır.
+        DECLARE @MoveType NVARCHAR(20) = CASE WHEN @ReasonCode IS NOT NULL THEN 'SCRAP' ELSE 'ISSUE' END;
 
         IF @WarehouseId IS NULL
             THROW 51550, N'Sarf fişi bulunamadı.', 1;
@@ -82,14 +87,14 @@ BEGIN
                     @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty, @LotNo = NULL,
                     @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
                     @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
-                    @MovementDate = @now, @BranchId = @BranchId;
+                    @MovementDate = @now, @BranchId = @BranchId, @MovementType = @MoveType;
             ELSE
                 EXEC dbo.sp_ConsumeInventoryFEFO                   -- bin yok → FEFO/FIFO multi-bin tahsis
                     @CompanyId = @CompanyId, @WarehouseId = @WarehouseId,
                     @ItemId = @mlItem, @UomId = @mlUom, @QtyBase = @mlQty,
                     @SourceDocType = 'CONSUMPTION', @SourceDocId = @HeaderId, @SourceLineId = @mlId,
                     @SourceDocNo = @DocNo, @UnitCost = @mlCost, @UserId = @miUser,
-                    @MovementDate = @now, @BranchId = @BranchId;
+                    @MovementDate = @now, @BranchId = @BranchId, @MovementType = @MoveType;
             FETCH NEXT FROM c_mi INTO @mlId, @mlItem, @mlUom, @mlQty, @mlBin, @mlCost;
         END
         CLOSE c_mi; DEALLOCATE c_mi;

@@ -151,14 +151,16 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 
 ### Öncelik Sırası
 
-**1. 🔴 Rate Limiting — Brute-Force Koruması**
+> ✅ **TÜMÜ KAPALI — doğrulandı 2026-06-23 (todo-verification, canlı Program.cs).** Bu bölümdeki 🔴/🟡/🟢 başlıkların alt maddeleri hepsi `[x]`; emoji "açık" izlenimi STALE. Kanıt: AddRateLimiter (global 200/login 10/switch 10) + UseRateLimiter (RL); UseSecurityHeaders + UseHsts (SH); Roles.cs + RoleModuleAccess + Admin `[Authorize(Roles=Administrator)]` (RB/AP); CookieSecurePolicy.Always + UseHttpsRedirection (TLS). TLS-2 dev'de bilinçli dışlı (X-Forwarded-Proto döngüsü) = doğru final.
+
+**1. ✅ Rate Limiting — Brute-Force Koruması**
 - [x] **RL-1** `Program.cs` — ASP.NET Core `RateLimiter` middleware ekle
   - `/Auth/Login` POST: IP başına 10 istek/dakika (5 dk bekleme)
   - `/api/switch-company`: Kullanıcı başına 10 istek/dakika
   - Global fallback: IP başına 200 istek/dakika
   - Identity'nin 5-deneme kilidi IP değiştirilince bypass ediliyor → bu onu kapatır
 
-**2. 🔴 HTTP Security Headers**
+**2. ✅ HTTP Security Headers**
 - [x] **SH-1** `Lib/SecurityHeadersMiddleware.cs` — Yeni middleware oluştur, `app.Use()` ile ekle:
   - `X-Content-Type-Options: nosniff` — MIME sniffing koruması
   - `X-Frame-Options: SAMEORIGIN` — Clickjacking koruması
@@ -186,7 +188,7 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 
 **5. 🟢 HTTPS & TLS**
 - [x] **TLS-1** `Program.cs` — `CookieSecurePolicy.SameAsRequest` → `CookieSecurePolicy.Always`
-- [~] **TLS-2** `Program.cs` — HTTPS redirection tüm ortamlarda aktif (dev dahil)
+- [x] **TLS-2** `Program.cs` — HTTPS redirection aktif; dev'de bilinçli dışlı (X-Forwarded-Proto olmadan Kestrel sonsuz döngü) = doğru final, borç değil
 - [x] **TLS-3** `appsettings.json` HSTS süresi 30 gün → 1 yıl (production)
 
 ### Tasarım Kararları (onay bekliyor)

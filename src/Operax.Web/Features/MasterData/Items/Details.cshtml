@@ -16,7 +16,7 @@
             </a>
             <span class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-4)]">Ürün Yönetimi / @(Model.IsNew ? "Yeni" : Model.Item.Code)</span>
         </div>
-        <h1 class="text-3xl font-black text-[var(--text)] tracking-tight">@(Model.IsNew ? "Yeni Ürün Kartı" : Model.Item.Name)</h1>
+        <h1 class="text-2xl font-bold text-[var(--text)] tracking-tight">@(Model.IsNew ? "Yeni Ürün Kartı" : Model.Item.Name)</h1>
         <p class="text-sm text-[var(--text-3)] mt-1">Ürün tanımı, birim dönüşümleri ve barkod yönetimi</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
@@ -38,13 +38,13 @@
     <!-- Smart Buttons & Base Stats -->
     <div class="flex items-center justify-between gap-4 mb-6">
         <div class="flex gap-4">
-            <div class="card p-4 py-3 flex flex-col justify-between min-w-[120px]">
-                <span class="text-[9px] font-bold uppercase tracking-widest text-[var(--text-4)] block mb-1">Baz Birim</span>
-                <span class="text-lg font-black text-[var(--brand-500)]">@Model.Item.BaseUomCode</span>
+            <div class="stat-card min-w-[140px]">
+                <span class="stat-label">Baz Birim</span>
+                <div class="stat-value">@Model.Item.BaseUomCode</div>
             </div>
-            <div class="card p-4 py-3 flex flex-col justify-between min-w-[120px]">
-                <span class="text-[9px] font-bold uppercase tracking-widest text-[var(--text-4)] block mb-1">Alternatif UOM</span>
-                <span class="text-lg font-black text-[var(--text-2)]">@Model.UomConversions.Count() adet</span>
+            <div class="stat-card min-w-[140px]">
+                <span class="stat-label">Alternatif UOM</span>
+                <div class="stat-value">@Model.UomConversions.Count()<span class="text-sm font-normal text-[var(--text-3)] ml-1">adet</span></div>
             </div>
         </div>
         <div class="smart-btn-container">
@@ -119,14 +119,14 @@
                     <span class="card-ttl">Temel Bilgiler</span>
                 </div>
                 <div class="card-body space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="form-row">
                         <div>
-                            <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Ürün Kodu *</label>
-                            <input asp-for="Item.Code" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="örn. SKU-1001" required />
+                            <label class="form-label">Ürün Kodu *</label>
+                            <input asp-for="Item.Code" class="form-ctrl" placeholder="örn. SKU-1001" required />
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Baz Birim *</label>
-                            <select asp-for="Item.BaseUomId" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text-2)]" required>
+                            <label class="form-label">Baz Birim *</label>
+                            <select asp-for="Item.BaseUomId" class="form-ctrl" required>
                                 <option value="">Birim seçin...</option>
                                 @foreach (var uom in Model.Uoms)
                                 {
@@ -136,13 +136,13 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Ürün Adı *</label>
-                        <input asp-for="Item.Name" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="Tam ürün adını girin" required />
+                        <label class="form-label">Ürün Adı *</label>
+                        <input asp-for="Item.Name" class="form-ctrl" placeholder="Tam ürün adını girin" required />
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="form-row">
                         <div>
-                            <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Kategori</label>
-                            <select asp-for="Item.CategoryId" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text-2)]">
+                            <label class="form-label">Kategori</label>
+                            <select asp-for="Item.CategoryId" class="form-ctrl">
                                 <option value="">Kategori seçin...</option>
                                 @foreach (var cat in Model.Categories)
                                 {
@@ -151,8 +151,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">KDV Oranı (%)</label>
-                            <select asp-for="Item.TaxRate" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text-2)]" required>
+                            <label class="form-label">KDV Oranı (%)</label>
+                            <select asp-for="Item.TaxRate" class="form-ctrl" required>
                                 <option value="">KDV seçin...</option>
                                 @foreach (var tax in Model.TaxRates)
                                 {
@@ -162,8 +162,8 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Kalem Türü</label>
-                        <select asp-for="Item.ItemType" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text-2)]">
+                        <label class="form-label">Kalem Türü</label>
+                        <select asp-for="Item.ItemType" class="form-ctrl">
                             @* Plan 52: ürün doğası (satış/sarf/üretim kullanımı evrak belirler — CONSUMABLE kaldırıldı) *@
                             <option value="STOCK">Stok (fiziksel mal — satılır/üretilir/sarf olur)</option>
                             <option value="SERVICE">Hizmet (stoksuz)</option>
@@ -171,20 +171,20 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Açıklama</label>
-                        <input asp-for="Item.Description" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="İsteğe bağlı açıklama" />
+                        <label class="form-label">Açıklama</label>
+                        <input asp-for="Item.Description" class="form-ctrl" placeholder="İsteğe bağlı açıklama" />
                     </div>
                     <div class="divider"></div>
                     <div class="space-y-4">
                         <h3 class="text-xs font-bold text-[var(--brand-500)] uppercase tracking-wider">Emniyet Stoğu & Stok Limitleri</h3>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="form-row">
                             <div>
-                                <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Minimum Stok (Emniyet)</label>
-                                <input asp-for="Item.MinStockLevel" type="number" step="0.01" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="Min limit" />
+                                <label class="form-label">Minimum Stok (Emniyet)</label>
+                                <input asp-for="Item.MinStockLevel" type="number" step="0.01" class="form-ctrl" placeholder="Min limit" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Maksimum Stok</label>
-                                <input asp-for="Item.MaxStockLevel" type="number" step="0.01" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="Max limit" />
+                                <label class="form-label">Maksimum Stok</label>
+                                <input asp-for="Item.MaxStockLevel" type="number" step="0.01" class="form-ctrl" placeholder="Max limit" />
                             </div>
                         </div>
                     </div>
@@ -308,8 +308,8 @@
                 <input type="hidden" name="id" value="@Model.Item.Id">
                 <div class="flex gap-4 items-end">
                     <div class="flex-1">
-                        <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Birim</label>
-                        <select name="uomId" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text-2)]">
+                        <label class="form-label">Birim</label>
+                        <select name="uomId" class="form-ctrl">
                             @foreach (var u in Model.Uoms)
                             {
                                 <option value="@u.Id">@u.Name (@u.Code)</option>
@@ -317,8 +317,8 @@
                         </select>
                     </div>
                     <div class="flex-1">
-                        <label class="block text-xs font-bold text-[var(--text-3)] uppercase mb-1.5 ml-1">Katsayı (Baz Birim Karşılığı)</label>
-                        <input name="rate" type="number" step="0.000001" class="w-full px-4 py-2.5 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl focus:ring-2 focus:ring-[var(--brand-500)] focus:bg-[var(--surface)] outline-none transition-all text-sm font-semibold text-[var(--text)]" placeholder="örn. 12 (1 koli = 12 adet)" required />
+                        <label class="form-label">Katsayı (Baz Birim Karşılığı)</label>
+                        <input name="rate" type="number" step="0.000001" class="form-ctrl" placeholder="örn. 12 (1 koli = 12 adet)" required />
                     </div>
                     <button type="submit" class="btn btn-primary px-8 py-2.5">Ekle</button>
                 </div>
@@ -399,8 +399,8 @@
             <input type="hidden" name="id" value="@Model.Item.Id">
             <div class="p-6 space-y-4">
                 <div>
-                    <label class="block text-[10px] font-bold uppercase text-[var(--text-4)] mb-1.5 ml-1">Birim Seçin</label>
-                    <select name="uomId" class="w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-[var(--brand-500)]">
+                    <label class="form-label">Birim Seçin</label>
+                    <select name="uomId" class="form-ctrl">
                         @foreach (var u in Model.Uoms)
                         {
                             <option value="@u.Id">@u.Name (@u.Code)</option>
@@ -408,8 +408,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold uppercase text-[var(--text-4)] mb-1.5 ml-1">Katsayı (örn. 24 → 1 koli = 24 adet)</label>
-                    <input name="rate" type="number" step="0.000001" class="w-full px-4 py-2 border rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--brand-500)]" placeholder="Katsayı değeri girin" required />
+                    <label class="form-label">Katsayı (örn. 24 → 1 koli = 24 adet)</label>
+                    <input name="rate" type="number" step="0.000001" class="form-ctrl" placeholder="Katsayı değeri girin" required />
                 </div>
             </div>
             <div class="p-4 bg-[var(--surface-2)] border-t flex justify-end gap-3">
@@ -431,12 +431,12 @@
             <input type="hidden" name="id" value="@Model.Item.Id">
             <div class="p-6 space-y-4">
                 <div>
-                    <label class="block text-[10px] font-bold uppercase text-[var(--text-4)] mb-1.5 ml-1">Barkod Numarası</label>
-                    <input name="barcode" type="text" class="w-full px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-[var(--brand-500)]" placeholder="örn. 8690000123456" required />
+                    <label class="form-label">Barkod Numarası</label>
+                    <input name="barcode" type="text" class="form-ctrl" placeholder="örn. 8690000123456" required />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold uppercase text-[var(--text-4)] mb-1.5 ml-1">Temsil Ettiği Birim</label>
-                    <select name="uomId" class="w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-[var(--brand-500)]">
+                    <label class="form-label">Temsil Ettiği Birim</label>
+                    <select name="uomId" class="form-ctrl">
                         @foreach (var u in Model.Uoms)
                         {
                             <option value="@u.Id">@u.Name (@u.Code)</option>

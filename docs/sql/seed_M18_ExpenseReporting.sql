@@ -1,5 +1,7 @@
--- Plan 26 Faz C: Gider merkezi + gider tipi seed (demo)
--- Idempotent: IF NOT EXISTS korumalı
+-- Baseline: Gider merkezi (CostCenter) + gider tipi (ExpenseType) taban ağacı.
+-- Jenerik departman/gider kalemleri (Genel Müdürlük/Üretim/Satış · Elektrik/Su/Kira) —
+-- her şirkette bulunan standart yapı, kuruluma özel sonradan düzenlenir.
+-- Idempotent: IF NOT EXISTS korumalı (tekrar koşumda no-op).
 
 DECLARE @CompanyId UNIQUEIDENTIFIER = (SELECT TOP 1 Id FROM Company WHERE IsDeleted = 0 ORDER BY CreatedAt);
 

@@ -1,0 +1,62 @@
+/* OPERAX — Settings Hub (ayarlar merkezi: kart ızgarası + navigasyon kutucukları) */
+
+.settings-hub {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+@media (min-width: 768px) {
+  .settings-hub { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Kart accent rengi — modifier ile --accent / --accent-tint set edilir (varsayılan marka) */
+.settings-card { --accent: var(--brand-500); --accent-tint: var(--brand-tint-08); }
+.settings-card.accent-success { --accent: var(--success); --accent-tint: var(--success-bg); }
+.settings-card.accent-warn    { --accent: var(--warn);    --accent-tint: var(--warn-bg); }
+
+.settings-card .card-hdr { background: var(--accent-tint); }
+.settings-card-icon { color: var(--accent); display: flex; }
+.settings-card .card-body { display: flex; flex-direction: column; gap: 10px; }
+
+/* Navigasyon kutucuğu (ilgili yönetim ekranına git) */
+.nav-tile {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  text-decoration: none;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.nav-tile:not(.is-disabled):hover {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.nav-tile-icon {
+  flex-shrink: 0; width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-tile-icon svg { width: 16px; height: 16px; }
+
+.nav-tile-body  { display: flex; flex-direction: column; }
+.nav-tile-title { font-size: 12px; font-weight: 600; }
+.nav-tile-note  { font-size: 10px; color: var(--text-3); font-weight: 500; }
+
+.nav-tile-chevron {
+  margin-left: auto; width: 12px; height: 12px;
+  opacity: .4; transition: opacity .15s, transform .15s;
+}
+.nav-tile:not(.is-disabled):hover .nav-tile-chevron { opacity: 1; transform: translateX(2px); }
+
+/* Pasif (yakında aktif) kutucuk — accent yok, nötr */
+.nav-tile.is-disabled {
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+.nav-tile.is-disabled .nav-tile-icon { background: var(--surface-2); color: var(--text-3); }

@@ -90,6 +90,18 @@ Yani `grid-cols-1 md:grid-cols-3` = mobilde tek kolon, ≥768px üç kolon.
 ## Hazır Semantic Component (utility ile birlikte)
 Görsel kimlik component'te, yerleşim utility'de: `<div class="card overflow-x-auto">`, `<button class="btn btn-primary w-full md:w-auto">`, `<input class="form-ctrl" />`, `<table class="data-table min-w-[640px]">`.
 
+## Görsel Kalite — Anti-Slop (Anthropic frontend-design dersi)
+> Kaynak: [Improving Frontend Design Through Skills](https://claude.com/blog/improving-frontend-design-through-skills). ERP-süzgeci uygulandı — yoğun veri ekranı için marketing-site süsü (RPG tema, dramatik font) ELENDİ; geçerli ilkeler kaldı.
+
+ERP ekranı "çalışıyor ama generic" tuzağından kaçınma kuralları:
+1. **Hiyerarşi sert olsun, timid değil.** Önemli sayı (Genel Toplam, KPI değeri) gövde metninden **belirgin büyük + ağır** (`text-2xl font-extrabold`); etiket küçük/soluk (`text-xs text-[var(--text-3)]`). 1.5x değil ~2x+ sıçrama. Her şey aynı boyut = okunmaz duvar.
+2. **Baskın renk + keskin aksan.** Nötr yüzey (`--surface/--bg`) hâkim; brand rengi (`--brand-500`) yalnız aksiyon/aktif/önemli-rakamda. Her yere brand serpme = gürültü. "Timid eşit-dağılmış palet" yasak — semantik renk (success/warn/danger) sadece anlam taşıdığında.
+3. **Token palet, sabit renk yok.** `bg-white`/`#hex`/`text-slate-*` = slop sinyali. Daima `[var(--…)]`. Tema tek nokta → dark/light tutarlı.
+4. **Derinlik katmanla.** Düz renk yerine `--surface` + `--border` + `--shadow` token'ları (zaten `.card`'da). Yeni gradient/gölge sabit değer GÖMME → token.
+5. **Hareket ölçülü.** ERP'de orkestreli sayfa-yükleme şart değil; ama durum geçişi (toast, satır ekleme) ani değil yumuşak (`transition`). Mikro-animasyon serpme yapma.
+
+> Not: Operax teması zaten custom premium (slop değil). Bu bölüm yeni ekran/elden-geçirmede "generic'e kaymama" kontrol listesi.
+
 ## Doğrulama (ZORUNLU — mobil)
 Ekran yazınca/düzeltince **`preview_resize` ile mobil(375) + desktop(1280) test et:**
 - Yatay taşma yok (`document.documentElement.scrollWidth ≤ innerWidth`).

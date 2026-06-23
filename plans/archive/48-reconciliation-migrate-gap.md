@@ -1,6 +1,6 @@
 # Plan 48 — Reconciliation Migrate-Gap (fresh-install kırılması)
 
-**Durum:** Taslak · onay bekliyor
+**Durum:** ✅ TAMAMLANDI (2026-06-23, commit dfae7a1) — fresh test DB 12/12 obje + canonical view; dev re-migrate 0 fail; sql-sp-reviewer 5/5 temiz.
 **Tier:** 3 (migrate sıra değişikliği + v_ExpenseDistribution çift-tanım çakışması + 4-6 SQL dosyası, geri-alması zor)
 **Tarih:** 2026-06-23
 **Tetik:** Plan 47 ölü-nesne taraması sırasında bulundu; kullanıcı "iş geldikçe SQL'i de çözelim" dedi.
@@ -58,13 +58,13 @@ Ama feature'ın **6 SQL dosyası `operax-cli migrate` listesinde (`src/Operax.Cl
 
 ## 5. Done Criteria
 
-- [ ] Faz A: 2 schema dosyası migrate listesinde, AccountMovement'tan sonra
-- [ ] Faz B: 2 db_objects dosyası migrate'te, expensereport'tan önce
-- [ ] Faz C: v_ExpenseDistribution `db_objects_reconciliation.sql`'den çıkarıldı; canonical=expensereport
-- [ ] **Fresh test DB** (drop+create veya Operax_Test) → `operax-cli migrate` 0-hata + 10/10 reconciliation obje mevcut + v_ExpenseDistribution = expensereport sürümü (satır/tanım doğrula)
-- [ ] Mevcut dev DB re-migrate 0-hata (idempotent kanıt)
-- [ ] sql-sp-reviewer geçti (sıra + view tekilliği)
-- [ ] Plan arşive + journal
+- [x] Faz A: 2 schema dosyası migrate listesinde, AccountMovement'tan sonra
+- [x] Faz B: 2 db_objects dosyası migrate'te, expensereport'tan önce
+- [x] Faz C: v_ExpenseDistribution `db_objects_reconciliation.sql`'den çıkarıldı; canonical=expensereport (kayıpsız superset, 0 view okuyucu)
+- [x] **Fresh test DB** (Operax_Plan48Test) → migrate 0-hata + 12/12 reconciliation obje + v_ExpenseDistribution canonical (PartnerName/ExpenseTypeName/CostCenterName 3/3)
+- [x] Dev DB re-migrate 0-hata (idempotent kanıt)
+- [x] sql-sp-reviewer geçti (5/5: FK sırası, runtime dep, view dedup, backfill no-op, idempotency)
+- [x] Plan arşive + journal
 
 ## 6. Faz sırası / bağımlılık
 

@@ -1,6 +1,6 @@
 # Plan 47 — M1 Modül Tamamlama: Envanter/Stok + Costing
 
-**Durum:** Faz 0 (audit) ✅ · uygulama onayı bekliyor
+**Durum:** ✅ TAMAMLANDI (2026-06-23) — Faz 1-5 hepsi DoD'a kapandı (commit'ler: 513d6d3·28d1ad6·9e134a8·7002609·e1233b0). M1 envanter/stok+costing DoD karşılandı.
 **Roadmap:** Plan 45 §3 sıra — M0 (✅ kapandı) sonrası M1. EXECUTION-FIRST: yeni modül değil, mevcut modülü DoD'a kapat.
 **Tarih:** 2026-06-23
 

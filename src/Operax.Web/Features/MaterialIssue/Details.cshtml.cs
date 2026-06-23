@@ -27,15 +27,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
+        // StockType/ConsumableType yalnız Items sorgusunda kullanılır; Dapper diğer sorgularda yok sayar
+        var p = new { CompanyId = company.Id, StockType = ItemType.Stock, ConsumableType = ItemType.Consumable };
 
         Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code", p, cancellationToken: ct));
         CostCenters = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM CostCenter WHERE CompanyId = @CompanyId AND IsActive = 1 ORDER BY Code", p, cancellationToken: ct));
-        // Sarf edilebilir ürünler: STOCK + CONSUMABLE (SERVICE hariç — stoksuz)
+        // Sarf edilebilir ürünler: STOCK + CONSUMABLE (SERVICE hariç — stoksuz); magic-string yerine ItemType sabitleri
         Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType IN ('STOCK','CONSUMABLE') ORDER BY Code", p, cancellationToken: ct));
+            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType IN (@StockType, @ConsumableType) ORDER BY Code", p, cancellationToken: ct));
 
         if (id.HasValue)
         {

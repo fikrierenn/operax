@@ -18,6 +18,7 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
     public int FilteredCount { get; set; }
     public int TotalPages => (int)System.Math.Ceiling((double)FilteredCount / PageSize);
 
+    // Sistem rollerini sayfalayarak listeler (Dapper QueryMultiple ile satır + toplam sayım).
     public async Task OnGetAsync(CancellationToken ct = default)
     {
         using var conn = db.Open();
@@ -32,6 +33,7 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
         FilteredCount = await grid.ReadSingleAsync<int>();
     }
 
+    // Rolü siler; yerleşik Administrator rolü korunur (silme reddedilir).
     public async Task<IActionResult> OnPostDeleteAsync(string id, CancellationToken ct = default)
     {
         var role = await roleManager.FindByIdAsync(id);

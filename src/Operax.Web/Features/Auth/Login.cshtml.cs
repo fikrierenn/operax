@@ -35,12 +35,14 @@ public class LoginModel(SignInManager<IdentityUser> signInManager, ILogger<Login
         public bool RememberMe { get; set; }
     }
 
+    // Giriş sayfasını açar; varsa returnUrl saklanır ve dış (external) oturum artığı temizlenir.
     public async Task OnGetAsync(string? returnUrl = null, CancellationToken ct = default)
     {
         ReturnUrl = returnUrl;
         await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
     }
 
+    // E-posta/şifre doğrular; lockoutOnFailure ile brute-force kilidi aktif. Başarılıysa returnUrl'e döner.
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null, CancellationToken ct = default)
     {
         returnUrl ??= Url.Content("~/");

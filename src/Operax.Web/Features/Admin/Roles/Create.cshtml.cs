@@ -11,6 +11,7 @@ public class CreateModel(RoleManager<IdentityRole> roleManager) : PageModel
     [BindProperty]
     public string RoleName { get; set; } = "";
 
+    // Yeni rol oluşturur; boş rol adı reddedilir, Identity hataları ModelState'e yansıtılır.
     public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(RoleName))

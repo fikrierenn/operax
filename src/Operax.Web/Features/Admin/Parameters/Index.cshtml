@@ -78,7 +78,7 @@
                     {
                         <tr>
                             <td><span class="badge badge-neutral">@p.ModuleCode</span></td>
-                            <td><span class="mono row-strong" style="color:var(--brand-500);">@p.Code</span></td>
+                            <td><span class="mono row-strong text-[var(--brand-500)]">@p.Code</span></td>
                             <td>
                                 <form method="post" asp-page-handler="Save" style="display:flex;gap:6px;align-items:center;">
                                     @Html.AntiForgeryToken()
@@ -96,7 +96,7 @@
                                       onsubmit="return confirm('@p.Code kodlu parametreyi silmek istiyor musunuz?')">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@p.Id" />
-                                    <button type="submit" class="btn btn-ghost btn-xs" style="color:var(--danger-text);">Sil</button>
+                                    <button type="submit" class="btn btn-ghost btn-xs text-[var(--danger)]">Sil</button>
                                 </form>
                             </td>
                         </tr>

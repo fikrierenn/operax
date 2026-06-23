@@ -23,6 +23,7 @@ public class PermissionsModel(Db db, RoleManager<IdentityRole> roleManager, IMem
     [BindProperty] public string RoleId { get; set; } = "";
     [BindProperty] public Dictionary<string, int> Access { get; set; } = new();
 
+    // Rolün mevcut modül erişim seviyelerini (RoleModuleAccess) yükler.
     public async Task<IActionResult> OnGetAsync(string id, CancellationToken ct = default)
     {
         // Guard: rol yoksa liste sayfasına dön
@@ -42,6 +43,7 @@ public class PermissionsModel(Db db, RoleManager<IdentityRole> roleManager, IMem
         return Page();
     }
 
+    // Seçilen rol için tüm modül erişim seviyelerini kaydeder (ekle/güncelle/sil); yetki cache'i tazelenir.
     public async Task<IActionResult> OnPostAsync(CancellationToken ct = default)
     {
         // Guard: rol yoksa işlem yapılmaz

@@ -63,6 +63,9 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   /* Gölgeler */
+  /* Modal/overlay karartma perdesi (scrim) — koyu metin tonu + opaklık */
+  --overlay: hsl(222 47% 11% / 0.45);
+
   /* Köşe yarıçapı — sihirli px yerine token (kart=14, geniş kart/stat=16) */
   --radius: 14px;
   --radius-lg: 16px;

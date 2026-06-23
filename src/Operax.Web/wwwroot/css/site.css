@@ -1247,6 +1247,18 @@
   .border-\[var\(--border\)\] {
     border-color: var(--border);
   }
+  .border-\[var\(--brand-500\)\] {
+    border-color: var(--brand-500);
+  }
+  .border-\[var\(--brand-tint-15\)\] {
+    border-color: var(--brand-tint-15);
+  }
+  .border-\[var\(--success-border\)\] {
+    border-color: var(--success-border);
+  }
+  .border-\[var\(--warn-border\)\] {
+    border-color: var(--warn-border);
+  }
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
@@ -1258,9 +1270,6 @@
   }
   .border-black {
     border-color: var(--color-black);
-  }
-  .border-emerald-100 {
-    border-color: var(--color-emerald-100);
   }
   .border-green-100 {
     border-color: var(--color-green-100);
@@ -1313,6 +1322,9 @@
   .bg-\[hsl\(220\,14\%\,97\%\)\] {
     background-color: hsl(220,14%,97%);
   }
+  .bg-\[var\(--brand-tint-08\)\] {
+    background-color: var(--brand-tint-08);
+  }
   .bg-\[var\(--brand-tint-15\)\] {
     background-color: var(--brand-tint-15);
   }
@@ -1328,14 +1340,26 @@
   .bg-\[var\(--neutral-text\)\] {
     background-color: var(--neutral-text);
   }
+  .bg-\[var\(--overlay\)\] {
+    background-color: var(--overlay);
+  }
   .bg-\[var\(--success\)\] {
     background-color: var(--success);
+  }
+  .bg-\[var\(--success-bg\)\] {
+    background-color: var(--success-bg);
+  }
+  .bg-\[var\(--surface\)\] {
+    background-color: var(--surface);
   }
   .bg-\[var\(--surface-2\)\] {
     background-color: var(--surface-2);
   }
   .bg-\[var\(--warn\)\] {
     background-color: var(--warn);
+  }
+  .bg-\[var\(--warn-bg\)\] {
+    background-color: var(--warn-bg);
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
@@ -1853,6 +1877,15 @@
   .text-\[var\(--brand-500\)\] {
     color: var(--brand-500);
   }
+  .text-\[var\(--brand-600\)\] {
+    color: var(--brand-600);
+  }
+  .text-\[var\(--success\)\] {
+    color: var(--success);
+  }
+  .text-\[var\(--success-text\)\] {
+    color: var(--success-text);
+  }
   .text-\[var\(--text\)\] {
     color: var(--text);
   }
@@ -1868,6 +1901,12 @@
   .text-\[var\(--text-mute\)\] {
     color: var(--text-mute);
   }
+  .text-\[var\(--warn\)\] {
+    color: var(--warn);
+  }
+  .text-\[var\(--warn-text\)\] {
+    color: var(--warn-text);
+  }
   .text-amber-400 {
     color: var(--color-amber-400);
   }
@@ -1882,9 +1921,6 @@
   }
   .text-amber-800 {
     color: var(--color-amber-800);
-  }
-  .text-amber-900 {
-    color: var(--color-amber-900);
   }
   .text-black {
     color: var(--color-black);
@@ -1906,9 +1942,6 @@
   }
   .text-emerald-600 {
     color: var(--color-emerald-600);
-  }
-  .text-emerald-900 {
-    color: var(--color-emerald-900);
   }
   .text-green-300 {
     color: var(--color-green-300);
@@ -2028,11 +2061,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  .accent-\[var\(--brand-500\)\] {
+    accent-color: var(--brand-500);
+  }
+  .accent-\[var\(--success\)\] {
+    accent-color: var(--success);
+  }
+  .accent-\[var\(--warn\)\] {
+    accent-color: var(--warn);
+  }
   .accent-amber-600 {
     accent-color: var(--color-amber-600);
-  }
-  .accent-emerald-600 {
-    accent-color: var(--color-emerald-600);
   }
   .accent-indigo-600 {
     accent-color: var(--color-indigo-600);
@@ -2214,20 +2253,6 @@
       }
     }
   }
-  .group-hover\:text-amber-950 {
-    &:is(:where(.group):hover *) {
-      @media (hover: hover) {
-        color: var(--color-amber-950);
-      }
-    }
-  }
-  .group-hover\:text-emerald-950 {
-    &:is(:where(.group):hover *) {
-      @media (hover: hover) {
-        color: var(--color-emerald-950);
-      }
-    }
-  }
   .group-hover\:text-indigo-600 {
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
@@ -2239,13 +2264,6 @@
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
         color: var(--color-indigo-900);
-      }
-    }
-  }
-  .group-hover\:text-indigo-950 {
-    &:is(:where(.group):hover *) {
-      @media (hover: hover) {
-        color: var(--color-indigo-950);
       }
     }
   }
@@ -2269,6 +2287,13 @@
       }
     }
   }
+  .hover\:border-\[var\(--danger\)\] {
+    &:hover {
+      @media (hover: hover) {
+        border-color: var(--danger);
+      }
+    }
+  }
   .hover\:border-indigo-200 {
     &:hover {
       @media (hover: hover) {
@@ -2283,13 +2308,6 @@
       }
     }
   }
-  .hover\:border-red-200 {
-    &:hover {
-      @media (hover: hover) {
-        border-color: var(--color-red-200);
-      }
-    }
-  }
   .hover\:\!bg-red-50\/50 {
     &:hover {
       @media (hover: hover) {
@@ -2300,10 +2318,34 @@
       }
     }
   }
+  .hover\:bg-\[var\(--danger-bg\)\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--danger-bg);
+      }
+    }
+  }
+  .hover\:bg-\[var\(--surface\)\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--surface);
+      }
+    }
+  }
   .hover\:bg-\[var\(--surface-2\)\] {
     &:hover {
       @media (hover: hover) {
         background-color: var(--surface-2);
+      }
+    }
+  }
+  .hover\:bg-\[var\(--surface-2\)\]\/50 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--surface-2);
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--surface-2) 50%, transparent);
+        }
       }
     }
   }
@@ -2314,30 +2356,10 @@
       }
     }
   }
-  .hover\:bg-amber-100\/50 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: color-mix(in srgb, oklch(96.2% 0.059 95.617) 50%, transparent);
-        @supports (color: color-mix(in lab, red, red)) {
-          background-color: color-mix(in oklab, var(--color-amber-100) 50%, transparent);
-        }
-      }
-    }
-  }
   .hover\:bg-amber-600 {
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-amber-600);
-      }
-    }
-  }
-  .hover\:bg-emerald-100\/50 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: color-mix(in srgb, oklch(95% 0.052 163.051) 50%, transparent);
-        @supports (color: color-mix(in lab, red, red)) {
-          background-color: color-mix(in oklab, var(--color-emerald-100) 50%, transparent);
-        }
       }
     }
   }
@@ -2376,16 +2398,6 @@
       }
     }
   }
-  .hover\:bg-indigo-100\/50 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: color-mix(in srgb, oklch(93% 0.034 272.788) 50%, transparent);
-        @supports (color: color-mix(in lab, red, red)) {
-          background-color: color-mix(in oklab, var(--color-indigo-100) 50%, transparent);
-        }
-      }
-    }
-  }
   .hover\:bg-indigo-500 {
     &:hover {
       @media (hover: hover) {
@@ -2397,13 +2409,6 @@
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-indigo-700);
-      }
-    }
-  }
-  .hover\:bg-red-50 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: var(--color-red-50);
       }
     }
   }
@@ -2463,6 +2468,20 @@
     &:hover {
       @media (hover: hover) {
         color: var(--brand-400);
+      }
+    }
+  }
+  .hover\:text-\[var\(--danger-text\)\] {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--danger-text);
+      }
+    }
+  }
+  .hover\:text-\[var\(--text\)\] {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--text);
       }
     }
   }
@@ -2547,6 +2566,11 @@
       border-color: var(--color-indigo-500);
     }
   }
+  .focus\:bg-\[var\(--surface\)\] {
+    &:focus {
+      background-color: var(--surface);
+    }
+  }
   .focus\:bg-white {
     &:focus {
       background-color: var(--color-white);
@@ -2562,6 +2586,11 @@
     &:focus {
       --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+  }
+  .focus\:ring-\[var\(--brand-500\)\] {
+    &:focus {
+      --tw-ring-color: var(--brand-500);
     }
   }
   .focus\:ring-green-500 {
@@ -2806,6 +2835,7 @@
   --neutral-border: hsl(220 13% 88%);
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --overlay: hsl(222 47% 11% / 0.45);
   --radius: 14px;
   --radius-lg: 16px;
   --radius-sm: 10px;

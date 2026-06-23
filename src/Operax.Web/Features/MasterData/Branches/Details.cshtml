@@ -11,10 +11,10 @@
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
                 Geri
             </a>
-            <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Şube Yönetimi / @(Model.IsNew ? "Yeni" : Model.Branch.Code)</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest text-[var(--text-4)]">Şube Yönetimi / @(Model.IsNew ? "Yeni" : Model.Branch.Code)</span>
         </div>
-        <h1 class="text-2xl font-black text-slate-800 tracking-tight">@(Model.IsNew ? "Yeni Şube Kartı" : Model.Branch.Name)</h1>
-        <p class="text-sm text-slate-500 mt-1">Şube bilgileri ve bağlı depolar</p>
+        <h1 class="text-2xl font-black text-[var(--text)] tracking-tight">@(Model.IsNew ? "Yeni Şube Kartı" : Model.Branch.Name)</h1>
+        <p class="text-sm text-[var(--text-3)] mt-1">Şube bilgileri ve bağlı depolar</p>
     </div>
     <button type="submit" form="branch-form" class="btn btn-primary px-8">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -28,7 +28,7 @@
 <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:24px">
     <!-- SOL: Şube Bilgileri -->
     <div class="card p-6">
-        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Genel Bilgiler</div>
+        <div class="text-xs font-bold uppercase tracking-wider text-[var(--text-4)] mb-6 pb-2 border-b">Genel Bilgiler</div>
         <form id="branch-form" method="post">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="Branch.Id" />
@@ -74,12 +74,12 @@
                     </select>
                     <span class="form-hint">Şube iadelerinin gireceği varsayılan depo</span>
                 </div>
-                <div class="mt-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                <div class="mt-6 p-4 bg-[var(--brand-tint-08)] rounded-2xl border border-[var(--brand-tint-15)] flex items-center justify-between">
                     <div>
-                        <div class="text-xs font-bold text-indigo-900">Aktif Durum</div>
-                        <div class="text-[10px] text-indigo-600 font-medium">Bu şube kullanıma açık mı?</div>
+                        <div class="text-xs font-bold text-[var(--brand-600)]">Aktif Durum</div>
+                        <div class="text-[10px] text-[var(--brand-500)] font-medium">Bu şube kullanıma açık mı?</div>
                     </div>
-                    <input type="checkbox" asp-for="Branch.IsActive" class="w-5 h-5 accent-indigo-600 rounded">
+                    <input type="checkbox" asp-for="Branch.IsActive" class="w-5 h-5 accent-[var(--brand-500)] rounded">
                 </div>
             </div>
         </form>
@@ -87,9 +87,9 @@
 
     <!-- SAĞ: Bağlı Depolar -->
     <div class="card overflow-hidden">
-        <div class="px-6 py-4 bg-slate-50 border-b">
-            <h3 class="text-sm font-bold text-slate-800">Bağlı Depolar</h3>
-            <p class="text-[11px] text-slate-500">
+        <div class="px-6 py-4 bg-[var(--surface-2)] border-b">
+            <h3 class="text-sm font-bold text-[var(--text)]">Bağlı Depolar</h3>
+            <p class="text-[11px] text-[var(--text-3)]">
                 @if (Model.IsNew) { <span>Şubeyi kaydettikten sonra depo atayabilirsiniz.</span> }
                 else              { <span>@Model.Warehouses.Count() depo bu şubeye bağlı</span>  }
             </p>
@@ -110,7 +110,7 @@
                     {
                         <tr>
                             <td><span class="badge b-indigo font-mono">@wh.Code</span></td>
-                            <td class="text-sm text-slate-700">@wh.Name</td>
+                            <td class="text-sm text-[var(--text-2)]">@wh.Name</td>
                             <td class="text-center">
                                 @if (wh.IsActive) { <span class="badge b-green">AKTİF</span> }
                                 else              { <span class="badge b-gray">PASİF</span>  }
@@ -123,7 +123,7 @@
                     @if (!Model.Warehouses.Any())
                     {
                         <tr>
-                            <td colspan="4" class="text-center text-slate-400 italic py-8 text-sm">
+                            <td colspan="4" class="text-center text-[var(--text-4)] italic py-8 text-sm">
                                 Bu şubeye atanmış depo yok. Depo sayfasından şube seçebilirsiniz.
                             </td>
                         </tr>
@@ -134,8 +134,8 @@
         else
         {
             <div class="flex flex-col items-center justify-center p-12 text-center">
-                <svg class="w-10 h-10 text-slate-200 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
-                <p class="text-sm text-slate-400">Önce şubeyi kaydedin.</p>
+                <svg class="w-10 h-10 text-[var(--text-mute)] mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+                <p class="text-sm text-[var(--text-4)]">Önce şubeyi kaydedin.</p>
             </div>
         }
     </div>

@@ -4,71 +4,77 @@
     ViewData["Title"] = "Depo ve Hücreler";
 }
 
-<div class="flex justify-between items-center mb-6">
-    <div>
-        <h2 class="text-2xl font-bold">Lokasyonlar</h2>
-        <p class="text-slate-500 text-sm">Depo ve depolama hücrelerini yönetin</p>
+<div class="page-hdr">
+    <div class="page-hdr-l">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item">Tanımlamalar</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Lokasyonlar</span>
+        </div>
+        <h1>Lokasyonlar</h1>
+        <p class="page-hdr-sub">Depo ve depolama hücrelerini yönetin</p>
     </div>
-    <a href="/Warehouses/Details" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all text-sm" data-shortcut="Alt+N">
-        + Yeni Depo
-    </a>
+    <div class="page-hdr-r">
+        <a href="/Warehouses/Details" class="btn btn-primary px-6" data-shortcut="Alt+N">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni Depo
+        </a>
+    </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-    <!-- Warehouse Sidebar -->
-    <div class="lg:col-span-1 space-y-4">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    @* Depo seçim listesi (sol kolon) — seçili depo marka rengiyle vurgulanır *@
+    <div class="lg:col-span-1 space-y-3">
         @foreach (var wh in Model.Warehouses)
         {
-            <a asp-page="./Index" asp-route-whId="@wh.Id" 
-               class="block p-4 rounded-xl border transition-all @(wh.Id == Model.SelectedWhId ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white text-slate-700 hover:border-indigo-300")">
-                <div class="text-[10px] font-bold uppercase tracking-widest @(wh.Id == Model.SelectedWhId ? "text-indigo-200" : "text-slate-400")">@wh.Code</div>
+            <a asp-page="./Index" asp-route-whId="@wh.Id"
+               class="block p-4 rounded-xl border transition-all @(wh.Id == Model.SelectedWhId ? "bg-[var(--brand-500)] border-[var(--brand-500)] text-white shadow-[var(--shadow-brand)]" : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-2)] hover:border-[var(--brand-300)]")">
+                <div class="text-[10px] font-bold uppercase tracking-widest @(wh.Id == Model.SelectedWhId ? "text-[var(--brand-300)]" : "text-[var(--text-4)]")">@wh.Code</div>
                 <div class="font-bold">@wh.Name</div>
             </a>
         }
     </div>
 
-    <!-- Bins Table -->
+    @* Seçili deponun hücreleri (sağ kolon) *@
     <div class="lg:col-span-3">
-        <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-            <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Hücreler (Depolama Alanları)</h3>
-                <button class="text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-900 transition-colors">
-                    + Hücre Ekle
-                </button>
+        <div class="card overflow-hidden">
+            <div class="card-hdr">
+                <span class="card-title">Hücreler (Depolama Alanları)</span>
+                <button class="btn btn-secondary btn-sm">+ Hücre Ekle</button>
             </div>
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-slate-50 border-b">
+            <table class="data-table w-full">
+                <thead>
                     <tr>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Hücre Kodu</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bölge</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Toplama</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Mal Kabul</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">İşlemler</th>
+                        <th>Hücre Kodu</th>
+                        <th>Bölge</th>
+                        <th class="text-center">Toplama</th>
+                        <th class="text-center">Mal Kabul</th>
+                        <th class="text-right">İşlemler</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y text-sm">
+                <tbody>
                     @foreach (var bin in Model.Bins)
                     {
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-6 py-4 font-mono font-bold">@bin.Code</td>
-                            <td class="px-6 py-4 text-slate-500">@bin.Zone</td>
-                            <td class="px-6 py-4 text-center">
-                                @if (bin.IsPickingArea) { <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> }
-                                else { <span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span> }
+                        <tr>
+                            <td class="font-mono font-bold">@bin.Code</td>
+                            <td class="text-[var(--text-3)]">@bin.Zone</td>
+                            <td class="text-center">
+                                @if (bin.IsPickingArea) { <span class="w-2 h-2 rounded-full bg-[var(--success)] inline-block"></span> }
+                                else { <span class="w-2 h-2 rounded-full bg-[var(--border)] inline-block"></span> }
                             </td>
-                            <td class="px-6 py-4 text-center">
-                                @if (bin.IsReceivingArea) { <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> }
-                                else { <span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span> }
+                            <td class="text-center">
+                                @if (bin.IsReceivingArea) { <span class="w-2 h-2 rounded-full bg-[var(--info-text)] inline-block"></span> }
+                                else { <span class="w-2 h-2 rounded-full bg-[var(--border)] inline-block"></span> }
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <button class="text-slate-400 hover:text-red-600 font-bold text-[10px] uppercase tracking-widest">Sil</button>
+                            <td class="text-right">
+                                <button class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">Sil</button>
                             </td>
                         </tr>
                     }
                     @if (!Model.Bins.Any())
                     {
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic">Depolama hücrelerini görmek için bir depo seçin veya hücre ekleyin.</td>
+                            <td colspan="5" class="px-6 py-12 text-center text-[var(--text-4)] italic">Depolama hücrelerini görmek için bir depo seçin veya hücre ekleyin.</td>
                         </tr>
                     }
                 </tbody>

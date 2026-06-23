@@ -8,9 +8,9 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Tanımlamalar</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-500)]">Tanımlamalar</span>
             <span class="breadcrumb-sep">/</span>
-            <a asp-page="./Index" class="breadcrumb-item hover:text-indigo-600">Fiyat Listeleri</a>
+            <a asp-page="./Index" class="breadcrumb-item hover:text-[var(--brand-500)]">Fiyat Listeleri</a>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">@(isNew ? "Yeni" : Model.Header.Code)</span>
         </div>
@@ -91,7 +91,7 @@
         </div>
 
         <div class="flex items-center justify-between mt-4">
-            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <label class="flex items-center gap-2 text-sm font-semibold text-[var(--text-2)]">
                 <input asp-for="Header.IsActive" type="checkbox" class="chk" />
                 Aktif
             </label>
@@ -102,7 +102,7 @@
 
 @if (isNew)
 {
-    <div class="card p-8 text-center text-slate-400 italic">
+    <div class="card p-8 text-center text-[var(--text-4)] italic">
         Satır eklemek için önce listeyi kaydedin.
     </div>
 }
@@ -142,7 +142,7 @@ else
             <button type="button" id="pl-save" class="btn btn-primary btn-sm ml-auto">Kaydet</button>
         </div>
 
-        <div class="text-xs text-slate-400 mb-2">
+        <div class="text-xs text-[var(--text-4)] mb-2">
             İpucu: Hücreye tıklayıp düzenleyin. Excel'den hücre aralığı yapıştırabilir, Ctrl+D ile aşağı doldurabilirsiniz. 100lerce ürün için <strong>Excel İçe Aktar</strong> kullanın. Net efektif fiyat canlı hesaplanır.
         </div>
 

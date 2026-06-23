@@ -25,7 +25,7 @@
 <div class="card overflow-hidden mt-6">
     <form method="get" class="filter-bar">
         <div class="relative flex-1 max-w-[320px]">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-4)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" name="q" value="@Model.Q" placeholder="İsim, vergi dairesi veya no ile ara..." class="form-ctrl pl-9 w-full text-xs" />
         </div>
         <select name="type" class="form-ctrl w-44 text-xs font-semibold" onchange="this.form.submit()">
@@ -37,7 +37,7 @@
     </form>
     <table class="data-table w-full">
         <thead>
-            <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
+            <tr class="bg-[var(--surface-2)] text-[10px] font-bold uppercase text-[var(--text-4)] tracking-widest border-b">
                 <th class="px-6 py-4 text-left">Cari Hesap / Ünvan</th>
                 <th class="px-6 py-4 text-center">Cari Tipi</th>
                 <th class="px-6 py-4 text-center">Vergi No</th>
@@ -45,13 +45,13 @@
                 <th class="px-6 py-4 text-right">İşlemler</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody class="divide-y divide-[var(--border)]">
             @foreach (var p in Model.Partners)
             {
-                <tr class="hover:bg-slate-50/50 transition-colors group cursor-pointer" onclick="window.location='@Url.Page("./Details", new { id = p.Id })'">
+                <tr class="hover:bg-[var(--surface-2)]/50 transition-colors group cursor-pointer" onclick="window.location='@Url.Page("./Details", new { id = p.Id })'">
                     <td class="px-6 py-4">
-                        <div class="font-mono text-xs text-indigo-600 font-bold mb-0.5">@p.Code</div>
-                        <div class="font-bold text-slate-800">@p.Name</div>
+                        <div class="font-mono text-xs text-[var(--brand-500)] font-bold mb-0.5">@p.Code</div>
+                        <div class="font-bold text-[var(--text)]">@p.Name</div>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @if (p.Type == PartnerType.Vendor)
@@ -67,8 +67,8 @@
                             <span class="badge b-purple">Hem Alıcı Hem Satıcı</span>
                         }
                     </td>
-                    <td class="px-6 py-4 text-center font-mono text-xs text-slate-600">@p.TaxNumber</td>
-                    <td class="px-6 py-4 text-slate-600 text-xs font-semibold">@p.Email</td>
+                    <td class="px-6 py-4 text-center font-mono text-xs text-[var(--text-2)]">@p.TaxNumber</td>
+                    <td class="px-6 py-4 text-[var(--text-2)] text-xs font-semibold">@p.Email</td>
                     <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                         <div class="flex items-center justify-end gap-2">
                             <a asp-page="./Details" asp-route-id="@p.Id" asp-route-edit="true" class="btn btn-secondary btn-sm">Düzenle</a>
@@ -81,8 +81,8 @@
                 <tr>
                     <td colspan="5" class="px-6 py-20 text-center">
                         <div class="flex flex-col items-center">
-                            <svg class="w-12 h-12 text-slate-200 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            <p class="text-slate-400 font-medium italic">Kayıtlı cari hesap bulunamadı. İlk müşteri veya tedarikçinizi ekleyin.</p>
+                            <svg class="w-12 h-12 text-[var(--text-mute)] mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <p class="text-[var(--text-4)] font-medium italic">Kayıtlı cari hesap bulunamadı. İlk müşteri veya tedarikçinizi ekleyin.</p>
                         </div>
                     </td>
                 </tr>

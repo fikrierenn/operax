@@ -113,7 +113,8 @@ class Program
                         "migration_46_dict_crud_flag.sql",    // Plan 46 M0: DictionaryType.AllowValueCrud (kod-çıpalı vs dinamik CRUD)
                         "migration_47_itemcost_company_grain.sql", // Plan 47 M1 Faz 1: ItemCost per-depo→şirket-genel collapse + OnHandQty ledger senkron
                         "migration_48_costing_method_lock.sql", // Plan 47 M1 Faz 3: CostingMethod MOVING_AVG kilit (FIFO/STANDARD motoru yok)
-                        "migration_49_materialissue_scrap.sql"  // Plan 47 M1 Faz 4: MaterialIssue.ReasonCode (zayiat HASAR/FIRE/HURDA → StockMovement SCRAP)
+                        "migration_49_materialissue_scrap.sql", // Plan 47 M1 Faz 4: MaterialIssue.ReasonCode (zayiat HASAR/FIRE/HURDA → StockMovement SCRAP)
+                        "migration_51_zayiat_kdv.sql"           // Plan 51: zayiat sebep→KDV (mücbir/ilave-KDV/belge-ref + reason WASTE→SCRAP/NORMAL_FIRE)
 
                     })
                     {
@@ -171,7 +172,7 @@ class Program
                     // Baseline (operable kurulum) — sahte/demo veri YOK. Demo için: seed-demo.
                     var seedDir = FindDir("docs/sql") ?? ".";
                     // seed_branch_default + seed_M18: Company+Warehouse oluştuktan SONRA (Plan 49 — taban şube + masraf merkezi)
-                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_dictionary_labels.sql", "seed_receiving_bin.sql", "seed_business_params.sql", "seed_branch_default.sql", "seed_M18_ExpenseReporting.sql" })
+                    foreach (var seedFile in new[] { "seed_core.sql", "seed_company_claims.sql", "setup_tax_dictionary.sql", "seed_reference.sql", "seed_dictionary_labels.sql", "seed_receiving_bin.sql", "seed_business_params.sql", "seed_branch_default.sql", "seed_M18_ExpenseReporting.sql", "seed_material_issue_reason.sql" })
                     {
                         var p = Path.Combine(seedDir, seedFile);
                         if (File.Exists(p)) await ExecuteScriptAsync(p, tolerant: true);

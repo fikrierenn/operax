@@ -19,6 +19,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public IEnumerable<DdlDto> Warehouses { get; set; } = [];
     public IEnumerable<DdlDto> CostCenters { get; set; } = [];
     public IEnumerable<DdlDto> Items { get; set; } = [];
+    public IEnumerable<ReasonDto> Reasons { get; set; } = [];   // Sarf/zayiat nedenleri — sözlükten (MATERIAL_ISSUE_REASON)
 
     public bool IsNew  => Header.Id == Guid.Empty;
     public bool IsDraft => Header.Status == DocStatus.Draft;
@@ -37,11 +38,18 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         // Sarf edilebilir ürünler: STOCK + CONSUMABLE (SERVICE hariç — stoksuz); magic-string yerine ItemType sabitleri
         Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType IN (@StockType, @ConsumableType) ORDER BY Code", p, cancellationToken: ct));
+        // Sarf/zayiat nedenleri sözlükten (Code=İngilizce sistem-çapa, NameTr=Türkçe label) — hardcoded değil
+        Reasons = await conn.QueryAsync<ReasonDto>(new CommandDefinition(@"
+            SELECT dv.Code AS Code, dv.NameTr AS Name
+            FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId
+            WHERE dt.Code = @ReasonType AND dt.CompanyId = @CompanyId AND dv.IsActive = 1 AND dv.IsDeleted = 0
+            ORDER BY dv.OrderNo",
+            new { ReasonType = DictType.MaterialIssueReason, CompanyId = company.Id }, cancellationToken: ct));
 
         if (id.HasValue)
         {
             Header = await conn.QueryFirstOrDefaultAsync<HeaderDto>(new CommandDefinition(
-                "SELECT Id, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, Notes, Status FROM MaterialIssueHeader WHERE Id = @Id AND CompanyId = @CompanyId",
+                "SELECT Id, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, IsForceMajeure, KdvAdjustmentAmount, LegalDocRef, Notes, Status FROM MaterialIssueHeader WHERE Id = @Id AND CompanyId = @CompanyId",
                 new { Id = id, CompanyId = company.Id }, cancellationToken: ct)) ?? new();
 
             Lines = (await conn.QueryAsync<LineDto>(new CommandDefinition(@"
@@ -67,24 +75,29 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         {
             // Yeni fiş: DocNo SARF-{UTC zaman damgası} ile benzersiz üretilir
             Header.Id = Guid.NewGuid();
+            var reason = await ValidReasonAsync(conn, Header.ReasonCode, ct);
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO MaterialIssueHeader (Id, CompanyId, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, Notes, Status, CreatedBy)
-                VALUES (@Id, @CompanyId, @WarehouseId, @DocNo, @IssueDate, @CostCenterId, @ReasonCode, @Notes, @St, @UserId)",
+                INSERT INTO MaterialIssueHeader (Id, CompanyId, WarehouseId, DocNo, IssueDate, CostCenterId, ReasonCode, IsForceMajeure, LegalDocRef, Notes, Status, CreatedBy)
+                VALUES (@Id, @CompanyId, @WarehouseId, @DocNo, @IssueDate, @CostCenterId, @ReasonCode, @IsForceMajeure, @LegalDocRef, @Notes, @St, @UserId)",
                 new { Header.Id, CompanyId = company.Id, Header.WarehouseId,
                       DocNo = $"SARF-{DateTime.UtcNow:yyyyMMddHHmm}", Header.IssueDate,
-                      Header.CostCenterId, ReasonCode = NormalizeReason(Header.ReasonCode), Header.Notes, St = DocStatus.Draft, UserId = user.Id },
+                      Header.CostCenterId, ReasonCode = reason, IsForceMajeure = NormalizeForceMajeure(reason, Header.IsForceMajeure),
+                      LegalDocRef = Header.LegalDocRef, Header.Notes, St = DocStatus.Draft, UserId = user.Id },
                 cancellationToken: ct));
         }
         else
         {
             // İş kuralı: yalnızca DRAFT belge güncellenebilir (WHERE Status = @St)
+            var reason = await ValidReasonAsync(conn, Header.ReasonCode, ct);
             await conn.ExecuteAsync(new CommandDefinition(@"
                 UPDATE MaterialIssueHeader
                 SET WarehouseId = @WarehouseId, IssueDate = @IssueDate, CostCenterId = @CostCenterId,
-                    ReasonCode = @ReasonCode, Notes = @Notes, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+                    ReasonCode = @ReasonCode, IsForceMajeure = @IsForceMajeure, LegalDocRef = @LegalDocRef,
+                    Notes = @Notes, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
                 WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @St",
                 new { Header.WarehouseId, Header.IssueDate, Header.CostCenterId,
-                      ReasonCode = NormalizeReason(Header.ReasonCode), Header.Notes,
+                      ReasonCode = reason, IsForceMajeure = NormalizeForceMajeure(reason, Header.IsForceMajeure),
+                      LegalDocRef = Header.LegalDocRef, Header.Notes,
                       UserId = user.Id, Header.Id, CompanyId = company.Id, St = DocStatus.Draft },
                 cancellationToken: ct));
         }
@@ -176,9 +189,21 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         return RedirectToPage(new { id });
     }
 
-    // Sarf nedeni doğrulama: boş/geçersiz → NULL (normal tüketim); yalnız izinli zayiat kodları geçer
-    private static string? NormalizeReason(string? code)
-        => code is ScrapReason.Damage or ScrapReason.Fire or ScrapReason.Waste ? code : null;
+    // Sarf nedeni doğrulama: boş veya sözlükte (MATERIAL_ISSUE_REASON) aktif değilse → NULL (normal tüketim).
+    // Hardcoded liste yok — vokabüler veri-driven; geçersiz/tampering kod sessizce normal tüketime düşer.
+    private async Task<string?> ValidReasonAsync(IDbConnection conn, string? code, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        var ok = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
+            SELECT COUNT(1) FROM DictionaryValue dv JOIN DictionaryType dt ON dt.Id = dv.TypeId
+            WHERE dt.Code = @ReasonType AND dt.CompanyId = @CompanyId AND dv.Code = @Code AND dv.IsActive = 1 AND dv.IsDeleted = 0",
+            new { ReasonType = DictType.MaterialIssueReason, CompanyId = company.Id, Code = code }, cancellationToken: ct));
+        return ok > 0 ? code : null;
+    }
+
+    // Mücbir sebep yalnız bir zayiat nedeni seçiliyse anlamlı; SP, KDV-düzeltme nedeninde dikkate alır (Maliye-ilan afet)
+    private static bool NormalizeForceMajeure(string? reason, bool isForceMajeure)
+        => reason != null && isForceMajeure;
 
     // Belgenin DRAFT olduğunu firma-ait doğrular
     private async Task<bool> IsDraftAsync(IDbConnection conn, Guid id, CancellationToken ct)
@@ -192,11 +217,15 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
         public Guid    WarehouseId  { get; set; }
         public string  DocNo        { get; set; } = "";
         public DateTime IssueDate   { get; set; }
-        public Guid?   CostCenterId { get; set; }
-        public string? ReasonCode   { get; set; }   // NULL=normal tüketim · HASAR/FIRE/HURDA=zayiat
-        public string? Notes        { get; set; }
-        public string  Status       { get; set; } = DocStatus.Draft;
+        public Guid?    CostCenterId        { get; set; }
+        public string?  ReasonCode          { get; set; }   // NULL=normal tüketim; sözlük (MATERIAL_ISSUE_REASON) kodu atanırsa zayiat
+        public bool     IsForceMajeure      { get; set; }    // mücbir sebep (yalnız FIRE; Maliye-ilan → KDV korunur)
+        public decimal  KdvAdjustmentAmount { get; set; }    // POST'ta hesaplanan ilave-KDV (salt-okuma)
+        public string?  LegalDocRef         { get; set; }    // takdir komisyonu / itfaiye-sigorta rapor no
+        public string?  Notes               { get; set; }
+        public string   Status              { get; set; } = DocStatus.Draft;
     }
 
     public record LineDto(Guid Id, string ItemCode, string ItemName, string? UomCode, decimal Qty);
+    public record ReasonDto(string Code, string Name);   // Sözlük nedeni (Code=İngilizce, Name=NameTr)
 }

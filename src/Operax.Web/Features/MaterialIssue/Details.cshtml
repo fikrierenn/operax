@@ -71,16 +71,33 @@
                     </select>
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label">Sarf Nedeni</label>
-                <select asp-for="Header.ReasonCode" class="form-ctrl" disabled="@(!Model.IsDraft)">
-                    <option value="">Normal Tüketim (genel/idari sarf)</option>
-                    <option value="@ScrapReason.Damage">Zayiat — Hasar</option>
-                    <option value="@ScrapReason.Fire">Zayiat — Yangın / Su Baskını</option>
-                    <option value="@ScrapReason.Waste">Zayiat — Hurda / Fire</option>
-                </select>
-                <span class="form-hint">Zayiat seçilirse stok hareketi SCRAP olarak işlenir (VUK zayiat ayrımı).</span>
+            <div x-data="{ reason: '@Model.Header.ReasonCode' }">
+                <div class="form-group">
+                    <label class="form-label">Sarf Nedeni</label>
+                    <select asp-for="Header.ReasonCode" x-model="reason" class="form-ctrl" disabled="@(!Model.IsDraft)">
+                        <option value="">Normal Tüketim (genel/idari sarf)</option>
+                        @foreach (var r in Model.Reasons)
+                        {
+                            <option value="@r.Code">Zayiat — @r.Name</option>
+                        }
+                    </select>
+                    <span class="form-hint">Zayiat → stok hareketi SCRAP. Olağanüstü zayiatta indirilen KDV düzeltilir (md.30/c); normal fire KDV-nötr.</span>
+                </div>
+                <div class="form-group" x-show="reason" x-cloak>
+                    <label class="chk">
+                        <input asp-for="Header.IsForceMajeure" type="checkbox" disabled="@(!Model.IsDraft)" />
+                        <span>Mücbir sebep (Maliye-ilan afet: deprem/sel/yangın) — bu durumda KDV korunur</span>
+                    </label>
+                </div>
+                <div class="form-group" x-show="reason" x-cloak>
+                    <label class="form-label">Yasal Belge No</label>
+                    <input asp-for="Header.LegalDocRef" class="form-ctrl" readonly="@(!Model.IsDraft)" placeholder="Takdir komisyonu kararı / itfaiye / sigorta rapor no" />
+                </div>
             </div>
+            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted && Model.Header.KdvAdjustmentAmount > 0)
+            {
+                <div class="alert-banner alert-warn mb-2">İlave Edilecek KDV (md.30/c — indirilen KDV düzeltmesi): <strong>@Model.Header.KdvAdjustmentAmount.ToString("N2") ₺</strong></div>
+            }
             <div class="form-group">
                 <label class="form-label">Açıklama</label>
                 <input asp-for="Header.Notes" class="form-ctrl" readonly="@(!Model.IsDraft)" placeholder="Sarf gerekçesi" />

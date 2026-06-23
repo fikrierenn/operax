@@ -29,8 +29,9 @@ BEGIN
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @UserId;
 
         DECLARE @WarehouseId UNIQUEIDENTIFIER, @Status NVARCHAR(20), @DocNo NVARCHAR(50),
-                @ReasonCode NVARCHAR(20);
-        SELECT @WarehouseId = WarehouseId, @Status = Status, @DocNo = DocNo, @ReasonCode = ReasonCode
+                @ReasonCode NVARCHAR(20), @IsForceMajeure BIT;
+        SELECT @WarehouseId = WarehouseId, @Status = Status, @DocNo = DocNo, @ReasonCode = ReasonCode,
+               @IsForceMajeure = IsForceMajeure
         FROM MaterialIssueHeader WITH (UPDLOCK, ROWLOCK)
         WHERE Id = @HeaderId AND CompanyId = @CompanyId;
 
@@ -99,8 +100,29 @@ BEGIN
         END
         CLOSE c_mi; DEALLOCATE c_mi;
 
+        -- İlave edilecek KDV (ön-muhasebe): zayiat nedeni KDV-düzeltme gerektiriyorsa (sözlük flag'i,
+        -- mevzuat md.30/c — hardcoded liste DEĞİL) + mücbir-sebep DEĞİLSE → indirilen KDV düzeltilir.
+        -- KDV = Σ(QtyBase × AvgCost × Item.TaxRate/100). Mücbir/KDV-nötr neden → 0. Tam GL fişi ayrı modül.
+        DECLARE @RequiresKdv BIT = 0;
+        IF @ReasonCode IS NOT NULL
+            SELECT @RequiresKdv = ISNULL(dv.RequiresKdvAdjustment, 0)
+            FROM DictionaryValue dv
+            JOIN DictionaryType dt ON dt.Id = dv.TypeId
+            WHERE dt.Code = 'MATERIAL_ISSUE_REASON' AND dt.CompanyId = @CompanyId
+              AND dv.Code = @ReasonCode AND dv.IsDeleted = 0;
+
+        -- ItemCost şirket-genel grain (Plan 47) → item başına tek satır, LEFT JOIN fan-out yok
+        DECLARE @KdvAdj DECIMAL(18,2) = 0;
+        IF @RequiresKdv = 1 AND ISNULL(@IsForceMajeure, 0) = 0
+            SELECT @KdvAdj = ISNULL(SUM(l.QtyBase * ISNULL(ic.AvgCost, 0) * ISNULL(it.TaxRate, 0) / 100.0), 0)
+            FROM MaterialIssueLine l
+            JOIN Item it ON it.Id = l.ItemId
+            LEFT JOIN ItemCost ic ON ic.CompanyId = @CompanyId AND ic.ItemId = l.ItemId
+            WHERE l.HeaderId = @HeaderId;
+
         UPDATE MaterialIssueHeader
-        SET Status = 'POSTED', UpdatedAt = @now, UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+        SET Status = 'POSTED', KdvAdjustmentAmount = @KdvAdj,
+            UpdatedAt = @now, UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE Id = @HeaderId;
 
         COMMIT TRANSACTION;
@@ -150,8 +172,10 @@ BEGIN
         SET IsCancelled = 1, CancelledAt = @now, CancelledBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE SourceDocType = 'CONSUMPTION' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
+        -- İptal → ilave-KDV düzeltmesi de geri alınır (zayiat iptal edildi, KDV düzeltme dayanağı kalktı)
         UPDATE MaterialIssueHeader
-        SET Status = 'CANCELLED', UpdatedAt = @now, UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+        SET Status = 'CANCELLED', KdvAdjustmentAmount = 0,
+            UpdatedAt = @now, UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
         WHERE Id = @HeaderId;
 
         COMMIT TRANSACTION;

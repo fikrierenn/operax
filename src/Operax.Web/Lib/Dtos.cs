@@ -49,12 +49,10 @@ public static class MovementType
     public const string Scrap      = "SCRAP";       // Zayiat çıkışı (sarf fişi ReasonCode set ise)
 }
 
-/// <summary>Zayiat (scrap) nedenleri — MaterialIssueHeader.ReasonCode (NULL=normal tüketim)</summary>
-public static class ScrapReason
+/// <summary>Sözlük tipi kodları (DictionaryType.Code) — vokabüler veri-driven, hardcoded değer yok</summary>
+public static class DictType
 {
-    public const string Damage = "DAMAGE";  // Hasarlı/kırık mal
-    public const string Fire   = "FIRE";    // Yangın/su baskını vb.
-    public const string Waste  = "WASTE";   // Hurda/fire kullanılamaz
+    public const string MaterialIssueReason = "MATERIAL_ISSUE_REASON"; // Sarf/zayiat nedeni (KDV davranışı RequiresKdvAdjustment flag'inde)
 }
 
 /// <summary>Kaynak belge tipleri (SourceDocType kolonu)</summary>

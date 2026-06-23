@@ -81,21 +81,50 @@ Her Razor sayfasının (`.cshtml`) iskeleti şöyle olmalıdır:
 
 ## 4. Ortak Partial Kataloğu
 
-Bu partial'lar `src/Operax.Web/Features/Shared/Partials/` altında yaşar.
+Partial'lar `src/Operax.Web/Features/Shared/` altında yaşar. **Durum** = bugün repoda mevcut mu (✅) yoksa henüz yazılmamış hedef mi (⛔). ⛔ olanlar yazılana kadar inline pattern + semantic class kullanılır.
 
-| Partial | Model | Açıklama |
+| Partial | Durum | Açıklama |
 |---|---|---|
-| `_PageHeader.cshtml` | `PageHeaderVm` | Breadcrumb + h1 + alt başlık + sağ aksiyon butonları |
-| `_FilterBar.cshtml` | `FilterBarVm` | Sekmeler + arama + chip filtreler + sağ butonlar |
-| `_DataTable.cshtml` | `DataTableVm` | `thead/tbody` standardı, satır click data-route ile |
-| `_StatusFlow.cshtml` | `StatusFlowVm` | DRAFT → POSTED → CANCELLED timeline |
-| `_DocHeader.cshtml` | `DocHeaderVm` | Evrak başlık formu — DocNo, Date, Partner, Warehouse, Notes, Status |
-| `_DocLines.cshtml` | `DocLinesVm` | Evrak satırları tablosu — Item lookup + UOM + Qty + QtyBase |
-| `_DocToolbar.cshtml` | `DocToolbarVm` | Kaydet · Onayla · İptal · Yazdır · Denetim İzi |
-| `_KpiCard.cshtml` | `KpiCardVm` | Anasayfa ve raporlardaki KPI bloğu (label + value + delta) |
-| `_EmptyState.cshtml` | `EmptyStateVm` | Boş liste için ikon + başlık + açıklama |
-| `_Avatar.cshtml` | `AvatarVm` | Baş harf yuvarlağı (kullanıcı ve cari kart için) |
-| `_SmartButtons.cshtml` | `SmartButtonsVm` | Detay sayfada metrik kutucuk grubu |
+| `_PageHeader.cshtml` | ✅ | Breadcrumb + h1 + alt başlık (`Sub` escape / `SubHtml` raw) + `ActionsHtml` |
+| `_KpiCard.cshtml` | ✅ | KPI bloğu (label + value + delta) — `.kpi` sistemi |
+| `_EmptyState.cshtml` | ✅ | Boş liste için ikon + başlık + açıklama |
+| `_StatusFlow.cshtml` | ✅ | DRAFT → POSTED → CANCELLED timeline |
+| `_Tabs.cshtml` · `_Pager.cshtml` | ✅ | Sekme şeridi · sayfalama |
+| `_DocFlowButtons.cshtml` · `_CustomFields.cshtml` | ✅ | Evrak akış butonları · UDF render |
+| `_FilterBar` · `_DataTable` · `_DocHeader` · `_DocLines` · `_DocToolbar` · `_Avatar` · `_SmartButtons` | ⛔ | Henüz YOK — ihtiyaç olunca yazılır; o ana dek `.data-table`/`.card`/`form-ctrl` semantic ile inline. |
+
+### 4.5 Stat Kartı / Sparkline (anasayfa & rapor metrik bileşeni) — Plan 53
+
+Anasayfa üst-satır metrik kartlarının **kanonik semantic bileşeni** (`_stat.css`). Utility-soup ile kart kabuğu yazmak YASAK — bu class'lar kullanılır. Layout (grid/gap) Tailwind utility serbest.
+
+```html
+<!-- Sparkline'lı sales kartı -->
+<div class="stat-card">
+  <h3 class="stat-card-title">Onaylı Satınalma</h3>
+  <span class="stat-label">Tutar</span>
+  <div class="stat-row">
+    <span class="stat-value">1.731.100 ₺</span>
+    <span class="delta-pill down">-58,4%</span>   <!-- up · down · (boş=nötr) -->
+  </div>
+  <div class="stat-spark is-success">             <!-- is-success · is-warn · is-danger -->
+    <svg viewBox="0 0 100 36" preserveAspectRatio="none">
+      <polygon class="spark-area" points="..." /><polyline class="spark-line" points="..." />
+    </svg>
+  </div>
+</div>
+
+<!-- Sparkline'sız mini-KPI -->
+<div class="stat-card">
+  <span class="stat-label">Stoklu Konum</span>
+  <div class="stat-value">6</div>                  <!-- danger varyant: class="stat-value danger" -->
+  <div class="stat-sub">dolu hücre sayısı</div>
+  <!-- ilerleme barı: <div class="stat-bar"><div class="stat-bar-fill" style="width:35%"></div></div> -->
+</div>
+```
+
+- Sparkline rengi **CSS modifier ile** (`is-success/warn/danger`) — inline `fill`/`stroke` YOK (CSP + tema tek-nokta). SVG saf, Chart.js yok.
+- `.stat-card` radius = `--radius-lg` (16px, hero metrik); içerik panelleri `.card` (`--radius` 14px).
+- İçerik panelleri (grafik/liste/tablo) `.card` + `.card-hdr` + `.card-title`/`.card-sub` + `.card-body`.
 
 ### View Model'leri (DTO'lar)
 

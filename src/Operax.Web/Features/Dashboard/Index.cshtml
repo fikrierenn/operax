@@ -9,12 +9,12 @@
     var draftSeries  = Model.MonthlyPerformance.Select(m => m.DraftAmount).ToList();
     var cancelSeries = Model.MonthlyPerformance.Select(m => m.CancelledAmount).ToList();
 
-    // Üst satır kart tanımları (başlık + seri + anlam rengi). 3 sales kartına karşılık.
+    // Üst satır kart tanımları (başlık + seri + anlam varyantı). 3 sales kartına karşılık.
     var salesCards = new[]
     {
-        (Title: "Onaylı Satınalma", Series: posSeries,    Glow: "success"),
-        (Title: "Taslak Satınalma", Series: draftSeries,  Glow: "warn"),
-        (Title: "İptal Satınalma",  Series: cancelSeries, Glow: "danger"),
+        (Title: "Onaylı Satınalma", Series: posSeries,    Variant: "success"),
+        (Title: "Taslak Satınalma", Series: draftSeries,  Variant: "warn"),
+        (Title: "İptal Satınalma",  Series: cancelSeries, Variant: "danger"),
     };
 }
 @functions {
@@ -37,7 +37,7 @@
     }
 
     // Son ay / önceki ay yüzde değişimi → (metin, yön). Yön: +1 artış, -1 düşüş, 0 nötr/yetersiz.
-    // Yeşil/kırmızı % rozetinin gerçek-veri kaynağı.
+    // Yeşil/kırmızı delta pill'in gerçek-veri kaynağı.
     static (string Text, int Dir) Delta(System.Collections.Generic.IReadOnlyList<decimal> v)
     {
         if (v == null || v.Count < 2) return ("", 0);
@@ -50,11 +50,11 @@
     }
 }
 @* ============================================================================
-   ANASAYFA — Mosaic tasarım dili. Sales kartları: uppercase etiket + büyük mono
-   sayı + yeşil/kırmızı % delta pill + anlam-renkli SVG sparkline (hepsi GERÇEK
-   aylık seriden — hardcoded delta YOK). Kartlar rounded-2xl + ince kenar + soft gölge.
-   Renkler token; layout Tailwind utility; grafik saf SVG (Chart.js yok, CSP güvenli).
-   Kabuk (sidebar/topbar) _Layout'tan; burası yalnız içerik gövdesi.
+   ANASAYFA — kanonik tasarım sistemi (semantic class). Sales kartları .stat-card:
+   mikro-etiket + büyük mono değer + anlam-renkli delta pill + sparkline (hepsi GERÇEK
+   aylık seriden — hardcoded delta YOK). İçerik panelleri .card. Renk/görsel kabuk
+   semantic (token); yalnız yerleşim (grid/gap/flex) Tailwind utility. Sparkline saf
+   SVG + CSS renk (Chart.js yok, CSP güvenli). Kabuk (sidebar/topbar) _Layout'tan.
    ============================================================================ *@
 <div class="mx-auto w-full max-w-[1640px] px-4 py-5 md:px-6" data-screen-label="Anasayfa">
 
@@ -77,8 +77,8 @@
     </div>
 
     @* ========================================================================
-       SALES KART SATIRI (3) — imza bileşen. Her kart bir aylık seriyi temsil eder:
-       başlık + "TUTAR" etiketi + büyük mono toplam + son/önceki ay % delta pill + sparkline.
+       SALES KART SATIRI (3) — .stat-card: başlık + TUTAR etiketi + mono toplam +
+       son/önceki ay % delta pill + anlam-renkli sparkline.
        ======================================================================== *@
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
         @foreach (var c in salesCards)
@@ -86,72 +86,66 @@
             var total = c.Series.Sum();
             var d = Delta(c.Series);
             var pts = Spark(c.Series);
-            // Delta yönüne göre pill rengi (artış yeşil, düşüş kırmızı, nötr gri) — token.
-            var pillCls = d.Dir > 0 ? "bg-[var(--success-bg)] text-[var(--success-text)]"
-                        : d.Dir < 0 ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
-                        : "bg-[var(--neutral-bg)] text-[var(--neutral-text)]";
-            // Sparkline rengi kartın anlamına göre: onaylı=yeşil, taslak=amber, iptal=kırmızı.
-            // Çizgi = tam ton, dolgu alanı = açık tint (semantic -bg token'ı).
-            var sparkStroke = c.Glow switch { "success" => "var(--success)", "warn" => "var(--warn)", "danger" => "var(--danger)", _ => "var(--brand-500)" };
-            var sparkFill   = c.Glow switch { "success" => "var(--success-bg)", "warn" => "var(--warn-bg)", "danger" => "var(--danger-bg)", _ => "var(--brand-tint-15)" };
+            // Delta yönü → pill modifier (artış=up yeşil, düşüş=down kırmızı, nötr boş gri).
+            var pillMod = d.Dir > 0 ? "up" : d.Dir < 0 ? "down" : "";
 
-            <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 flex flex-col hover:shadow-[var(--shadow-md)] transition-shadow">
-                <h3 class="text-sm font-bold text-[var(--text)]">@c.Title</h3>
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)] mt-3">Tutar</span>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)]">@Operax.Web.Lib.UiHelpers.FmtTL(total)</span>
+            <div class="stat-card">
+                <h3 class="stat-card-title">@c.Title</h3>
+                <span class="stat-label">Tutar</span>
+                <div class="stat-row">
+                    <span class="stat-value">@Operax.Web.Lib.UiHelpers.FmtTL(total)</span>
                     @if (!string.IsNullOrEmpty(d.Text))
                     {
-                        <span class="@pillCls text-xs font-semibold px-2 py-0.5 rounded-full">@d.Text</span>
+                        <span class="delta-pill @pillMod">@d.Text</span>
                     }
                 </div>
-                @* Sparkline: anlam-renkli çizgi + hafif dolgu. Gerçek 6-ay serisi, 100x36 viewBox. *@
-                <div class="mt-4">
-                    @if (!string.IsNullOrEmpty(pts))
-                    {
-                        <svg viewBox="0 0 100 36" preserveAspectRatio="none" class="w-full h-12">
-                            <polygon points="@pts 100,36 0,36" fill="@sparkFill" />
-                            <polyline points="@pts" fill="none" stroke="@sparkStroke" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" />
+                @* Sparkline: anlam-renkli çizgi + hafif dolgu. Renk modifier (is-*) ile CSS'ten. *@
+                @if (!string.IsNullOrEmpty(pts))
+                {
+                    <div class="stat-spark is-@c.Variant">
+                        <svg viewBox="0 0 100 36" preserveAspectRatio="none">
+                            <polygon class="spark-area" points="@pts 100,36 0,36" />
+                            <polyline class="spark-line" points="@pts" />
                         </svg>
-                    }
-                </div>
+                    </div>
+                }
             </div>
         }
     </div>
 
     @* ========================================================================
-       MİNİ-KPI ŞERİDİ (4) — operasyonel metrikler (sparkline yok, sade stat).
+       MİNİ-KPI ŞERİDİ (4) — .stat-card (sparkline yok, sade operasyonel metrik).
        ======================================================================== *@
     <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
 
         @* Onaylı PO adedi *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Onaylı Sipariş</span>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.ApprovedPoCount</div>
-            <div class="text-xs text-[var(--text-3)] mt-1">@Model.DraftPoCount taslak bekliyor</div>
+        <div class="stat-card">
+            <span class="stat-label">Onaylı Sipariş</span>
+            <div class="stat-value">@Model.ApprovedPoCount</div>
+            <div class="stat-sub">@Model.DraftPoCount taslak bekliyor</div>
         </div>
 
         @* Depo doluluk + ince ilerleme barı (gerçek oran, data-driven genişlik) *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Depo Doluluk</span>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">%@Model.WarehouseFillRate.ToString("0.#")</div>
-            <div class="h-1.5 rounded-full bg-[var(--neutral-bg)] mt-2 overflow-hidden">
-                <div class="h-full rounded-full bg-[var(--brand-500)]" style="width:@(Math.Min(Model.WarehouseFillRate, 100))%"></div>
+        <div class="stat-card">
+            <span class="stat-label">Depo Doluluk</span>
+            <div class="stat-value">%@Model.WarehouseFillRate.ToString("0.#")</div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill" style="width:@(Math.Min(Model.WarehouseFillRate, 100))%"></div>
             </div>
         </div>
 
         @* Stoklu konum *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Stoklu Konum</span>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.StockLocations</div>
-            <div class="text-xs text-[var(--text-3)] mt-1">dolu hücre sayısı</div>
+        <div class="stat-card">
+            <span class="stat-label">Stoklu Konum</span>
+            <div class="stat-value">@Model.StockLocations</div>
+            <div class="stat-sub">dolu hücre sayısı</div>
         </div>
 
         @* Min-altı stok — 0'dan büyükse danger tonu *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Min-Altı Stok</span>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] mt-2 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger)]" : "text-[var(--text)]")">@Model.LowStockSkuCount</div>
-            <div class="text-xs mt-1 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger-text)]" : "text-[var(--text-3)]")">
+        <div class="stat-card">
+            <span class="stat-label">Min-Altı Stok</span>
+            <div class="stat-value@(Model.LowStockSkuCount > 0 ? " danger" : "")">@Model.LowStockSkuCount</div>
+            <div class="stat-sub@(Model.LowStockSkuCount > 0 ? " danger" : "")">
                 @(Model.LowStockSkuCount > 0 ? "ürün kritik seviyede" : "kritik ürün yok")
             </div>
         </div>
@@ -163,11 +157,11 @@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4">
 
         @* ---- AYLIK SATINALMA PERFORMANSI — saf-CSS stacked bar (gerçek MonthlyPerformance) ---- *@
-        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div class="card xl:col-span-2 flex flex-col">
+            <div class="card-hdr">
                 <div>
-                    <h2 class="text-sm font-bold text-[var(--text)]">Aylık Satınalma Performansı</h2>
-                    <p class="text-xs text-[var(--text-4)] mt-0.5">Son 6 ay · onaylı / taslak / iptal kırılımı</p>
+                    <div class="card-title">Aylık Satınalma Performansı</div>
+                    <div class="card-sub">Son 6 ay · onaylı / taslak / iptal kırılımı</div>
                 </div>
                 <div class="hidden sm:flex items-center gap-3 text-xs text-[var(--text-3)]">
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--success)]"></span>Onaylı</span>
@@ -175,7 +169,7 @@
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--danger)]"></span>İptal</span>
                 </div>
             </div>
-            <div class="p-5 flex-1">
+            <div class="card-body flex-1">
                 @if (Model.MonthlyPerformance != null && Model.MonthlyPerformance.Any())
                 {
                     var maxTotal = Model.MonthlyPerformance.Max(m => m.PostedAmount + m.DraftAmount + m.CancelledAmount);
@@ -215,11 +209,11 @@
         </div>
 
         @* ---- SON AKTİVİTE FEED'İ ---- Kind rengine göre nokta + Action + zaman. *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-                <h2 class="text-sm font-bold text-[var(--text)]">Son Aktivite</h2>
+        <div class="card flex flex-col">
+            <div class="card-hdr">
+                <div class="card-title">Son Aktivite</div>
             </div>
-            <div class="p-5 flex-1">
+            <div class="card-body flex-1">
                 @if (Model.RecentActivities != null && Model.RecentActivities.Any())
                 {
                     <ul class="flex flex-col gap-4">
@@ -257,15 +251,15 @@
        ======================================================================== *@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
-        @* ---- SON SİPARİŞLER tablosu (ince başlık + hover satır) ---- *@
-        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-                <h2 class="text-sm font-bold text-[var(--text)]">Son Siparişler</h2>
+        @* ---- SON SİPARİŞLER tablosu ---- *@
+        <div class="card xl:col-span-2 flex flex-col">
+            <div class="card-hdr">
+                <div class="card-title">Son Siparişler</div>
                 <a href="/PurchaseOrders" class="text-xs font-semibold text-[var(--brand-500)] hover:text-[var(--brand-400)]">Tümünü gör</a>
             </div>
             @if (Model.RecentPOs != null && Model.RecentPOs.Any())
             {
-                <div class="overflow-x-auto">
+                <div class="card-body-flush overflow-x-auto">
                     <table class="w-full min-w-[640px] text-sm">
                         <thead>
                             <tr class="text-left text-xs uppercase tracking-wide text-[var(--text-4)] border-b border-[var(--border)]">
@@ -304,11 +298,11 @@
         </div>
 
         @* ---- YAKLAŞAN SEVKİYATLAR ---- liste kartı (LPN + tedarikçi + ETA + dok). *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-                <h2 class="text-sm font-bold text-[var(--text)]">Yaklaşan Sevkiyatlar</h2>
+        <div class="card flex flex-col">
+            <div class="card-hdr">
+                <div class="card-title">Yaklaşan Sevkiyatlar</div>
             </div>
-            <div class="p-3 flex-1">
+            <div class="card-body flex-1" style="padding:12px;">
                 @if (Model.IncomingShipments != null && Model.IncomingShipments.Any())
                 {
                     <ul class="flex flex-col gap-1">

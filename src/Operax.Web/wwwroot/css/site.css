@@ -1313,9 +1313,6 @@
   .bg-\[hsl\(220\,14\%\,97\%\)\] {
     background-color: hsl(220,14%,97%);
   }
-  .bg-\[var\(--brand-500\)\] {
-    background-color: var(--brand-500);
-  }
   .bg-\[var\(--brand-tint-15\)\] {
     background-color: var(--brand-tint-15);
   }
@@ -1333,9 +1330,6 @@
   }
   .bg-\[var\(--success\)\] {
     background-color: var(--success);
-  }
-  .bg-\[var\(--surface\)\] {
-    background-color: var(--surface);
   }
   .bg-\[var\(--surface-2\)\] {
     background-color: var(--surface-2);
@@ -1859,12 +1853,6 @@
   .text-\[var\(--brand-500\)\] {
     color: var(--brand-500);
   }
-  .text-\[var\(--danger\)\] {
-    color: var(--danger);
-  }
-  .text-\[var\(--danger-text\)\] {
-    color: var(--danger-text);
-  }
   .text-\[var\(--text\)\] {
     color: var(--text);
   }
@@ -2082,10 +2070,6 @@
   }
   .shadow-2xl {
     --tw-shadow: 0 25px 50px -12px var(--tw-shadow-color, rgb(0 0 0 / 0.25));
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-  }
-  .shadow-\[var\(--shadow-sm\)\] {
-    --tw-shadow: var(--shadow-sm);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-lg {
@@ -2822,6 +2806,9 @@
   --neutral-border: hsl(220 13% 88%);
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --radius: 14px;
+  --radius-lg: 16px;
+  --radius-sm: 10px;
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.04), 0 12px 24px rgba(15, 23, 42, 0.06);
@@ -3506,7 +3493,7 @@ body {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
   transition: box-shadow .2s, transform .2s, border-color .2s;
 }
@@ -4000,6 +3987,131 @@ select.form-ctrl {
   min-width: 3px;
 }
 .bar.tall {
+  background: var(--brand-500);
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.stat-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-4);
+}
+.stat-card-title + .stat-label {
+  margin-top: 12px;
+}
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.stat-value.danger {
+  color: var(--danger);
+}
+.stat-card > .stat-value {
+  margin-top: 8px;
+}
+.stat-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.stat-sub.danger {
+  color: var(--danger-text);
+}
+.delta-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+.delta-pill.up {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.delta-pill.down {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+.stat-spark {
+  margin-top: 16px;
+}
+.stat-spark svg {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+.stat-spark .spark-line {
+  fill: none;
+  stroke: var(--brand-500);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stat-spark .spark-area {
+  fill: var(--brand-tint-15);
+}
+.stat-spark.is-success .spark-line {
+  stroke: var(--success);
+}
+.stat-spark.is-success .spark-area {
+  fill: var(--success-bg);
+}
+.stat-spark.is-warn .spark-line {
+  stroke: var(--warn);
+}
+.stat-spark.is-warn .spark-area {
+  fill: var(--warn-bg);
+}
+.stat-spark.is-danger .spark-line {
+  stroke: var(--danger);
+}
+.stat-spark.is-danger .spark-area {
+  fill: var(--danger-bg);
+}
+.stat-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--neutral-bg);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
   background: var(--brand-500);
 }
 .status-flow {

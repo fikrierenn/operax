@@ -1,0 +1,82 @@
+/* OPERAX — Stat kartı + sparkline + delta pill (Mosaic tasarım dili, semantic).
+   Anasayfa/rapor üst-satır metrik kartlarının kanonik bileşeni. Layout (grid/gap)
+   Tailwind utility ile yapılır; bu dosya yalnız GÖRSEL kabuk + tipografi + renk. */
+
+/* ── Stat kart kabuğu ── yuvarlak (radius-lg) + ince kenar + soft gölge + hover-lift */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow .18s, transform .18s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+/* Kart başlığı (sales kartı — kalın 14px) */
+.stat-card-title { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+
+/* Uppercase mikro-etiket (TUTAR, ONAYLI SİPARİŞ …) */
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-4);
+}
+.stat-card-title + .stat-label { margin-top: 12px; }
+
+/* Değer satırı (büyük mono sayı + opsiyonel delta pill) */
+.stat-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.stat-value.danger { color: var(--danger); }
+
+/* Mini-KPI: etiketi doğrudan izleyen değer (stat-row yok) → üst boşluk */
+.stat-card > .stat-value { margin-top: 8px; }
+
+/* Alt açıklama (… taslak bekliyor, dolu hücre sayısı) */
+.stat-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+.stat-sub.danger { color: var(--danger-text); }
+
+/* ── Delta pill ── son/önceki dönem yüzde rozeti (yuvarlak hap) */
+.delta-pill {
+  display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--neutral-bg); color: var(--neutral-text);
+}
+.delta-pill.up   { background: var(--success-bg); color: var(--success-text); }
+.delta-pill.down { background: var(--danger-bg);  color: var(--danger-text); }
+
+/* ── Sparkline ── 100x36 viewBox, tam-genişlik; renk modifier ile (CSP güvenli, inline yok) */
+.stat-spark { margin-top: 16px; }
+.stat-spark svg { width: 100%; height: 48px; display: block; }
+.stat-spark .spark-line {
+  fill: none;
+  stroke: var(--brand-500);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stat-spark .spark-area { fill: var(--brand-tint-15); }
+.stat-spark.is-success .spark-line { stroke: var(--success); }
+.stat-spark.is-success .spark-area { fill: var(--success-bg); }
+.stat-spark.is-warn .spark-line { stroke: var(--warn); }
+.stat-spark.is-warn .spark-area { fill: var(--warn-bg); }
+.stat-spark.is-danger .spark-line { stroke: var(--danger); }
+.stat-spark.is-danger .spark-area { fill: var(--danger-bg); }
+
+/* ── İnce ilerleme barı (depo doluluk vb.) — dolu genişlik data-driven inline ── */
+.stat-bar { height: 6px; border-radius: 999px; background: var(--neutral-bg); margin-top: 8px; overflow: hidden; }
+.stat-bar-fill { height: 100%; border-radius: 999px; background: var(--brand-500); }

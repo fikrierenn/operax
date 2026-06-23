@@ -408,12 +408,18 @@
     </aside>
     <!-- ════════════════════ /SIDEBAR ════════════════════ -->
 
+    <!-- Mobil sidebar arka-plan karartması (açıkken görünür; tıklayınca kapatır) -->
+    <div class="side-overlay" id="side-overlay"></div>
 
     <!-- ════════════════════ MAIN CONTENT AREA ════════════════════ -->
     <div class="main">
 
         <!-- TOP BAR -->
         <header class="topbar">
+            <!-- Mobil hamburger — sidebar'ı açar/kapatır (masaüstünde CSS ile gizli) -->
+            <button type="button" class="topbar-burger" id="side-toggle" aria-label="@L.T("Menüyü aç/kapat", "Toggle menu")">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
             <!-- Search bar -->
             <div class="topbar-search">
                 <span class="topbar-search-icon">
@@ -555,6 +561,19 @@
                 }
             }
         });
+    })();
+
+    // Mobil sidebar off-canvas: hamburger açar/kapatır; overlay veya menü-linki kapatır (CSP-uyumlu vanilla)
+    (function () {
+        var burger = document.getElementById('side-toggle'),
+            side = document.querySelector('.side'),
+            overlay = document.getElementById('side-overlay');
+        if (!burger || !side || !overlay) return;
+        function close() { side.classList.remove('open'); overlay.classList.remove('open'); }
+        burger.addEventListener('click', function () { side.classList.toggle('open'); overlay.classList.toggle('open'); });
+        overlay.addEventListener('click', close);
+        // Menü linkine tıklayınca kapat (mobilde sayfa geçişinde sidebar kapansın)
+        side.querySelectorAll('a.side-item, a.side-sub-item').forEach(function (a) { a.addEventListener('click', close); });
     })();
 </script>
 @await RenderSectionAsync("Scripts", required: false)

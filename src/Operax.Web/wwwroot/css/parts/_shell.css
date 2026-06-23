@@ -185,3 +185,39 @@
   background: var(--danger); border-radius: 50%;
   border: 2px solid #fff;
 }
+
+/* ── Mobil: sidebar off-canvas (hamburger) — masaüstünde değişmez ──────────── */
+.topbar-burger { display: none; }   /* masaüstünde gizli (yalnız mobilde görünür) */
+.side-overlay  { display: none; }
+
+@media (max-width: 900px) {
+  /* Sidebar grid kolonundan çıkar → ana içerik tam genişlik */
+  .app { grid-template-columns: 1fr; }
+
+  /* Sidebar ekran dışına (sol) kayar; .open ile içeri girer (off-canvas) */
+  .side {
+    position: fixed; left: 0; top: 0; z-index: 60;
+    width: 248px; max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  .side.open { transform: translateX(0); }
+
+  /* Arka plan karartma — açıkken görünür, tıklayınca kapatır */
+  .side-overlay {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(0,0,0,0.45);
+    opacity: 0; pointer-events: none; transition: opacity .22s;
+  }
+  .side-overlay.open { opacity: 1; pointer-events: auto; }
+
+  /* Topbar hamburger butonu (arama kutusunun solunda) */
+  .topbar-burger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; flex-shrink: 0; margin-right: 6px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text-2); cursor: pointer;
+  }
+  .topbar-burger:hover { background: var(--surface-2); }
+}

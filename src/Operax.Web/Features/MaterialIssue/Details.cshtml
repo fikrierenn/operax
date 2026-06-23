@@ -90,15 +90,19 @@
                     </select>
                     <span class="form-hint">Zayiat → stok hareketi SCRAP. Olağanüstü zayiatta indirilen KDV düzeltilir (md.30/c); normal fire KDV-nötr.</span>
                 </div>
-                @* KDV mevzuat açıklaması — seçilen nedenin KDV-davranışına göre (md.30/c). Bilgilendirme amaçlı. *@
+                @* KDV mevzuat açıklaması — seçilen nedenin KDV-davranışına göre (md.30/c). Bilgilendirme amaçlı.
+                   İçerik tek flowing div'e sarılır ki alert-banner (flex) prose'u tek blok gibi aksın (yan-yana wrap olmasın). *@
                 <div id="reason-mevzuat" class="alert-banner alert-info mb-2 hidden">
-                    <strong>KDV Mevzuatı (md.30/c):</strong>
-                    <span data-kdv-yes>Olağanüstü zayiat — bu mala ait <strong>indirilen KDV indirilemez</strong>; daha önce indirildiyse düzeltilir (ilave edilecek KDV). Belgeleme: takdir komisyonu kararı veya itfaiye/sigorta raporu. İstisna: Maliye'nin <strong>mücbir sebep</strong> ilan ettiği afet (deprem/sel/yangın) → KDV korunur.</span>
-                    <span data-kdv-no>Normal fire (üretim/işletme firesi) <strong>zayiat sayılmaz</strong> — KDV md.30/c kapsamı dışındadır, indirilen KDV düzeltilmez (KDV nötr).</span>
+                    <div>
+                        <strong>KDV Mevzuatı (md.30/c):</strong>
+                        <span data-kdv-yes>Olağanüstü zayiat — bu mala ait <strong>indirilen KDV indirilemez</strong>; daha önce indirildiyse düzeltilir (ilave edilecek KDV). Belgeleme: takdir komisyonu kararı veya itfaiye/sigorta raporu. İstisna: Maliye'nin <strong>mücbir sebep</strong> ilan ettiği afet (deprem/sel/yangın) → KDV korunur.</span>
+                        <span data-kdv-no>Normal fire (üretim/işletme firesi) <strong>zayiat sayılmaz</strong> — KDV md.30/c kapsamı dışındadır, indirilen KDV düzeltilmez (KDV nötr).</span>
+                    </div>
                 </div>
+                @* Mücbir-sebep onay kutusu — checkbox + uzun açıklama; .chk (16px sabit) yerine saran flex label *@
                 <div class="form-group reason-extra hidden">
-                    <label class="chk">
-                        <input asp-for="Header.IsForceMajeure" type="checkbox" disabled="@(!Model.IsDraft)" />
+                    <label class="form-label" style="display:flex;align-items:flex-start;gap:8px;font-weight:400">
+                        <input asp-for="Header.IsForceMajeure" type="checkbox" disabled="@(!Model.IsDraft)" style="width:auto;margin-top:3px;flex:none" />
                         <span>Mücbir sebep (Maliye-ilan afet: deprem/sel/yangın) — bu durumda KDV korunur</span>
                     </label>
                 </div>

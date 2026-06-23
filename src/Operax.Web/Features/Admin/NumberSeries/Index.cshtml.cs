@@ -10,7 +10,7 @@ namespace Operax.Web.Features.Admin.NumberSeries;
 /// Belge seri yönetimi — otomatik numaralama önekleri ve sıraları (NumberSeries).
 /// Tüm belge tiplerinin prefix/sonraki no/dolgu ayarları buradan düzenlenir.
 /// </summary>
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<IndexModel> logger) : PageModel
 {
     public List<SeriesRowDto> Series { get; set; } = [];

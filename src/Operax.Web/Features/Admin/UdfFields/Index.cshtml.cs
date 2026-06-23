@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.Admin.UdfFields;
 
 // Dinamik kullanıcı tanımlı alan (UDF) tanım yönetimi — yalnız yönetici (Plan 34)
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     public List<UdfDefRow> Definitions { get; set; } = [];

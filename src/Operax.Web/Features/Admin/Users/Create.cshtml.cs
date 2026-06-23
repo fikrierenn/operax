@@ -8,7 +8,7 @@ using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Admin.Users;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class CreateModel(
     UserManager<IdentityUser> userManager,
     ICurrentCompany company,

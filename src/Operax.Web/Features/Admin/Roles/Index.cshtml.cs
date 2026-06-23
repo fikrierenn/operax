@@ -7,7 +7,7 @@ using Operax.Web.Lib;
 
 namespace Operax.Web.Features.Admin.Roles;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageModel
 {
     public IEnumerable<IdentityRole> Roles { get; set; } = [];
@@ -38,7 +38,7 @@ public class IndexModel(Db db, RoleManager<IdentityRole> roleManager) : PageMode
         if (role == null) return NotFound();
 
         // Yerleşik roller silinemez
-        if (role.Name == "Administrator")
+        if (role.Name == Operax.Web.Lib.Roles.Administrator)
         {
             ModelState.AddModelError("", "Administrator rolü silinemez.");
             await OnGetAsync(ct);

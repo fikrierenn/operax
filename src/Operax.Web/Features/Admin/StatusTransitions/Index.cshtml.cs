@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.StatusTransitions;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company) : PageModel
 {
     public IEnumerable<TransitionDto> Transitions { get; set; } = [];

@@ -10,7 +10,7 @@ namespace Operax.Web.Features.Admin.CompanyProfile;
 /// Şirket profili — aktif şirketin temel kimlik bilgileri (ünvan, VKN).
 /// e-Belge ve yasal evrak başlıklarında kullanılır; yalnız Administrator düzenler.
 /// </summary>
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company, ICurrentUser user, ILogger<IndexModel> logger) : PageModel
 {
     public ProfileDto Profile { get; set; } = new("", null);

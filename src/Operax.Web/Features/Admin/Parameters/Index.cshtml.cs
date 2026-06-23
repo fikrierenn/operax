@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Operax.Web.Features.Admin.Parameters;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     public List<ParameterDto> Parameters { get; set; } = [];

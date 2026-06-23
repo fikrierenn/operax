@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Operax.Web.Features.Admin.Roles;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class CreateModel(RoleManager<IdentityRole> roleManager) : PageModel
 {
     [BindProperty]

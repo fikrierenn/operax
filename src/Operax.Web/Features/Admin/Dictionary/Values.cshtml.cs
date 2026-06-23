@@ -13,7 +13,7 @@ namespace Operax.Web.Features.Admin.Dictionary;
 /// Dinamik tipler (AllowValueCrud=1: UOM/TAX_RATE/CURRENCY...) tam CRUD. CODE asla düzenlenmez (identity).
 /// Her değişiklikte DictionaryLabels cache (Plan 42) temizlenir → etiket anında yansır.
 /// </summary>
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class ValuesModel(Db db, ICurrentCompany company, ICurrentUser user, IMemoryCache cache) : PageModel
 {
     private static readonly Guid SystemCompany = Guid.Empty; // global sözlük (CompanyId=0)

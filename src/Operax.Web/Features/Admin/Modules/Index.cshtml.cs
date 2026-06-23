@@ -7,7 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Operax.Web.Features.Admin.Modules;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Roles = Operax.Web.Lib.Roles.Administrator)]
 public class IndexModel(Db db, ICurrentCompany company, IMemoryCache cache) : PageModel
 {
     public IEnumerable<ModuleDto> Modules { get; set; } = [];

@@ -87,6 +87,8 @@ class Program
                         "schema_M01_M11_RiskAndLoanTypes.sql", // Partner risk + Loan tipleri + Kart-Banka bağlantısı
                         "schema_M01_PartnerExtended.sql",     // Plan 08: cari sorumlu temsilci + contact/address/bank/activity
                         "schema_M11_AccountMovement.sql",     // Plan 09: cari hesap defteri (StockMovement muadili)
+                        "schema_M11_Reconciliation.sql",      // Plan 18: AccountReconciliation (açık-kalem kapama) — AccountMovement'tan sonra
+                        "schema_M11_PartnerReconciliation.sql", // Plan 19: PartnerReconciliationLog (cari mutabakat turu)
                         "schema_M00_NumberSeries.sql",        // Plan 10: belge seri yönetimi (otomatik numaralama)
                         "schema_M11_DocumentRegistry.sql",    // Plan 11: gelen belge kayıt no (RegistryNo)
                         "schema_UserCompany.sql",             // Plan 13: UserCompany yetki tablosu
@@ -133,6 +135,12 @@ class Program
                     // 7. Belge zinciri SP'leri (Plan 05/24) — Receiving/Shipping/PurchaseInvoice create + post
                     var docchain = Path.Combine(sqlDir, "db_objects_docchain.sql");
                     if (File.Exists(docchain)) await ExecuteScriptAsync(docchain, tolerant: false);
+                    // 7b. Mutabakat SP/TVF'leri (Plan 18/19) — açık-kalem kapama + cari mutabakat turu.
+                    //     expensereport'tan ÖNCE (v_ExpenseDistribution canonical'ı expensereport'ta; bu dosyadan çıkarıldı — Plan 48).
+                    var recon = Path.Combine(sqlDir, "db_objects_reconciliation.sql");
+                    if (File.Exists(recon)) await ExecuteScriptAsync(recon, tolerant: false);
+                    var partnerRecon = Path.Combine(sqlDir, "db_objects_partner_reconciliation.sql");
+                    if (File.Exists(partnerRecon)) await ExecuteScriptAsync(partnerRecon, tolerant: false);
                     // 8. Gider raporlama (Plan 26) — v_ExpenseDistribution genişletme + tvf_ExpenseBreakdown (EN SON: view son kazanır)
                     var expenseReport = Path.Combine(sqlDir, "db_objects_expensereport.sql");
                     if (File.Exists(expenseReport)) await ExecuteScriptAsync(expenseReport, tolerant: false);

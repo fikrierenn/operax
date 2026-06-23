@@ -244,25 +244,6 @@ RETURN
 );
 GO
 
--- -----------------------------------------------------------------------------
--- v_ExpenseDistribution — gider dağıtım analitiği (CostCenter/ExpenseType bazlı)
--- AM başlık-bazlı olduğu için (reference-researcher B1) gider kırılımı burada.
--- Sadece POSTED faturaların satırları; cari defteri kirletmeden raporlama.
--- -----------------------------------------------------------------------------
-CREATE OR ALTER VIEW dbo.v_ExpenseDistribution
-AS
-SELECT
-    ei.CompanyId,
-    ei.Id            AS InvoiceId,
-    ei.DocNo,
-    ei.PartnerId,
-    ei.InvoiceDate,
-    l.ExpenseTypeId,
-    l.CostCenterId,
-    l.Amount         AS NetAmount,
-    l.TaxAmount,
-    l.TotalAmount
-FROM ExpenseInvoice ei
-JOIN ExpenseInvoiceLine l ON l.ExpenseInvoiceId = ei.Id
-WHERE ei.Status = 'POSTED';
-GO
+-- NOT (Plan 48): v_ExpenseDistribution buradan ÇIKARILDI — canonical tanım
+-- db_objects_expensereport.sql'de (Plan 26, genişletilmiş sürüm). Çift-tanım
+-- migrate sırasına bağlı sessiz view-regresyonu üretiyordu; tek kaynak bırakıldı.

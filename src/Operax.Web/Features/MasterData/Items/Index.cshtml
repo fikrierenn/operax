@@ -7,7 +7,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">@L.T("Tanımlamalar", "Master Data")</span>
+            <span class="breadcrumb-item">@L.T("Tanımlamalar", "Master Data")</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">@L.T("Ürün Yönetimi", "Item Management")</span>
         </div>
@@ -16,7 +16,7 @@
     </div>
     <div class="page-hdr-r">
         <button class="btn btn-secondary">
-            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
             Excel
         </button>
         <a asp-page="./Details" class="btn btn-primary px-6" data-shortcut="Alt+N">
@@ -26,124 +26,131 @@
     </div>
 </div>
 
-<!-- KPI Cards -->
+<!-- KPI kartları: renkler token (slate/indigo/red/amber sabit değil → tema tek nokta) -->
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <div class="kpi-icon bg-indigo-50 text-indigo-600">📦</div>
+        <div class="kpi-icon bg-[var(--brand-tint-15)] text-[var(--brand-500)]">📦</div>
         <span class="kpi-label">@L.T("Toplam Aktif SKU", "Total Active SKU")</span>
-        <div class="kpi-val text-slate-800">@Model.TotalSkuCount</div>
+        <div class="kpi-val text-[var(--text)]">@Model.TotalSkuCount</div>
         <span class="kpi-sub">@L.T("Tanımlı tüm ürünler", "All defined items")</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow danger"></div>
-        <div class="kpi-icon bg-red-50 text-red-600">🚨</div>
+        <div class="kpi-icon bg-[var(--danger-bg)] text-[var(--danger-text)]">🚨</div>
         <span class="kpi-label">@L.T("Kritik Emniyet Altı", "Critical Below Safety")</span>
-        <div class="kpi-val text-slate-800">@Model.CriticalSkuCount</div>
+        <div class="kpi-val text-[var(--text)]">@Model.CriticalSkuCount</div>
         <span class="kpi-sub">@L.T("Min stok altındaki SKU'lar", "SKUs below minimum stock")</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow warn"></div>
-        <div class="kpi-icon bg-amber-50 text-amber-600">📁</div>
+        <div class="kpi-icon bg-[var(--warn-bg)] text-[var(--warn-text)]">📁</div>
         <span class="kpi-label">@L.T("Kategorisiz SKU", "Uncategorized SKU")</span>
-        <div class="kpi-val text-slate-800">@Model.NoCategoryCount</div>
+        <div class="kpi-val text-[var(--text)]">@Model.NoCategoryCount</div>
         <span class="kpi-sub">@L.T("Kategori atanmamış ürün", "Items with no category")</span>
     </div>
 </div>
 
-<form method="get" class="flex items-center gap-3 mb-6 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-    <div class="relative flex-1 max-w-[320px]">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" name="q" value="@Model.Q" placeholder="@L.T("Ürün kodu veya adı ile ara...", "Search by item code or name...")" class="form-ctrl pl-9 w-full bg-slate-50 border-slate-200">
+@* Filtre çubuğu: mobilde dikey-stack (flex-col), tablet+ yatay. Sabit w-48/w-40 yerine
+   mobilde tam-genişlik → telefonda taşma/clip olmaz. Renkler token. *@
+<form method="get" class="card flex flex-col gap-3 mb-6 p-3 sm:flex-row sm:items-center">
+    <div class="relative w-full sm:max-w-[320px] sm:flex-1">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-4)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" name="q" value="@Model.Q" placeholder="@L.T("Ürün kodu veya adı ile ara...", "Search by item code or name...")" class="form-ctrl pl-9 w-full">
     </div>
-    <select name="categoryFilter" class="form-ctrl w-48 bg-slate-50 border-slate-200 text-sm text-slate-700" onchange="this.form.submit()">
+    <select name="categoryFilter" class="form-ctrl w-full sm:w-48" onchange="this.form.submit()">
         <option value="">@L.T("Tüm Kategoriler", "All Categories")</option>
         <option value="Hammadde" selected="@(Model.CategoryFilter == "Hammadde")">@L.T("Hammadde", "Raw Material")</option>
         <option value="Yarı Mamül" selected="@(Model.CategoryFilter == "Yarı Mamül")">@L.T("Yarı Mamül", "Semi-Finished Product")</option>
         <option value="Mamül" selected="@(Model.CategoryFilter == "Mamül")">@L.T("Mamül", "Finished Product")</option>
     </select>
-    <select name="statusFilter" class="form-ctrl w-40 bg-slate-50 border-slate-200 text-sm text-slate-700" onchange="this.form.submit()">
+    <select name="statusFilter" class="form-ctrl w-full sm:w-40" onchange="this.form.submit()">
         <option value="">@L.T("Tüm Durumlar", "All Statuses")</option>
         <option value="active" selected="@(Model.StatusFilter == "active")">@L.T("Aktif", "Active")</option>
         <option value="passive" selected="@(Model.StatusFilter == "passive")">@L.T("Pasif", "Passive")</option>
     </select>
-    <div class="ml-auto text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">@Model.FilteredCount @L.T("kayıt", "records")</div>
+    <div class="badge badge-neutral sm:ml-auto">@Model.FilteredCount @L.T("kayıt", "records")</div>
 </form>
 
+@* Tablo: 7 kolon mobilde 375px'e sığmaz → table-scroll (overflow-x:auto) ile YATAY KAYDIRILIR,
+   kesilmez. card overflow-hidden köşe yuvarlamayı korur, iç table-scroll scroll'u sağlar.
+   min-w-[640px] kolonların ezilmesini önler (scroll çıksın). Renkler token. *@
 <div class="card overflow-hidden">
-    <table class="data-table w-full">
-        <thead>
-            <tr class="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b">
-                <th class="px-6 py-4 text-left">@L.T("SKU / Ürün", "SKU / Item")</th>
-                <th class="px-6 py-4 text-left">@L.T("Kategori", "Category")</th>
-                <th class="px-6 py-4 text-center">@L.T("Baz Birim", "Base UOM")</th>
-                <th class="px-6 py-4 text-center">@L.T("KDV (%)", "VAT (%)")</th>
-                <th class="px-6 py-4 text-center">@L.T("Takip", "Tracking")</th>
-                <th class="px-6 py-4 text-center">@L.T("Durum", "Status")</th>
-                <th class="px-6 py-4 text-right">@L.T("İşlem", "Actions")</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-            @foreach (var item in Model.Items)
-            {
-                <tr class="cursor-pointer hover:bg-slate-50/50 transition-colors" onclick="window.location='@Url.Page("./Details", new { id = item.Id })'">
-                    <td class="px-6 py-4">
-                        <div class="font-mono text-xs text-indigo-600 font-bold mb-0.5">@item.Code</div>
-                        <div class="font-bold text-slate-800 text-sm">@item.Name</div>
-                        @if (!string.IsNullOrEmpty(item.Barcode))
-                        {
-                            <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7V4h3M4 17v3h3m13-3v3h-3m3-13V4h-3M7 8h2v8H7zm4 0h1v8h-1zm3 0h3v8h-3zm5 0h1v8h-1z"/></svg>
-                                @item.Barcode
+    <div class="table-scroll">
+        <table class="data-table w-full min-w-[640px]">
+            <thead>
+                <tr class="bg-[var(--surface-2)] text-[10px] font-bold uppercase text-[var(--text-4)] tracking-widest border-b border-[var(--border)]">
+                    <th class="px-6 py-4 text-left">@L.T("SKU / Ürün", "SKU / Item")</th>
+                    <th class="px-6 py-4 text-left">@L.T("Kategori", "Category")</th>
+                    <th class="px-6 py-4 text-center">@L.T("Baz Birim", "Base UOM")</th>
+                    <th class="px-6 py-4 text-center">@L.T("KDV (%)", "VAT (%)")</th>
+                    <th class="px-6 py-4 text-center">@L.T("Takip", "Tracking")</th>
+                    <th class="px-6 py-4 text-center">@L.T("Durum", "Status")</th>
+                    <th class="px-6 py-4 text-right">@L.T("İşlem", "Actions")</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--border)]">
+                @foreach (var item in Model.Items)
+                {
+                    <tr class="cursor-pointer hover:bg-[var(--surface-2)] transition-colors" onclick="window.location='@Url.Page("./Details", new { id = item.Id })'">
+                        <td class="px-6 py-4">
+                            <div class="font-mono text-xs text-[var(--brand-500)] font-bold mb-0.5">@item.Code</div>
+                            <div class="font-bold text-[var(--text)] text-sm">@item.Name</div>
+                            @if (!string.IsNullOrEmpty(item.Barcode))
+                            {
+                                <div class="text-[10px] text-[var(--text-4)] mt-1 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 text-[var(--text-mute)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7V4h3M4 17v3h3m13-3v3h-3m3-13V4h-3M7 8h2v8H7zm4 0h1v8h-1zm3 0h3v8h-3zm5 0h1v8h-1z"/></svg>
+                                    @item.Barcode
+                                </div>
+                            }
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-semibold text-[var(--text-2)]">@(item.CategoryName ?? "—")</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="badge b-indigo">@item.BaseUom</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="font-mono text-xs font-bold text-[var(--text-2)] bg-[var(--surface-2)] px-2 py-0.5 rounded">%@item.TaxRate.ToString("N0")</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-center gap-1.5">
+                                @if (item.IsLotTracked) { <span class="badge b-amber">LOT</span> }
+                                @if (item.IsSerialTracked) { <span class="badge b-blue">SERİ</span> }
+                                @if (!item.IsLotTracked && !item.IsSerialTracked) { <span class="text-xs text-[var(--text-4)]">—</span> }
                             </div>
-                        }
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="text-sm font-semibold text-slate-600">@(item.CategoryName ?? "—")</span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="badge b-indigo">@item.BaseUom</span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">%@item.TaxRate.ToString("N0")</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center justify-center gap-1.5">
-                            @if (item.IsLotTracked) { <span class="badge b-amber">LOT</span> }
-                            @if (item.IsSerialTracked) { <span class="badge b-blue">SERİ</span> }
-                            @if (!item.IsLotTracked && !item.IsSerialTracked) { <span class="text-xs text-slate-400">—</span> }
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        @if (item.IsActive)
-                        {
-                            <span class="badge b-green">@L.T("AKTİF", "ACTIVE")</span>
-                        }
-                        else
-                        {
-                            <span class="badge b-gray">@L.T("PASİF", "PASSIVE")</span>
-                        }
-                    </td>
-                    <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
-                        <a asp-page="./Details" asp-route-id="@item.Id" class="btn btn-secondary btn-sm">
-                            @L.T("Düzenle", "Edit")
-                        </a>
-                    </td>
-                </tr>
-            }
-            @if (!Model.Items.Any())
-            {
-                <tr>
-                    <td colspan="7" class="px-6 py-20 text-center">
-                        <div class="flex flex-col items-center">
-                            <svg class="w-12 h-12 text-slate-200 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                            <p class="text-slate-400 font-medium italic">@L.T("Henüz ürün tanımlanmamış.", "No items defined yet.")</p>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            @if (item.IsActive)
+                            {
+                                <span class="badge b-green">@L.T("AKTİF", "ACTIVE")</span>
+                            }
+                            else
+                            {
+                                <span class="badge b-gray">@L.T("PASİF", "PASSIVE")</span>
+                            }
+                        </td>
+                        <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+                            <a asp-page="./Details" asp-route-id="@item.Id" class="btn btn-secondary btn-sm">
+                                @L.T("Düzenle", "Edit")
+                            </a>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="px-6 py-20 text-center">
+                            <div class="flex flex-col items-center">
+                                <svg class="w-12 h-12 text-[var(--text-mute)] mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                <p class="text-[var(--text-4)] font-medium italic">@L.T("Henüz ürün tanımlanmamış.", "No items defined yet.")</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <partial name="_Pager" model="new Operax.Web.Lib.PagerVm(Model.Page, Model.TotalPages, Model.FilteredCount, Model.PageSize)" />

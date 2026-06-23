@@ -906,6 +906,9 @@
   .min-w-\[120px\] {
     min-width: 120px;
   }
+  .min-w-\[640px\] {
+    min-width: 640px;
+  }
   .flex-1 {
     flex: 1;
   }
@@ -1099,6 +1102,11 @@
       border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
     }
   }
+  .divide-\[var\(--border\)\] {
+    :where(& > :not(:last-child)) {
+      border-color: var(--border);
+    }
+  }
   .divide-slate-100 {
     :where(& > :not(:last-child)) {
       border-color: var(--color-slate-100);
@@ -1222,6 +1230,9 @@
     --tw-border-style: dashed;
     border-style: dashed;
   }
+  .border-\[var\(--border\)\] {
+    border-color: var(--border);
+  }
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
@@ -1287,6 +1298,18 @@
   }
   .bg-\[hsl\(220\,14\%\,97\%\)\] {
     background-color: hsl(220,14%,97%);
+  }
+  .bg-\[var\(--brand-tint-15\)\] {
+    background-color: var(--brand-tint-15);
+  }
+  .bg-\[var\(--danger-bg\)\] {
+    background-color: var(--danger-bg);
+  }
+  .bg-\[var\(--surface-2\)\] {
+    background-color: var(--surface-2);
+  }
+  .bg-\[var\(--warn-bg\)\] {
+    background-color: var(--warn-bg);
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
@@ -1794,6 +1817,27 @@
   .\!text-red-500 {
     color: var(--color-red-500) !important;
   }
+  .text-\[var\(--brand-500\)\] {
+    color: var(--brand-500);
+  }
+  .text-\[var\(--danger-text\)\] {
+    color: var(--danger-text);
+  }
+  .text-\[var\(--text\)\] {
+    color: var(--text);
+  }
+  .text-\[var\(--text-2\)\] {
+    color: var(--text-2);
+  }
+  .text-\[var\(--text-4\)\] {
+    color: var(--text-4);
+  }
+  .text-\[var\(--text-mute\)\] {
+    color: var(--text-mute);
+  }
+  .text-\[var\(--warn-text\)\] {
+    color: var(--warn-text);
+  }
   .text-amber-400 {
     color: var(--color-amber-400);
   }
@@ -2220,6 +2264,13 @@
       }
     }
   }
+  .hover\:bg-\[var\(--surface-2\)\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--surface-2);
+      }
+    }
+  }
   .hover\:bg-amber-50 {
     &:hover {
       @media (hover: hover) {
@@ -2514,9 +2565,44 @@
       background-color: var(--color-slate-600);
     }
   }
+  .sm\:ml-auto {
+    @media (width >= 40rem) {
+      margin-left: auto;
+    }
+  }
+  .sm\:w-40 {
+    @media (width >= 40rem) {
+      width: calc(var(--spacing) * 40);
+    }
+  }
+  .sm\:w-48 {
+    @media (width >= 40rem) {
+      width: calc(var(--spacing) * 48);
+    }
+  }
+  .sm\:max-w-\[320px\] {
+    @media (width >= 40rem) {
+      max-width: 320px;
+    }
+  }
+  .sm\:flex-1 {
+    @media (width >= 40rem) {
+      flex: 1;
+    }
+  }
   .sm\:grid-cols-2 {
     @media (width >= 40rem) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .sm\:flex-row {
+    @media (width >= 40rem) {
+      flex-direction: row;
+    }
+  }
+  .sm\:items-center {
+    @media (width >= 40rem) {
+      align-items: center;
     }
   }
   .md\:col-span-1 {

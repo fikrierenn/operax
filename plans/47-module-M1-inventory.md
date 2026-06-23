@@ -55,10 +55,10 @@ Plan 44 stok-hareket motoru **sertifikalı sağlam** (idempotency, applock/concu
 - [x] Faz 1 ✅ (513d6d3): OnHandQty ledger-türev + şirket-genel grain; migration drift SIFIR; SP test AvgCost/qty doğru; sql-sp-reviewer geçti (CRIT-1/IMP-1 fix)
 - [x] Faz 2 ✅: QUARANTINE/BLOCKED lot consume'da bloklanır. sp_ConsumeInventory guard (THROW 53004) + FEFO ön-kontrol/cursor bloke lotu serbest stoktan dışlar. sql-sp-reviewer 6/6 geçti. Smoke (tran-rollback): bloke lot consume → 53004 yakalandı. NOT: IMP-1 nadir TOCTOU (consume sürerken karantinaya çekme → temiz rollback, veri kaybı yok) — lot-statü-değiştirme SP'si yazılınca aynı applock alınmalı.
 - [x] Faz 3 ✅: CostingMethod MOVING_AVG kilit. Bulgu: FIFO/STANDARD UI dropdown'u YOK + param/Item.CostingMethod hiçbir kod tarafından okunmuyor (sessiz-yanlış-sonuç teorik). migration_48: yanıltıcı Description düzelt + MOVING_AVG dışı değer reset. FIFO motoru ayrı gelecek plan.
-- [ ] Faz 4: Zayiat çıkışı MaterialIssue reason-code ile ledger'a düşüyor + reverse
-- [ ] Faz 5: DynamicBomService + dead production servisleri silindi, build 0/0
-- [ ] HARİÇ kararlar (serial/FIFO/freeze/in-transit) dokümante + TODO
-- [ ] Her faz: build → code/sql-sp/security reviewer → E2E smoke (phase-review-gate)
+- [x] Faz 4 ✅ (e1233b0): MaterialIssue.ReasonCode (NULL=tüketim · DAMAGE/FIRE/WASTE=zayiat) → sp_MaterialIssuePost StockMovement.MovementType='SCRAP'; reverse değişmedi (CONSUMPTION eşler). migration_49 (kolon+CHECK idempotent). Smoke: DAMAGE→SCRAP/-2 · normal→ISSUE · scrap+reverse→SCRAP/Cancelled. sql-sp-reviewer temiz; code-reviewer HIGH (kod-dili HASAR/HURDA→DAMAGE/WASTE) fix.
+- [x] Faz 5 ✅ (7002609): DynamicBomService + OperaxDbContext + AutoTraceabilityService + PrintServer/Class1 git rm; ProductionReceipt/Activity zaten yoktu. Web/Cli build 0/0.
+- [x] HARİÇ kararlar (serial/FIFO/freeze/in-transit) dokümante (§2 HARİÇ + journal)
+- [x] Her faz: build → code/sql-sp reviewer → E2E smoke (phase-review-gate uygulandı her fazda)
 - [ ] Plan arşive + journal
 
 ## 6. Faz sırası / bağımlılık

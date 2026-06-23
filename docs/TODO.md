@@ -136,6 +136,7 @@ CRIT-1 (SP catch) · CRIT-2 (XSS SubHtml+HtmlEncode) · IMP-1 (Cheques→sabit b
 - [x] **Production/Terminal izolasyon açığı** ✅ KAPALI — OnPostStart firma-doğrulama guard'ı + ProductionOrder UPDATE CompanyId + bare-catch→logger.
 - [x] ✅ **DEAD production servisleri SİLİNDİ** (2026-06-23, commit 7002609) — `DynamicBomService.cs` git rm; `ProductionReceiptService`/`ProductionActivityService` zaten yoktu (0 dosya/0 ref). Architecture §4 ihlali (ham C# stok insert) ortadan kalktı. **Production/Terminal sayfası ERTELENDİ (ayrı madde):** orphan WIP — `ProductionOrder.CurrentRouteStepId` kolonu schema_M10'da bile tanımlı DEĞİL (kod hiç tasarlanmamış kolona bakıyor → runtime 500), rota tabloları (ProductRoute/Step/Activity) boş, caller/link yok. Sidebar'a EKLENMEDİ. **Karar (kullanıcı 2026-06-23): atölye terminali gerçek ihtiyaç olunca Tier 3 plan** (kolon + rota modeli + SP tabanlı aktivite) ile kurulacak.
 - [ ] **Sprint-kapanış (plan 12 §4):** dead servisler çözülünce guard 0 → blocking hook'a bağla (pre-commit/session-start).
+- [ ] **DEBT · MaterialIssue/Details pre-existing (Plan 47 Faz 4 code-reviewer, 2026-06-23, kapsam-dışı drive-by):** (1) `Details.cshtml.cs:38` `ItemType IN ('STOCK','CONSUMABLE')` magic-string → `ItemType.Stock`/`Consumable` sabitleri var, kullanılmalı. (2) `Details.cshtml:122` `style="align-self:flex-end"` inline layout → semantic class. İkisi de Faz 4 öncesi vardı (drive-by yasağı → bırakıldı); bu dosyaya tekrar dokununca temizle.
 
 ---
 

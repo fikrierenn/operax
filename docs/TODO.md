@@ -244,14 +244,8 @@ Kapsam: HEAD~10..HEAD + uncommitted. Tüm bulgular `.claude/rules/todo-verificat
 
 ### CRITICAL — Plan 02 adayı (Fix Sprint)
 
-- [ ] **CRIT-1 · SP THROW handler catch eksik** — PO/Details.cshtml.cs:166-179 (Approve), Receiving/Details.cshtml.cs:142-151 (Post), Shipping/Details.cshtml.cs:175-194 (CreatePickTask + Post), PO/Details.cshtml.cs:181-190 (Cancel — SP bypass).
-  - **Etki:** SP Türkçe iş kuralı mesajları (stok yetersiz, durum geçişi, vade plan) user'a 500 sayfası olarak iletiliyor, mesaj kayboluyor.
-  - **Fix:** `catch (SqlException sex) when (sex.Number is >= 50000 and < 60000) { TempData["Error"] = sex.Message; return RedirectToPage(new { id }); }`
-  - **Kural:** `.claude/rules/error-handling.md` "SP'lerden Gelen THROW"
-
-- [ ] **CRIT-2 · XSS — `_PageHeader.Sub` `@Html.Raw` + ham PartnerName interpolation** — Shared/_PageHeader.cshtml:33,38 + SalesInvoices/Details.cshtml:13, PO/Details.cshtml:46, SO/Details.cshtml:44.
-  - **Etki:** Partner.Name'de `<script>` → stored XSS tüm detay sayfalarında.
-  - **Fix:** PageHeaderVm'e `SubHtml` (raw) ayrı property + `Sub` encode-safe; veya partial'da `Html.Encode(Model.Sub)` + `Html.Raw(Model.SubHtml)` ayrımı. PartnerName her zaman encode'lu.
+- [x] ✅ KAPALI 2026-06-23 (stale; kod sonradan sertleşti, satır no'lar kaymıştı) **CRIT-1 · SP THROW handler catch** — doğrulama: PO/Details.cshtml.cs Approve(271-296)+Cancel(298-326), Receiving/Details.cshtml.cs Post(252-267)+Invoice(334-346), Shipping/Details.cshtml.cs CreatePickTask(230-245)+Post(253-269)+Reverse(283-295) hepsi `catch(OperationCanceledException) when(ct...){throw;}` + `catch(SqlException) when(Number>=50000){TempData[Error]=Message}` + generic-log zincirine sahip. PO Cancel artık sp_ValidateStatusTransition çağırıyor (bypass yok). Fix gerekmedi.
+- [x] ✅ KAPALI 2026-06-23 (stale; _PageHeader refaktör edildi) **CRIT-2 · XSS _PageHeader** — doğrulama: `_PageHeader.cshtml` `Sub` artık auto-escape (`@Model.Sub` satır 49); raw yalnız `SubHtml`/`ActionsHtml` (explicit-HTML prop). Çağıranlar (PO/SO/SalesInvoices Details) PartnerName/CustomerName'i `System.Web.HttpUtility.HtmlEncode(...)` ile sarıp SubHtml'e koyuyor → canlı XSS vektörü yok. Fix gerekmedi.
   - **Kural:** `.claude/rules/security-principles.md` §2 XSS
 
 - [ ] **CRIT-3 · Magic string `"APPROVED"` + SQL `IN ('POSTED','APPROVED')`** — SO/Details.cshtml.cs:164, PO/Index.cshtml.cs:41,80, SO/Index.cshtml.cs paralel.

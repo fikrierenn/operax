@@ -35,28 +35,28 @@
 
 @if (!Model.IsNew)
 {
-    <!-- Smart Buttons & Base Stats -->
-    <div class="flex items-center justify-between gap-4 mb-6">
-        <div class="flex gap-4">
-            <div class="stat-card min-w-[140px]">
-                <span class="stat-label">Baz Birim</span>
-                <div class="stat-value">@Model.Item.BaseUomCode</div>
-            </div>
-            <div class="stat-card min-w-[140px]">
-                <span class="stat-label">Alternatif UOM</span>
-                <div class="stat-value">@Model.UomConversions.Count()<span class="text-sm font-normal text-[var(--text-3)] ml-1">adet</span></div>
-            </div>
+    @* Üst metrik şeridi — dashboard mini-KPI ile birebir: 4'lü uniform .stat-card grid.
+       Stokta Var / Hareketler tıklanabilir (envanter ekranlarına gider). *@
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card">
+            <span class="stat-label">Baz Birim</span>
+            <div class="stat-value">@Model.Item.BaseUomCode</div>
         </div>
-        <div class="smart-btn-container">
-            <a href="/Inventory/Balance?ItemCode=@Model.Item.Code" class="smart-btn">
-                <span class="smart-btn-val">@Model.QtyOnHand.ToString("N0")</span>
-                <span class="smart-btn-lbl">Stokta Var</span>
-            </a>
-            <a href="/Inventory/Movements?ItemCode=@Model.Item.Code" class="smart-btn">
-                <span class="smart-btn-val">@Model.MovementCount</span>
-                <span class="smart-btn-lbl">Hareketler</span>
-            </a>
+        <div class="stat-card">
+            <span class="stat-label">Alternatif UOM</span>
+            <div class="stat-value">@Model.UomConversions.Count()</div>
+            <div class="stat-sub">alternatif birim</div>
         </div>
+        <a href="/Inventory/Balance?ItemCode=@Model.Item.Code" class="stat-card">
+            <span class="stat-label">Stokta Var</span>
+            <div class="stat-value">@Model.QtyOnHand.ToString("N0")</div>
+            <div class="stat-sub">mevcut stok →</div>
+        </a>
+        <a href="/Inventory/Movements?ItemCode=@Model.Item.Code" class="stat-card">
+            <span class="stat-label">Hareketler</span>
+            <div class="stat-value">@Model.MovementCount</div>
+            <div class="stat-sub">stok hareketi →</div>
+        </a>
     </div>
 }
 

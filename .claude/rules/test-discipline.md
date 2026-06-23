@@ -46,9 +46,11 @@ Kapsam: Yeni feature / bug fix / refactor kapatma kriteri.
 
 ## Workflow
 
+> **⚠️ Build öncesi preview server'ı DURDUR.** Çalışan `dotnet run`/preview server `bin/.../Operax.Web.exe`'yi kilitler → `dotnet build` **MSB3027/MSB3021 exe-kopyalanamadı** verir. Bu KOD hatası DEĞİL, dosya kilidi. `.cshtml`/CSS değişikliği de runtime'a yansımaz (recompile yok) → her zaman: `preview_stop` → `dotnet build` → `preview_start`. (2026-06-24 dersi, çok kez yaşandı.)
+
 ### Yeni feature / bug fix kapatma kontrolü
 ```bash
-# 1. Build
+# 1. Build (preview server durdurulduktan SONRA)
 dotnet build src/Operax.Web/Operax.Web.csproj --nologo
 
 # 2. Test (varsa)

@@ -30,7 +30,8 @@ var rows = await conn.QueryAsync<OrderDto>(
     new { CompanyId = company.Id });
 ```
 
-- `using var conn = db.Open();` — bağlantı dispose garanti
+- `using var conn = db.Open();` — bağlantı dispose garanti; **`db.Open()` AÇIK bağlantı döner** (eager `conn.Open()`). 
+- **Transaction → `conn.Open()` şart:** Dapper `QueryAsync`/`ExecuteAsync` kapalı bağlantıyı OTOMATİK açar ama `conn.BeginTransaction()` AÇMAZ → kapalı bağlantıda `InvalidOperationException: Bağlantı kapalı`. (2026-06-24 bug: `Db.Open()` connection'ı açmıyordu, sorgular çalışıyordu ama 5 transaction handler'ı sessizce kırıktı.) Yeni bir connection-üreten yol eklersen transaction'dan ÖNCE açıldığından emin ol.
 - Parametreli sorgular (string concat YASAK — `.claude/rules/sql-conventions.md`)
 - `QueryAsync`, `ExecuteAsync`, `QuerySingleAsync`, `QueryMultipleAsync` — sync yok
 - Stored Procedure çağrısı:

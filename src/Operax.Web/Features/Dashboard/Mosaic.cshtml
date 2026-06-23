@@ -3,145 +3,195 @@
 @inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Anasayfa (Mosaic Denemesi)";
+
+    // Mosaic sales-kartları için aylık GERÇEK seriler (MonthlyPerformance, son 6 ay).
+    var posSeries    = Model.MonthlyPerformance.Select(m => m.PostedAmount).ToList();
+    var draftSeries  = Model.MonthlyPerformance.Select(m => m.DraftAmount).ToList();
+    var cancelSeries = Model.MonthlyPerformance.Select(m => m.CancelledAmount).ToList();
+
+    // Üst satır kart tanımları (başlık + seri + glow rengi). Mosaic'teki 3 sales kartına karşılık.
+    var salesCards = new[]
+    {
+        (Title: "Onaylı Satınalma", Series: posSeries,    Glow: "success"),
+        (Title: "Taslak Satınalma", Series: draftSeries,  Glow: "warn"),
+        (Title: "İptal Satınalma",  Series: cancelSeries, Glow: "danger"),
+    };
+}
+@functions {
+    // Sparkline SVG polyline noktaları — değer serisini 100x36 viewBox'a oturtur (y ekseni ters,
+    // 2px üst/alt pay). Mosaic'in sales kartındaki mini çizgi grafiğinin gerçek-veri karşılığı.
+    static string Spark(System.Collections.Generic.IReadOnlyList<decimal> v)
+    {
+        if (v == null || v.Count == 0) return "";
+        decimal max = 1m;
+        foreach (var x in v) if (x > max) max = x;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < v.Count; i++)
+        {
+            var px = v.Count == 1 ? 0d : (double)i / (v.Count - 1) * 100d;
+            var py = 34d - (double)(v[i] / max) * 32d; // tabandan yükseklik, 2px üst pay
+            sb.Append(px.ToString("0.#", inv)).Append(',').Append(py.ToString("0.#", inv)).Append(' ');
+        }
+        return sb.ToString().Trim();
+    }
+
+    // Son ay / önceki ay yüzde değişimi → (metin, yön). Yön: +1 artış, -1 düşüş, 0 nötr/yetersiz.
+    // Mosaic'in yeşil/kırmızı % rozetinin gerçek-veri kaynağı.
+    static (string Text, int Dir) Delta(System.Collections.Generic.IReadOnlyList<decimal> v)
+    {
+        if (v == null || v.Count < 2) return ("", 0);
+        decimal last = v[v.Count - 1], prev = v[v.Count - 2];
+        if (prev == 0) return last > 0 ? ("yeni", 1) : ("", 0);
+        var pct = (last - prev) / prev * 100m;
+        var dir = pct > 0 ? 1 : (pct < 0 ? -1 : 0);
+        var sign = pct > 0 ? "+" : "";
+        return ($"{sign}{pct.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"))}%", dir);
+    }
 }
 @* ============================================================================
-   ALTERNATİF ANASAYFA — Cruip "Mosaic" tasarım dili denemesi.
-   Açık-gri zemin + beyaz kartlar + ince ayraçlar + sert tipografi hiyerarşisi.
-   Tüm renkler token (:root değişkenleri), layout saf Tailwind utility (özel CSS yok).
-   Grafik = saf CSS (Model.MonthlyPerformance gerçek verisinden stacked-bar).
-   Bu sayfa gerçek Dashboard'a dokunmaz — yalnızca tasarım denemesidir.
-   Sayfa kabuğu (sidebar/topbar) _Layout'tan gelir; burası yalnız içerik gövdesi.
+   ALTERNATİF ANASAYFA — Cruip "Mosaic" tasarım dili (gerçek frame referans).
+   Sales kartları: uppercase etiket + büyük mono sayı + yeşil/kırmızı % delta pill +
+   SVG sparkline (hepsi GERÇEK aylık seriden). Kartlar rounded-2xl + ince kenar + soft gölge.
+   Renkler token; layout saf Tailwind utility; grafik saf SVG (Chart.js yok). CSP güvenli.
+   Bu sayfa gerçek Dashboard'a dokunmaz — tasarım denemesi. Kabuk (sidebar/topbar) _Layout'tan.
    ============================================================================ *@
 <div class="mx-auto w-full max-w-[1640px] px-4 py-5 md:px-6" data-screen-label="Anasayfa (Mosaic Denemesi)">
 
-    @* --- Üst başlık: şirket adı + kısa açıklama. Mosaic'te sayfa başlığı sade. --- *@
+    @* --- Üst başlık: sayfa adı + şirket/tarih (Mosaic'te sade, solda bold "Dashboard"). --- *@
     <div class="flex flex-col gap-1 mb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-[var(--text)]">@Model.CompanyName</h1>
-            <p class="text-sm text-[var(--text-3)] mt-0.5">Genel bakış · @DateTime.Now.ToString("dd MMM yyyy")</p>
+            <h1 class="text-2xl font-bold text-[var(--text)]">Anasayfa</h1>
+            <p class="text-sm text-[var(--text-3)] mt-0.5">@Model.CompanyName · @DateTime.Now.ToString("dd MMM yyyy")</p>
         </div>
     </div>
 
     @* ========================================================================
-       STAT-KART SATIRI (4 kart) — Mosaic'in imzası: küçük uppercase gri etiket,
-       altında büyük mono sayı, en altta gerçek veriden türeyen alt-metin.
-       Mobil tek kolon → tablet 2 → geniş ekran 4 kolon.
+       SALES KART SATIRI (3) — Mosaic'in imza bileşeni. Her kart bir aylık seriyi temsil eder:
+       başlık + "TUTAR (₺)" etiketi + büyük mono toplam + son/önceki ay % delta pill + sparkline.
        ======================================================================== *@
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
+        @foreach (var c in salesCards)
+        {
+            var total = c.Series.Sum();
+            var d = Delta(c.Series);
+            var pts = Spark(c.Series);
+            // Delta yönüne göre pill rengi (artış yeşil, düşüş kırmızı, nötr gri) — token.
+            var pillCls = d.Dir > 0 ? "bg-[var(--success-bg)] text-[var(--success-text)]"
+                        : d.Dir < 0 ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                        : "bg-[var(--neutral-bg)] text-[var(--neutral-text)]";
 
-        @* Kart 1 — Açık satınalma toplamı (₺). Alt-metin: onaylı/taslak PO adedi. *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-[var(--text-4)]">Açık Satınalma</span>
-                @* 3-nokta menü ikonu — Mosaic kart başlığı klişesi (şimdilik dekoratif). *@
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 flex flex-col">
+                <div class="flex items-start justify-between">
+                    <h3 class="text-sm font-bold text-[var(--text)]">@c.Title</h3>
+                    @* 3-nokta menü ikonu — Mosaic kart başlığı klişesi (dekoratif). *@
+                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                </div>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)] mt-3">Tutar</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)]">@Operax.Web.Lib.UiHelpers.FmtTL(total)</span>
+                    @if (!string.IsNullOrEmpty(d.Text))
+                    {
+                        <span class="@pillCls text-xs font-semibold px-2 py-0.5 rounded-full">@d.Text</span>
+                    }
+                </div>
+                @* Sparkline: marka çizgi + hafif dolgu (alan). Gerçek 6-ay serisi, 100x36 viewBox. *@
+                <div class="mt-4">
+                    @if (!string.IsNullOrEmpty(pts))
+                    {
+                        <svg viewBox="0 0 100 36" preserveAspectRatio="none" class="w-full h-12">
+                            <polygon points="@pts 100,36 0,36" fill="var(--brand-tint-15)" />
+                            <polyline points="@pts" fill="none" stroke="var(--brand-500)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    }
+                </div>
             </div>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-3">@Operax.Web.Lib.UiHelpers.FmtTL(Model.TotalPoAmount)</div>
-            <div class="text-xs text-[var(--text-3)] mt-2">@Model.ApprovedPoCount onaylı · @Model.DraftPoCount taslak bekliyor</div>
+        }
+    </div>
+
+    @* ========================================================================
+       MİNİ-KPI ŞERİDİ (4) — operasyonel metrikler (sparkline yok, sade Mosaic stat).
+       ======================================================================== *@
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+
+        @* Onaylı PO adedi *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Onaylı Sipariş</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.ApprovedPoCount</div>
+            <div class="text-xs text-[var(--text-3)] mt-1">@Model.DraftPoCount taslak bekliyor</div>
         </div>
 
-        @* Kart 2 — Onaylı PO adedi. Alt-metin: taslak adedi. *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-[var(--text-4)]">Onaylı Sipariş</span>
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-            </div>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-3">@Model.ApprovedPoCount</div>
-            <div class="text-xs text-[var(--text-3)] mt-2">@Model.DraftPoCount taslak henüz onaylanmadı</div>
-        </div>
-
-        @* Kart 3 — Depo doluluk oranı (%). Alt-metin: stoklu konum sayısı.
-           Doluluk barı = gerçek WarehouseFillRate (data-driven inline width, RENK değil). *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-[var(--text-4)]">Depo Doluluk</span>
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-            </div>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-3">%@Model.WarehouseFillRate.ToString("0.#")</div>
-            @* İnce ilerleme çubuğu — zemin nötr, dolu kısım marka rengi. Genişlik gerçek orandan. *@
-            <div class="h-1.5 rounded-full bg-[var(--neutral-bg)] mt-3 overflow-hidden">
+        @* Depo doluluk + ince ilerleme barı (gerçek oran, data-driven genişlik) *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Depo Doluluk</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">%@Model.WarehouseFillRate.ToString("0.#")</div>
+            <div class="h-1.5 rounded-full bg-[var(--neutral-bg)] mt-2 overflow-hidden">
                 <div class="h-full rounded-full bg-[var(--brand-500)]" style="width:@(Math.Min(Model.WarehouseFillRate, 100))%"></div>
             </div>
-            <div class="text-xs text-[var(--text-3)] mt-2">@Model.StockLocations stoklu konum</div>
         </div>
 
-        @* Kart 4 — Min-altı (kritik) ürün. Alt-metin uyarı tonunda (var olduğunda danger). *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-[var(--text-4)]">Min-Altı Stok</span>
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-            </div>
-            <div class="text-3xl font-bold [font-family:var(--font-mono)] mt-3 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger)]" : "text-[var(--text)]")">@Model.LowStockSkuCount</div>
-            <div class="text-xs mt-2 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger-text)]" : "text-[var(--text-3)]")">
-                @(Model.LowStockSkuCount > 0 ? "ürün kritik seviyede" : "kritik seviyede ürün yok")
+        @* Stoklu konum *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Stoklu Konum</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.StockLocations</div>
+            <div class="text-xs text-[var(--text-3)] mt-1">dolu hücre sayısı</div>
+        </div>
+
+        @* Min-altı stok — 0'dan büyükse danger tonu *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Min-Altı Stok</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] mt-2 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger)]" : "text-[var(--text)]")">@Model.LowStockSkuCount</div>
+            <div class="text-xs mt-1 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger-text)]" : "text-[var(--text-3)]")">
+                @(Model.LowStockSkuCount > 0 ? "ürün kritik seviyede" : "kritik ürün yok")
             </div>
         </div>
     </div>
 
     @* ========================================================================
-       ANA SATIR: solda geniş analitik kart (2/3), sağda aktivite feed (1/3).
-       xl altında dikey yığılır.
+       ANA SATIR: solda aylık performans stacked-bar (2/3), sağda aktivite feed (1/3).
        ======================================================================== *@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4">
 
-        @* ---- ANALİTİK KART: Aylık Satınalma Performansı (stacked-bar, saf CSS) ----
-           MonthlyPerformance gerçek verisi. Bar yüksekliği = (değer / max) * 100.
-           Stack sırası: Onaylı (success) altta, Taslak (warn) ortada, İptal (danger) üstte. *@
-        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
-            @* Kart başlığı + ince ayraç. *@
+        @* ---- AYLIK SATINALMA PERFORMANSI — saf-CSS stacked bar (gerçek MonthlyPerformance) ---- *@
+        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
             <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <div>
                     <h2 class="text-sm font-bold text-[var(--text)]">Aylık Satınalma Performansı</h2>
                     <p class="text-xs text-[var(--text-4)] mt-0.5">Son 6 ay · onaylı / taslak / iptal kırılımı</p>
                 </div>
-                @* Legend — semantik tokenlarla renk noktaları. *@
                 <div class="hidden sm:flex items-center gap-3 text-xs text-[var(--text-3)]">
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--success)]"></span>Onaylı</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--warn)]"></span>Taslak</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--danger)]"></span>İptal</span>
                 </div>
             </div>
-
-            @* Grafik gövdesi. *@
             <div class="p-5 flex-1">
                 @if (Model.MonthlyPerformance != null && Model.MonthlyPerformance.Any())
                 {
-                    @* Her ayın toplamını hesapla; en büyük toplam = normalizasyon tabanı (max).
-                       max 0 olursa sıfıra bölme olmasın diye 1'e sabitlenir. *@
                     var maxTotal = Model.MonthlyPerformance.Max(m => m.PostedAmount + m.DraftAmount + m.CancelledAmount);
                     if (maxTotal <= 0) { maxTotal = 1; }
-
-                    @* Bar alanı — sabit yükseklik, barlar tabana hizalı (items-end). *@
                     <div class="flex items-end justify-between gap-3 h-52">
                         @foreach (var m in Model.MonthlyPerformance)
                         {
-                            @* Bu ayın her segmentinin yüzde yüksekliği (toplam max'a göre normalize). *@
                             var postedPct = (double)(m.PostedAmount / maxTotal) * 100;
                             var draftPct = (double)(m.DraftAmount / maxTotal) * 100;
                             var cancelPct = (double)(m.CancelledAmount / maxTotal) * 100;
-
-                            <div class="flex-1 flex flex-col items-center gap-2 group">
-                                @* Tek bir dikey çubuk; içinde 3 segment alttan üste yığılı.
-                                   justify-end → segmentler aşağıya yaslı, üstte boşluk kalır. *@
+                            <div class="flex-1 flex flex-col items-center gap-2">
                                 <div class="w-full flex flex-col justify-end h-44 rounded-md bg-[var(--neutral-bg)] overflow-hidden"
                                      title="@m.MonthName — Onaylı @Operax.Web.Lib.UiHelpers.FmtTL(m.PostedAmount)">
-                                    @* İptal en üstte (danger). *@
                                     @if (cancelPct > 0)
                                     {
                                         <div class="w-full bg-[var(--danger)]" style="height:@cancelPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
                                     }
-                                    @* Taslak ortada (warn). *@
                                     @if (draftPct > 0)
                                     {
                                         <div class="w-full bg-[var(--warn)]" style="height:@draftPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
                                     }
-                                    @* Onaylı en altta (success). *@
                                     @if (postedPct > 0)
                                     {
                                         <div class="w-full bg-[var(--success)]" style="height:@postedPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
                                     }
                                 </div>
-                                @* X ekseni: ay adı. *@
                                 <span class="text-xs text-[var(--text-3)] font-medium">@m.MonthName</span>
                             </div>
                         }
@@ -154,11 +204,11 @@
             </div>
         </div>
 
-        @* ---- AKTİVİTE FEED'İ ---- Kind rengine göre nokta + Action + zaman etiketi. *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
+        @* ---- SON AKTİVİTE FEED'İ ---- Kind rengine göre nokta + Action + zaman. *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
             <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <h2 class="text-sm font-bold text-[var(--text)]">Son Aktivite</h2>
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
             </div>
             <div class="p-5 flex-1">
                 @if (Model.RecentActivities != null && Model.RecentActivities.Any())
@@ -166,8 +216,7 @@
                     <ul class="flex flex-col gap-4">
                         @foreach (var act in Model.RecentActivities)
                         {
-                            @* Kind → token rengi eşlemesi (success/danger/info/warn). Bilinmeyen → neutral.
-                               --info base token yok → okunur --info-text kullanılır. *@
+                            // Kind → token rengi (success/danger/warn/info). --info base yok → --info-text.
                             var dotColor = act.Kind switch
                             {
                                 "success" => "bg-[var(--success)]",
@@ -177,7 +226,6 @@
                                 _ => "bg-[var(--neutral-text)]"
                             };
                             <li class="flex gap-3">
-                                @* Renkli durum noktası — üstte hafif boşlukla hizalı. *@
                                 <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 @dotColor"></span>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm text-[var(--text-2)] leading-snug">@act.Action</p>
@@ -201,14 +249,13 @@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
         @* ---- SON SİPARİŞLER tablosu (Mosaic ince başlık + hover satır) ---- *@
-        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
+        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
             <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <h2 class="text-sm font-bold text-[var(--text)]">Son Siparişler</h2>
                 <a href="/PurchaseOrders" class="text-xs font-semibold text-[var(--brand-500)] hover:text-[var(--brand-400)]">Tümünü gör</a>
             </div>
             @if (Model.RecentPOs != null && Model.RecentPOs.Any())
             {
-                @* Dar ekranda yatay kaydırma; tablo minimum genişlikte sıkışmaz. *@
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[640px] text-sm">
                         <thead>
@@ -224,7 +271,6 @@
                             @foreach (var po in Model.RecentPOs)
                             {
                                 <tr class="border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-2)] transition-colors">
-                                    @* Sipariş no — mono font, evrak kimliği vurgusu. *@
                                     <td class="px-5 py-3 [font-family:var(--font-mono)] text-[var(--text)] font-medium">@po.OrderNo</td>
                                     <td class="px-5 py-3">
                                         <div class="text-[var(--text-2)]">@po.SupplierName</div>
@@ -249,10 +295,10 @@
         </div>
 
         @* ---- YAKLAŞAN SEVKİYATLAR ---- liste kartı (LPN + tedarikçi + ETA + dok). *@
-        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
             <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <h2 class="text-sm font-bold text-[var(--text)]">Yaklaşan Sevkiyatlar</h2>
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" class="text-[var(--text-4)]"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
             </div>
             <div class="p-3 flex-1">
                 @if (Model.IncomingShipments != null && Model.IncomingShipments.Any())
@@ -261,14 +307,12 @@
                         @foreach (var sh in Model.IncomingShipments)
                         {
                             <li class="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[var(--surface-2)] transition-colors">
-                                @* LPN kimliği — mono, ince marka tonlu rozet. *@
                                 <span class="shrink-0 px-2 py-1 rounded-md [font-family:var(--font-mono)] text-xs bg-[var(--brand-tint-15)] text-[var(--brand-500)] font-medium">@sh.Lpn</span>
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm text-[var(--text-2)] truncate">@sh.Supplier</div>
                                     <div class="text-xs text-[var(--text-4)] truncate">@sh.Sku · @sh.Qty.ToString("0.##") @sh.Uom</div>
                                 </div>
                                 <div class="text-right shrink-0">
-                                    @* ETA tarihi + dok numarası. *@
                                     <div class="text-xs font-medium text-[var(--text-2)]">@sh.Eta.ToString("dd MMM")</div>
                                     <div class="text-xs text-[var(--text-4)]">Dok @sh.Dock</div>
                                 </div>

@@ -313,12 +313,18 @@ public static class PaymentTermPolicy
 }
 
 /// <summary>Ürün tipi (Plan 41) — Item.ItemType.</summary>
+/// <summary>
+/// Ürün DOĞASI (fiziksel tip) — Item.ItemType. İki-eksen modelinin A ekseni (Plan 52):
+/// doğa item'da sabittir, KULLANIM (satış/sarf/üretim/gider) evrakla belirlenir.
+/// Kapalı sistem-kümesi (SP'ler branch'ler) → CHECK constraint'li, sözlük-driven DEĞİL.
+/// NOT (Plan 52): CONSUMABLE kaldırıldı — "sarf" bir kullanımdır, doğa değil; aynı mal
+/// (örn. streç film) hem satılır hem sarf olur → mutually-exclusive tip yanlış kategoriydi.
+/// </summary>
 public static class ItemType
 {
-    public const string Stock      = "STOCK";        // Stok malı
-    public const string Consumable = "CONSUMABLE";   // Sarf malzeme
-    public const string Service    = "SERVICE";      // Hizmet
-    public const string FixedAsset = "FIXED_ASSET";  // Demirbaş
+    public const string Stock      = "STOCK";        // Fiziksel envanter malı (satılır/üretilir/sarf — evrak belirler)
+    public const string Service    = "SERVICE";      // Hizmet (stoksuz; faturalanır ama stok hareketi yazmaz)
+    public const string FixedAsset = "FIXED_ASSET";  // Demirbaş (255; amortisman ayrı domain)
 }
 
 /// <summary>Şube tipi (Plan 41) — Branch.BranchType.</summary>

@@ -15,17 +15,19 @@
 
 İki bağlantılı eksik:
 
+> ⛔ **REVİZE (Plan 52, 2026-06-23 — iki uzman + TDHP):** Aşağıdaki "EXPENSE item-tipi" yaklaşımı **REDDEDİLDİ.** Saf gider (kira/elektrik/yakıt) bir "item" DEĞİLDİR (UOM/barkod/raf/BOM anlamsız; Mikro da gideri ayrı tabloda tutar) → mevcut **ExpenseInvoice + ExpenseType + CostCenter** taksonomisinde yaşar, Item'a taşınmaz. **ItemType = STOCK / SERVICE / FIXED_ASSET** (CONSUMABLE ve EXPENSE yok). Streç film gibi çok-amaçlı mal tek STOCK item'dır; satış/üretim/sarf/gider EVRAKLA belirlenir (iki-eksen modeli). **SERVICE stok-atlama guard'ı Plan 52 Faz 2'de YAPILDI** (sp_ReceivingPost/ShippingPost). Bu planın geri kalanı (CostDimension/CostAllocation maliyet-merkezi kısmı — B bölümü) hâlâ geçerli.
+
 **A. Hizmet/gider alım-satım akışı (ItemType yönlendirmeli):** `Item.ItemType` kolonu var ama kullanılmıyor (hepsi STOCK). İki mekanizma tamamlayıcı:
-- **ItemType** → "stok hareketi olsun mu?" (STOCK=evet; SERVICE/EXPENSE/FIXED_ASSET=hayır → doğrudan gider/gelir)
+- **ItemType** → "stok hareketi olsun mu?" (STOCK=evet; SERVICE/FIXED_ASSET=hayır → fiziksel hareket yok). ~~EXPENSE~~ → item DEĞİL (ExpenseType taksonomisi).
 - **CostAllocation** → "maliyet/gelir hangi merkeze?" (boyutsal dağıtım)
 
-ItemType set'i genişletilir:
+ItemType set'i (Plan 52 ile netleşti — EXPENSE çıkarıldı):
 | ItemType | Stok | Akış |
 |---|---|---|
-| STOCK | ✅ | PO→Receiving→stok→maliyet |
-| SERVICE | ❌ | hizmet alış→gider / hizmet satış→gelir |
-| EXPENSE | ❌ | sadece gider (kira/elektrik/yakıt) |
+| STOCK | ✅ | satılır/üretilir/sarf — evrak belirler |
+| SERVICE | ❌ | hizmet alış→gider / hizmet satış→gelir (stok yazmaz) |
 | FIXED_ASSET | ❌ | sabit kıymet (amortisman ileride) |
+| ~~EXPENSE~~ | — | **item değil** → ExpenseInvoice + ExpenseType (mevcut yapı) |
 
 **B. Maliyet Merkezi Muhasebesi (çok-boyutlu, "sonsuz merkez"):** Operax'ta sadece basit `CostCenter` var (tek boyut, hiyerarşisiz, dağıtımsız). Sınırsız boyut (Masraf Merkezi/Proje/Departman/Şube) + her hareketi yüzdeyle çok-merkeze dağıtma yok. Gider → gider merkezi, gelir → gelir/proje merkezi esnek izlenemiyor.
 

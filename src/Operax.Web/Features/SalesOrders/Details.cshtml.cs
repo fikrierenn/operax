@@ -43,9 +43,10 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new CommandDefinition("SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN (@Customer, @Both) AND IsDeleted = 0",
             new { CompanyId = company.Id, Customer = PartnerType.Customer, Both = PartnerType.Both }, cancellationToken: ct));
 
-        // İş kuralı: CONSUMABLE (sarf malzeme) satışta gizlenir; yalnızca sarf fişinde kullanılır
+        // İş kuralı (Plan 52 iki-eksen): satış evrağı tüm aktif ürünü içerir (STOCK/SERVICE/FIXED_ASSET) —
+        // hizmet de satılır, fiziksel mal da. "Satılabilirlik" item-tipiyle kısıtlanmaz, evrak belirler.
         AvailableItems = await conn.QueryAsync<DdlDto>(
-            new CommandDefinition("SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> 'CONSUMABLE'", p, cancellationToken: ct));
+            new CommandDefinition("SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 ORDER BY Code", p, cancellationToken: ct));
 
         if (id.HasValue)
         {
@@ -207,16 +208,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         try
         {
-            // İş kuralı: CONSUMABLE satılamaz; sorgu sarf maddesini eler, BaseUomId null dönerse satır eklenmez
+            // İş kuralı (Plan 52): satışta item-tipi kısıtı yok; yalnız firmaya-ait + temel-birim tanımlı olmalı.
+            // BaseUomId null dönerse (ürün yok/başka firma/UOM tanımsız) satır eklenmez.
             var baseUomId = await conn.ExecuteScalarAsync<Guid?>(
-                new CommandDefinition("SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND ItemType <> 'CONSUMABLE'",
+                new CommandDefinition("SELECT BaseUomId FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId",
                 new { ItemId = itemId, CompanyId = company.Id }, cancellationToken: ct));
 
-            // Guard: madde satışa uygun değilse (sarf malzeme/pasif/UOM tanımsız) sessiz dönme; kullanıcıyı bilgilendir
+            // Guard: madde firmaya ait değil veya ölçü birimi tanımsızsa sessiz dönme; kullanıcıyı bilgilendir
             if (baseUomId is null)
             {
-                logger.LogWarning("SO satır ekleme reddedildi: Item {ItemId} satışa uygun değil (CONSUMABLE/pasif/UOM yok), SO {OrderId}", itemId, id);
-                TempData["Error"] = "Seçilen madde satışa uygun değil (sarf malzeme veya tanımsız ölçü birimi). Satır eklenmedi.";
+                logger.LogWarning("SO satır ekleme reddedildi: Item {ItemId} bulunamadı veya temel ölçü birimi yok, SO {OrderId}", itemId, id);
+                TempData["Error"] = "Seçilen madde bulunamadı veya tanımsız ölçü birimi. Satır eklenmedi.";
                 return RedirectToPage(new { id });
             }
 

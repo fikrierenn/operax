@@ -164,10 +164,10 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Kalem Türü</label>
                         <select asp-for="Item.ItemType" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm font-semibold text-slate-700">
-                            <option value="STOCK">Stok (satılacak mal)</option>
-                            <option value="CONSUMABLE">Sarf Malzeme</option>
-                            <option value="SERVICE">Hizmet</option>
-                            <option value="FIXED_ASSET">Sabit Kıymet</option>
+                            @* Plan 52: ürün doğası (satış/sarf/üretim kullanımı evrak belirler — CONSUMABLE kaldırıldı) *@
+                            <option value="STOCK">Stok (fiziksel mal — satılır/üretilir/sarf olur)</option>
+                            <option value="SERVICE">Hizmet (stoksuz)</option>
+                            <option value="FIXED_ASSET">Sabit Kıymet (demirbaş)</option>
                         </select>
                     </div>
                     <div>

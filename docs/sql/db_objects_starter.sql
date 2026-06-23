@@ -1635,6 +1635,8 @@ BEGIN
             ISNULL(pol.Price, 0), @UserId,
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ReceivingLine rl
+        -- Plan 52: hizmet (SERVICE) fiziksel değil → stok hareketi YAZILMAZ (hayalet stok engeli)
+        JOIN Item i ON i.Id = rl.ItemId AND i.ItemType <> 'SERVICE'
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
         WHERE rl.HeaderId = @HeaderId AND rl.QtyBase > 0;
 
@@ -1650,6 +1652,8 @@ BEGIN
             ISNULL(pol.Price, 0), @UserId,
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId))
         FROM ReceivingLine rl
+        -- Plan 52: hizmet (SERVICE) fiziksel değil → iade stok hareketi de YAZILMAZ
+        JOIN Item i ON i.Id = rl.ItemId AND i.ItemType <> 'SERVICE'
         LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
         WHERE rl.HeaderId = @HeaderId AND rl.ReturnQty > 0;
 
@@ -1676,6 +1680,8 @@ BEGIN
             SELECT rl.ItemId, SUM(rl.QtyBase),
                    ISNULL(AVG(CAST(pol.Price AS DECIMAL(18,4))), 0)
             FROM ReceivingLine rl
+            -- Plan 52: hizmet (SERVICE) stok-maliyet tutmaz → costing'e sokulmaz (anlamsız ItemCost satırı + boşa applock engeli)
+            JOIN Item i ON i.Id = rl.ItemId AND i.ItemType <> 'SERVICE'
             LEFT JOIN PurchaseOrderLine pol ON pol.Id = rl.PurchaseOrderLineId
             WHERE rl.HeaderId = @HeaderId
             GROUP BY rl.ItemId
@@ -1760,6 +1766,8 @@ BEGIN
                    ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
                            WHERE ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId), 0)
             FROM ShippingLine sl
+            -- Plan 52: hizmet (SERVICE) fiziksel taşınmaz → stok consume EDİLMEZ (hayalet stok engeli)
+            JOIN Item i ON i.Id = sl.ItemId AND i.ItemType <> 'SERVICE'
             WHERE sl.HeaderId = @HeaderId;
         OPEN c_ship;
         FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
@@ -1791,8 +1799,11 @@ BEGIN
         -- WIRE: ItemCost OnHandQty dusur
         DECLARE @ItemId UNIQUEIDENTIFIER, @Qty DECIMAL(18,6);
         DECLARE c_lines CURSOR LOCAL FAST_FORWARD FOR
-            SELECT ItemId, SUM(QtyBase) FROM ShippingLine WHERE HeaderId = @HeaderId
-            GROUP BY ItemId;
+            -- Plan 52: hizmet (SERVICE) stok-maliyet tutmaz → OnHandQty costing'ine sokulmaz
+            SELECT sl.ItemId, SUM(sl.QtyBase) FROM ShippingLine sl
+            JOIN Item i ON i.Id = sl.ItemId AND i.ItemType <> 'SERVICE'
+            WHERE sl.HeaderId = @HeaderId
+            GROUP BY sl.ItemId;
         OPEN c_lines;
         FETCH NEXT FROM c_lines INTO @ItemId, @Qty;
         WHILE @@FETCH_STATUS = 0

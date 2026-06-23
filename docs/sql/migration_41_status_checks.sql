@@ -112,9 +112,11 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_CreditCard_C
     ALTER TABLE CreditCard WITH CHECK ADD CONSTRAINT CK_CreditCard_CardType
         CHECK (CardType IN ('CREDIT','BUSINESS','CORPORATE','DEBIT'));
 
+-- Plan 52: CONSUMABLE kaldırıldı (kullanım≠doğa). Canonical küme STOK/HİZMET/DEMİRBAŞ.
+-- (Mevcut DB'de eski CONSUMABLE'lı CHECK varsa migration_52 drop+recreate ile günceller.)
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Item_ItemType')
     ALTER TABLE Item WITH CHECK ADD CONSTRAINT CK_Item_ItemType
-        CHECK (ItemType IN ('STOCK','CONSUMABLE','SERVICE','FIXED_ASSET'));
+        CHECK (ItemType IN ('STOCK','SERVICE','FIXED_ASSET'));
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_UserFieldDefinition_FieldType')
     ALTER TABLE UserFieldDefinition WITH CHECK ADD CONSTRAINT CK_UserFieldDefinition_FieldType

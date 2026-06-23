@@ -54,10 +54,16 @@ BEGIN
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'RECEIVING' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
-        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
-        -- hareketi zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar (stok 2x geri gelir).
-        IF @@ROWCOUNT = 0
+        -- İş kuralı: iptal edilecek aktif hareket yoksa NORMALDE veri tutarsızlığı — AMA Plan 52'den sonra
+        -- yalnız SERVICE (hizmet) satırı taşıyan belge sıfır StockMovement yazar (hizmet fiziksel değil).
+        -- Bu MEŞRU sıfır-hareket halini gerçek tutarsızlıktan ayır: stoklu (non-SERVICE) satır VARSA hareket
+        -- beklenir → yoksa THROW. SERVICE-only belgede hareket yokluğu normaldir → header iptaline devam.
+        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag yeterli
+        -- (ters satır eklemek çift-sayıma yol açar — stok 2x geri gelir).
+        IF @@ROWCOUNT = 0 AND EXISTS (
+            SELECT 1 FROM ReceivingLine rl JOIN Item i ON i.Id = rl.ItemId
+            WHERE rl.HeaderId = @HeaderId AND i.ItemType <> 'SERVICE'
+              AND (rl.QtyBase > 0 OR rl.ReturnQty > 0))
             THROW 51303, N'İptal edilecek mal kabul hareketi bulunamadı (veri tutarsızlığı).', 1;
 
         -- Header iptal
@@ -118,10 +124,13 @@ BEGIN
         SET IsCancelled = 1, CancelledAt = GETUTCDATE(), CancelledBy = @UserId
         WHERE SourceDocType = 'SHIPPING' AND SourceDocId = @HeaderId AND IsCancelled = 0;
 
-        -- İş kuralı: iptal edilecek aktif hareket yoksa veri tutarsızlığı.
-        -- Ters (REVERSAL) satır YAZILMAZ: bakiye IsCancelled=0 filtresiyle hesaplandığından flag
-        -- hareketi zaten bakiyeden düşürür; ayrıca ters satır eklemek çift-sayıma yol açar (stok 2x geri gelir).
-        IF @@ROWCOUNT = 0
+        -- İş kuralı (Plan 52): hareket yoksa NORMALDE tutarsızlık — ama yalnız SERVICE (hizmet) satırı taşıyan
+        -- sevkiyat sıfır StockMovement yazar (hizmet fiziksel taşınmaz). Meşru sıfır-hareketi gerçek
+        -- tutarsızlıktan ayır: stoklu (non-SERVICE) satır VARSA hareket beklenir → yoksa THROW.
+        -- Ters (REVERSAL) satır YAZILMAZ (flag yeterli; ters satır çift-sayım = stok 2x geri gelir).
+        IF @@ROWCOUNT = 0 AND EXISTS (
+            SELECT 1 FROM ShippingLine sl JOIN Item i ON i.Id = sl.ItemId
+            WHERE sl.HeaderId = @HeaderId AND i.ItemType <> 'SERVICE' AND sl.QtyBase > 0)
             THROW 51313, N'İptal edilecek sevkiyat hareketi bulunamadı (veri tutarsızlığı).', 1;
 
         UPDATE ShippingHeader

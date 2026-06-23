@@ -28,16 +28,17 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, ILo
     public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
-        // StockType/ConsumableType yalnız Items sorgusunda kullanılır; Dapper diğer sorgularda yok sayar
-        var p = new { CompanyId = company.Id, StockType = ItemType.Stock, ConsumableType = ItemType.Consumable };
+        // ServiceType yalnız Items sorgusunda kullanılır; Dapper diğer sorgularda yok sayar.
+        // Sarf fiziksel stok düşürür → hizmet (SERVICE) hariç tüm item (Plan 52 iki-eksen: stok evrağı = fiziksel)
+        var p = new { CompanyId = company.Id, ServiceType = ItemType.Service };
 
         Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code", p, cancellationToken: ct));
         CostCenters = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM CostCenter WHERE CompanyId = @CompanyId AND IsActive = 1 ORDER BY Code", p, cancellationToken: ct));
-        // Sarf edilebilir ürünler: STOCK + CONSUMABLE (SERVICE hariç — stoksuz); magic-string yerine ItemType sabitleri
+        // Sarf edilebilir ürünler: fiziksel olan (SERVICE hariç) — stok düşeceği için hizmet seçilemez
         Items = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType IN (@StockType, @ConsumableType) ORDER BY Code", p, cancellationToken: ct));
+            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> @ServiceType ORDER BY Code", p, cancellationToken: ct));
         // Sarf/zayiat nedenleri sözlükten gelir (hardcoded liste DEĞİL — ui-standard §1.5 sıfır-hardcoded-veri).
         // Code=İngilizce sistem-çapa (SP'nin baktığı), NameTr=Türkçe etiket (kullanıcının gördüğü),
         // RequiresKdvAdjustment=KDV-davranışı flag'i (view'da mevzuat açıklamasını seçmek için taşınır).

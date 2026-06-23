@@ -31,10 +31,11 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0",
             new { CompanyId = company.Id }, cancellationToken: ct));
 
-        // İş kuralı: CONSUMABLE (sarf malzeme) satışta gizlenir; yalnızca sarf fişinde kullanılır
+        // İş kuralı (Plan 52 iki-eksen): sevkiyat FİZİKSEL stok hareketidir → hizmet (SERVICE) sevk edilemez,
+        // hariç tutulur. Stok/demirbaş sevk edilebilir. (Hizmet faturalanır ama fiziksel taşınmaz.)
         AvailableItems = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> 'CONSUMABLE'",
-            new { CompanyId = company.Id }, cancellationToken: ct));
+            "SELECT Id, Code, Name, BaseUomId FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0 AND ItemType <> @ServiceType",
+            new { CompanyId = company.Id, ServiceType = ItemType.Service }, cancellationToken: ct));
 
         // tvf_OpenSalesOrders: CompanyId parametreli iTVF
         OpenSalesOrders = await conn.QueryAsync<DdlDto>(new CommandDefinition(
@@ -178,16 +179,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
                 return RedirectToPage(new { id });
             }
 
-            // Guard: madde geçerli ve satışa uygun mu? CONSUMABLE sevkiyatta kabul edilmez
+            // Guard: madde fiziksel sevke uygun mu? Hizmet (SERVICE) sevk edilemez (fiziksel taşınmaz)
             var exists = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-                "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> 'CONSUMABLE'",
-                new { ItemId = itemId, CompanyId = company.Id }, cancellationToken: ct));
+                "SELECT COUNT(1) FROM Item WHERE Id = @ItemId AND CompanyId = @CompanyId AND IsActive = 1 AND ItemType <> @ServiceType",
+                new { ItemId = itemId, CompanyId = company.Id, ServiceType = ItemType.Service }, cancellationToken: ct));
 
-            // Guard: madde sevkiyata uygun değilse (sarf malzeme/pasif) sessiz dönme; kullanıcıyı bilgilendir
+            // Guard: madde sevkiyata uygun değilse (hizmet/pasif) sessiz dönme; kullanıcıyı bilgilendir
             if (exists == 0)
             {
-                logger.LogWarning("Sevkiyat satır ekleme reddedildi: Item {ItemId} sevkiyata uygun değil (CONSUMABLE/pasif), Shipping {HeaderId}", itemId, id);
-                TempData["Error"] = "Seçilen madde sevkiyata uygun değil (sarf malzeme veya pasif). Satır eklenmedi.";
+                logger.LogWarning("Sevkiyat satır ekleme reddedildi: Item {ItemId} sevkiyata uygun değil (hizmet/pasif), Shipping {HeaderId}", itemId, id);
+                TempData["Error"] = "Seçilen madde sevkiyata uygun değil (hizmet kalemi veya pasif). Satır eklenmedi.";
                 return RedirectToPage(new { id });
             }
 

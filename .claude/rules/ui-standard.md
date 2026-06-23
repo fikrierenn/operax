@@ -46,8 +46,12 @@ Referans: `tasarım/OPERAX Platform Pure.standalone.html` ve çıkarılmış kay
     *   `style="display:grid;grid-template-columns:1fr 360px;gap:14px"`
     *   `style="height:200px;flex:1"`
     *   `style="max-width:1640px"`
-*   **Yasaklı (Görsel Stil):** Renk, font ailesi, font ağırlığı, gölge, border, border-radius, padding, margin **inline yazılmaz**. Bunlar için mutlaka semantic class kullanılır.
-*   **Tailwind Utility Salatası Yasak:** Markup içinde `class="flex flex-col gap-2 px-4 py-2 bg-white border ..."` gibi utility birikimleri **yazılmaz**. Template'te tanımlı semantic class (`.card`, `.kpi`, `.page-hdr` vb.) kullanılır.
+*   **Yasaklı (Görsel Stil — RENK):** Sabit RENK değeri inline/utility yazılmaz (`bg-white`, `text-slate-500`, `color:#6366f1`, `bg-indigo-50`). Renk/gölge/marka mutlaka **token** (`var(--surface)`, `var(--brand-500)`) veya semantic class üzerinden — tema tek noktadan değişsin.
+*   **🔄 KARAR DEĞİŞİKLİĞİ (2026-06-23, kullanıcı): Tailwind utility'leri LAYOUT + RESPONSIVE için SERBEST.** Eski "utility-salata yasak" kuralı mobil-responsive'i baltaladı (elle media-query yavaş + hataya açık). Artık:
+    *   **Layout/responsive utility SERBEST:** `flex`, `grid`, `grid-cols-*`, `gap-*`, `md:flex-col`, `sm:hidden`, `w-full`, `max-w-*`, spacing (`px-*/py-*/mt-*`) — Tailwind responsive framework'ünün asıl gücü. Mobil uyum bunlarla yapılır (`flex flex-col md:flex-row`).
+    *   **RENK/görsel hâlâ token/semantic:** `bg-white`→`bg-[var(--surface)]` veya `.card`; `text-slate-500`→`var(--text-3)`. Tema tutarlılığı korunur.
+    *   **Semantic component class korunur** (`.card`, `.btn`, `.form-ctrl`, `.data-table`) — utility ile birlikte kullanılabilir (component=görsel kimlik, utility=yerleşim).
+    *   **Sonuç:** ekran yazarken responsive layout için Tailwind utility kullan; renk/component için token/semantic. İkisi karışır.
 
 ---
 
@@ -191,7 +195,7 @@ Yeni bir Razor sayfası açarken bu sırayla doğrulanır:
 1. `class="page"` wrapper var mı?
 2. `_PageHeader` partial'ı kullanıldı mı?
 3. Yeni inline renk/font/gölge yazıldı mı? → **Düzeltilir, semantic class kullanılır.**
-4. Tailwind utility salatası var mı? → **Düzeltilir, template class'ları ile değiştirilir.**
+4. Layout/responsive Tailwind utility OK (2026-06-23 kural); ama **RENK utility (`bg-white`/`text-slate-*`) → token** (`bg-[var(--surface)]`). Mobil-first `md:/lg:` kullanıldı mı? (bkz. `tailwind-responsive` skill)
 5. Form varsa `_DocHeader` veya `form-group`/`form-ctrl` pattern'i mi?
 6. Liste varsa `_DataTable` partial'ı mı?
 7. Belge sayfaları için `_StatusFlow` + `_DocToolbar` kullanıldı mı?

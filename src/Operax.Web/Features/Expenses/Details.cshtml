@@ -1,239 +1,324 @@
 @page "{id:guid?}"
+@using Operax.Web.Lib
 @model Operax.Web.Features.Expenses.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
+@*
+    ════════════════════════════════════════════════════════════════════════════════
+    GİDER FATURASI — EVRAK EKRAN PROTOTİPİ (Plan 53 "olması gereken" referans)
+    Bu ekran TÜM evrak ekranları için altın-standart şablondur. Diğer evraklar
+    (mal kabul/sevkiyat/sipariş/fatura) sırası gelince bu desene çekilir.
+    İlkeler (rakip araştırması — Odoo/Paraşüt/Certinia + ui-standard/screen-ux-standard):
+      • Görsel hiyerarşi: Genel Toplam EN belirgin (sağ özet), breadcrumb, statü-flow.
+      • Semantic class: form-ctrl/card/data-table (Tailwind utility-salata YOK).
+      • Mobil-responsive: .doc-layout collapse + .table-scroll yatay kaydırma.
+      • Klavye: combobox (↑↓/Enter/Esc), Alt+S onayla, autofocus, Enter=satır ekle.
+      • Otomatik doldurma: tedarikçi→vade, gider tipi→birim (CSP-uyumlu vanilla JS).
+      • Açıklama: gider tipi seçilince KDV mevzuat (md.30/c) + birim hint'i.
+    ════════════════════════════════════════════════════════════════════════════════
+*@
 @{
-    ViewData["Title"] = Model.IsNew ? "Yeni Gider Faturasi" : $"Fatura: {Model.Form.DocNo}";
-    var locked = !Model.IsNew && Model.Form.Status != DocStatus.Draft;
-}
+    var titleText = Model.IsNew ? "Yeni Gider Faturası" : $"Fatura: {Model.Form.DocNo}";
+    ViewData["Title"] = titleText;
 
-<div class="page-hdr">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">@(Model.IsNew ? "Yeni Gider Faturasi" : Model.Form.DocNo)</h2>
-        @if (!Model.IsNew)
-        {
-            <p class="text-sm text-slate-500 mt-0.5">@(Model.Form.PartnerName ?? "—") · @Model.Form.Status</p>
-        }
-    </div>
-    <div class="flex gap-2">
-        <a asp-page="./Index" class="btn btn-secondary">← Geri</a>
-        @if (!Model.IsNew && Model.Form.Status == DocStatus.Draft)
-        {
-            <form method="post" asp-page-handler="Post" asp-route-id="@Model.Form.Id">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-primary" onclick="return confirm('Faturayı onaylamak istiyor musunuz?')">Onayla</button>
-            </form>
-        }
-        @if (!Model.IsNew && Model.Form.Status == DocStatus.Posted)
-        {
-            <form method="post" asp-page-handler="Reverse" asp-route-id="@Model.Form.Id">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-danger" onclick="return confirm('Alış faturasını iptal etmek istediğinize emin misiniz?')">İptal Et</button>
-            </form>
-        }
-    </div>
-</div>
+    // Durum bayrakları — alanların editable/readonly + buton setini belirler (document-immutability.md §3)
+    var isDraft  = Model.Form.Status == DocStatus.Draft;
+    var locked   = !Model.IsNew && !isDraft;          // POSTED/CANCELLED → tüm alanlar kilitli
+    var isPosted = Model.Form.Status == DocStatus.Posted;
 
-@* Belge zinciri smart butonları *@
-@if (Model.DocFlow is not null)
-{
-    <partial name="_DocFlowButtons" model="Model.DocFlow" />
-}
-
-<!-- Başlık Formu -->
-<div class="card mb-6 p-5">
-    <form method="post">
-        <input asp-for="Form.Id" type="hidden" />
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div>
-                <label class="label">Fatura No *</label>
-                @if (locked) {
-                    <input asp-for="Form.DocNo" class="input w-full font-mono" disabled />
-                } else {
-                    <input asp-for="Form.DocNo" class="input w-full font-mono" placeholder="FAT-2026-001" required />
-                }
-            </div>
-            <div>
-                <label class="label">Tedarikçi *</label>
-                @if (locked) {
-                    <select asp-for="Form.PartnerId" class="input w-full" disabled>
-                        @foreach (var p in Model.Partners) { <option value="@p.Id" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
-                    </select>
-                } else {
-                    @* data-combobox: aranabilir (uzun tedarikçi listesi) · data-term: vade gün sayısı (JS vade'yi öne-doldurur) *@
-                    <select asp-for="Form.PartnerId" id="partner-select" data-combobox class="input w-full" required>
-                        <option value="">— Seçiniz —</option>
-                        @foreach (var p in Model.Partners) { <option value="@p.Id" data-term="@p.PaymentTermDays" selected="@(p.Id == Model.Form.PartnerId)">@p.Name</option> }
-                    </select>
-                }
-            </div>
-            <div>
-                <label class="label">Para Birimi</label>
-                @if (locked) {
-                    <select asp-for="Form.Currency" class="input w-full" disabled>
-                        <option value="TRY">TRY — Türk Lirası</option>
-                        <option value="USD">USD — Dolar</option>
-                        <option value="EUR">EUR — Euro</option>
-                    </select>
-                } else {
-                    <select asp-for="Form.Currency" class="input w-full">
-                        <option value="TRY">TRY — Türk Lirası</option>
-                        <option value="USD">USD — Dolar</option>
-                        <option value="EUR">EUR — Euro</option>
-                    </select>
-                }
-            </div>
-            <div>
-                <label class="label">Fatura Tarihi *</label>
-                @if (locked) {
-                    <input asp-for="Form.InvoiceDate" type="date" class="input w-full" disabled />
-                } else {
-                    <input asp-for="Form.InvoiceDate" id="inv-date" type="date" class="input w-full" required />
-                }
-            </div>
-            <div>
-                <label class="label">Vade Tarihi</label>
-                @if (locked) {
-                    <input asp-for="Form.DueDate" type="date" class="input w-full" disabled />
-                } else {
-                    <input asp-for="Form.DueDate" id="due-date" type="date" class="input w-full" />
-                }
-            </div>
-        </div>
-        @if (!locked)
-        {
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Kaydet</button>
-            </div>
-        }
-    </form>
-    @if (!locked)
+    // Statü zaman çizelgesi (DRAFT → POSTED/CANCELLED) — _StatusFlow partial'ı için
+    var flowSteps = new List<StatusStepVm>
     {
-        @* UX §1 otomatik doldurma: tedarikçi seçilince vade = fatura tarihi + vade gün sayısı (boşsa öne-doldur, override serbest) *@
-        <script>
-            (function () {
-                var ps = document.getElementById('partner-select');
-                var invd = document.getElementById('inv-date');
-                var due = document.getElementById('due-date');
-                if (!ps || !invd || !due) return;
-                ps.addEventListener('change', function () {
-                    var opt = ps.options[ps.selectedIndex];
-                    var days = opt ? parseInt(opt.getAttribute('data-term') || '0', 10) : 0;
-                    if (!days || !invd.value || due.value) return;          // vade gün yok / tarih boş / kullanıcı zaten girmiş → dokunma
-                    var d = new Date(invd.value); d.setDate(d.getDate() + days);
-                    due.value = d.toISOString().slice(0, 10);
-                });
-            })();
-        </script>
-    }
-</div>
-@if (!Model.IsNew)
-{
-    <!-- Fatura Satırları -->
-    <div class="card mb-6">
-        <div class="px-4 py-3 border-b bg-slate-50 flex justify-between">
-            <h3 class="font-bold text-xs uppercase text-slate-500 tracking-widest">Fatura Kalemleri</h3>
-            <div class="text-right">
-                <span class="text-xs text-slate-500">Toplam: </span>
-                <span class="font-bold text-indigo-600">@Model.Form.TotalAmount.ToString("N2") @Model.Form.Currency</span>
-            </div>
-        </div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Gider Tipi</th>
-                    <th>Maliyet Merkezi</th>
-                    <th class="text-right">Miktar</th>
-                    <th class="text-right">Birim Fiyat</th>
-                    <th class="text-right">Tutar</th>
-                    <th class="text-right">KDV %</th>
-                    <th class="text-right">KDV Dahil</th>
-                    @if (Model.Form.Status == DocStatus.Draft) { <th></th> }
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var line in Model.Lines)
-                {
-                    <tr>
-                        <td class="font-medium text-slate-700">@line.ExpenseTypeName</td>
-                        <td class="text-slate-500">@line.CostCenterName</td>
-                        <td class="text-right font-mono">@line.Quantity.ToString("N3")<span class="text-slate-400 text-xs"> @line.UnitOfMeasure</span></td>
-                        <td class="text-right font-mono">@line.UnitPrice.ToString("N4")</td>
-                        <td class="text-right font-mono">@line.Amount.ToString("N2")</td>
-                        <td class="text-right font-mono text-slate-400">%@line.TaxRate.ToString("N0")</td>
-                        <td class="text-right font-mono font-bold text-slate-900">@line.TotalAmount.ToString("N2")</td>
-                        @if (Model.Form.Status == DocStatus.Draft)
-                        {
-                            <td>
-                                <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Form.Id" asp-route-lineId="@line.Id"
-                                      onsubmit="return confirm('Bu satırı silmek istiyor musunuz?')">
-                                    <button type="submit" class="text-red-500 text-xs font-bold hover:text-red-700">Sil</button>
-                                </form>
-                            </td>
-                        }
-                    </tr>
-                }
-                @if (!Model.Lines.Any())
-                {
-                    <tr><td colspan="8"><div class="empty-state"><p>Henüz kalem eklenmemiş.</p></div></td></tr>
-                }
-            </tbody>
-        </table>
+        new("Oluşturuldu", "done", null),
+        new("Taslak", isDraft ? "current" : "done", null)
+    };
+    if (Model.Form.Status == DocStatus.Cancelled)
+        flowSteps.Add(new("İptal", "cancelled", null));
+    else
+        flowSteps.Add(new("Onaylı", isPosted ? "current" : "pending", null));
+    var flow = new StatusFlowVm(flowSteps);
 
-        @if (Model.Form.Status == DocStatus.Draft)
-        {
-            <!-- Satır Ekle -->
-            <div class="p-4 bg-slate-50 border-t">
-                <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Form.Id">
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <div class="md:col-span-1">
-                            <label class="label">Gider Tipi *</label>
-                            @* data-unit: gider tipinin birimi (kWh/m3/lt) — JS miktar label'ını günceller *@
-                            <select name="expenseTypeId" id="exp-type-select" class="input w-full" required>
-                                <option value="">— Seçiniz —</option>
-                                @foreach (var t in Model.ExpenseTypes) { <option value="@t.Id" data-unit="@t.UnitOfMeasure">@t.Name</option> }
+    // Sağ-üst aksiyon butonları — Geri her zaman; Onayla (Alt+S kısayollu) yalnız DRAFT; İptal yalnız POSTED
+    var actions = "<a href=\"/Expenses\" class=\"btn btn-ghost btn-sm\">← Geri</a>";
+    if (isDraft && !Model.IsNew)
+        actions += "<button type=\"submit\" form=\"exp-post\" class=\"btn btn-success btn-sm\" data-shortcut=\"Alt+S\">Onayla<span class=\"btn-kbd\">Alt+S</span></button>";
+    if (isPosted)
+        actions += "<button type=\"submit\" form=\"exp-reverse\" class=\"btn btn-secondary btn-sm\" style=\"color:var(--danger-text);border-color:var(--danger-border);\">İptal Et</button>";
+
+    var crumbs = Model.IsNew
+        ? new[] { "Anasayfa", "Gider", "Yeni" }
+        : new[] { "Anasayfa", "Gider", "Faturalar", Model.Form.DocNo };
+
+    var header = new PageHeaderVm(
+        Title: titleText,
+        Crumbs: crumbs,
+        SubHtml: Model.IsNew ? null : $"{System.Web.HttpUtility.HtmlEncode(Model.Form.PartnerName ?? "—")} · {Model.Form.Status}",
+        ActionsHtml: actions);
+
+    // Toplamlar satırlardan türetilir (canlı kaynak = satır tablosu; onay sonrası header.TotalAmount ile aynı)
+    var subtotal = Model.Lines.Sum(l => l.Amount);
+    var vat      = Model.Lines.Sum(l => l.TaxAmount);
+    var grand    = Model.Lines.Sum(l => l.TotalAmount);
+}
+
+<div class="page" data-screen-label="Gider Faturası">
+
+    <partial name="_PageHeader" model="header" />
+
+    @if (!Model.IsNew)
+    {
+        <div class="row" style="gap:10px;margin-top:-6px;margin-bottom:12px;">
+            <span class="mono text-strong" style="font-size:14px;">@Model.Form.DocNo</span>
+            @Html.Raw(Dict.StatusBadge(Model.Form.Status))
+        </div>
+        <partial name="_StatusFlow" model="flow" />
+        @if (Model.DocFlow is not null) { <partial name="_DocFlowButtons" model="Model.DocFlow" /> }
+    }
+
+    @if (TempData["Success"] is string ok)  { <div class="alert-banner alert-info mb-4">@ok</div> }
+    @if (TempData["Error"]   is string err) { <div class="alert-banner alert-danger mb-4">@err</div> }
+
+    @* İki-kolon: SOL = evrak bilgisi + satırlar · SAĞ = toplam özeti (mobilde alta iner) *@
+    <div class="doc-layout">
+
+        <div class="stack">
+
+            @* ── Evrak başlık formu ─────────────────────────────────────────────── *@
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">Fatura Bilgileri</div></div>
+                <form method="post" class="card-body">
+                    @Html.AntiForgeryToken()
+                    <input asp-for="Form.Id" type="hidden" />
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Fatura No <span class="req">*</span></label>
+                            <input asp-for="Form.DocNo" class="form-ctrl mono" disabled="@locked" placeholder="FAT-2026-001" required />
+                            <span class="form-hint">Tedarikçinin fatura üstündeki numarası</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tedarikçi <span class="req">*</span></label>
+                            @* data-combobox: aranabilir (klavye ↑↓/Enter) · data-term: vade gün (JS vade'yi öne-doldurur) *@
+                            <select asp-for="Form.PartnerId" id="partner-select" data-combobox class="form-ctrl" disabled="@locked" required>
+                                <option value="">Seçiniz…</option>
+                                @foreach (var p in Model.Partners) { <option value="@p.Id" data-term="@p.PaymentTermDays">@p.Name</option> }
                             </select>
                         </div>
-                        <div class="md:col-span-1">
-                            <label class="label">Maliyet Merkezi *</label>
-                            <select name="costCenterId" class="input w-full" required>
-                                <option value="">— Seçiniz —</option>
-                                @foreach (var c in Model.CostCenters) { <option value="@c.Id">@c.Name</option> }
+                        <div class="form-group">
+                            <label class="form-label">Para Birimi</label>
+                            <select asp-for="Form.Currency" class="form-ctrl" disabled="@locked">
+                                <option value="TRY">TRY — Türk Lirası</option>
+                                <option value="USD">USD — Dolar</option>
+                                <option value="EUR">EUR — Euro</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="label">Miktar <span id="qty-unit" class="text-indigo-500"></span> *</label>
-                            <input name="qty" id="exp-qty" type="number" step="0.001" min="0" value="1" class="input w-full" required />
+                        <div class="form-group">
+                            <label class="form-label">Fatura Tarihi <span class="req">*</span></label>
+                            <input asp-for="Form.InvoiceDate" id="inv-date" type="date" class="form-ctrl mono" disabled="@locked" required />
                         </div>
-                        <div>
-                            <label class="label">Birim Fiyat *</label>
-                            <input name="unitPrice" type="number" step="0.0001" min="0" class="input w-full" required />
-                        </div>
-                        <div>
-                            <label class="label">KDV (%)</label>
-                            <input name="taxRate" type="number" step="1" min="0" max="100" value="20" class="input w-full" />
+                        <div class="form-group">
+                            <label class="form-label">Vade Tarihi</label>
+                            <input asp-for="Form.DueDate" id="due-date" type="date" class="form-ctrl mono" disabled="@locked" />
+                            <span class="form-hint">Tedarikçi seçilince otomatik gelir</span>
                         </div>
                     </div>
-                    <button type="submit" class="mt-3 btn btn-secondary w-full text-xs">+ Kalem Ekle</button>
-                </form>
-            </div>
-            @* CSP-uyumlu vanilla (Alpine CSP'den kırık): gider tipi seçilince birimi göster;
-               götürü gider (birim NULL → kira/sigorta) miktarı 1'e sabitler, metered (kWh/m3/lt) serbest bırakır *@
-            <script>
-                (function () {
-                    var sel = document.getElementById('exp-type-select');
-                    if (!sel) return;
-                    var unitLabel = document.getElementById('qty-unit');
-                    var qty = document.getElementById('exp-qty');
-                    function apply() {
-                        var opt = sel.options[sel.selectedIndex];
-                        var unit = opt ? (opt.getAttribute('data-unit') || '') : '';
-                        unitLabel.textContent = unit ? '(' + unit + ')' : '';
-                        if (sel.value && !unit) { qty.value = '1'; qty.readOnly = true; }   // götürü gider → miktar 1 sabit
-                        else { qty.readOnly = false; }                                       // metered → tüketim girilir
+                    @if (!locked)
+                    {
+                        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
+                        </div>
                     }
-                    sel.addEventListener('change', apply);
-                    apply();
-                })();
-            </script>
-        }
+                </form>
+                @if (!locked)
+                {
+                    @* UX §1: tedarikçi seçilince vade = fatura tarihi + vade gün sayısı (boşsa öne-doldur, override serbest) *@
+                    <script>
+                        (function () {
+                            var ps = document.getElementById('partner-select'), invd = document.getElementById('inv-date'), due = document.getElementById('due-date');
+                            if (!ps || !invd || !due) return;
+                            ps.addEventListener('change', function () {
+                                var opt = ps.options[ps.selectedIndex], days = opt ? parseInt(opt.getAttribute('data-term') || '0', 10) : 0;
+                                if (!days || !invd.value || due.value) return;
+                                var d = new Date(invd.value); d.setDate(d.getDate() + days);
+                                due.value = d.toISOString().slice(0, 10);
+                            });
+                        })();
+                    </script>
+                }
+            </div>
+
+            @* ── Fatura kalemleri (satır tablosu) ──────────────────────────────── *@
+            @if (!Model.IsNew)
+            {
+                <div class="card">
+                    <div class="card-hdr">
+                        <div>
+                            <div class="card-title">Fatura Kalemleri</div>
+                            <div class="card-sub">@Model.Lines.Count() kalem</div>
+                        </div>
+                    </div>
+                    <div class="card-body-flush">
+                        @if (!Model.Lines.Any() && locked)
+                        {
+                            <partial name="_EmptyState" model="@(new EmptyStateVm(Title: "Kalem yok"))" />
+                        }
+                        else
+                        {
+                            @* .table-scroll: geniş tablo mobilde yatay kaydırılır (kolon kesilmez) *@
+                            <div class="table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Gider Tipi</th>
+                                            <th>Maliyet Merkezi</th>
+                                            <th class="num">Miktar</th>
+                                            <th class="num">Birim Fiyat</th>
+                                            <th class="num">Tutar</th>
+                                            <th class="num">KDV %</th>
+                                            <th class="num">KDV Dahil</th>
+                                            @if (isDraft) { <th></th> }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var line in Model.Lines)
+                                        {
+                                            <tr>
+                                                <td class="row-strong">@line.ExpenseTypeName</td>
+                                                <td class="muted">@line.CostCenterName</td>
+                                                <td class="num">@line.Quantity.ToString("N3")<span class="text-mute" style="font-size:11px;"> @line.UnitOfMeasure</span></td>
+                                                <td class="num">@line.UnitPrice.ToString("N4")</td>
+                                                <td class="num">@line.Amount.ToString("N2")</td>
+                                                <td class="num muted">%@line.TaxRate.ToString("N0")</td>
+                                                <td class="num row-strong">@line.TotalAmount.ToString("N2")</td>
+                                                @if (isDraft)
+                                                {
+                                                    <td class="num">
+                                                        <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Form.Id" asp-route-lineId="@line.Id" onsubmit="return confirm('Satırı sil?')">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="btn-link-danger">Sil</button>
+                                                        </form>
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                        @if (!Model.Lines.Any() && isDraft)
+                                        {
+                                            <tr><td colspan="8" class="text-mute" style="text-align:center;padding:18px;">Henüz kalem yok — aşağıdan ekleyin.</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @* Satır ekleme — Enter ile eklenir; eklenince focus tekrar gider tipine döner (ardışık hızlı giriş) *@
+                            @if (isDraft)
+                            {
+                                <div class="card-body" style="border-top:1px solid var(--border);background:var(--surface-2);">
+                                    <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Form.Id" class="form-grid" style="grid-template-columns:2fr 2fr 1fr 1fr 1fr auto;align-items:end;">
+                                        @Html.AntiForgeryToken()
+                                        <div class="form-group" style="margin:0;">
+                                            <label class="form-label">Gider Tipi <span class="req">*</span></label>
+                                            <select name="expenseTypeId" id="exp-type-select" class="form-ctrl" required autofocus>
+                                                <option value="">Seçiniz…</option>
+                                                @foreach (var t in Model.ExpenseTypes) { <option value="@t.Id" data-unit="@t.UnitOfMeasure">@t.Name</option> }
+                                            </select>
+                                        </div>
+                                        <div class="form-group" style="margin:0;">
+                                            <label class="form-label">Maliyet Merkezi <span class="req">*</span></label>
+                                            <select name="costCenterId" class="form-ctrl" required>
+                                                <option value="">Seçiniz…</option>
+                                                @foreach (var c in Model.CostCenters) { <option value="@c.Id">@c.Name</option> }
+                                            </select>
+                                        </div>
+                                        <div class="form-group" style="margin:0;">
+                                            <label class="form-label">Miktar <span id="qty-unit" style="color:var(--brand-500);"></span> *</label>
+                                            <input name="qty" id="exp-qty" type="number" step="0.001" min="0" value="1" class="form-ctrl" required />
+                                        </div>
+                                        <div class="form-group" style="margin:0;">
+                                            <label class="form-label">Birim Fiyat *</label>
+                                            <input name="unitPrice" type="number" step="0.0001" min="0" class="form-ctrl" required />
+                                        </div>
+                                        <div class="form-group" style="margin:0;">
+                                            <label class="form-label">KDV %</label>
+                                            <input name="taxRate" type="number" step="1" min="0" max="100" value="20" class="form-ctrl" />
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm">+ Ekle</button>
+                                    </form>
+                                    @* Gider tipine göre KDV mevzuat + birim açıklaması (md.30/c) — bilgilendirme *@
+                                    <div id="exp-kdv-note" class="alert-banner alert-info" style="margin-top:10px;display:none;">
+                                        <span id="exp-kdv-text"></span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* ── SAĞ: Toplam özeti (en belirgin) + fatura meta ─────────────────────── *@
+        <div class="stack">
+            <div class="card">
+                <div class="card-hdr"><div class="card-title">Tutar Özeti</div></div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+                    <div class="row" style="justify-content:space-between;font-size:12.5px;">
+                        <span class="text-mute">Ara Toplam</span><span class="mono text-strong">@subtotal.ToString("N2") @Model.Form.Currency</span>
+                    </div>
+                    <div class="row" style="justify-content:space-between;font-size:12.5px;">
+                        <span class="text-mute">KDV</span><span class="mono text-strong">@vat.ToString("N2")</span>
+                    </div>
+                    <div class="row" style="justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;">
+                        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);">Genel Toplam</span>
+                        <span class="mono" style="font-size:18px;font-weight:700;color:var(--brand-500);">@grand.ToString("N2") @Model.Form.Currency</span>
+                    </div>
+                </div>
+            </div>
+            @if (!Model.IsNew)
+            {
+                <div class="card">
+                    <div class="card-hdr"><div class="card-title">Fatura Bilgisi</div></div>
+                    <div class="card-body" style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                        <div class="row" style="justify-content:space-between;"><span class="text-mute">Durum</span>@Html.Raw(Dict.StatusBadge(Model.Form.Status))</div>
+                        <div class="row" style="justify-content:space-between;"><span class="text-mute">Tarih</span><span class="mono">@Model.Form.InvoiceDate.ToString("dd MMM yyyy")</span></div>
+                        @if (Model.Form.DueDate.HasValue)
+                        {
+                            <div class="row" style="justify-content:space-between;"><span class="text-mute">Vade</span><span class="mono">@Model.Form.DueDate.Value.ToString("dd MMM yyyy")</span></div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     </div>
+</div>
+
+@* Onayla / İptal gizli formları (sağ-üst butonlar bunları submit eder — Alt+S onayla) *@
+@if (!Model.IsNew && isDraft)
+{
+    <form id="exp-post" method="post" asp-page-handler="Post" asp-route-id="@Model.Form.Id" style="display:none;">@Html.AntiForgeryToken()</form>
 }
+@if (isPosted)
+{
+    <form id="exp-reverse" method="post" asp-page-handler="Reverse" asp-route-id="@Model.Form.Id" style="display:none;">@Html.AntiForgeryToken()</form>
+}
+
+@* Gider tipi seçilince: birim ("Miktar (kWh)") + KDV mevzuat açıklaması (md.30/c). CSP-uyumlu vanilla. *@
+<script>
+    (function () {
+        var sel = document.getElementById('exp-type-select');
+        if (!sel) return;
+        var unitLabel = document.getElementById('qty-unit'), qty = document.getElementById('exp-qty'),
+            note = document.getElementById('exp-kdv-note'), noteText = document.getElementById('exp-kdv-text');
+        function apply() {
+            var opt = sel.options[sel.selectedIndex], unit = opt ? (opt.getAttribute('data-unit') || '') : '';
+            unitLabel.textContent = unit ? '(' + unit + ')' : '';
+            if (sel.value && !unit) { qty.value = '1'; qty.readOnly = true; }   // götürü (Kira) → miktar 1 sabit
+            else { qty.readOnly = false; }                                       // metered (kWh/m3) → tüketim girilir
+            // Bilgilendirme: metered gider tüketim takibi içindir; KDV matrahı miktar×fiyat (md.30/c bağımsız).
+            if (sel.value) {
+                note.style.display = '';
+                noteText.textContent = unit
+                    ? 'Tüketim takibi: miktar ' + unit + ' cinsinden girilir (örn. elektrik kWh). KDV = miktar × birim fiyat × oran.'
+                    : 'Götürü gider (sabit tutar). Miktar 1, doğrudan birim fiyata tutar girilir.';
+            } else { note.style.display = 'none'; }
+        }
+        sel.addEventListener('change', apply);
+        apply();
+    })();
+</script>

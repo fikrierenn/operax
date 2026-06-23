@@ -18,3 +18,21 @@
 .breadcrumb-item:hover { color: var(--text); }
 .breadcrumb-sep { color: var(--text-mute); }
 .breadcrumb-current { color: var(--text); font-weight: 600; }
+
+/* ── Mobil-responsive evrak düzeni (Plan 53 standardı) ──────────────────────
+   Amaç: evrak ekranları telefonda da kullanılabilsin. Sabit grid yerine breakpoint'li. */
+
+/* Evrak iki-kolon: ana içerik + özet/aktivite kenar çubuğu. Mobilde tek kolon (kenar alta iner). */
+.doc-layout { display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .doc-layout { grid-template-columns: 1fr; } }
+
+/* Form ızgarası: masaüstü 4 kolon → tablet 2 → telefon 1. Alanlar dar ekranda alt alta. */
+.form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 760px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* Geniş tablo (çok kolon) mobilde TAŞMAZ → yatay kaydırma (satır/sayı kesilmez). */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Sayfa kenar boşluğu telefonda daralır (içerik genişlesin). */
+@media (max-width: 600px) { .page { padding: 12px 12px 24px; } }

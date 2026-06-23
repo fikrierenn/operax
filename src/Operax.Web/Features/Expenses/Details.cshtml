@@ -135,7 +135,7 @@
                     <tr>
                         <td class="font-medium text-slate-700">@line.ExpenseTypeName</td>
                         <td class="text-slate-500">@line.CostCenterName</td>
-                        <td class="text-right font-mono">@line.Quantity.ToString("N3")</td>
+                        <td class="text-right font-mono">@line.Quantity.ToString("N3")<span class="text-slate-400 text-xs"> @line.UnitOfMeasure</span></td>
                         <td class="text-right font-mono">@line.UnitPrice.ToString("N4")</td>
                         <td class="text-right font-mono">@line.Amount.ToString("N2")</td>
                         <td class="text-right font-mono text-slate-400">%@line.TaxRate.ToString("N0")</td>
@@ -166,9 +166,10 @@
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <div class="md:col-span-1">
                             <label class="label">Gider Tipi *</label>
-                            <select name="expenseTypeId" class="input w-full" required>
+                            @* data-unit: gider tipinin birimi (kWh/m3/lt) — JS miktar label'ını günceller *@
+                            <select name="expenseTypeId" id="exp-type-select" class="input w-full" required>
                                 <option value="">— Seçiniz —</option>
-                                @foreach (var t in Model.ExpenseTypes) { <option value="@t.Id">@t.Name</option> }
+                                @foreach (var t in Model.ExpenseTypes) { <option value="@t.Id" data-unit="@t.UnitOfMeasure">@t.Name</option> }
                             </select>
                         </div>
                         <div class="md:col-span-1">
@@ -179,8 +180,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="label">Miktar *</label>
-                            <input name="qty" type="number" step="0.001" min="0" value="1" class="input w-full" required />
+                            <label class="label">Miktar <span id="qty-unit" class="text-indigo-500"></span> *</label>
+                            <input name="qty" id="exp-qty" type="number" step="0.001" min="0" value="1" class="input w-full" required />
                         </div>
                         <div>
                             <label class="label">Birim Fiyat *</label>
@@ -194,6 +195,25 @@
                     <button type="submit" class="mt-3 btn btn-secondary w-full text-xs">+ Kalem Ekle</button>
                 </form>
             </div>
+            @* CSP-uyumlu vanilla (Alpine CSP'den kırık): gider tipi seçilince birimi göster;
+               götürü gider (birim NULL → kira/sigorta) miktarı 1'e sabitler, metered (kWh/m3/lt) serbest bırakır *@
+            <script>
+                (function () {
+                    var sel = document.getElementById('exp-type-select');
+                    if (!sel) return;
+                    var unitLabel = document.getElementById('qty-unit');
+                    var qty = document.getElementById('exp-qty');
+                    function apply() {
+                        var opt = sel.options[sel.selectedIndex];
+                        var unit = opt ? (opt.getAttribute('data-unit') || '') : '';
+                        unitLabel.textContent = unit ? '(' + unit + ')' : '';
+                        if (sel.value && !unit) { qty.value = '1'; qty.readOnly = true; }   // götürü gider → miktar 1 sabit
+                        else { qty.readOnly = false; }                                       // metered → tüketim girilir
+                    }
+                    sel.addEventListener('change', apply);
+                    apply();
+                })();
+            </script>
         }
     </div>
 }

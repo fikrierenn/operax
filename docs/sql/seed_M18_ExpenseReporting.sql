@@ -29,13 +29,18 @@ IF NOT EXISTS (SELECT 1 FROM CostCenter WHERE CompanyId = @CompanyId AND Code = 
 -- Gider Tipleri (ExpenseType ağaç)
 IF NOT EXISTS (SELECT 1 FROM ExpenseType WHERE CompanyId = @CompanyId AND Code = 'UTIL')
 BEGIN
+    -- UnitOfMeasure: SET = metered (tüketim girilir: Elektrik kWh, Su m3) · NULL = götürü/flat (Kira, genel — miktar 1)
     DECLARE @UtilId UNIQUEIDENTIFIER = NEWID();
     INSERT INTO ExpenseType (Id, CompanyId, Code, Name, UnitOfMeasure)
-    VALUES (@UtilId, @CompanyId, 'UTIL', 'Genel Giderler', 'Ay');
+    VALUES (@UtilId, @CompanyId, 'UTIL', 'Genel Giderler', NULL);   -- üst grup götürü
 
     INSERT INTO ExpenseType (Id, CompanyId, Code, Name, UnitOfMeasure, ParentId)
     VALUES
-        (NEWID(), @CompanyId, 'ELK', 'Elektrik', 'kWh', @UtilId),
-        (NEWID(), @CompanyId, 'SU',  'Su',       'm3',  @UtilId),
-        (NEWID(), @CompanyId, 'KIRA','Kira',      'Ay',  @UtilId);
+        (NEWID(), @CompanyId, 'ELK', 'Elektrik', 'kWh',  @UtilId),  -- metered: tüketim kWh
+        (NEWID(), @CompanyId, 'SU',  'Su',       'm3',   @UtilId),  -- metered: tüketim m3
+        (NEWID(), @CompanyId, 'KIRA','Kira',      NULL,  @UtilId);  -- götürü: aylık sabit tutar
 END
+
+-- Götürü tiplerin birimini NULL'a çek (mevcut kurulumda eski 'Ay' kalmış olabilir → metered/flat ayrımı netleşsin)
+UPDATE ExpenseType SET UnitOfMeasure = NULL
+WHERE CompanyId = @CompanyId AND Code IN ('UTIL', 'KIRA') AND UnitOfMeasure IS NOT NULL;

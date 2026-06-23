@@ -14,7 +14,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
     public IEnumerable<InvoiceLineDto> Lines { get; set; } = [];
     public IEnumerable<DdlDto> Partners     { get; set; } = [];
     public DocFlowVm?           DocFlow     { get; set; }
-    public IEnumerable<DdlDto> ExpenseTypes { get; set; } = [];
+    public IEnumerable<ExpenseTypeDto> ExpenseTypes { get; set; } = [];   // birim (UnitOfMeasure) taşır — UI miktarın birimini gösterir
     public IEnumerable<DdlDto> CostCenters  { get; set; } = [];
 
     public bool IsNew => Form.Id == Guid.Empty;
@@ -27,8 +27,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         Partners = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Name",
             new { CompanyId = company.Id }, cancellationToken: ct));
-        ExpenseTypes = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM ExpenseType WHERE CompanyId = @CompanyId ORDER BY Code",
+        // UnitOfMeasure: gider tipinin birimi (Elektrik→kWh, Su→m3, Kira→NULL=götürü). UI miktar yanında gösterir.
+        ExpenseTypes = await conn.QueryAsync<ExpenseTypeDto>(new CommandDefinition(
+            "SELECT Id, Code, Name, UnitOfMeasure FROM ExpenseType WHERE CompanyId = @CompanyId ORDER BY Code",
             new { CompanyId = company.Id }, cancellationToken: ct));
         CostCenters = await conn.QueryAsync<DdlDto>(new CommandDefinition(
             "SELECT Id, Code, Name FROM CostCenter WHERE CompanyId = @CompanyId AND IsActive = 1 ORDER BY Code",
@@ -53,7 +54,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
             -- Bu sorgu yalnızca o doğrulanmış ExpenseInvoice.Id üzerinden satırları okuyduğundan
             -- başka firmanın verisine erişilemez.
             -- isolation-guard:ignore  (operax-cli scan-isolation tarayıcısı bu işaretle sorguyu atlar)
-            SELECT l.*, et.Name AS ExpenseTypeName, cc.Name AS CostCenterName
+            SELECT l.*, et.Name AS ExpenseTypeName, et.UnitOfMeasure, cc.Name AS CostCenterName
             FROM ExpenseInvoiceLine l
             JOIN ExpenseType et ON et.Id = l.ExpenseTypeId
             JOIN CostCenter cc ON cc.Id = l.CostCenterId
@@ -251,10 +252,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         public string    Status      { get; set; } = DocStatus.Draft;
     }
 
+    // Gider tipi DDL satırı + birimi (UI'da miktar yanında gösterilir; NULL=götürü/flat gider)
+    public record ExpenseTypeDto(Guid Id, string Code, string Name, string? UnitOfMeasure);
+
     public record InvoiceLineDto
     {
         public Guid    Id              { get; set; }
         public string  ExpenseTypeName { get; set; } = "";
+        public string? UnitOfMeasure   { get; set; }   // gider tipinin birimi (kWh/m3/lt; NULL=götürü)
         public string  CostCenterName  { get; set; } = "";
         public decimal Quantity        { get; set; }
         public decimal UnitPrice       { get; set; }

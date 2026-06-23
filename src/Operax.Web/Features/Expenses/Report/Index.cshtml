@@ -65,6 +65,8 @@
                     <th>Gider Merkezi</th>
                     <th>Gider Tipi</th>
                     <th class="text-center">Kalem</th>
+                    <th class="text-right">Tüketim</th>
+                    <th class="text-right">Birim Maliyet</th>
                     <th class="text-right">Net</th>
                     <th class="text-right">KDV</th>
                     <th class="text-right">Toplam</th>
@@ -74,7 +76,7 @@
                 @foreach (var g in groups)
                 {
                     <tr class="bg-slate-50">
-                        <td class="font-bold text-slate-700" colspan="3">@(g.Key.CostCenterName ?? "— Merkez Atanmamış —")</td>
+                        <td class="font-bold text-slate-700" colspan="5">@(g.Key.CostCenterName ?? "— Merkez Atanmamış —")</td>
                         <td class="text-right mono font-bold">@g.Sum(r => r.NetAmount).ToString("N2")</td>
                         <td class="text-right mono font-bold">@g.Sum(r => r.TaxAmount).ToString("N2")</td>
                         <td class="text-right mono font-bold text-indigo-600">@g.Sum(r => r.TotalAmount).ToString("N2")</td>
@@ -85,6 +87,9 @@
                             <td></td>
                             <td class="text-slate-600 text-sm">@(r.ExpenseTypeName ?? "—")</td>
                             <td class="text-center text-xs text-slate-400">@r.LineCount</td>
+                            @* Tüketim + birim-maliyet yalnız metered (birimli) giderde anlamlı; götürüde "—" *@
+                            <td class="text-right mono text-slate-600">@(r.UnitOfMeasure is null ? "—" : r.TotalQuantity.ToString("N2") + " " + r.UnitOfMeasure)</td>
+                            <td class="text-right mono text-slate-500">@(r.UnitOfMeasure is null ? "—" : r.UnitCost.ToString("N4") + " ₺/" + r.UnitOfMeasure)</td>
                             <td class="text-right mono">@r.NetAmount.ToString("N2")</td>
                             <td class="text-right mono text-slate-400">@r.TaxAmount.ToString("N2")</td>
                             <td class="text-right mono">@r.TotalAmount.ToString("N2")</td>
@@ -93,7 +98,7 @@
                 }
                 @if (!Model.Rows.Any())
                 {
-                    <tr><td colspan="6"><div class="empty-state"><p>Seçilen aralıkta onaylı gider faturası bulunamadı.</p></div></td></tr>
+                    <tr><td colspan="8"><div class="empty-state"><p>Seçilen aralıkta onaylı gider faturası bulunamadı.</p></div></td></tr>
                 }
             </tbody>
         </table>

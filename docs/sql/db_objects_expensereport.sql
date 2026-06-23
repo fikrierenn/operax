@@ -53,9 +53,14 @@ RETURN
         cc.Name        AS CostCenterName,
         l.ExpenseTypeId,
         et.Name        AS ExpenseTypeName,
+        et.UnitOfMeasure AS UnitOfMeasure,                       -- metered birim (kWh/m3; NULL=götürü)
+        SUM(l.Quantity)    AS TotalQuantity,                     -- toplam tüketim (metered'da kWh/m3 trendi)
         SUM(l.Amount)      AS NetAmount,
         SUM(l.TaxAmount)   AS TaxAmount,
         SUM(l.TotalAmount) AS TotalAmount,
+        -- Birim-maliyet = net tutar / miktar (KDV HARİÇ; farklı KDV oranı kıyası bozmasın diye net üzerinden).
+        -- Yalnız miktar>0 olduğunda anlamlı (NULLIF ile 0'a bölme engeli); götürü giderde miktar=1 → net'e eşit.
+        CASE WHEN SUM(l.Quantity) > 0 THEN SUM(l.Amount) / SUM(l.Quantity) ELSE 0 END AS UnitCost,
         COUNT(*)           AS LineCount
     FROM ExpenseInvoice ei
     JOIN ExpenseInvoiceLine l ON l.ExpenseInvoiceId = ei.Id
@@ -65,6 +70,6 @@ RETURN
       AND ei.Status = 'POSTED'
       AND ei.InvoiceDate >= @FromDate
       AND ei.InvoiceDate <= @ToDate
-    GROUP BY COALESCE(l.CostCenterId, ei.CostCenterId), cc.Name, l.ExpenseTypeId, et.Name
+    GROUP BY COALESCE(l.CostCenterId, ei.CostCenterId), cc.Name, l.ExpenseTypeId, et.Name, et.UnitOfMeasure
 );
 GO

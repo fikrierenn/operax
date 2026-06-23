@@ -32,7 +32,7 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
         try
         {
             Rows = (await conn.QueryAsync<RowDto>(new CommandDefinition(
-                "SELECT CostCenterId, CostCenterName, ExpenseTypeId, ExpenseTypeName, NetAmount, TaxAmount, TotalAmount, LineCount FROM tvf_ExpenseBreakdown(@CompanyId, @From, @To) ORDER BY CostCenterName, ExpenseTypeName",
+                "SELECT CostCenterId, CostCenterName, ExpenseTypeId, ExpenseTypeName, UnitOfMeasure, TotalQuantity, UnitCost, NetAmount, TaxAmount, TotalAmount, LineCount FROM tvf_ExpenseBreakdown(@CompanyId, @From, @To) ORDER BY CostCenterName, ExpenseTypeName",
                 new { CompanyId = company.Id, From = From.Value.Date, To = To.Value.Date },
                 cancellationToken: ct))).ToList();
 
@@ -51,9 +51,11 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public async Task<IActionResult> OnGetExportAsync(CancellationToken ct)
     {
         await OnGetAsync(ct);
-        var headers = new[] { "Gider Merkezi", "Gider Tipi", "Net", "KDV", "Toplam", "Satır" };
+        var headers = new[] { "Gider Merkezi", "Gider Tipi", "Birim", "Tüketim", "Birim Maliyet", "Net", "KDV", "Toplam", "Satır" };
         var csvRows = Rows
             .Select(r => new object?[] { r.CostCenterName ?? "—", r.ExpenseTypeName ?? "—",
+                                         r.UnitOfMeasure ?? "—", r.UnitOfMeasure is null ? (object?)null : r.TotalQuantity,
+                                         r.UnitOfMeasure is null ? (object?)null : r.UnitCost,
                                          r.NetAmount, r.TaxAmount, r.TotalAmount, r.LineCount })
             .Append(new object?[] { "TOPLAM", "", GrandNet, GrandTax, GrandTotal, Rows.Sum(r => r.LineCount) });
         return CsvExport.ToFile($"Gider_Raporu_{From:yyyyMMdd}-{To:yyyyMMdd}.csv", headers, csvRows);
@@ -62,5 +64,6 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
     public record RowDto(
         Guid? CostCenterId, string? CostCenterName,
         Guid? ExpenseTypeId, string? ExpenseTypeName,
+        string? UnitOfMeasure, decimal TotalQuantity, decimal UnitCost,  // metered tüketim + birim-maliyet (kWh/m3 trendi, TL/birim)
         decimal NetAmount, decimal TaxAmount, decimal TotalAmount, int LineCount);
 }

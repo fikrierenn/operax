@@ -1,286 +1,338 @@
 @page
-@using Operax.Web.Lib
 @model Operax.Web.Features.Dashboard.IndexModel
 @inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
-    ViewData["Title"] = L.T("Anasayfa", "Dashboard");
+    ViewData["Title"] = "Anasayfa";
 
-    // Tarih başlık altyazısı kullanıcının dil tercihine göre formatlanır
-    var culture = L.IsEn ? new System.Globalization.CultureInfo("en-US") : new System.Globalization.CultureInfo("tr-TR");
-    var subDate = $"{Model.CompanyName} · {DateTime.Now:yyyy-MM-dd} · {DateTime.Now.ToString("dd MMMM yyyy dddd", culture)}";
+    // Sales-kartları için aylık GERÇEK seriler (MonthlyPerformance, son 6 ay).
+    var posSeries    = Model.MonthlyPerformance.Select(m => m.PostedAmount).ToList();
+    var draftSeries  = Model.MonthlyPerformance.Select(m => m.DraftAmount).ToList();
+    var cancelSeries = Model.MonthlyPerformance.Select(m => m.CancelledAmount).ToList();
 
-    // Aylık performans için bar grafiği üst limiti (en büyük toplam)
-    // İş kuralı: satır olsa bile tüm tutarlar 0 ise Max=0 döner → sıfıra bölmeyi engelle
-    var monthlyMax = Model.MonthlyPerformance.Count > 0
-        ? Model.MonthlyPerformance.Max(m => m.PostedAmount + m.DraftAmount + m.CancelledAmount)
-        : 1m;
-    if (monthlyMax <= 0m) monthlyMax = 1m;
-
-    // Sayfa başlık aksiyon HTML'i
-    var headerActions =
-        "<button class=\"btn btn-secondary btn-sm\" onclick=\"window.print()\">" +
-        "<svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>" +
-        L.T("Rapor İndir", "Download Report") + "</button>" +
-        "<a href=\"/PurchaseOrders/Details\" class=\"btn btn-primary btn-sm\" data-shortcut=\"Alt+N\">" +
-        "<svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>" +
-        L.T("Yeni Sipariş", "New Order") + "<span class=\"btn-kbd\">Alt+N</span></a>";
-
-    var pageHeader = new PageHeaderVm(
-        Title: L.T("Anasayfa", "Dashboard"),
-        Crumbs: new[] { L.T("Anasayfa", "Home"), L.T("Yönetici Görünümü", "Executive View") },
-        Sub: subDate,
-        ActionsHtml: headerActions);
-
-    // KPI delta ikonları
-    const string upIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" viewBox=\"0 0 24 24\"><polyline points=\"18 15 12 9 6 15\"/></svg>";
-    const string downIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"/></svg>";
-    const string flatIcon = "<svg width=\"10\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>";
-
-    var kpi1 = new KpiCardVm(
-        Label: L.T("AÇIK SATINALMA TUTARI", "OPEN PURCHASING TOTAL"),
-        Value: UiHelpers.FmtTL(Model.TotalPoAmount),
-        Glow: "brand",
-        DeltaText: upIcon + "%18.4",
-        DeltaKind: "up",
-        TrendText: L.T("vs geçen ay", "vs last month"));
-
-    var kpi2 = new KpiCardVm(
-        Label: L.T("BU AY ONAYLANAN", "APPROVED THIS MONTH"),
-        Value: Model.ApprovedPoCount.ToString(),
-        Unit: L.T("evrak", "docs"),
-        Glow: "success",
-        DeltaText: upIcon + "%9.2",
-        DeltaKind: "up",
-        TrendText: $"{Model.DraftPoCount} {L.T("taslak bekliyor", "draft waiting")}");
-
-    var kpi3 = new KpiCardVm(
-        Label: L.T("DEPO DOLULUK", "WAREHOUSE FILL"),
-        Value: $"%{Model.WarehouseFillRate}",
-        Glow: "warn",
-        DeltaText: flatIcon + L.T("sabit", "flat"),
-        DeltaKind: "flat",
-        TrendText: $"{Model.StockLocations} {L.T("aktif konum", "active locations")}");
-
-    var kpi4 = new KpiCardVm(
-        Label: L.T("DÜŞÜK STOKLU SKU", "LOW STOCK SKUs"),
-        Value: Model.LowStockSkuCount.ToString(),
-        Unit: L.T("ürün", "items"),
-        Glow: "danger",
-        DeltaText: downIcon + "%4.0",
-        DeltaKind: "down",
-        TrendText: L.T("acil müdahale önerilir", "urgent attention needed"));
+    // Üst satır kart tanımları (başlık + seri + anlam rengi). 3 sales kartına karşılık.
+    var salesCards = new[]
+    {
+        (Title: "Onaylı Satınalma", Series: posSeries,    Glow: "success"),
+        (Title: "Taslak Satınalma", Series: draftSeries,  Glow: "warn"),
+        (Title: "İptal Satınalma",  Series: cancelSeries, Glow: "danger"),
+    };
 }
+@functions {
+    // Sparkline SVG polyline noktaları — değer serisini 100x36 viewBox'a oturtur (y ekseni ters,
+    // 2px üst/alt pay). Sales kartındaki mini çizgi grafiğinin gerçek-veri karşılığı.
+    static string Spark(System.Collections.Generic.IReadOnlyList<decimal> v)
+    {
+        if (v == null || v.Count == 0) return "";
+        decimal max = 1m;
+        foreach (var x in v) if (x > max) max = x;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < v.Count; i++)
+        {
+            var px = v.Count == 1 ? 0d : (double)i / (v.Count - 1) * 100d;
+            var py = 34d - (double)(v[i] / max) * 32d; // tabandan yükseklik, 2px üst pay
+            sb.Append(px.ToString("0.#", inv)).Append(',').Append(py.ToString("0.#", inv)).Append(' ');
+        }
+        return sb.ToString().Trim();
+    }
 
-<div class="page" data-screen-label="Dashboard">
+    // Son ay / önceki ay yüzde değişimi → (metin, yön). Yön: +1 artış, -1 düşüş, 0 nötr/yetersiz.
+    // Yeşil/kırmızı % rozetinin gerçek-veri kaynağı.
+    static (string Text, int Dir) Delta(System.Collections.Generic.IReadOnlyList<decimal> v)
+    {
+        if (v == null || v.Count < 2) return ("", 0);
+        decimal last = v[v.Count - 1], prev = v[v.Count - 2];
+        if (prev == 0) return last > 0 ? ("yeni", 1) : ("", 0);
+        var pct = (last - prev) / prev * 100m;
+        var dir = pct > 0 ? 1 : (pct < 0 ? -1 : 0);
+        var sign = pct > 0 ? "+" : "";
+        return ($"{sign}{pct.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"))}%", dir);
+    }
+}
+@* ============================================================================
+   ANASAYFA — Mosaic tasarım dili. Sales kartları: uppercase etiket + büyük mono
+   sayı + yeşil/kırmızı % delta pill + anlam-renkli SVG sparkline (hepsi GERÇEK
+   aylık seriden — hardcoded delta YOK). Kartlar rounded-2xl + ince kenar + soft gölge.
+   Renkler token; layout Tailwind utility; grafik saf SVG (Chart.js yok, CSP güvenli).
+   Kabuk (sidebar/topbar) _Layout'tan; burası yalnız içerik gövdesi.
+   ============================================================================ *@
+<div class="mx-auto w-full max-w-[1640px] px-4 py-5 md:px-6" data-screen-label="Anasayfa">
 
-    <partial name="_PageHeader" model="pageHeader" />
-
-    @* ───── KPI ───── *@
-    <div class="kpi-grid">
-        <partial name="_KpiCard" model="kpi1" />
-        <partial name="_KpiCard" model="kpi2" />
-        <partial name="_KpiCard" model="kpi3" />
-        <partial name="_KpiCard" model="kpi4" />
+    @* --- Üst başlık: solda sayfa adı + şirket/tarih, sağda birincil aksiyonlar. --- *@
+    <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-[var(--text)]">Anasayfa</h1>
+            <p class="text-sm text-[var(--text-3)] mt-0.5">@Model.CompanyName · @DateTime.Now.ToString("dd MMM yyyy")</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                Rapor İndir
+            </button>
+            <a href="/PurchaseOrders/Details" class="btn btn-primary btn-sm" data-shortcut="Alt+N">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Yeni Sipariş<span class="btn-kbd">Alt+N</span>
+            </a>
+        </div>
     </div>
 
-    @* ───── Aylık Performans + Son Aktivite (1fr 360px) ───── *@
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:14px;margin-bottom:14px;">
+    @* ========================================================================
+       SALES KART SATIRI (3) — imza bileşen. Her kart bir aylık seriyi temsil eder:
+       başlık + "TUTAR" etiketi + büyük mono toplam + son/önceki ay % delta pill + sparkline.
+       ======================================================================== *@
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
+        @foreach (var c in salesCards)
+        {
+            var total = c.Series.Sum();
+            var d = Delta(c.Series);
+            var pts = Spark(c.Series);
+            // Delta yönüne göre pill rengi (artış yeşil, düşüş kırmızı, nötr gri) — token.
+            var pillCls = d.Dir > 0 ? "bg-[var(--success-bg)] text-[var(--success-text)]"
+                        : d.Dir < 0 ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                        : "bg-[var(--neutral-bg)] text-[var(--neutral-text)]";
+            // Sparkline rengi kartın anlamına göre: onaylı=yeşil, taslak=amber, iptal=kırmızı.
+            // Çizgi = tam ton, dolgu alanı = açık tint (semantic -bg token'ı).
+            var sparkStroke = c.Glow switch { "success" => "var(--success)", "warn" => "var(--warn)", "danger" => "var(--danger)", _ => "var(--brand-500)" };
+            var sparkFill   = c.Glow switch { "success" => "var(--success-bg)", "warn" => "var(--warn-bg)", "danger" => "var(--danger-bg)", _ => "var(--brand-tint-15)" };
 
-        <div class="card">
-            <div class="card-hdr">
+            <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 flex flex-col hover:shadow-[var(--shadow-md)] transition-shadow">
+                <h3 class="text-sm font-bold text-[var(--text)]">@c.Title</h3>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)] mt-3">Tutar</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)]">@Operax.Web.Lib.UiHelpers.FmtTL(total)</span>
+                    @if (!string.IsNullOrEmpty(d.Text))
+                    {
+                        <span class="@pillCls text-xs font-semibold px-2 py-0.5 rounded-full">@d.Text</span>
+                    }
+                </div>
+                @* Sparkline: anlam-renkli çizgi + hafif dolgu. Gerçek 6-ay serisi, 100x36 viewBox. *@
+                <div class="mt-4">
+                    @if (!string.IsNullOrEmpty(pts))
+                    {
+                        <svg viewBox="0 0 100 36" preserveAspectRatio="none" class="w-full h-12">
+                            <polygon points="@pts 100,36 0,36" fill="@sparkFill" />
+                            <polyline points="@pts" fill="none" stroke="@sparkStroke" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @* ========================================================================
+       MİNİ-KPI ŞERİDİ (4) — operasyonel metrikler (sparkline yok, sade stat).
+       ======================================================================== *@
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+
+        @* Onaylı PO adedi *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Onaylı Sipariş</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.ApprovedPoCount</div>
+            <div class="text-xs text-[var(--text-3)] mt-1">@Model.DraftPoCount taslak bekliyor</div>
+        </div>
+
+        @* Depo doluluk + ince ilerleme barı (gerçek oran, data-driven genişlik) *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Depo Doluluk</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">%@Model.WarehouseFillRate.ToString("0.#")</div>
+            <div class="h-1.5 rounded-full bg-[var(--neutral-bg)] mt-2 overflow-hidden">
+                <div class="h-full rounded-full bg-[var(--brand-500)]" style="width:@(Math.Min(Model.WarehouseFillRate, 100))%"></div>
+            </div>
+        </div>
+
+        @* Stoklu konum *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Stoklu Konum</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] text-[var(--text)] mt-2">@Model.StockLocations</div>
+            <div class="text-xs text-[var(--text-3)] mt-1">dolu hücre sayısı</div>
+        </div>
+
+        @* Min-altı stok — 0'dan büyükse danger tonu *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] p-5 hover:shadow-[var(--shadow-md)] transition-shadow">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-4)]">Min-Altı Stok</span>
+            <div class="text-3xl font-bold [font-family:var(--font-mono)] mt-2 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger)]" : "text-[var(--text)]")">@Model.LowStockSkuCount</div>
+            <div class="text-xs mt-1 @(Model.LowStockSkuCount > 0 ? "text-[var(--danger-text)]" : "text-[var(--text-3)]")">
+                @(Model.LowStockSkuCount > 0 ? "ürün kritik seviyede" : "kritik ürün yok")
+            </div>
+        </div>
+    </div>
+
+    @* ========================================================================
+       ANA SATIR: solda aylık performans stacked-bar (2/3), sağda aktivite feed (1/3).
+       ======================================================================== *@
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4">
+
+        @* ---- AYLIK SATINALMA PERFORMANSI — saf-CSS stacked bar (gerçek MonthlyPerformance) ---- *@
+        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
                 <div>
-                    <div class="card-title">@L.T("Aylık Satınalma Performansı", "Monthly Purchasing Performance")</div>
-                    <div class="card-sub">@L.T("Onaylı + Taslak + İptal · Son 6 ay", "Posted + Draft + Cancelled · Last 6 months")</div>
+                    <h2 class="text-sm font-bold text-[var(--text)]">Aylık Satınalma Performansı</h2>
+                    <p class="text-xs text-[var(--text-4)] mt-0.5">Son 6 ay · onaylı / taslak / iptal kırılımı</p>
                 </div>
-                <div class="row" style="gap:4px;">
-                    <button class="btn btn-secondary btn-xs">@L.T("Aylık", "Monthly")</button>
-                    <button class="btn btn-ghost btn-xs">@L.T("Çeyrek", "Quarter")</button>
-                    <button class="btn btn-ghost btn-xs">@L.T("Yıl", "Year")</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;align-items:flex-end;height:200px;">
-                    @for (int i = 0; i < Model.MonthlyPerformance.Count; i++)
-                    {
-                        var m = Model.MonthlyPerformance[i];
-                        var total = m.PostedAmount + m.DraftAmount + m.CancelledAmount;
-                        var pH = (m.PostedAmount    / monthlyMax) * 100m;
-                        var dH = (m.DraftAmount     / monthlyMax) * 100m;
-                        var cH = (m.CancelledAmount / monthlyMax) * 100m;
-                        var isLast = i == Model.MonthlyPerformance.Count - 1;
-                        var postedBg = isLast ? "var(--brand-grad)" : "hsl(243 75% 59% / 0.85)";
-                        var postedShadow = isLast ? "box-shadow:0 4px 12px hsl(243 75% 59% / 0.3);" : "";
-                        var inv = System.Globalization.CultureInfo.InvariantCulture;
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;">
-                            <div class="mono" style="font-size:10.5px;color:var(--text-3);font-weight:600;">₺@((total / 1000m).ToString("F1", inv))K</div>
-                            <div style="flex:1;width:100%;max-width:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;">
-                                <div style="height:@(cH.ToString("F2", inv))%;background:var(--danger);opacity:.85;border-radius:4px 4px 0 0;min-height:@(m.CancelledAmount > 0 ? "2" : "0")px;"></div>
-                                <div style="height:@(dH.ToString("F2", inv))%;background:var(--warn);opacity:.85;min-height:2px;"></div>
-                                <div style="height:@(pH.ToString("F2", inv))%;background:@postedBg;border-radius:0 0 4px 4px;min-height:4px;@postedShadow"></div>
-                            </div>
-                            <div style="font-size:11px;color:@(isLast ? "var(--text)" : "var(--text-3)");font-weight:@(isLast ? 700 : 500);">@m.MonthName</div>
-                        </div>
-                    }
-                </div>
-                <div class="row" style="gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;">
-                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--brand-500);"></span><span class="text-mute">@L.T("Onaylanmış", "Posted")</span></div>
-                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--warn);"></span><span class="text-mute">@L.T("Taslak", "Draft")</span></div>
-                    <div class="row" style="gap:6px;"><span class="dot" style="background:var(--danger);"></span><span class="text-mute">@L.T("İptal", "Cancelled")</span></div>
+                <div class="hidden sm:flex items-center gap-3 text-xs text-[var(--text-3)]">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--success)]"></span>Onaylı</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--warn)]"></span>Taslak</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-[var(--danger)]"></span>İptal</span>
                 </div>
             </div>
-        </div>
-
-        <div class="card">
-            <div class="card-hdr"><div class="card-title">@L.T("Son Aktivite", "Recent Activity")</div></div>
-            <div class="card-body" style="padding:6px 14px 12px;">
-                @if (Model.RecentActivities.Count == 0)
+            <div class="p-5 flex-1">
+                @if (Model.MonthlyPerformance != null && Model.MonthlyPerformance.Any())
                 {
-                    var emptyAct = new EmptyStateVm(Title: L.T("Henüz aktivite yok", "No activity yet"));
-                    <partial name="_EmptyState" model="emptyAct" />
+                    var maxTotal = Model.MonthlyPerformance.Max(m => m.PostedAmount + m.DraftAmount + m.CancelledAmount);
+                    if (maxTotal <= 0) { maxTotal = 1; }
+                    <div class="flex items-end justify-between gap-3 h-52">
+                        @foreach (var m in Model.MonthlyPerformance)
+                        {
+                            var postedPct = (double)(m.PostedAmount / maxTotal) * 100;
+                            var draftPct = (double)(m.DraftAmount / maxTotal) * 100;
+                            var cancelPct = (double)(m.CancelledAmount / maxTotal) * 100;
+                            <div class="flex-1 flex flex-col items-center gap-2">
+                                <div class="w-full flex flex-col justify-end h-44 rounded-md bg-[var(--neutral-bg)] overflow-hidden"
+                                     title="@m.MonthName — Onaylı @Operax.Web.Lib.UiHelpers.FmtTL(m.PostedAmount)">
+                                    @if (cancelPct > 0)
+                                    {
+                                        <div class="w-full bg-[var(--danger)]" style="height:@cancelPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    }
+                                    @if (draftPct > 0)
+                                    {
+                                        <div class="w-full bg-[var(--warn)]" style="height:@draftPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    }
+                                    @if (postedPct > 0)
+                                    {
+                                        <div class="w-full bg-[var(--success)]" style="height:@postedPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    }
+                                </div>
+                                <span class="text-xs text-[var(--text-3)] font-medium">@m.MonthName</span>
+                            </div>
+                        }
+                    </div>
                 }
                 else
                 {
-                    for (int i = 0; i < Model.RecentActivities.Count; i++)
-                    {
-                        var a = Model.RecentActivities[i];
-                        var color = a.Kind switch
+                    <div class="flex items-center justify-center h-52 text-sm text-[var(--text-4)]">Henüz performans verisi yok.</div>
+                }
+            </div>
+        </div>
+
+        @* ---- SON AKTİVİTE FEED'İ ---- Kind rengine göre nokta + Action + zaman. *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                <h2 class="text-sm font-bold text-[var(--text)]">Son Aktivite</h2>
+            </div>
+            <div class="p-5 flex-1">
+                @if (Model.RecentActivities != null && Model.RecentActivities.Any())
+                {
+                    <ul class="flex flex-col gap-4">
+                        @foreach (var act in Model.RecentActivities)
                         {
-                            "success" => "var(--success)",
-                            "danger"  => "var(--danger)",
-                            "warn"    => "var(--warn)",
-                            "info"    => "var(--brand-500)",
-                            _         => "var(--text-3)"
-                        };
-                        var notLast = i < Model.RecentActivities.Count - 1;
-                        <div style="display:flex;gap:10px;padding:8px 0;@(notLast ? "border-bottom:1px solid var(--border);" : "")">
-                            <div class="avatar" style="background:@color;">@UiHelpers.Initials(a.Who)</div>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-size:12px;line-height:1.4;"><span class="text-strong">@a.Who</span> <span class="text-mute">@a.Action</span></div>
-                                <div class="mono" style="font-size:10.5px;color:var(--text-4);margin-top:1px;">@a.TimeLabel</div>
-                            </div>
-                        </div>
-                    }
+                            // Kind → token rengi (success/danger/warn/info). --info base yok → --info-text.
+                            var dotColor = act.Kind switch
+                            {
+                                "success" => "bg-[var(--success)]",
+                                "danger" => "bg-[var(--danger)]",
+                                "warn" => "bg-[var(--warn)]",
+                                "info" => "bg-[var(--info-text)]",
+                                _ => "bg-[var(--neutral-text)]"
+                            };
+                            <li class="flex gap-3">
+                                <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 @dotColor"></span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm text-[var(--text-2)] leading-snug">@act.Action</p>
+                                    <p class="text-xs text-[var(--text-4)] mt-0.5">@act.Who · @act.TimeLabel</p>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="text-sm text-[var(--text-4)] py-8 text-center">Henüz aktivite kaydı yok.</div>
                 }
             </div>
         </div>
     </div>
 
-    @* ───── Yaklaşan Sevkiyatlar + Düşük Stoklu Ürünler (1fr 1fr) ───── *@
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    @* ========================================================================
+       ALT SATIR: solda Son Siparişler tablosu (2/3), sağda Yaklaşan Sevkiyat (1/3).
+       ======================================================================== *@
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
-        <div class="card">
-            <div class="card-hdr">
-                <div class="card-title">@L.T("Yaklaşan Sevkiyatlar", "Upcoming Shipments")</div>
-                <a href="/Warehouses" class="btn btn-ghost btn-xs">
-                    @L.T("Tümünü gör", "View all")
-                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-                </a>
+        @* ---- SON SİPARİŞLER tablosu (ince başlık + hover satır) ---- *@
+        <div class="xl:col-span-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                <h2 class="text-sm font-bold text-[var(--text)]">Son Siparişler</h2>
+                <a href="/PurchaseOrders" class="text-xs font-semibold text-[var(--brand-500)] hover:text-[var(--brand-400)]">Tümünü gör</a>
             </div>
-            <div class="card-body-flush">
-                @if (Model.IncomingShipments.Count == 0)
-                {
-                    var emptyShip = new EmptyStateVm(
-                        Title: L.T("Planlı sevkiyat yok", "No planned shipments"),
-                        Message: L.T("Bekleyen mal giriş sevkiyatı bulunmuyor.", "No pending inbound shipments."));
-                    <partial name="_EmptyState" model="emptyShip" />
-                }
-                else
-                {
-                    <table class="data-table">
+            @if (Model.RecentPOs != null && Model.RecentPOs.Any())
+            {
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-sm">
                         <thead>
-                            <tr>
-                                <th>LPN</th>
-                                <th>@L.T("Tedarikçi", "Supplier")</th>
-                                <th>SKU</th>
-                                <th class="num">@L.T("Miktar", "Qty")</th>
-                                <th>ETA</th>
-                                <th>@L.T("Kapı", "Dock")</th>
+                            <tr class="text-left text-xs uppercase tracking-wide text-[var(--text-4)] border-b border-[var(--border)]">
+                                <th class="font-semibold px-5 py-3">Sipariş No</th>
+                                <th class="font-semibold px-5 py-3">Tedarikçi</th>
+                                <th class="font-semibold px-5 py-3">Tarih</th>
+                                <th class="font-semibold px-5 py-3 text-right">Tutar</th>
+                                <th class="font-semibold px-5 py-3">Durum</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var s in Model.IncomingShipments)
+                            @foreach (var po in Model.RecentPOs)
                             {
-                                <tr>
-                                    <td><span class="mono row-strong" style="color:var(--brand-500);">@s.Lpn</span></td>
-                                    <td>@s.Supplier</td>
-                                    <td><span class="mono">@s.Sku</span></td>
-                                    <td class="num"><span class="row-strong">@UiHelpers.FmtNum(s.Qty)</span> <span class="muted">@s.Uom</span></td>
-                                    <td class="mono">@UiHelpers.FmtDateShort(s.Eta)</td>
-                                    <td><span class="badge badge-brand"><span class="badge-dot"></span>@s.Dock</span></td>
+                                <tr class="border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-2)] transition-colors">
+                                    <td class="px-5 py-3 [font-family:var(--font-mono)] text-[var(--text)] font-medium">@po.OrderNo</td>
+                                    <td class="px-5 py-3">
+                                        <div class="text-[var(--text-2)]">@po.SupplierName</div>
+                                        @if (!string.IsNullOrEmpty(po.SupplierCity))
+                                        {
+                                            <div class="text-xs text-[var(--text-4)]">@po.SupplierCity</div>
+                                        }
+                                    </td>
+                                    <td class="px-5 py-3 text-[var(--text-3)]">@po.OrderDate.ToString("dd MMM")</td>
+                                    <td class="px-5 py-3 text-right [font-family:var(--font-mono)] text-[var(--text)]">@Operax.Web.Lib.UiHelpers.FmtTL(po.TotalAmount)</td>
+                                    <td class="px-5 py-3">@Html.Raw(Dict.StatusBadge(po.Status))</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
-                }
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-hdr">
-                <div class="card-title">@L.T("Düşük Stoklu Ürünler", "Low Stock Items")</div>
-                <button class="btn btn-ghost btn-xs">@L.T("Sipariş öner", "Suggest order")</button>
-            </div>
-            <div class="card-body-flush">
-                @{ var emptyStock = new EmptyStateVm(Title: L.T("Tüm stoklar yeterli düzeyde", "All stock levels are sufficient")); }
-                <partial name="_EmptyState" model="emptyStock" />
-                @* TODO: Düşük stoklu ürün listesi PageModel'e eklenecek (LowStockItemDto + sorgu) *@
-            </div>
-        </div>
-    </div>
-
-    @* ───── Son Satınalma Siparişleri ───── *@
-    <div class="card" style="margin-top:14px;">
-        <div class="card-hdr">
-            <div class="card-title">@L.T("Son Satınalma Siparişleri", "Recent Purchase Orders")</div>
-            <a href="/PurchaseOrders" class="btn btn-ghost btn-xs">
-                @L.T("Hepsini gör", "View all")
-                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-            </a>
-        </div>
-        <div class="card-body-flush">
-            @if (Model.RecentPOs.Count == 0)
-            {
-                var emptyPo = new EmptyStateVm(Title: L.T("Hiç sipariş yok", "No orders yet"));
-                <partial name="_EmptyState" model="emptyPo" />
+                </div>
             }
             else
             {
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>@L.T("Evrak No", "Doc No")</th>
-                            <th>@L.T("Tedarikçi", "Supplier")</th>
-                            <th>@L.T("Tarih", "Date")</th>
-                            <th class="num">@L.T("Tutar", "Amount")</th>
-                            <th>@L.T("Durum", "Status")</th>
-                            <th style="width:36px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var po in Model.RecentPOs)
-                        {
-                            <tr style="cursor:pointer;" onclick="window.location.href='/PurchaseOrders/Details?orderNo=@po.OrderNo'">
-                                <td><span class="mono row-strong" style="color:var(--brand-500);">@po.OrderNo</span></td>
-                                <td>
-                                    <div class="row" style="gap:10px;">
-                                        <div class="avatar" style="width:24px;height:24px;background:var(--brand-grad);font-size:10px;">@UiHelpers.Initials(po.SupplierName)</div>
-                                        <div>
-                                            <div class="row-strong">@po.SupplierName</div>
-                                            <div class="row-sub">@po.SupplierCity</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="mono muted">@UiHelpers.FmtDateShort(po.OrderDate)</td>
-                                <td class="num"><span class="row-strong">@UiHelpers.FmtTL(po.TotalAmount)</span></td>
-                                <td>@Html.Raw(Dict.StatusBadge(po.Status))</td>
-                                <td>
-                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="text-sm text-[var(--text-4)] py-12 text-center">Henüz sipariş kaydı yok.</div>
             }
+        </div>
+
+        @* ---- YAKLAŞAN SEVKİYATLAR ---- liste kartı (LPN + tedarikçi + ETA + dok). *@
+        <div class="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-sm)] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+                <h2 class="text-sm font-bold text-[var(--text)]">Yaklaşan Sevkiyatlar</h2>
+            </div>
+            <div class="p-3 flex-1">
+                @if (Model.IncomingShipments != null && Model.IncomingShipments.Any())
+                {
+                    <ul class="flex flex-col gap-1">
+                        @foreach (var sh in Model.IncomingShipments)
+                        {
+                            <li class="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[var(--surface-2)] transition-colors">
+                                <span class="shrink-0 px-2 py-1 rounded-md [font-family:var(--font-mono)] text-xs bg-[var(--brand-tint-15)] text-[var(--brand-500)] font-medium">@sh.Lpn</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm text-[var(--text-2)] truncate">@sh.Supplier</div>
+                                    <div class="text-xs text-[var(--text-4)] truncate">@sh.Sku · @sh.Qty.ToString("0.##") @sh.Uom</div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="text-xs font-medium text-[var(--text-2)]">@sh.Eta.ToString("dd MMM")</div>
+                                    <div class="text-xs text-[var(--text-4)]">Dok @sh.Dock</div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="text-sm text-[var(--text-4)] py-12 text-center">Yaklaşan sevkiyat yok.</div>
+                }
+            </div>
         </div>
     </div>
 

@@ -20,7 +20,7 @@
 2b. ✅ **P2 — Plan 41 statü kod sabitleri + CHECK KAPANDI 2026-06-22** (arşiv): 23 sabit sınıfı + ~55 dosya magic-string→sabit + **25 CHECK constraint** (tüm statü/yön/tip kolonları). HAVALE→GIRO/NEW→DRAFT/''→NET uzlaştırıldı. InstrumentType+DataSourceType '' açıkça izinli CHECK ile kapatıldı (borç kalmadı). Smoke: typo red, '' kabul.
 3. **🟡 P2 — Mali evrak eksikleri (mali-evrak-mevzuat skill ön koşul):** E2 alış/satış iade · E4 fire/zayi/imha · E11 virman · çek TEMİNAT/kısmi statü.
 4. **🟢 P3 — Partner detay tab'ları (TAB-0..4):** contact/address/bank/CRM + istatistik. Büyük, ayrı plan.
-5. **🟢 P3 — Periyodik GL muhasebeleştirme modülü** — muhasebe-mevzuat skill ön koşul, en büyük.
+5. **🟢 P3 — Periyodik GL muhasebeleştirme modülü** — muhasebe-mevzuat skill ✅ HAZIR (2026-06-23), en büyük modül.
 6. **⚪ P4 — DEAD production servisleri kararı** (ProductionReceiptService vb. sil-vs-SP) · _PageHeader standardizasyon (65 sayfa, kozmetik) · servis-katmanı ct kalıntısı (varsa).
 
 ---
@@ -214,7 +214,7 @@ RL-1 + SH-1: ~45 dk | RB-1/2/3: ~60 dk | AP + TLS: ~15 dk | **Toplam: ~2 saat**
 6. [ ] **Ertele:** B10 (ASN), B11 (Decision/routing katmanı), **B13 sayım freeze (K5 — M08/S7, satır bazlı; spec yazıldı `docs/MODULE_SPECS/M08_CycleCount_Freeze.md`)**, **Periyodik GL muhasebeleştirme modülü.**
 
 **GELECEK-İŞ (plan AÇILMADI — sadece kayıt):**
-- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** (VUK / e-Defter tebliğleri / hesap planı standardı / berat / GİB formatları). e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/reference/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
+- [ ] **Periyodik GL muhasebeleştirme modülü** — subledger→GL aylık/seçimli posting (K1). **Ön koşul: muhasebe-mevzuat skill'i** ✅ OLUŞTURULDU (2026-06-23, `.claude/skills/muhasebe-mevzuat/`) — TDHP hesap planı + çek/senet işleyişi + online-doğrula disiplini; GL-özel detay (e-Defter tebliğ/berat/GİB format) modül yazılırken genişletilir. e-Defter ÜRETİMİ kapsam dışı (K5 — Operax sadece LOCKED döneme saygı gösterir). **Posting-rule deseni netleşti** (Mikro §3.5, `docs/reference/MIKRO_V16_ANALYSIS.md`): 3 yapı taşı = HesapPlani + PostingRule(grup+hareket tipi→hesap kodu, normalize) + masraf merkezi boyutu; muhasebeleştirme SP subledger hareketini grup+yön→hesap eşleyip işaretli meblağla fişe yazar, `fis_ticari_uid` ile geri-bağlar.
 
 **EKSİK EVRAK TİPLERİ (B17 — Mikro karşılaştırma, `docs/reference/MIKRO_V16_ANALYSIS.md` §12):**
 - [ ] **En yüksek 4 (üretilmeli):** E1 irsaliye↔fatura ayrımı+dönüşüm (VUK) · E2 alış/satış iade (ayrı belge+ters-kayıt) · E4 fire/zayi/imha (maliyet+vergi) · E11 virman kasa↔kasa/cari↔cari (Plan 11 başlamadı).

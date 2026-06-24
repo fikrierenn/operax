@@ -13,7 +13,7 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
 {
     public PickTaskDto              Task           { get; set; } = new();
     public IEnumerable<PickLineDto> Lines          { get; set; } = [];
-    public IEnumerable<IdentityUser> WarehouseStaff { get; set; } = [];
+    public IEnumerable<StaffDto> WarehouseStaff { get; set; } = [];
 
     public async Task OnGetAsync(Guid id, CancellationToken ct)
     {
@@ -42,10 +42,19 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
             WHERE l.PickTaskId = @Id AND pt.CompanyId = @CompanyId",
             new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
-        // Depo personeli: Warehouse rolü tercih edilir
-        WarehouseStaff = await userManager.GetUsersInRoleAsync("Warehouse");
-        if (!WarehouseStaff.Any())
-            WarehouseStaff = userManager.Users.Take(10).ToList();
+        // Depo personeli: Warehouse rolü öncelikli, yoksa diğer kullanıcılar. Dapper ile —
+        // DapperUserStore IQueryableUserStore implement etmez → userManager.Users patlıyordu
+        // (NotSupportedException, Draft/Assigned task açılınca 500). OUTER APPLY ile tek satır/kullanıcı (dup yok).
+        WarehouseStaff = (await conn.QueryAsync<StaffDto>(new CommandDefinition(@"
+            SELECT TOP 10 u.Id, u.UserName
+            FROM AspNetUsers u
+            OUTER APPLY (
+                SELECT TOP 1 1 AS IsWh FROM AspNetUserRoles ur
+                JOIN AspNetRoles r ON r.Id = ur.RoleId
+                WHERE ur.UserId = u.Id AND r.Name = 'Warehouse'
+            ) w
+            ORDER BY CASE WHEN w.IsWh = 1 THEN 0 ELSE 1 END, u.UserName",
+            cancellationToken: ct))).ToList();
     }
 
     public async Task<IActionResult> OnPostAssignAsync(Guid id, string userId, CancellationToken ct)
@@ -71,6 +80,8 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
                 commandType: CommandType.StoredProcedure, cancellationToken: ct));
         return RedirectToPage(new { id });
     }
+
+    public record StaffDto(string Id, string? UserName);
 
     public record PickTaskDto
     {

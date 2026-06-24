@@ -1,129 +1,139 @@
 @page "{id:guid}"
 @model Operax.Web.Features.Picking.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = $"Toplama Görevi — {Model.Task.DocNo}";
 }
 
-<div class="flex justify-between items-start mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <h2 class="text-2xl font-bold">@Model.Task.DocNo</h2>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
-                @(Model.Task.Status switch {
-                    PickTaskStatus.Completed  => "bg-green-100 text-green-700",
-                    PickTaskStatus.InProgress => "bg-blue-100 text-blue-700",
-                    _                         => "bg-slate-100 text-slate-500"
-                })">
-                @Model.Task.Status
-            </span>
-        </div>
-        <p class="text-slate-500 text-sm">Hedef Depo: <span class="font-bold text-slate-900 uppercase">Main Depo</span></p>
-    </div>
-    <div class="flex gap-2">
-        <a asp-page="./Index" class="bg-white border text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm">
-            Geri
-        </a>
-        @if (Model.Task.Status == PickTaskStatus.Draft || Model.Task.Status == PickTaskStatus.Assigned)
-        {
-            <div class="relative group">
-                <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all text-sm flex items-center gap-2">
-                    @(Model.Task.AssignedUserId == null ? "Görevi Ata" : "Yeniden Ata")
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                </button>
-                <div class="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
-                    @foreach (var staff in Model.WarehouseStaff)
-                    {
-                        <form method="post" asp-page-handler="Assign">
-                            <input type="hidden" name="id" value="@Model.Task.Id" />
-                            <input type="hidden" name="userId" value="@staff.Id" />
-                            <button type="submit" class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors font-medium">@staff.UserName</button>
-                        </form>
-                    }
-                </div>
+<div class="page" data-screen-label="Toplama Görevi">
+    <div class="page-hdr">
+        <div class="page-hdr-l">
+            <div class="breadcrumb">
+                <a asp-page="./Index" class="breadcrumb-item">Toplama Görevleri</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">@Model.Task.DocNo</span>
             </div>
-        }
-    </div>
-</div>
-
-<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-        <h3 class="font-bold text-[10px] uppercase text-slate-500 tracking-widest">Toplanacak Kalemler</h3>
-        <div class="text-[10px] font-bold text-slate-400">Toplam satır: @Model.Lines.Count()</div>
-    </div>
-    <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-50 border-b">
-            <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Hedef Raf</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Ürün / Kod</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">İstenen</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Toplanan</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Operatör</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">İşlem</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y text-sm">
-            @foreach (var line in Model.Lines)
+            <h1>@Model.Task.DocNo</h1>
+            <p class="page-hdr-sub">Atanan: <strong>@(Model.Task.AssignedUserName ?? "Atanmadı")</strong></p>
+        </div>
+        <div class="page-hdr-r flex gap-2 items-center">
+            @Html.Raw(Dict.StatusBadge(Model.Task.Status, "PICKTASK_STATUS"))
+            <a asp-page="./Index" class="btn btn-secondary btn-sm">Geri</a>
+            @if (Model.Task.Status == PickTaskStatus.Draft || Model.Task.Status == PickTaskStatus.Assigned)
             {
-                <tr class="hover:bg-slate-50 transition-colors @(line.QtyPicked > 0 ? "bg-green-50/30" : "")">
-                    <td class="px-6 py-4 font-mono font-bold text-indigo-600">
-                        <span class="bg-indigo-50 px-2 py-1 rounded">@line.TargetBinCode</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="font-bold text-slate-900">@line.ItemCode</div>
-                        <div class="text-[10px] text-slate-400">@line.ItemName</div>
-                    </td>
-                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-400">@line.QtyRequested.ToString("N0")</td>
-                    <td class="px-6 py-4 text-right font-mono font-bold text-lg @(line.QtyPicked >= line.QtyRequested ? "text-green-600" : "text-amber-500")">
-                        @line.QtyPicked.ToString("N0")
-                    </td>
-                    <td class="px-6 py-4">
-                        @if (line.QtyPicked > 0)
+                @* Atama menüsü: hover değil CLICK-toggle (touch + klavye erişilebilir; Esc/dışarı-tık kapatır) *@
+                <div class="relative" data-assign-menu>
+                    <button type="button" class="btn btn-primary btn-sm flex items-center gap-2"
+                            onclick="var m=this.parentElement.querySelector('[data-assign-list]');m.classList.toggle('hidden');">
+                        @(Model.Task.AssignedUserId == null ? "Görevi Ata" : "Yeniden Ata")
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    <div data-assign-list class="absolute right-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl hidden z-50 overflow-hidden">
+                        @foreach (var staff in Model.WarehouseStaff)
                         {
-                            <div class="flex items-center gap-2">
-                                <div class="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-[8px] font-bold text-green-700">@((line.PickedByUserName ?? "?").Substring(0,1).ToUpper())</div>
-                                <div class="flex flex-col leading-none">
-                                    <span class="text-[11px] font-bold text-slate-700">@line.PickedByUserName</span>
-                                    <span class="text-[9px] text-slate-400 font-mono">@line.PickedAt?.ToString("HH:mm:ss")</span>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <span class="text-[10px] text-slate-300 italic">Bekliyor...</span>
-                        }
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        @if (line.QtyPicked < line.QtyRequested)
-                        {
-                            <form method="post" asp-page-handler="PickLine">
+                            <form method="post" asp-page-handler="Assign">
                                 <input type="hidden" name="id" value="@Model.Task.Id" />
-                                <input type="hidden" name="lineId" value="@line.Id" />
-                                <input type="hidden" name="qty" value="@line.QtyRequested" />
-                                <button type="submit" class="bg-green-500 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-green-600 transition-all text-[10px] uppercase tracking-widest shadow-lg shadow-green-100">
-                                    Onayla
-                                </button>
+                                <input type="hidden" name="userId" value="@staff.Id" />
+                                <button type="submit" class="w-full text-left px-4 py-2 text-sm hover:bg-[var(--brand-tint-08)] transition-colors font-medium">@staff.UserName</button>
                             </form>
                         }
-                        else
-                        {
-                             <div class="text-green-500 font-black text-xs">✓ TAMAM</div>
-                        }
-                    </td>
-                </tr>
+                    </div>
+                </div>
             }
-        </tbody>
-    </table>
-</div>
-
-@if (Model.Task.Status == PickTaskStatus.Completed)
-{
-    <div class="mt-8 bg-green-50 border border-green-100 rounded-xl p-8 flex items-center gap-6 animate-in slide-in-from-bottom duration-500">
-        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0">
-            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-        </div>
-        <div>
-            <h4 class="font-bold text-green-900 text-lg">Toplama Tamamlandı!</h4>
-            <p class="text-sm text-green-700">Tüm @Model.Lines.Count() kalem başarıyla toplandı ve kaydedildi. Sevkiyat paketlemeye hazır.</p>
         </div>
     </div>
-}
+
+    <div class="card overflow-hidden">
+        <div class="card-hdr">
+            <div>
+                <div class="card-title">Toplanacak Kalemler</div>
+                <div class="card-sub">Toplam satır: @Model.Lines.Count()</div>
+            </div>
+        </div>
+        <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Hedef Raf</th>
+                    <th>Ürün / Kod</th>
+                    <th class="text-right">İstenen</th>
+                    <th class="text-right">Toplanan</th>
+                    <th>Operatör</th>
+                    <th class="text-right">İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in Model.Lines)
+                {
+                    <tr class="@(line.QtyPicked > 0 ? "bg-[var(--success-bg)]" : "")">
+                        <td class="font-mono font-bold text-[var(--brand-600)]">
+                            <span class="badge badge-brand">@line.TargetBinCode</span>
+                        </td>
+                        <td>
+                            <div class="font-bold text-[var(--text)]">@line.ItemCode</div>
+                            <div class="text-[10px] text-[var(--text-4)]">@line.ItemName</div>
+                        </td>
+                        <td class="text-right font-mono font-bold text-[var(--text-4)]">@line.QtyRequested.ToString("N0")</td>
+                        <td class="text-right font-mono font-bold text-lg @(line.QtyPicked >= line.QtyRequested ? "text-[var(--success)]" : "text-[var(--warn)]")">
+                            @line.QtyPicked.ToString("N0")
+                        </td>
+                        <td>
+                            @if (line.QtyPicked > 0)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded-full bg-[var(--success-bg)] flex items-center justify-center text-[8px] font-bold text-[var(--success-text)]">@((line.PickedByUserName ?? "?").Substring(0,1).ToUpper())</div>
+                                    <div class="flex flex-col leading-none">
+                                        <span class="text-[11px] font-bold text-[var(--text-2)]">@line.PickedByUserName</span>
+                                        <span class="text-[9px] text-[var(--text-4)] font-mono">@line.PickedAt?.ToString("HH:mm:ss")</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-[10px] text-[var(--text-mute)] italic">Bekliyor...</span>
+                            }
+                        </td>
+                        <td class="text-right">
+                            @if (line.QtyPicked < line.QtyRequested)
+                            {
+                                <form method="post" asp-page-handler="PickLine">
+                                    <input type="hidden" name="id" value="@Model.Task.Id" />
+                                    <input type="hidden" name="lineId" value="@line.Id" />
+                                    <input type="hidden" name="qty" value="@line.QtyRequested" />
+                                    <button type="submit" class="btn btn-success btn-sm">Onayla</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <div class="text-[var(--success)] font-black text-xs">✓ TAMAM</div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    @if (Model.Task.Status == PickTaskStatus.Completed)
+    {
+        <div class="alert-banner alert-success mt-8 flex items-center gap-4">
+            <svg class="w-8 h-8 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <div>
+                <h4 class="font-bold text-base">Toplama Tamamlandı!</h4>
+                <p class="text-sm">Tüm @Model.Lines.Count() kalem başarıyla toplandı ve kaydedildi. Sevkiyat paketlemeye hazır.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@* Atama menüsü: Esc veya dışarı-tık ile kapat (CSP-uyumlu vanilla, eval yok) *@
+<script>
+    (function () {
+        function closeAll() {
+            document.querySelectorAll('[data-assign-list]:not(.hidden)').forEach(function (m) { m.classList.add('hidden'); });
+        }
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+        document.addEventListener('click', function (e) { if (!e.target.closest('[data-assign-menu]')) closeAll(); });
+    })();
+</script>

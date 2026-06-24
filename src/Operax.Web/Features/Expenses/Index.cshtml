@@ -1,13 +1,14 @@
 @page
 @model Operax.Web.Features.Expenses.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Gider Faturaları";
 }
 
 <div class="page-hdr">
     <div>
-        <h2 class="text-2xl font-bold text-slate-800">Gider Yönetimi</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Elektrik, doğalgaz, kira ve diğer gider faturalarını yönet</p>
+        <h2 class="text-2xl font-bold text-[var(--text)]">Gider Yönetimi</h2>
+        <p class="text-sm text-[var(--text-3)] mt-0.5">Elektrik, doğalgaz, kira ve diğer gider faturalarını yönet</p>
     </div>
     <a asp-page="./Details" class="btn btn-primary">+ Yeni Fatura</a>
 </div>
@@ -15,22 +16,22 @@
 <div class="kpi-row">
     <div class="kpi">
         <span class="kpi-label">Taslak</span>
-        <div class="kpi-val text-slate-500">@Model.Invoices.Count(x => x.Status == DocStatus.Draft)</div>
+        <div class="kpi-val text-[var(--text-3)]">@Model.Invoices.Count(x => x.Status == DocStatus.Draft)</div>
         <span class="kpi-sub">@Model.TotalDraft.ToString("N2") ₺</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Onaylandı</span>
-        <div class="kpi-val text-indigo-600">@Model.Invoices.Count(x => x.Status == DocStatus.Posted)</div>
+        <div class="kpi-val text-[var(--brand-600)]">@Model.Invoices.Count(x => x.Status == DocStatus.Posted)</div>
         <span class="kpi-sub">@Model.TotalPosted.ToString("N2") ₺</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Ödendi</span>
-        <div class="kpi-val text-green-600">@Model.Invoices.Count(x => x.Status == DocStatus.Paid)</div>
+        <div class="kpi-val text-[var(--success)]">@Model.Invoices.Count(x => x.Status == DocStatus.Paid)</div>
         <span class="kpi-sub">@Model.TotalPaid.ToString("N2") ₺</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Vadesi Geçmiş</span>
-        <div class="kpi-val text-red-500">@Model.Invoices.Count(x => x.IsOverdue)</div>
+        <div class="kpi-val text-[var(--danger)]">@Model.Invoices.Count(x => x.IsOverdue)</div>
         <span class="kpi-sub">Ödeme bekleyen</span>
     </div>
 </div>
@@ -51,32 +52,18 @@
         <tbody>
             @foreach (var inv in Model.Invoices)
             {
-                <tr class="@(inv.IsOverdue ? "bg-red-50" : "")">
-                    <td class="font-mono font-bold text-indigo-600">@inv.DocNo</td>
-                    <td class="font-medium text-slate-700">@(inv.PartnerName ?? "—")</td>
-                    <td class="text-slate-500 text-xs">@inv.InvoiceDate.ToString("dd.MM.yyyy")</td>
-                    <td class="text-xs @(inv.IsOverdue ? "text-red-600 font-bold" : "text-slate-500")">
+                <tr class="@(inv.IsOverdue ? "bg-[var(--danger-bg)]" : "")">
+                    <td class="font-mono font-bold text-[var(--brand-600)]">@inv.DocNo</td>
+                    <td class="font-medium text-[var(--text-2)]">@(inv.PartnerName ?? "—")</td>
+                    <td class="text-[var(--text-3)] text-xs">@inv.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                    <td class="text-xs @(inv.IsOverdue ? "text-[var(--danger-text)] font-bold" : "text-[var(--text-3)]")">
                         @(inv.DueDate.HasValue ? inv.DueDate.Value.ToString("dd.MM.yyyy") : "—")
                         @if (inv.IsOverdue) { <span class="ml-1 badge b-red">VADESİ GEÇMİŞ</span> }
                     </td>
-                    <td class="text-right font-mono font-bold text-slate-900">
-                        @inv.TotalAmount.ToString("N2") <span class="text-slate-400 text-xs">@inv.Currency</span>
+                    <td class="text-right font-mono font-bold text-[var(--text)]">
+                        @inv.TotalAmount.ToString("N2") <span class="text-[var(--text-4)] text-xs">@inv.Currency</span>
                     </td>
-                    <td class="text-center">
-                        <span class="badge @(inv.Status switch {
-                            DocStatus.Draft     => "b-gray",
-                            DocStatus.Posted    => "b-indigo",
-                            DocStatus.Paid      => "b-green",
-                            DocStatus.Cancelled => "b-red",
-                            _                   => "b-gray"
-                        })">@(inv.Status switch {
-                            DocStatus.Draft     => "Taslak",
-                            DocStatus.Posted    => "Onaylandı",
-                            DocStatus.Paid      => "Ödendi",
-                            DocStatus.Cancelled => "İptal",
-                            _                   => inv.Status
-                        })</span>
-                    </td>
+                    <td class="text-center">@Html.Raw(Dict.StatusBadge(inv.Status))</td>
                     <td class="text-right">
                         <a asp-page="./Details" asp-route-id="@inv.Id" class="btn btn-secondary btn-sm">Aç</a>
                     </td>

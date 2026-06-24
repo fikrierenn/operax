@@ -1,6 +1,6 @@
 # Plan 54 — M3 PurchaseOrders Revizyon (kod + UI + mali + CLOSED statü)
 
-**Durum:** AKTİF · onay bekliyor
+**Durum:** ✅ TAMAMLANDI (2026-06-24) — Faz 1-4 + platform seed fix (a0c0609) kapandı, arşive.
 **Tier:** 3 (statü modeli + SP + StatusTransition + immutability + UI + mali, çok dosya)
 **Tarih:** 2026-06-24
 **Bağlam:** Ticari track Faz 1 (MasterData/Plan 50 kapandı). 5 danışman raporu: code-reviewer (14 bulgu), erp-isleyis-danismani (CLOSED boşluğu + immutability + PaymentPlan), competitor-analyst (parite), UX trio, mali (mali-evrak + mali-islem).
@@ -60,9 +60,9 @@ PurchaseOrders modülü çalışıyor ama: (a) kod kuralı ihlalleri (magic stri
 - [x] ✅ Faz 1 (2026-06-24): SourceDoc.PurchaseOrder sabiti + magic string 0 (Details Cancel + PriceVariances) · PriceVariances 2 handler try/catch+ILogger (AntiForgery zaten auto-inject) · sp_ApprovePriceVariance @CompanyId (IDOR) · Details AddLine qty/itemId guard + OnPost ModelState guard + LoadFormDropdownsAsync helper. **filter {…} I-1/2/3 ATLANDI** (sabit param-fragman, gerçek injection yok). build 0/0 · fresh-DB 0 fail (SP 3 param) · code+sql-sp reviewer temiz (7 önceki kapandı) · smoke (3 sayfa 200, PriceVariances query, AddLine qty=0 red).
 - [x] ✅ Faz 2 (2026-06-24): tvf_PaymentPlanAging + **tvf_FinancialPosition** (sql-sp-reviewer CRIT-1 yakaladı) PO/SO PaymentPlan hariç (açık sipariş ledger-dışı) · OnPostCancel PaymentPlan cascade + **transaction sarması** (IMP-1) · C-D sp_GeneratePaymentPlanFromPO AccountMovement yazmıyor (teyit) · tvf_OpenItemAging AM-bazlı PO-free. Smoke: aging 273600→195600, snapshot borç 289700 (PO 78000 çıktı), cascade dry-run 1 satır. **C-E (invoice post PO planını iptal etmiyor, çift estimate+actual) → TODO** (C-A/CRIT-1 ile aging+snapshot zaten temiz; kalan kozmetik liste + kısmi-fatura kararı PurchaseInvoices modülünde).
 - [x] ✅ Faz 3 (2026-06-24): sp_ReceivingPost tam-kabulde PO→CLOSED (eski RECEIVED→CLOSED) · OnPostCloseRemaining POSTED→CLOSED_PARTIAL + PaymentPlan cascade (transaction) · StatusTransition seed (platform fix a0c0609: sistem-fallback + eksiksiz set) · immutability matris CLOSED/CLOSED_PARTIAL satırları · UI: Kalanı Kapat butonu + CLOSED flow + Dict badge (Kapandı/Kısmen Kapandı) + cancel/close confirm. build 0/0 · fresh-DB · sql-sp+code reviewer (Approved false-pos red, CLOSE_PARTIAL renk fix) · smoke: auto-CLOSE dry-run + CloseRemaining E2E browser (badge "Kısmen Kapandı").
-- [ ] Faz 4: Details doc-layout/form-grid/table-scroll · satır-sil · vade autofill · confirm · <300 split. screenshot + smoke.
-- [ ] HARİÇ gap'ler TODO'ya dokümante.
-- [ ] Plan arşive + journal.
+- [x] ✅ Faz 4 (2026-06-24): Details inline-grid→`doc-layout`+`form-grid`+`table-scroll` (mobil collapse) · satır-sil butonu+OnPostDeleteLine handler (DRAFT+immutability guard) · confirm (cancel+close-remaining) · Details.cshtml.cs 533→216 split (Details.Handlers.cs 288 + Details.Dtos.cs 48, hepsi <300). build 0/0 · smoke: satır-sil 2→1 + layout class'lar uygulandı + screenshot temiz. **vade-autofill: PO'da N/A** (vade server-türevli, Partner.PaymentTermDays'ten; düzenlenebilir alan değil — Expenses'tan farklı). add-line-persistent + inline→utility uzun-kuyruk → kozmetik, ertelendi.
+- [x] ✅ HARİÇ gap'ler TODO §C-E (çift-plan) + §D (satış) + competitor gap'leri (RFQ/PR/onay-workflow/blanket/çoklu-para) TODO'da dokümante.
+- [x] ✅ Plan 54 Faz 1-4 + platform fix (a0c0609) TAMAMLANDI → arşive.
 
 ## 6. Faz sırası
 1. **Faz 1 (kod)** önce — izole, düşük risk, pattern oturur.

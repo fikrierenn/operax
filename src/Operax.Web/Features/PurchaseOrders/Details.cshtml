@@ -88,14 +88,14 @@
         }
     }
 
-    <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;">
+    <div class="doc-layout">
 
         @* ───── SOL: header bilgi + satırlar ───── *@
         <div class="stack">
 
             <div class="card">
                 <div class="card-hdr"><div class="card-title">@L.T("Evrak Bilgileri", "Document Info")</div></div>
-                <form method="post" class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+                <form method="post" class="card-body form-grid">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="Header.Id" />
 
@@ -201,6 +201,7 @@
                     }
                     else
                     {
+                        <div class="table-scroll">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -212,6 +213,7 @@
                                     <th class="num">@L.T("Birim Fiyat", "Unit Price")</th>
                                     <th class="num">KDV</th>
                                     <th class="num">@L.T("Toplam", "Total")</th>
+                                    @if (isDraft && !Model.IsNew) { <th style="width:44px;"></th> }
                                 </tr>
                             </thead>
                             <tbody>
@@ -228,12 +230,25 @@
                                         <td class="num">@UiHelpers.FmtNum(l.Price ?? 0, 2)</td>
                                         <td class="num muted">%@UiHelpers.FmtNum(l.TaxRate, 0)</td>
                                         <td class="num"><span class="row-strong">@UiHelpers.FmtTL(l.LineTotal)</span></td>
+                                        @if (isDraft && !Model.IsNew)
+                                        {
+                                            <td class="num">
+                                                <form method="post" asp-page-handler="DeleteLine"
+                                                      onsubmit="return confirm('Bu kalemi silmek istediğinize emin misiniz?');">
+                                                    <input type="hidden" name="id" value="@Model.Header.Id" />
+                                                    <input type="hidden" name="lineId" value="@l.Id" />
+                                                    <button type="submit" class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]" title="@L.T("Kalemi Sil", "Delete line")">
+                                                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        }
                                     </tr>
                                 }
                                 @if (isDraft && !Model.IsNew)
                                 {
                                     <tr id="add-line-row" class="row-inset" style="display:none;">
-                                        <td colspan="8">
+                                        <td colspan="9">
                                             <form method="post" asp-page-handler="AddLine" class="row" style="gap:8px;padding:6px;">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@Model.Header.Id" />
@@ -253,6 +268,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                         @* Ürün seçilince önerilen alış fiyatı (son maliyet) otomatik gelir — kullanıcı değiştirebilir *@
                         <script>
                         (function () {

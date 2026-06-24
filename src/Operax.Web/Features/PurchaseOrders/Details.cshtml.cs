@@ -371,6 +371,59 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id });
     }
 
+    // Kalanı kapat: kısmen teslim alınmış POSTED siparişi CLOSED_PARTIAL yapar (kalan miktar
+    // artık beklenmez). Tam kabul zaten sp_ReceivingPost'ta otomatik CLOSED olur (Plan 54 Faz 3).
+    public async Task<IActionResult> OnPostCloseRemainingAsync(Guid id, CancellationToken ct)
+    {
+        using var conn = db.Open();
+        try
+        {
+            // Atomiklik: statü geçişi + header + PaymentPlan kapanışı tek transaction
+            using var tx = conn.BeginTransaction();
+
+            await conn.ExecuteAsync(new CommandDefinition("sp_ValidateStatusTransition",
+                new { CompanyId = company.Id, DocumentType = SourceDoc.PurchaseOrder,
+                      FromStatus = DocStatus.Posted, ToStatus = DocStatus.ClosedPartial, UserId = user.Id },
+                transaction: tx, commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
+
+            // Yalnız POSTED sipariş kalan-kapatılabilir (DRAFT/CLOSED/CANCELLED reddedilir)
+            var affected = await conn.ExecuteAsync(new CommandDefinition(
+                "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId AND Status=@Posted",
+                new { Status = DocStatus.ClosedPartial, UserId = user.Id, Id = id, CompanyId = company.Id, Posted = DocStatus.Posted },
+                transaction: tx, cancellationToken: ct));
+            if (affected == 0)
+            {
+                tx.Rollback();
+                TempData["Error"] = "Sipariş kapatılamadı (yalnız onaylı sipariş kalan-kapatılabilir).";
+                return RedirectToPage(new { id });
+            }
+
+            // Kalan beklenmeyeceği için PO'nun açık (tahmini) PaymentPlan'ı iptal edilir (hayalet borç önleme)
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                UPDATE PaymentPlan SET Status = @CancelStatus, UpdatedAt = GETUTCDATE()
+                WHERE SourceDocType = @SrcPo AND SourceDocId = @Id AND CompanyId = @CompanyId
+                  AND Status NOT IN (@Paid, @CancelStatus)",
+                new { CancelStatus = PaymentPlanStatus.Cancelled, SrcPo = SourceDoc.PurchaseOrder,
+                      Id = id, CompanyId = company.Id, Paid = PaymentPlanStatus.Paid },
+                transaction: tx, cancellationToken: ct));
+
+            tx.Commit();
+            await audit.LogAsync("CLOSE_PARTIAL", "PurchaseOrderHeader", id, "Sipariş kalanı kapatıldı (kısmi)");
+            TempData["Success"] = "Sipariş kapatıldı (kalan miktar beklenmiyor).";
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000)
+        {
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            logger.LogError(sqlEx, "PO kalan-kapatma hatası: {PoId}", id);
+            TempData["Error"] = "Sipariş kapatılırken veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
+    }
+
     // ─── DTO'lar ────────────────────────────────────────────────
     // Fiyat farkı kontrolü için belge bağlamı (tedarikçi + şube). Plan 30.
     private sealed record PriceCheckCtx(Guid PartnerId, Guid? BranchId);

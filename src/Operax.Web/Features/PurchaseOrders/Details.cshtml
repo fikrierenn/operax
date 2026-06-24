@@ -11,6 +11,8 @@
     var isDraft     = Model.Header.Status == DocStatus.Draft;
     var isPosted    = Model.Header.Status == DocStatus.Posted || Model.Header.Status == DocStatus.Approved;
     var isCancelled = Model.Header.Status == DocStatus.Cancelled;
+    // Kapanış statüleri (Plan 54 Faz 3): tam kabul → CLOSED, kalan iptal → CLOSED_PARTIAL. İkisi de terminal (salt-okuma).
+    var isClosed    = Model.Header.Status == DocStatus.Closed || Model.Header.Status == DocStatus.ClosedPartial;
 
     // Status flow adımları
     var flowSteps = new List<StatusStepVm>
@@ -21,7 +23,10 @@
     if (isCancelled)
         flowSteps.Add(new(L.T("İptal", "Cancelled"), "cancelled", Model.Header.UpdatedAt?.ToString("dd MMM HH:mm")));
     else
-        flowSteps.Add(new(L.T("Onaylı", "Posted"), isPosted ? "current" : "pending", isPosted ? Model.Header.UpdatedAt?.ToString("dd MMM HH:mm") : null));
+        flowSteps.Add(new(L.T("Onaylı", "Posted"), isPosted ? "current" : (isClosed ? "done" : "pending"), (isPosted || isClosed) ? Model.Header.UpdatedAt?.ToString("dd MMM HH:mm") : null));
+    // Kapanış adımı: tam kabul (Kapandı) veya kalan-iptal (Kısmen Kapandı)
+    if (isClosed)
+        flowSteps.Add(new(Model.Header.Status == DocStatus.ClosedPartial ? L.T("Kısmen Kapandı", "Partially Closed") : L.T("Kapandı", "Closed"), "current", Model.Header.UpdatedAt?.ToString("dd MMM HH:mm")));
 
     var flow = new StatusFlowVm(flowSteps);
 
@@ -34,6 +39,8 @@
     }
     if (isPosted)
     {
+        // Kalanı Kapat: kısmen teslim alınmış siparişin kalan miktarını beklemeyi bırak (CLOSED_PARTIAL)
+        actions += $"<button type=\"submit\" form=\"po-close-remaining\" class=\"btn btn-secondary btn-sm\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"M20 6 9 17l-5-5\"/></svg>{L.T("Kalanı Kapat", "Close Remaining")}</button>";
         actions += $"<button type=\"submit\" form=\"po-cancel\" class=\"btn btn-secondary btn-sm btn-danger-outline\"><svg width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>{L.T("İptal Et", "Cancel")}</button>";
     }
 
@@ -307,6 +314,7 @@
                                 "POST"     => "var(--success)",
                                 "APPROVE"  => "var(--success)",
                                 "CANCEL"   => "var(--danger)",
+                                "CLOSE_PARTIAL" => "var(--warn)",
                                 "ADD_LINE" => "var(--brand-500)",
                                 _          => "var(--text-3)"
                             };
@@ -343,7 +351,13 @@
         @Html.AntiForgeryToken()
         <input type="hidden" name="id" value="@Model.Header.Id" />
     </form>
-    <form id="po-cancel" method="post" asp-page-handler="Cancel" style="display:none;">
+    <form id="po-cancel" method="post" asp-page-handler="Cancel" style="display:none;"
+          onsubmit="return confirm('Bu siparişi iptal etmek istediğinize emin misiniz?');">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Header.Id" />
+    </form>
+    <form id="po-close-remaining" method="post" asp-page-handler="CloseRemaining" style="display:none;"
+          onsubmit="return confirm('Kalan miktar artık beklenmeyecek; sipariş kısmen kapatılacak. Onaylıyor musunuz?');">
         @Html.AntiForgeryToken()
         <input type="hidden" name="id" value="@Model.Header.Id" />
     </form>

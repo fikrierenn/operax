@@ -98,8 +98,10 @@ Sipariş satırı (PurchaseOrderLine / SalesOrderLine) de evraktır:
 | Belge | Durum | Bağlı Aşağı Belge | Düzenlenebilir mi? |
 |---|---|---|---|
 | PO | DRAFT | — | ✅ Tümü |
-| PO | POSTED | Receiving yok | ⚠️ Sadece **Cancel** |
-| PO | POSTED | En az 1 Receiving (DRAFT veya POSTED) | ❌ Hiçbir şey |
+| PO | POSTED | Receiving yok | ⚠️ Sadece **Cancel** veya **Kalanı Kapat** |
+| PO | POSTED | En az 1 Receiving (DRAFT veya POSTED) | ❌ Düzenleme yok; ⚠️ **Kalanı Kapat** (CLOSED_PARTIAL) izinli |
+| PO | CLOSED (tam kabul — sp_ReceivingPost otomatik) | — | ❌ Hiçbir şey (terminal, salt-okuma) |
+| PO | CLOSED_PARTIAL (kalan iptal — Kalanı Kapat) | — | ❌ Hiçbir şey (terminal, salt-okuma) |
 | Receiving | DRAFT | — | ✅ Tümü |
 | Receiving | POSTED | ExpenseInvoice yok | ⚠️ Sadece **Cancel** (ters hareket) |
 | Receiving | POSTED | ExpenseInvoice bağlı | ❌ Hiçbir şey |

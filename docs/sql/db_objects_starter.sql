@@ -1673,12 +1673,16 @@ BEGIN
         JOIN ReceivingLine rl ON rl.PurchaseOrderLineId = pol.Id
         WHERE rl.HeaderId = @HeaderId;
 
+        -- PO tam kabul: tüm satırlar (QtyReceived >= QtyOrdered) teslim alındıysa sipariş KAPANIR (CLOSED).
+        -- Kısmi kabulde PO POSTED kalır (açık). Sistem auto-kapanışı; POSTED→CLOSED seed'li geçiş (Plan 54 Faz 3).
+        -- Eski 'RECEIVED' kodu DocStatus'ta yoktu ve hiçbir yerde okunmuyordu → CLOSED ile değiştirildi.
         IF @POId IS NOT NULL
            AND NOT EXISTS (
                SELECT 1 FROM PurchaseOrderLine
                WHERE HeaderId = @POId AND QtyReceived < QtyOrdered
            )
-            UPDATE PurchaseOrderHeader SET Status = 'RECEIVED' WHERE Id = @POId;
+            UPDATE PurchaseOrderHeader SET Status = 'CLOSED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+            WHERE Id = @POId AND Status = 'POSTED';
 
         UPDATE ReceivingHeader
         SET Status = 'POSTED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId

@@ -2024,6 +2024,10 @@ BEGIN
         ORDER BY CreatedAt;
 
         -- FIFO: en eski vade ilk kapatılır
+        -- İş kuralı (Plan 55): PO/SO TAHMİNİ (PURCHASE_ORDER/SALES_ORDER) vade planları dışlanır —
+        -- bunlar forecast/taahhüt, gerçek borç değil. Aksi halde ödeme FIFO ile sipariş forecast'ine
+        -- kapanır (vadesi faturadan erkense), forecast PAID görünür ama GERÇEK fatura borcu OPEN kalır
+        -- (sessiz drift). Ödeme yalnız fatura-kaynaklı gerçek borç/alacağa uygulanır.
         DECLARE c_pp CURSOR LOCAL FAST_FORWARD FOR
             SELECT Id, Amount - PaidAmount, Amount, PaidAmount, SourceDocType, SourceDocId
             FROM PaymentPlan
@@ -2032,6 +2036,7 @@ BEGIN
               AND Direction = @Direction
               AND Status IN ('OPEN', 'PARTIAL', 'OVERDUE')
               AND IsDeleted = 0
+              AND SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')
             ORDER BY DueDate ASC, CreatedAt ASC;
 
         OPEN c_pp;

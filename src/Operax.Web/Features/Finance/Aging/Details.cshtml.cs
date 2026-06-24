@@ -53,6 +53,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> 
                   AND pp.Direction    = @Direction
                   AND pp.Status      <> 'PAID'
                   AND pp.IsDeleted    = 0
+                  -- İş kuralı (Plan 55): sipariş forecast'i (PURCHASE_ORDER/SALES_ORDER) cari aging'e
+                  -- girmez — gerçek borç/alacak değil, taahhüt. tvf_PaymentPlanAging ile aynı dışlama.
+                  AND pp.SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')
                 ORDER BY pp.DueDate ASC", p, cancellationToken: ct))).ToList();
 
             TotalOpen = Lines.Sum(l => l.OpenAmount);

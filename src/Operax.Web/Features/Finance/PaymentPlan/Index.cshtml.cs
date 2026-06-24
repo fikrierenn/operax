@@ -36,30 +36,40 @@ public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logg
             using var conn = db.Open();
             var p = new { CompanyId = company.Id };
 
+            // İş kuralı (Plan 55 — forecast/payable ayrımı): PURCHASE_ORDER/SALES_ORDER kaynaklı
+            // PaymentPlan kayıtları gerçek borç/alacak DEĞİL, sipariş taahhüt/nakit-projeksiyon (forecast)
+            // satırlarıdır — yasal borç yalnız fatura POSTED'da AccountMovement'a yazılır. Bu yüzden her
+            // payable/receivable okuyucu (sayaç + toplam + liste) bunları YAPISAL olarak dışlar; aksi halde
+            // sipariş tahmini + fatura gerçeği aynı listede ÇİFT sayılır. tvf_PaymentPlanAging ile aynı predikat.
             DirCounts = await conn.QuerySingleAsync<DirCountsDto>(new CommandDefinition(@"
                 SELECT
                     COUNT(*) AS Total,
                     SUM(CASE WHEN Direction = 'RECEIVABLE' THEN 1 ELSE 0 END) AS Receivable,
                     SUM(CASE WHEN Direction = 'PAYABLE'    THEN 1 ELSE 0 END) AS Payable
                 FROM PaymentPlan
-                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')", p, cancellationToken: ct));
+                WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND Status IN ('OPEN','PARTIAL','OVERDUE')
+                  AND SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')", p, cancellationToken: ct));
 
             TotalReceivable = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(Amount - PaidAmount), 0)
                 FROM PaymentPlan
                 WHERE CompanyId = @CompanyId AND Direction = 'RECEIVABLE'
-                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p, cancellationToken: ct));
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0
+                  AND SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')", p, cancellationToken: ct));
             TotalPayable = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"
                 SELECT ISNULL(SUM(Amount - PaidAmount), 0)
                 FROM PaymentPlan
                 WHERE CompanyId = @CompanyId AND Direction = 'PAYABLE'
-                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0", p, cancellationToken: ct));
+                  AND Status IN ('OPEN','PARTIAL','OVERDUE') AND IsDeleted = 0
+                  AND SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')", p, cancellationToken: ct));
 
             var page = Page < 1 ? 1 : Page;
+            // Liste sorgusu da aynı forecast dışlamasını uygular (yukarıdaki iş kuralı)
             const string fromWhere = @"
                 FROM PaymentPlan pp
                 LEFT JOIN Partner p ON p.Id = pp.PartnerId
-                WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0";
+                WHERE pp.CompanyId = @CompanyId AND pp.IsDeleted = 0
+                  AND pp.SourceDocType NOT IN ('PURCHASE_ORDER','SALES_ORDER')";
 
             var parms = new DynamicParameters();
             parms.Add("CompanyId", company.Id);

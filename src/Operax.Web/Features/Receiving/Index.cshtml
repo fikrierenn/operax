@@ -1,5 +1,6 @@
 @page
 @model Operax.Web.Features.Receiving.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Mal Kabul";
 }
@@ -133,11 +134,7 @@
                     <td class="font-mono text-xs text-slate-500">@r.DocDate.ToString("dd.MM.yyyy")</td>
                     <td class="font-semibold text-slate-700">@r.PartnerName</td>
                     <td class="text-xs font-bold text-slate-500">@r.WarehouseCode</td>
-                    <td>
-                        <span class="badge @(r.Status == DocStatus.Posted ? "b-green" : r.Status == DocStatus.Cancelled ? "b-red" : "b-amber")">
-                            @(r.Status == DocStatus.Posted ? "Tamamlandı" : r.Status == DocStatus.Cancelled ? "İptal" : "Taslak")
-                        </span>
-                    </td>
+                    <td>@Html.Raw(Dict.StatusBadge(r.Status))</td>
                     <td>
                         @{
                             var awaiting = r.BillingStatus is "NONE" or "PARTIAL";

@@ -117,7 +117,8 @@ class Program
                         "migration_51_zayiat_kdv.sql",          // Plan 51: zayiat sebep→KDV (mücbir/ilave-KDV/belge-ref + reason WASTE→SCRAP/NORMAL_FIRE)
                         "migration_52_item_type.sql",           // Plan 52: ItemType sadeleştir (CONSUMABLE→STOCK + CHECK STOCK/SERVICE/FIXED_ASSET)
                         "migration_53_bin_storagearea.sql",     // Plan 50 Faz 1 (C1): Bin.IsStorageArea kolonu (fresh-install raf-ekle bug)
-                        "migration_54_branchtype_check.sql"     // Plan 50 Faz 2 (H3): BranchType CHECK constraint (SUBE/MERKEZ/FABRIKA/MAGAZA/OFIS)
+                        "migration_54_branchtype_check.sql",    // Plan 50 Faz 2 (H3): BranchType CHECK constraint (SUBE/MERKEZ/FABRIKA/MAGAZA/OFIS)
+                        "migration_56_picktask.sql"             // Plan 56 Faz B: PickTaskLine.PickSeq (serpentine sıra) + ExceptionNote (short-pick/istisna)
 
                     })
                     {

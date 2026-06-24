@@ -40,7 +40,7 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
             LEFT JOIN Bin pb ON pb.Id = l.PickedBinId
             LEFT JOIN AspNetUsers u ON u.Id = l.PickedByUserId
             WHERE l.PickTaskId = @Id AND pt.CompanyId = @CompanyId
-            ORDER BY tb.Zone, tb.SortNo, l.Id",
+            ORDER BY l.PickSeq, tb.Zone, tb.SortNo, l.Id",
             new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
 
         // Depo personeli: Warehouse rolü öncelikli, yoksa diğer kullanıcılar. Dapper ile —

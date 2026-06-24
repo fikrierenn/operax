@@ -58,7 +58,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             LEFT JOIN Warehouse w ON w.Id = l.TargetWarehouseId
             WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyRequestedBase
               AND pt.CompanyId = @CompanyId
-            ORDER BY b.Zone, b.SortNo, l.Id",
+            ORDER BY l.PickSeq, b.Zone, b.SortNo, l.Id",
             new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
 
         // Aktif ekran ilerleme sayacı ("Kalem 3/10") — toplanan + toplam

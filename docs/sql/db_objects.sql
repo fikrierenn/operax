@@ -271,89 +271,113 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-    BEGIN TRANSACTION;
+        DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
 
-    DECLARE @WarehouseId UNIQUEIDENTIFIER, @DocNo NVARCHAR(50), @Status NVARCHAR(20);
+        SELECT @WarehouseId = WarehouseId, @DocNo = DocNo, @Status = Status
+        FROM ShippingHeader WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @HeaderId AND CompanyId = @CompanyId;
 
-    SELECT @WarehouseId = WarehouseId, @DocNo = DocNo, @Status = Status
-    FROM ShippingHeader WITH (UPDLOCK, ROWLOCK)
-    WHERE Id = @HeaderId AND CompanyId = @CompanyId;
+        IF @WarehouseId IS NULL
+            THROW 50001, N'Sevkiyat belgesi bulunamadı.', 1;
 
-    IF @WarehouseId IS NULL
-        THROW 50001, 'Sevkiyat belgesi bulunamadı.', 1;
+        DECLARE @TaskId    UNIQUEIDENTIFIER = NEWID();
+        DECLARE @TaskDocNo NVARCHAR(50)     = 'PCK-' + @DocNo;
+        -- CreatedBy kolonları UNIQUEIDENTIFIER; @UserId string olabilir → TRY_CAST (sp_TransferPost pattern, IMP-3)
+        DECLARE @UserGuid  UNIQUEIDENTIFIER = TRY_CAST(@UserId AS UNIQUEIDENTIFIER);
 
-    DECLARE @TaskId   UNIQUEIDENTIFIER = NEWID();
-    DECLARE @TaskDocNo NVARCHAR(50)    = 'PCK-' + @DocNo;
+        -- Pick Task Header
+        INSERT INTO PickTask (Id, CompanyId, DocNo, ShipmentId, Status, Priority, CreatedBy)
+        VALUES (@TaskId, @CompanyId, @TaskDocNo, @HeaderId, 'DRAFT', 10, @UserGuid);
 
-    -- Pick Task Header
-    INSERT INTO PickTask (Id, CompanyId, DocNo, ShipmentId, Status, Priority, CreatedBy)
-    VALUES (@TaskId, @CompanyId, @TaskDocNo, @HeaderId, 'DRAFT', 10, @UserId);
-
-    -- Pick Task Lines — yalnızca yeterli stok olan satırlar (FIFO bin)
-    INSERT INTO PickTaskLine
-        (PickTaskId, ItemId, UomId, TargetWarehouseId, TargetBinId, QtyRequested, QtyRequestedBase)
-    SELECT
-        @TaskId,
-        sl.ItemId,
-        sl.UomId,
-        @WarehouseId,
-        COALESCE(
-            -- FIFO: en eski stoklu raf
-            (SELECT TOP 1 BinId
-             FROM StockMovement
-             WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId
-               AND WarehouseId = @WarehouseId AND IsCancelled = 0
-             GROUP BY BinId HAVING SUM(QtyBase) > 0
-             ORDER BY MIN(CreatedAt)),
-            -- Fallback: picking alanı
-            (SELECT TOP 1 Id FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1)
+        -- ÇOKLU-BİN FIFO ALLOCATION (Plan 56 Faz B): bir ürün birden çok rafta olabilir.
+        -- Sevkiyat deposundaki stoklu bin'ler FIFO (en eski giriş önce) sıralanır; sevkiyat satırının
+        -- ihtiyacı bin bin tüketilir → her tüketilen bin AYRI PickTaskLine olur (kalan sıradaki bin'e).
+        -- Stok kapısı DEPO-ÖZEL (pick sevkiyat deposundan yapılır; depo yetmezse aşağıda ProductionOrder).
+        ;WITH BinStock AS (
+            SELECT sl.Id AS ShipLineId, sl.ItemId, sl.UomId,
+                   sl.QtyBase AS NeedBase, sl.QtyOriginal AS NeedOrig,
+                   sm.BinId, SUM(sm.QtyBase) AS BinQty, MIN(sm.CreatedAt) AS FirstIn
+            FROM ShippingLine sl
+            JOIN StockMovement sm ON sm.ItemId = sl.ItemId AND sm.CompanyId = @CompanyId
+                 AND sm.WarehouseId = @WarehouseId AND sm.IsCancelled = 0
+            WHERE sl.HeaderId = @HeaderId
+            GROUP BY sl.Id, sl.ItemId, sl.UomId, sl.QtyBase, sl.QtyOriginal, sm.BinId
+            HAVING SUM(sm.QtyBase) > 0
         ),
-        sl.QtyOriginal,
-        sl.QtyBase
-    FROM ShippingLine sl
-    WHERE sl.HeaderId = @HeaderId
-      AND (
-          SELECT ISNULL(SUM(QtyBase), 0)
-          FROM StockMovement
-          WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId AND IsCancelled = 0
-      ) >= sl.QtyBase;
+        Alloc AS (
+            SELECT *,
+                   SUM(BinQty) OVER (PARTITION BY ShipLineId ORDER BY FirstIn, BinId
+                       ROWS UNBOUNDED PRECEDING) AS CumQty,
+                   ISNULL(SUM(BinQty) OVER (PARTITION BY ShipLineId ORDER BY FirstIn, BinId
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0) AS PrevCum
+            FROM BinStock
+        )
+        -- KISMİ-STOK (IMP-1): depo ihtiyacı tam karşılamasa bile MEVCUT stok pick'lenir; eksik kalan
+        -- aşağıda ProductionOrder ile üretilir. (Eski "ya hep ya hiç" stoğu sahipsiz bırakıyordu.)
+        INSERT INTO PickTaskLine
+            (PickTaskId, ItemId, UomId, TargetWarehouseId, TargetBinId, QtyRequested, QtyRequestedBase)
+        SELECT
+            @TaskId, a.ItemId, a.UomId, @WarehouseId, a.BinId,
+            -- QtyRequested (orijinal birim): bu bin'in base payı oranında (UOM korunur)
+            CAST((CASE WHEN a.CumQty <= a.NeedBase THEN a.BinQty ELSE a.NeedBase - a.PrevCum END)
+                 * a.NeedOrig / NULLIF(a.NeedBase, 0) AS DECIMAL(18,4)),
+            -- QtyRequestedBase: bu bin'den ayrılan miktar (son bin yalnız kalanı alır; depo yetmezse hepsi alınır)
+            CASE WHEN a.CumQty <= a.NeedBase THEN a.BinQty ELSE a.NeedBase - a.PrevCum END
+        FROM Alloc a
+        WHERE a.PrevCum < a.NeedBase;   -- yalnız ihtiyacı karşılamak için gereken bin'ler (kısmi stokta tümü)
 
-    -- Stok yetersiz satırlar için üretim emri oluştur
-    INSERT INTO ProductionOrder
-        (Id, CompanyId, DocNo, ItemId, QtyTarget, Status, SourceDocType, SourceDocId, CreatedBy)
-    SELECT
-        NEWID(),
-        @CompanyId,
-        'PRD-' + i.Code + '-' + FORMAT(GETDATE(), 'MMdd'),
-        sl.ItemId,
-        sl.QtyBase - ISNULL((
-            SELECT SUM(QtyBase) FROM StockMovement
-            WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId AND IsCancelled = 0
-        ), 0),
-        'DRAFT',
-        'SHIPPING',
-        @HeaderId,
-        @UserId
-    FROM ShippingLine sl
-    JOIN Item i ON i.Id = sl.ItemId
-    WHERE sl.HeaderId = @HeaderId
-      AND (
-          SELECT ISNULL(SUM(QtyBase), 0)
-          FROM StockMovement
-          WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId AND IsCancelled = 0
-      ) < sl.QtyBase;
+        -- Stok yetersiz (DEPO toplamı < ihtiyaç) satırlar için üretim emri (depo-tutarlı)
+        INSERT INTO ProductionOrder
+            (Id, CompanyId, DocNo, ItemId, QtyTarget, Status, SourceDocType, SourceDocId, CreatedBy)
+        SELECT
+            NEWID(), @CompanyId,
+            -- DocNo benzersizleştirici: gün değil saniye (IMP-2 — aynı gün aynı ürün çakışmasını azaltır)
+            'PRD-' + i.Code + '-' + FORMAT(GETDATE(), 'yyyyMMddHHmmss'),
+            sl.ItemId,
+            sl.QtyBase - ISNULL((
+                SELECT SUM(QtyBase) FROM StockMovement
+                WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId
+                  AND WarehouseId = @WarehouseId AND IsCancelled = 0), 0),
+            'DRAFT', 'SHIPPING', @HeaderId, @UserGuid
+        FROM ShippingLine sl
+        JOIN Item i ON i.Id = sl.ItemId
+        WHERE sl.HeaderId = @HeaderId
+          AND ISNULL((
+              SELECT SUM(QtyBase) FROM StockMovement
+              WHERE ItemId = sl.ItemId AND CompanyId = @CompanyId
+                AND WarehouseId = @WarehouseId AND IsCancelled = 0), 0) < sl.QtyBase
+          -- idempotency (IMP-2): aynı sevkiyat+ürün için zaten açık üretim emri varsa tekrar açma
+          AND NOT EXISTS (SELECT 1 FROM ProductionOrder po
+              WHERE po.SourceDocType = 'SHIPPING' AND po.SourceDocId = @HeaderId
+                AND po.ItemId = sl.ItemId AND po.Status <> 'CANCELLED');
 
-    -- Hiç picking satırı oluşmadıysa task'ı sil
-    IF NOT EXISTS (SELECT 1 FROM PickTaskLine WHERE PickTaskId = @TaskId)
-    BEGIN
-        DELETE FROM PickTask WHERE Id = @TaskId;
-        SET @TaskId = NULL;
-    END
+        -- PickSeq dondur: serpentine raf rotası (Zone, SortNo) — operatör tek-pas sırayla yürür (Plan 56)
+        ;WITH Seq AS (
+            SELECT l.Id, ROW_NUMBER() OVER (ORDER BY b.Zone, b.SortNo, l.Id) AS Rn
+            FROM PickTaskLine l
+            LEFT JOIN Bin b ON b.Id = l.TargetBinId
+            WHERE l.PickTaskId = @TaskId
+        )
+        UPDATE l SET l.PickSeq = s.Rn
+        FROM PickTaskLine l JOIN Seq s ON s.Id = l.Id;
 
-    COMMIT TRANSACTION;
+        -- Hiç picking satırı oluşmadıysa task'ı sil
+        IF NOT EXISTS (SELECT 1 FROM PickTaskLine WHERE PickTaskId = @TaskId)
+        BEGIN
+            DELETE FROM PickTask WHERE Id = @TaskId;
+            SET @TaskId = NULL;
+        END
 
-    SELECT @TaskId AS TaskId;
+        COMMIT TRANSACTION;
+        SELECT @TaskId AS TaskId;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END
 GO
 

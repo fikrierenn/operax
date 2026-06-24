@@ -57,7 +57,7 @@ M2 (Partner/cari + Item/ürün + Warehouse/Bin/Branch) **işlevsel ama DoD altı
 
 ## 5. Done Criteria (M2 DoD)
 - [x] ✅ Faz 1 (2026-06-24): Bin.IsStorageArea migration_53 + schema_all + fresh-DB ritüeli 0-fail · Item Pasif Yap (OnPostDeactivate) çalışıyor · Warehouse ModelState guard + [Required]. Smoke OK, 3 reviewer temiz.
-- [ ] Faz 2: Item/Warehouse/Branch soft-delete · Bin Create işlevsel · Warehouse/Branch catch+ILogger · BranchType CHECK · P32-7
+- [x] ✅ Faz 2 (2026-06-24): Item/Warehouse/Branch soft-delete (Sil butonu+child-guard) · Locations bin Create/Edit/Delete işlevsel · Warehouse/Branch Details catch+ILogger · BranchType CHECK (migration_54) · P32-7 SupplierItemCode. Warehouse delete: açık-PO/SO guard + transaction. fresh-DB 0 fail, 3 reviewer, smoke ✓.
 - [ ] Faz 3: ui-standard (4 sayfa) · magic string 0 · hardcoded URL 0 · PriceLists sayaç · reconciliation logger
 - [ ] Faz 4: Partners/Details + Items/Details <300 satır · cari-leg + raf-ekle E2E smoke
 - [ ] Her faz: build → code/sql-sp/security reviewer → smoke (phase-review-gate; schema değişince fresh-DB §3.5)

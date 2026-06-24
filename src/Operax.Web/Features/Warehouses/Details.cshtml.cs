@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.Warehouses;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public WarehouseDto Warehouse { get; set; } = new();
@@ -67,33 +67,44 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
 
         var wasNew = IsNew; // redirect öncesinde durumu yakala
 
-        // İş kuralı: BranchId bu firmaya ait olmalı (IDOR koruması)
-        if (Warehouse.BranchId.HasValue)
+        try
         {
-            var branchOwned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-                "SELECT COUNT(1) FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
-                new { Id = Warehouse.BranchId, CompanyId = company.Id },
-                cancellationToken: ct));
-            if (branchOwned == 0) Warehouse.BranchId = null;
-        }
+            // İş kuralı: BranchId bu firmaya ait olmalı (IDOR koruması)
+            if (Warehouse.BranchId.HasValue)
+            {
+                var branchOwned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                    "SELECT COUNT(1) FROM Branch WHERE Id = @Id AND CompanyId = @CompanyId",
+                    new { Id = Warehouse.BranchId, CompanyId = company.Id },
+                    cancellationToken: ct));
+                if (branchOwned == 0) Warehouse.BranchId = null;
+            }
 
-        if (IsNew)
-        {
-            Warehouse.Id = Guid.NewGuid();
-            const string sql = @"
-                INSERT INTO Warehouse (Id, CompanyId, Code, Name, IsActive, BranchId)
-                VALUES (@Id, @CompanyId, @Code, @Name, @IsActive, @BranchId)";
-            await conn.ExecuteAsync(new CommandDefinition(sql,
-                new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId },
-                cancellationToken: ct));
+            if (IsNew)
+            {
+                Warehouse.Id = Guid.NewGuid();
+                const string sql = @"
+                    INSERT INTO Warehouse (Id, CompanyId, Code, Name, IsActive, BranchId)
+                    VALUES (@Id, @CompanyId, @Code, @Name, @IsActive, @BranchId)";
+                await conn.ExecuteAsync(new CommandDefinition(sql,
+                    new { Warehouse.Id, CompanyId = company.Id, Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId },
+                    cancellationToken: ct));
+            }
+            else
+            {
+                // CompanyId zorunlu — başka şirket deposunu güncelleyemez
+                const string sql = "UPDATE Warehouse SET Code = @Code, Name = @Name, IsActive = @IsActive, BranchId = @BranchId WHERE Id = @Id AND CompanyId = @CompanyId";
+                await conn.ExecuteAsync(new CommandDefinition(sql,
+                    new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id },
+                    cancellationToken: ct));
+            }
         }
-        else
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
         {
-            // CompanyId zorunlu — başka şirket deposunu güncelleyemez
-            const string sql = "UPDATE Warehouse SET Code = @Code, Name = @Name, IsActive = @IsActive, BranchId = @BranchId WHERE Id = @Id AND CompanyId = @CompanyId";
-            await conn.ExecuteAsync(new CommandDefinition(sql,
-                new { Warehouse.Code, Warehouse.Name, Warehouse.IsActive, Warehouse.BranchId, Warehouse.Id, CompanyId = company.Id },
-                cancellationToken: ct));
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a; form tekrar gösterilir
+            logger.LogError(sqlEx, "Depo kaydetme DB hatası. Depo {WarehouseId}", Warehouse.Id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+            await ReloadFormAsync(conn, ct);
+            return Page();
         }
 
         TempData["Success"] = wasNew ? "Depo oluşturuldu." : "Depo güncellendi.";

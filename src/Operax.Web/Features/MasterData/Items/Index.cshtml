@@ -99,6 +99,10 @@
                         <td class="px-6 py-4">
                             <div class="font-mono text-xs text-[var(--brand-500)] font-bold mb-0.5">@item.Code</div>
                             <div class="font-bold text-[var(--text)] text-sm">@item.Name</div>
+                            @if (!string.IsNullOrEmpty(item.SupplierItemCode))
+                            {
+                                <div class="text-[10px] text-[var(--text-4)] mt-0.5">Ted. kodu: <span class="font-mono">@item.SupplierItemCode</span></div>
+                            }
                             @if (!string.IsNullOrEmpty(item.Barcode))
                             {
                                 <div class="text-[10px] text-[var(--text-4)] mt-1 flex items-center gap-1">
@@ -134,9 +138,16 @@
                             }
                         </td>
                         <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
-                            <a asp-page="./Details" asp-route-id="@item.Id" class="btn btn-secondary btn-sm">
-                                @L.T("Düzenle", "Edit")
-                            </a>
+                            <div class="flex items-center justify-end gap-1.5">
+                                <a asp-page="./Details" asp-route-id="@item.Id" class="btn btn-secondary btn-sm">
+                                    @L.T("Düzenle", "Edit")
+                                </a>
+                                @* Soft-delete: stok hareketi varsa handler engeller (Pasif Yap önerir) *@
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id"
+                                      onsubmit="return confirm('@item.Name ürününü silmek istediğinize emin misiniz?')">
+                                    <button type="submit" class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">@L.T("Sil", "Delete")</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 }

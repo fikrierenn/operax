@@ -40,8 +40,37 @@
         <div class="card overflow-hidden">
             <div class="card-hdr">
                 <span class="card-title">Hücreler (Depolama Alanları)</span>
-                <button class="btn btn-secondary btn-sm">+ Hücre Ekle</button>
+                @if (Model.SelectedWhId != null)
+                {
+                    @* Vanilla toggle (CSP-safe inline onclick) — ekle formunu aç/kapat *@
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            onclick="document.getElementById('addBinForm').classList.toggle('hidden')">+ Hücre Ekle</button>
+                }
             </div>
+
+            @if (Model.SelectedWhId != null)
+            {
+                @* Yeni hücre ekleme formu (varsayılan gizli) *@
+                <form method="post" asp-page-handler="AddBin" id="addBinForm" class="hidden p-4 bg-[var(--surface-2)] border-b border-[var(--border)]">
+                    <input type="hidden" name="whId" value="@Model.SelectedWhId" />
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                        <div class="form-group">
+                            <label class="form-label">Hücre Kodu <span class="req">*</span></label>
+                            <input name="code" class="form-ctrl font-mono" placeholder="A-01-01" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bölge</label>
+                            <input name="zone" class="form-ctrl" placeholder="A" />
+                        </div>
+                        <div class="flex items-center gap-4 pb-2">
+                            <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" name="isPicking" value="true" class="chk-box" /> Toplama</label>
+                            <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" name="isReceiving" value="true" class="chk-box" /> Mal Kabul</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">Ekle</button>
+                    </div>
+                </form>
+            }
+
             <table class="data-table w-full">
                 <thead>
                     <tr>
@@ -67,7 +96,39 @@
                                 else { <span class="w-2 h-2 rounded-full bg-[var(--border)] inline-block"></span> }
                             </td>
                             <td class="text-right">
-                                <button class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">Sil</button>
+                                <div class="flex items-center justify-end gap-1.5">
+                                    @* Düzenle: satır-altı inline edit formunu aç/kapat *@
+                                    <button type="button" class="btn btn-ghost btn-sm"
+                                            onclick="document.getElementById('editBin-@bin.Id').classList.toggle('hidden')">Düzenle</button>
+                                    <form method="post" asp-page-handler="DeleteBin" asp-route-whId="@Model.SelectedWhId" asp-route-binId="@bin.Id"
+                                          onsubmit="return confirm('@bin.Code hücresini silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">Sil</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        @* Inline düzenleme satırı (varsayılan gizli) *@
+                        <tr id="editBin-@bin.Id" class="hidden">
+                            <td colspan="5" class="bg-[var(--surface-2)] p-4">
+                                <form method="post" asp-page-handler="EditBin">
+                                    <input type="hidden" name="whId" value="@Model.SelectedWhId" />
+                                    <input type="hidden" name="binId" value="@bin.Id" />
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                        <div class="form-group">
+                                            <label class="form-label">Hücre Kodu <span class="req">*</span></label>
+                                            <input name="code" class="form-ctrl font-mono" value="@bin.Code" required />
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Bölge</label>
+                                            <input name="zone" class="form-ctrl" value="@bin.Zone" />
+                                        </div>
+                                        <div class="flex items-center gap-4 pb-2">
+                                            <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" name="isPicking" value="true" class="chk-box" @(bin.IsPickingArea ? "checked" : "") /> Toplama</label>
+                                            <label class="flex items-center gap-1.5 text-sm"><input type="checkbox" name="isReceiving" value="true" class="chk-box" @(bin.IsReceivingArea ? "checked" : "") /> Mal Kabul</label>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm">Kaydet</button>
+                                    </div>
+                                </form>
                             </td>
                         </tr>
                     }

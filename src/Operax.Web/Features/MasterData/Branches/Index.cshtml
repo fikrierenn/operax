@@ -81,7 +81,14 @@
                         else             { <span class="badge b-gray">PASİF</span>  }
                     </td>
                     <td class="text-right" onclick="event.stopPropagation()">
-                        <a asp-page="./Details" asp-route-id="@b.Id" class="btn btn-secondary btn-sm">Düzenle</a>
+                        <div class="flex items-center justify-end gap-1.5">
+                            <a asp-page="./Details" asp-route-id="@b.Id" class="btn btn-secondary btn-sm">Düzenle</a>
+                            @* Soft-delete: bağlı depo varsa handler engeller (orphan guard) *@
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@b.Id"
+                                  onsubmit="return confirm('@b.Name şubesini silmek istediğinize emin misiniz?')">
+                                <button type="submit" class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">Sil</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             }

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Branches;
 
 [Authorize]
-public class IndexModel(Db db, ICurrentCompany company) : PageModel
+public class IndexModel(Db db, ICurrentCompany company, ILogger<IndexModel> logger) : PageModel
 {
     public IEnumerable<BranchDto> Branches { get; set; } = [];
     public int ActiveCount { get; set; }
@@ -52,6 +52,38 @@ public class IndexModel(Db db, ICurrentCompany company) : PageModel
             JOIN Branch b ON b.Id = w.BranchId
             WHERE b.CompanyId = @CompanyId AND w.IsDeleted = 0",
             new { CompanyId = company.Id }, cancellationToken: ct));
+    }
+
+    // Şubeyi soft-delete eder (IsDeleted=1) — bağlı depo varsa engellenir (orphan riski, plan M1)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            using var conn = db.Open();
+
+            // İş kuralı: şubeye bağlı (silinmemiş) depo varsa silinemez
+            var whCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT COUNT(1) FROM Warehouse WHERE BranchId = @Id AND CompanyId = @CompanyId AND IsDeleted = 0",
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
+            if (whCount > 0)
+            {
+                TempData["Error"] = "Şube silinemez: bağlı depo(lar) mevcut. Önce depoları taşıyın veya silin.";
+                return RedirectToPage();
+            }
+
+            // Soft-delete — yalnızca bu firmanın silinmemiş şubesi
+            var affected = await conn.ExecuteAsync(new CommandDefinition(
+                "UPDATE Branch SET IsDeleted = 1, UpdatedAt = GETUTCDATE() WHERE Id = @Id AND CompanyId = @CompanyId AND IsDeleted = 0",
+                new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
+            TempData[affected > 0 ? "Success" : "Error"] = affected > 0 ? "Şube silindi." : "Şube bulunamadı.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a
+            logger.LogError(sqlEx, "Şube silme DB hatası. Şube {BranchId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
+        return RedirectToPage();
     }
 
     public record BranchDto

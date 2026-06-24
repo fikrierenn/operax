@@ -18,7 +18,7 @@
 ### B. KAYIP OTURUM'dan kalan KOD işi — **Plan 50 (M2 Master Veri) AKTİF, 4 faz açık**
 `plans/50-module-M2-masterdata.md` — kayıp 2026-06-23 öğleden sonra oturumunun audit'i; **kod tarafı yapılmadı** (tasarım Faz 3 kısmen 2026-06-24 MasterData pass'inde yapıldı):
 - [x] ✅ **Faz 1 (CRITICAL) 2026-06-24:** `Bin.IsStorageArea` migration_53 + fresh-DB ritüeli (0 fail) · Item "Pasif Yap" OnPostDeactivate handler · Warehouse ModelState guard + [Required]. Smoke: raf-ekle IsStorageArea=1 ✓, Item IsActive=0 + audit ✓. Reviewer (kod/sql/security) temiz.
-- [ ] **Faz 2 (HIGH):** Item/Warehouse/Branch soft-delete handler · Bin Create/Edit işlevsel · Warehouse/Branch try-catch+ILogger · BranchType CHECK constraint · P32-7 SupplierItemCode liste.
+- [x] ✅ **Faz 2 (HIGH) 2026-06-24:** Item/Warehouse/Branch soft-delete handler+Sil butonu (child-guard: hareket/stok/depo) · Locations bin Create/Edit/Delete işlevsel · Warehouse/Branch Details try-catch+ILogger · BranchType CHECK (migration_54) · P32-7 SupplierItemCode listede. Reviewer: Warehouse delete'e açık-PO/SO guard + transaction eklendi; UpdatedAt reddedildi (Warehouse'da kolon yok). Smoke: CHECK red(547)·Locations CRUD·Branch guard ✓.
 - [~] **Faz 3 (UI):** ⚠️ tasarım kısmı 2026-06-24 MasterData modül pass'inde YAPILDI (page-hdr/card/data-table/token); kalan: magic string→sabit (ItemType/BranchType/PartnerType) · hardcoded URL→asp-page · PriceLists sayaç fix · reconciliation ILogger.
 - [ ] **Faz 4:** Partners/Details 554→<300 (tab/service split) · Items/Details <300 · cari-leg + raf-ekle E2E smoke.
 

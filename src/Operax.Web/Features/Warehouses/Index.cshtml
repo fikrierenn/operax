@@ -88,9 +88,16 @@
                         }
                     </td>
                     <td class="text-right" onclick="event.stopPropagation()">
-                        <a asp-page="./Details" asp-route-id="@wh.Id" class="btn btn-secondary btn-sm">
-                            Hücreler / Düzenle
-                        </a>
+                        <div class="flex items-center justify-end gap-1.5">
+                            <a asp-page="./Details" asp-route-id="@wh.Id" class="btn btn-secondary btn-sm">
+                                Hücreler / Düzenle
+                            </a>
+                            @* Soft-delete: stok bakiyesi varsa handler engeller *@
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@wh.Id"
+                                  onsubmit="return confirm('@wh.Name deposunu silmek istediğinize emin misiniz?')">
+                                <button type="submit" class="btn btn-ghost btn-sm text-[var(--text-4)] hover:text-[var(--danger)]">Sil</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             }

@@ -10,11 +10,11 @@
 ### A. Sıradaki modüller (worst-first, tasarım + kod birlikte) — plan 53
 - [ ] **M1 Manufacturing** (BOM/WorkCenters/WorkOrders ×5): util-renk AĞIR (~74/ekran) + `class="input"/"label"`→`.form-ctrl`/`.form-label` + bespoke help-panel (`bg-amber-50`→semantic). + code-reviewer Manufacturing PageModels.
 - [ ] **WMS-ops** (Transfer/Picking non-terminal): bespoke buton (`bg-indigo-600 rounded-lg`)+panel+header+table → semantic; util-renk.
-- [/] **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): badge + util.
+- [x] ✅ **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): badge + util — KAPANDI 2026-06-24.
   - [x] ✅ Badge → `Dict.StatusBadge()` tüm Belgeler: Receiving (plan 55 RECEIVING_STATUS) · Expenses Index (01550da) · PurchaseInvoices/MaterialIssue zaten dict'ti. 🔴 İngilizce-enum kalmadı.
   - [x] ✅ Expenses Index+Report renk→token (01550da) · MaterialIssue Index+Details renk→token (c60e5fd).
   - [x] ✅ PurchaseInvoices Index+Details renk→token (amber variance paneli→warn token dahil).
-  - [ ] Kalan: **Expenses/Details** (satır ~112 ayrı DEBT — `class="input"/"label"`→form-ctrl form refactor, renk değil).
+  - [x] ✅ Expenses/Details + Report: DOĞRULANDI temiz — `class="input"/"label"`/raw-renk 0 oluşum (M18 UX-pass'inde gold-standard'a çekilmiş, satır 30/116 DEBT STALE'di). Yalnız birkaç benign `font-size:` inline (renk zaten token). **Belgeler grubu KAPANDI.**
 - [ ] **Finance** (17, çoğu std): inline-renk (Aging/Details, CreditCards/Index bespoke kart, Payments/Create) → semantic.
 - [ ] **Admin kalan** (zaten M0'da Roles/Create·Modules·StatusTransitions·Parameters yapıldı) — Dictionary/Values vanilla teyit, gerisi std.
 - [ ] **Misc** (Lot/LPN/Serial/Budget/Inventory): bespoke header (`<h2>`→page-hdr) + **LPN/Details** (bespoke buton+panel+`bg-indigo-900`) + **Budget/Details** `.input`/`.label`→form-ctrl.
@@ -27,7 +27,7 @@
 - [x] ✅ **Faz 4 (2026-06-24):** Partners/Details 568→236 (partial split: Details.Loaders.cs + Details.Dtos.cs) · Items/Details 342→274 (Details.Dtos.cs + Details.Handlers.cs) · E2E smoke: 7 Partner tab + Items Details hepsi 200, raf-ekle (Faz 1) ✓. **Plan 50 M2 TÜMÜYLE KAPANDI → arşiv.**
 
 ### C. KAYIP OTURUM tasarım/debt kalıntıları
-- [ ] **Expenses/Details + Report/Index** Tailwind utility-salata (`class="label"/"input"`) → form-ctrl/form-label/_PageHeader (M18 UX-pass etkileşimi tamam, GÖRSEL katman ayrı — Belgeler modülünde).
+- [x] ✅ **Expenses/Details + Report/Index** — STALE'di, DOĞRULANDI temiz (0 salata, gold-standard). Report renk→token (01550da). 2026-06-24.
 - [ ] **M0 borcu:** Users/Edit IDOR (`Input.Id`→route+`[BindNever]`) · Dashboard `MovementType` magic string.
 - [ ] **P32-7** PO add-line SupplierItemCode görünürlük (hafif, PO Details dokunuşunda).
 
@@ -113,7 +113,7 @@ Kaynak: iki paralel denetim workflow'u (SP iş-doğruluğu 33 ajan/55 SP + C# mi
   - [x] ✅ **MasterData/Items/Index KAPANDI (2026-06-23, commit sonraki):** worst-first #1 (util:106). Tablo `.card overflow-hidden` içinde scroll-wrapper yoktu → mobilde 665px tablo CLIP. Düzeltme: tablo `<div class="table-scroll">` + `min-w-[640px]` ile sarıldı (yatay-scroll, kesilmez); tüm token-ihlali sabit renk (`bg-slate-50/text-slate-400/text-indigo-600/divide-slate-100/bg-red-50/bg-amber-50`) → token utility (`bg-[var(--surface-2)]`/`text-[var(--text-4)]`/`text-[var(--brand-500)]`/`bg-[var(--danger-bg)]` vb.); filtre çubuğu mobilde dikey-stack (`flex-col sm:flex-row`, sabit `w-48/w-40` → `w-full sm:w-48`); kayıt-chip `badge-neutral`. Tailwind rebuild + Web rebuild 0/0. Tarayıcı-verify: **mobil(375)** pageOverflow=false · tablo scrollable(320→665) · filtre column; **desktop(1280)** pageOverflow=false · filtre row · tablo scroll-gerekmez · thead token-renk. Detaylı Türkçe yorum eklendi.
   - [ ] Sıradaki worst-first: **Warehouses → Production/BOM → PurchaseInvoices → WMS** (+ diğer MasterData listeleri: Partners/Locations/Accounts/PriceLists/Branches benzer Tailwind-salata olabilir, dokununca standardize).
 - [x] ✅ KAPALI 2026-06-23 **🔴 PLATFORM · Alpine.js CSP'den KIRIK → karar (c) vanilla.** Tarama: Features/ altında Alpine kullanan TEK gerçek sayfa `Admin/Dictionary/Values.cshtml` kaldı (MaterialIssue/Details'teki tek satır yalnız açıklama yorumu) → vanilla'ya çevrildi (`dictRowEdit` data-attr+onclick toggle, tarayıcıda doğrulandı). Karar (c) seçildi: Alpine tamamen bırakıldı, vanilla-first standart. `razor-conventions.md` JavaScript bölümü revize edildi (Alpine YASAK + CSP `unsafe-eval` yok gerekçesi + vanilla declarative-durum reçetesi). Kural↔kod çelişkisi giderildi. (b) reddedildi (güvenlik). (a) ileride Alpine zorunlu olursa `@alpinejs/csp` notu olarak kuralda kaldı.
-- [ ] **DEBT · Expenses/Details + Report Tailwind utility-salata (UX-pass 2026-06-23):** `Expenses/Details.cshtml` + `Report/Index.cshtml` `class="label"/"input"/grid grid-cols-2 md:grid-cols-3`/`text-2xl font-bold text-slate-800` vb. ui-standard §1/§2 ihlali (semantic class değil). UX-pass etkileşim katmanını düzeltti (vade auto-fill + combobox); GÖRSEL katman (Tailwind→`form-ctrl`/`form-label`/`_PageHeader`) ayrı. Pre-existing; bu dosyalara tekrar dokununca veya genel ui-standard sweep'inde.
+- [x] ✅ **DEBT STALE — DOĞRULANDI temiz (2026-06-24):** Expenses/Details + Report'ta `class="label"/"input"`/`text-slate-*` **0 oluşum** (M18 UX-pass'inde zaten gold-standard'a çekilmiş; bu DEBT satırı yazıldığı tarihte stale kalmış). Report renk→token (01550da). Kalan: yalnız birkaç benign `font-size:` inline (renk token).
 - [ ] **DEBT · MaterialIssue/Details Sarf Kalemleri tablo bölümü Tailwind utility-salata (Plan 51 code-reviewer, 2026-06-23):** `Details.cshtml:115-116/125/154` `px-6 py-4 bg-slate-50 border-b flex...` / `text-sm font-bold text-slate-800` / `hidden p-4 bg-slate-50` ui-standard §1/§2 ihlali. Pre-existing (Plan 25 sarf fişi tablosu, Plan 51 kapsamı header form'du — drive-by yasağı). Semantic class'a (`card-table-hdr`/`add-line-panel`) çıkar; bu dosyaya tekrar dokununca.
 - [ ] **DEBT · P32-7 PO satırında SupplierItemCode görünürlük (ERTELENDİ):** PO Details add-line'da tedarikçi seçiliyse ürünün SupplierItemCode'u gösterilsin. Hafif (JS + lookup). PO Details bir sonraki dokunuşta eklenir; gerçek ihtiyaç düşük.
 

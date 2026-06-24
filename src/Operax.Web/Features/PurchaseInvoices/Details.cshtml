@@ -55,7 +55,7 @@
     <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px">
         @* SOL: Tedarikçi belge bilgisi *@
         <div class="card p-6">
-            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 pb-2 border-b">Tedarikçi Belge Bilgisi</div>
+            <div class="text-xs font-bold uppercase tracking-wider text-[var(--text-4)] mb-6 pb-2 border-b">Tedarikçi Belge Bilgisi</div>
             <form method="post" asp-page-handler="Save" asp-route-id="@h.Id">
                 @Html.AntiForgeryToken()
                 <div class="space-y-4">
@@ -86,9 +86,9 @@
 
         @* SAĞ: Kalemler + toplamlar *@
         <div class="card overflow-hidden">
-            <div class="px-6 py-4 bg-slate-50 border-b">
-                <h3 class="text-sm font-bold text-slate-800">Fatura Kalemleri</h3>
-                <p class="text-[11px] text-slate-500">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
+            <div class="px-6 py-4 bg-[var(--bg-2)] border-b">
+                <h3 class="text-sm font-bold text-[var(--text)]">Fatura Kalemleri</h3>
+                <p class="text-[11px] text-[var(--text-3)]">@Model.Lines.Count adet kalem (mal kabulden kopyalandı)</p>
             </div>
             @* DRAFT'ta toplu fiyat düzenleme formu; POSTED'da düzeltme satır içi ayrı formla (iç içe form olmaz) *@
             @if (isDraft) { @Html.Raw("<form method=\"post\" action=\"?handler=UpdatePrices&id=" + h.Id + "\">") }
@@ -108,8 +108,8 @@
                     <tbody>
                         @foreach (var l in Model.Lines)
                         {
-                            <tr class="@(l.UnitPrice <= 0 ? "bg-amber-50" : "")">
-                                <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                            <tr class="@(l.UnitPrice <= 0 ? "bg-[var(--warn-bg)]" : "")">
+                                <td class="font-medium text-[var(--text-2)]">@l.ItemName <span class="text-[var(--text-4)] text-xs">@l.ItemCode</span></td>
                                 <td>
                                     @if (l.SourceLinkType == "UNLINKED")
                                     {
@@ -117,11 +117,11 @@
                                     }
                                     else if (!string.IsNullOrEmpty(l.PoOrderNo))
                                     {
-                                        <span class="mono text-xs text-slate-600">@l.PoOrderNo</span>
+                                        <span class="mono text-xs text-[var(--text-2)]">@l.PoOrderNo</span>
                                     }
                                     else
                                     {
-                                        <span class="text-slate-300">—</span>
+                                        <span class="text-[var(--text-mute)]">—</span>
                                     }
                                 </td>
                                 <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
@@ -138,16 +138,16 @@
                                     }
                                 </td>
                                 <td class="text-right mono">@l.LineSubtotal.ToString("N2")</td>
-                                <td class="text-right mono text-slate-400">%@l.TaxRatePercent.ToString("N0")</td>
+                                <td class="text-right mono text-[var(--text-4)]">%@l.TaxRatePercent.ToString("N0")</td>
                                 <td class="text-right mono font-bold">@l.LineTotal.ToString("N2")</td>
                             </tr>
                             @* POSTED kalemde gerekçeli düzeltme (veri-giriş hatası) — yetkili roller *@
                             @if (!isDraft && Model.CanCorrect)
                             {
-                                <tr class="bg-slate-50/40">
+                                <tr class="bg-[var(--bg-2)]/40">
                                     <td colspan="7" class="py-2">
                                         <details>
-                                            <summary class="text-xs text-indigo-600 cursor-pointer">Bu kalemi düzelt (gerekçeli)</summary>
+                                            <summary class="text-xs text-[var(--brand-600)] cursor-pointer">Bu kalemi düzelt (gerekçeli)</summary>
                                             <form method="post" asp-page-handler="CorrectLine" asp-route-id="@h.Id" class="flex flex-wrap items-end gap-2 mt-2">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="lineId" value="@l.Id" />
@@ -172,7 +172,7 @@
                         }
                         @if (!Model.Lines.Any())
                         {
-                            <tr><td colspan="7" class="text-center text-slate-400 italic py-8">Kalem yok.</td></tr>
+                            <tr><td colspan="7" class="text-center text-[var(--text-4)] italic py-8">Kalem yok.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -183,10 +183,10 @@
                     </div>
                 }
             @if (isDraft) { @Html.Raw("</form>") }
-            <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-8 text-sm">
-                <div><span class="text-slate-500">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
-                <div><span class="text-slate-500">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>
-                <div><span class="text-slate-700 font-bold">Genel Toplam:</span> <span class="mono font-black text-indigo-600">@h.GrandTotal.ToString("N2") ₺</span></div>
+            <div class="px-6 py-4 bg-[var(--bg-2)] border-t flex justify-end gap-8 text-sm">
+                <div><span class="text-[var(--text-3)]">Ara Toplam:</span> <span class="mono font-bold">@h.Subtotal.ToString("N2") ₺</span></div>
+                <div><span class="text-[var(--text-3)]">KDV:</span> <span class="mono font-bold">@h.TaxAmount.ToString("N2") ₺</span></div>
+                <div><span class="text-[var(--text-2)] font-bold">Genel Toplam:</span> <span class="mono font-black text-[var(--brand-600)]">@h.GrandTotal.ToString("N2") ₺</span></div>
             </div>
         </div>
     </div>
@@ -195,9 +195,9 @@
     @if (Model.Variances.Any())
     {
         <div class="card overflow-hidden mt-6">
-            <div class="px-6 py-4 bg-amber-50 border-b border-amber-200">
-                <h3 class="text-sm font-bold text-amber-800">Sipariş Fiyat Farkları</h3>
-                <p class="text-[11px] text-amber-700">Fatura fiyatı satınalma siparişindeki fiyattan farklı. Override için gerekçe zorunlu (yerel AI denetler).</p>
+            <div class="px-6 py-4 bg-[var(--warn-bg)] border-b border-[var(--warn-border)]">
+                <h3 class="text-sm font-bold text-[var(--warn-text)]">Sipariş Fiyat Farkları</h3>
+                <p class="text-[11px] text-[var(--warn-text)]">Fatura fiyatı satınalma siparişindeki fiyattan farklı. Override için gerekçe zorunlu (yerel AI denetler).</p>
             </div>
             <table class="data-table">
                 <thead>
@@ -213,10 +213,10 @@
                     @foreach (var v in Model.Variances)
                     {
                         <tr>
-                            <td class="font-medium text-slate-700">@v.ItemName <span class="text-slate-400 text-xs">@v.ItemCode</span></td>
+                            <td class="font-medium text-[var(--text-2)]">@v.ItemName <span class="text-[var(--text-4)] text-xs">@v.ItemCode</span></td>
                             <td class="text-right mono">@v.ExpectedPrice.ToString("N2")</td>
                             <td class="text-right mono font-bold">@v.ActualPrice.ToString("N2")</td>
-                            <td class="text-right mono @(v.Variance > 0 ? "text-red-600" : "text-emerald-600")">
+                            <td class="text-right mono @(v.Variance > 0 ? "text-[var(--danger)]" : "text-[var(--success)]")">
                                 @(v.Variance > 0 ? "+" : "")@v.Variance.ToString("N2") (%@v.VariancePercent.ToString("N1"))
                             </td>
                             <td>
@@ -240,11 +240,11 @@
                                         @Html.Raw(Dict.StatusBadge(v.Status))
                                         @if (!string.IsNullOrEmpty(v.OverrideReason))
                                         {
-                                            <div class="mt-1 text-slate-600">@v.OverrideReason</div>
+                                            <div class="mt-1 text-[var(--text-2)]">@v.OverrideReason</div>
                                         }
                                         @if (!string.IsNullOrEmpty(v.AiVerdict))
                                         {
-                                            var aiCls = v.AiVerdict == "IMPLAUSIBLE" ? "text-red-600" : (v.AiVerdict == "PLAUSIBLE" ? "text-emerald-600" : "text-slate-400");
+                                            var aiCls = v.AiVerdict == "IMPLAUSIBLE" ? "text-[var(--danger)]" : (v.AiVerdict == "PLAUSIBLE" ? "text-[var(--success)]" : "text-[var(--text-4)]");
                                             <div class="mt-1 @aiCls">AI: @v.AiVerdict @(string.IsNullOrEmpty(v.AiComment) ? "" : "— " + v.AiComment)</div>
                                         }
                                     </div>

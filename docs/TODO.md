@@ -10,7 +10,11 @@
 ### A. Sıradaki modüller (worst-first, tasarım + kod birlikte) — plan 53
 - [ ] **M1 Manufacturing** (BOM/WorkCenters/WorkOrders ×5): util-renk AĞIR (~74/ekran) + `class="input"/"label"`→`.form-ctrl`/`.form-label` + bespoke help-panel (`bg-amber-50`→semantic). + code-reviewer Manufacturing PageModels.
 - [ ] **WMS-ops** (Transfer/Picking non-terminal): bespoke buton (`bg-indigo-600 rounded-lg`)+panel+header+table → semantic; util-renk.
-- [ ] **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): bespoke header + **🔴 İngilizce badge enum (Draft/Posted/Paid…) → `Dict.StatusBadge()` Türkçe** + util.
+- [/] **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): badge + util.
+  - [x] ✅ Badge → `Dict.StatusBadge()` tüm Belgeler: Receiving (plan 55 RECEIVING_STATUS) · Expenses Index (01550da) · PurchaseInvoices/MaterialIssue zaten dict'ti. 🔴 İngilizce-enum kalmadı.
+  - [x] ✅ Expenses Index+Report renk→token (01550da) · MaterialIssue Index+Details renk→token (c60e5fd).
+  - [x] ✅ PurchaseInvoices Index+Details renk→token (amber variance paneli→warn token dahil).
+  - [ ] Kalan: **Expenses/Details** (satır ~112 ayrı DEBT — `class="input"/"label"`→form-ctrl form refactor, renk değil).
 - [ ] **Finance** (17, çoğu std): inline-renk (Aging/Details, CreditCards/Index bespoke kart, Payments/Create) → semantic.
 - [ ] **Admin kalan** (zaten M0'da Roles/Create·Modules·StatusTransitions·Parameters yapıldı) — Dictionary/Values vanilla teyit, gerisi std.
 - [ ] **Misc** (Lot/LPN/Serial/Budget/Inventory): bespoke header (`<h2>`→page-hdr) + **LPN/Details** (bespoke buton+panel+`bg-indigo-900`) + **Budget/Details** `.input`/`.label`→form-ctrl.

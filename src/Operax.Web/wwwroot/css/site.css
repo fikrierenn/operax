@@ -1242,9 +1242,6 @@
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
-  .border-amber-200 {
-    border-color: var(--color-amber-200);
-  }
   .border-amber-500 {
     border-color: var(--color-amber-500);
   }
@@ -1301,6 +1298,12 @@
   }
   .bg-\[var\(--bg-2\)\] {
     background-color: var(--bg-2);
+  }
+  .bg-\[var\(--bg-2\)\]\/40 {
+    background-color: var(--bg-2);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--bg-2) 40%, transparent);
+    }
   }
   .bg-\[var\(--border\)\] {
     background-color: var(--border);
@@ -1460,12 +1463,6 @@
   }
   .bg-slate-50 {
     background-color: var(--color-slate-50);
-  }
-  .bg-slate-50\/40 {
-    background-color: color-mix(in srgb, oklch(98.4% 0.003 247.858) 40%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-slate-50) 40%, transparent);
-    }
   }
   .bg-slate-50\/50 {
     background-color: color-mix(in srgb, oklch(98.4% 0.003 247.858) 50%, transparent);

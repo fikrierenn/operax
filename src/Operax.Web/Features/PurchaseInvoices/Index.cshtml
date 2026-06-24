@@ -65,10 +65,10 @@
                 @foreach (var i in Model.Invoices)
                 {
                     <tr class="cursor-pointer" onclick="window.location.href='/PurchaseInvoices/Details?id=@i.Id'">
-                        <td><span class="mono font-bold text-indigo-600">@i.DocNo</span></td>
+                        <td><span class="mono font-bold text-[var(--brand-600)]">@i.DocNo</span></td>
                         <td class="mono text-xs">@(i.SupplierInvoiceNo ?? "—")</td>
-                        <td class="font-bold text-slate-700 text-sm">@i.PartnerName</td>
-                        <td class="text-xs text-slate-500">@(i.SupplierInvoiceDate?.ToString("dd.MM.yyyy") ?? i.InvoiceDate.ToString("dd.MM.yyyy"))</td>
+                        <td class="font-bold text-[var(--text-2)] text-sm">@i.PartnerName</td>
+                        <td class="text-xs text-[var(--text-3)]">@(i.SupplierInvoiceDate?.ToString("dd.MM.yyyy") ?? i.InvoiceDate.ToString("dd.MM.yyyy"))</td>
                         <td class="text-center">@i.LineCount</td>
                         <td class="text-right mono font-bold">@i.GrandTotal.ToString("N2") ₺</td>
                         <td class="text-center">@Html.Raw(Dict.StatusBadge(i.Status))</td>

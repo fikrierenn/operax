@@ -16,6 +16,7 @@ INSERT INTO @T VALUES
  ('ITEM_TYPE','Ürün Tipi','Item Type'),
  ('PRODUCTION_STATUS','Üretim Emri Durumu','Production Status'),
  ('PICKTASK_STATUS','Toplama Görevi Durumu','Pick Task Status'),
+ ('RECEIVING_STATUS','Mal Kabul Durumu','Receiving Status'),
  ('CHEQUE_STATUS','Çek/Senet Durumu','Cheque Status'),
  ('LOAN_STATUS','Kredi Durumu','Loan Status'),
  ('LOAN_CALC_METHOD','Kredi Hesap Yöntemi','Loan Calc Method'),
@@ -108,6 +109,10 @@ INSERT INTO @V VALUES
  ('PICKTASK_STATUS','IN_PROGRESS','Toplanıyor','In Progress',30),
  ('PICKTASK_STATUS','COMPLETED','Tamamlandı','Completed',40),
  ('PICKTASK_STATUS','CANCELLED','İptal','Cancelled',50),
+-- RECEIVING_STATUS (mal kabul: POSTED='Tamamlandı' — global STATUS='İşlendi' kanonik korunur, modül-özel ezme)
+ ('RECEIVING_STATUS','DRAFT','Taslak','Draft',10),
+ ('RECEIVING_STATUS','POSTED','Tamamlandı','Completed',20),
+ ('RECEIVING_STATUS','CANCELLED','İptal','Cancelled',30),
 -- CHEQUE_STATUS
  ('CHEQUE_STATUS','PORTFOLIO','Portföyde','Portfolio',10),
  ('CHEQUE_STATUS','IN_BANK','Bankada','In Bank',20),

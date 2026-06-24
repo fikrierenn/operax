@@ -117,7 +117,7 @@
         <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
             <label class="form-label md:text-right">Belge Durumu</label>
             <div class="mt-1">
-                @Html.Raw(Dict.StatusBadge(Model.Header.Status))
+                @Html.Raw(Dict.StatusBadge(Model.Header.Status, "RECEIVING_STATUS"))
             </div>
         </div>
     </div>

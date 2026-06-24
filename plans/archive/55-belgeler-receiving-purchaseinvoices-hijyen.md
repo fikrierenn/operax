@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-06-24
 **Yazan:** Fikri / Claude
-**Durum:** `Onaylandı`
+**Durum:** `Tamamlandı` (F1+F2+F4 ✅ · F3 backlog'a alındı: task_9e02e965, kozmetik)
 **Modül:** M03 (Purchasing/Belgeler) + M11 (Finance, okuma katmanı)
 **Paket:** STARTER
 
@@ -92,9 +92,11 @@ Belgeler track'ında üç ayrı hijyen borcu var:
 
 1. [x] ✅ **F1** Receiving Index+Details rozet → `Dict.StatusBadge()` · build 0/0 · code-reviewer temiz
 2. [x] ✅ **F2** PaymentPlan/Index 4 sorgu + Aging/Details + **sp_AutoClosePayments FIFO** forecast dışlama (gerçek auto-close drift bug'ı yakalandı) · build · smoke (367.700→289.700) · sql-sp-reviewer temiz · fresh-DB 0 fail
-3. [ ] **F3** PO closure/cancel SP terminal-statü estimate cancel — ⚠️ sql-sp-reviewer "drift üretmez, forecast hiçbir parasal toplama girmiyor" dedi → **kozmetik hijyen**, backlog'a alınabilir
-4. [ ] **F4** PurchaseInvoices Details split → PurchaseInvoiceService · build · code-reviewer
-5. [ ] **F5** TODO.md senkron + journal
+3. [→] **F3** PO closure/cancel SP terminal-statü estimate cancel → **backlog task_9e02e965** (reviewer: drift üretmez, kozmetik; her yerde zaten dışlanıyor)
+4. [x] ✅ **F4** PurchaseInvoices Details 368→partial split (Details.cshtml.cs 134 + Details.Handlers.cs 248, davranış birebir) · build 0/0 · commit bc2d08f
+5. [x] ✅ **F5** Plan kapanış + journal
+
+**Ek karar:** Badge label — global STATUS/POSTED='İşlendi' (2026-06-22 kanonik) korundu; mal kabule modül-özel RECEIVING_STATUS/POSTED='Tamamlandı' (commit 84cf0a5). VUK irsaliye↔fatura kardinalitesi + muhasebe 12 temel kavram skill'lere gömüldü (commit c6c819b).
 
 **Review borcu (kapsam-dışı, gelecek görsel pass):** Receiving Index/Details'te pre-existing Tailwind renk-utility (`text-indigo-600`/`bg-white`/`bg-slate-950/60`) → token. 5 MEDIUM, Plan 55 scope dışı (Belgeler tam görsel standardizasyonu ayrı tur).
 

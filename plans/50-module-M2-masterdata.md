@@ -56,7 +56,7 @@ M2 (Partner/cari + Item/ürün + Warehouse/Bin/Branch) **işlevsel ama DoD altı
 | UI standard refactor görünüm bozar | düşük | tarayıcı verify (M1 Settings hub gibi) |
 
 ## 5. Done Criteria (M2 DoD)
-- [ ] Faz 1: Bin.IsStorageArea schema'da + fresh-DB ritüeli raf-ekle 0-fail · Item Pasif Yap çalışıyor · Warehouse ModelState guard
+- [x] ✅ Faz 1 (2026-06-24): Bin.IsStorageArea migration_53 + schema_all + fresh-DB ritüeli 0-fail · Item Pasif Yap (OnPostDeactivate) çalışıyor · Warehouse ModelState guard + [Required]. Smoke OK, 3 reviewer temiz.
 - [ ] Faz 2: Item/Warehouse/Branch soft-delete · Bin Create işlevsel · Warehouse/Branch catch+ILogger · BranchType CHECK · P32-7
 - [ ] Faz 3: ui-standard (4 sayfa) · magic string 0 · hardcoded URL 0 · PriceLists sayaç · reconciliation logger
 - [ ] Faz 4: Partners/Details + Items/Details <300 satır · cari-leg + raf-ekle E2E smoke

@@ -20,11 +20,14 @@
         <p class="text-sm text-[var(--text-3)] mt-1">Ürün tanımı, birim dönüşümleri ve barkod yönetimi</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
-        @if (!Model.IsNew)
+        @* Pasif Yap: kayıt formundan AYRI handler (Deactivate) — IsActive=0 yapar, silmez.
+           Zaten pasif ürün için buton gizlenir. *@
+        @if (!Model.IsNew && Model.Item.IsActive)
         {
-            <button type="submit" form="item-form" class="btn btn-danger btn-sm px-4">
-                Pasif Yap
-            </button>
+            <form method="post" asp-page-handler="Deactivate" asp-route-id="@Model.Item.Id"
+                  onsubmit="return confirm('Bu ürünü pasife almak istediğinize emin misiniz?')">
+                <button type="submit" class="btn btn-danger btn-sm px-4">Pasif Yap</button>
+            </form>
         }
         <button type="submit" form="item-form" class="btn btn-primary px-8">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>

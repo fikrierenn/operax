@@ -446,6 +446,7 @@ BEGIN
         SortNo          INT DEFAULT 0,
         IsPickingArea   BIT DEFAULT 1,
         IsReceivingArea BIT DEFAULT 0,
+        IsStorageArea   BIT NOT NULL DEFAULT 1,
         IsActive        BIT DEFAULT 1,
         IsDeleted       BIT DEFAULT 0,
         CreatedAt       DATETIME2 DEFAULT GETUTCDATE(),

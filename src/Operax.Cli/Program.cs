@@ -115,7 +115,8 @@ class Program
                         "migration_48_costing_method_lock.sql", // Plan 47 M1 Faz 3: CostingMethod MOVING_AVG kilit (FIFO/STANDARD motoru yok)
                         "migration_49_materialissue_scrap.sql", // Plan 47 M1 Faz 4: MaterialIssue.ReasonCode (zayiat HASAR/FIRE/HURDA → StockMovement SCRAP)
                         "migration_51_zayiat_kdv.sql",          // Plan 51: zayiat sebep→KDV (mücbir/ilave-KDV/belge-ref + reason WASTE→SCRAP/NORMAL_FIRE)
-                        "migration_52_item_type.sql"            // Plan 52: ItemType sadeleştir (CONSUMABLE→STOCK + CHECK STOCK/SERVICE/FIXED_ASSET)
+                        "migration_52_item_type.sql",           // Plan 52: ItemType sadeleştir (CONSUMABLE→STOCK + CHECK STOCK/SERVICE/FIXED_ASSET)
+                        "migration_53_bin_storagearea.sql"      // Plan 50 Faz 1 (C1): Bin.IsStorageArea kolonu (fresh-install raf-ekle bug)
 
                     })
                     {

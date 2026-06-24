@@ -52,9 +52,18 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
     }
 
 
+    // Depoyu kaydeder veya günceller — ModelState geçersizse formu hatalarla geri gösterir
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         using var conn = db.Open();
+
+        // Guard: form doğrulaması başarısızsa kaydetme — dropdown + raf listesini tekrar
+        // yükleyip formu hata mesajlarıyla geri göster (boş kayıt INSERT'i önlenir)
+        if (!ModelState.IsValid)
+        {
+            await ReloadFormAsync(conn, ct);
+            return Page();
+        }
 
         var wasNew = IsNew; // redirect öncesinde durumu yakala
 
@@ -130,6 +139,29 @@ public class DetailsModel(Db db, ICurrentCompany company) : PageModel
         return RedirectToPage(new { id });
     }
 
-    public record WarehouseDto { public Guid Id { get; set; } public string Code { get; set; } = ""; public string Name { get; set; } = ""; public bool IsActive { get; set; } public Guid? BranchId { get; set; } }
+    // Form yeniden gösterimi için dropdown + raf listesini yükler (doğrulama hatası sonrası)
+    private async Task ReloadFormAsync(System.Data.IDbConnection conn, CancellationToken ct)
+    {
+        BranchDdl = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Name AS Text FROM Branch WHERE CompanyId = @CompanyId AND IsDeleted = 0 ORDER BY Code",
+            new { CompanyId = company.Id }, cancellationToken: ct));
+
+        // Mevcut depo düzenleniyorsa rafları da geri yükle (üst kayıt POST'ta bind edilmedi)
+        if (!IsNew)
+            Bins = await conn.QueryAsync<BinDto>(new CommandDefinition(
+                "SELECT Id, Code, Zone, IsPickingArea, IsReceivingArea FROM Bin WHERE WarehouseId = @Id AND IsDeleted = 0 ORDER BY SortNo, Code",
+                new { Id = Warehouse.Id }, cancellationToken: ct));
+    }
+
+    public record WarehouseDto
+    {
+        public Guid Id { get; set; }
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Depo kodu zorunludur.")]
+        public string Code { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Depo adı zorunludur.")]
+        public string Name { get; set; } = "";
+        public bool IsActive { get; set; }
+        public Guid? BranchId { get; set; }
+    }
     public record BinDto { public Guid Id { get; set; } public string Code { get; set; } = ""; public string? Zone { get; set; } public bool IsPickingArea { get; set; } public bool IsReceivingArea { get; set; } }
 }

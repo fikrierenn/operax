@@ -241,6 +241,36 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id, tab = "suppliers" });
     }
 
+    // Ürünü pasife alır (IsActive=0) — silmez (soft-delete ayrı). IDOR: yalnızca bu firmanın ürünü.
+    public async Task<IActionResult> OnPostDeactivateAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            using var conn = db.Open();
+            // İş kuralı: yalnızca bu firmaya ait ve hâlâ aktif ürün pasife alınabilir
+            var affected = await conn.ExecuteAsync(new CommandDefinition(
+                "UPDATE Item SET IsActive = 0, UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId WHERE Id = @Id AND CompanyId = @CompanyId AND IsActive = 1",
+                new { Id = id, CompanyId = company.Id, UserId = user.Id }, cancellationToken: ct));
+
+            // Guard: etki yoksa (başka firma / zaten pasif / bulunamadı) işlem yapılmaz
+            if (affected == 0)
+            {
+                TempData["Error"] = "Ürün pasife alınamadı (bulunamadı veya zaten pasif).";
+                return RedirectToPage(new { id });
+            }
+
+            await audit.LogAsync("DEACTIVATE", "Item", id, "Ürün pasife alındı.");
+            TempData["Success"] = "Ürün pasife alındı.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj kullanıcıya gösterilmez, log'a detay
+            logger.LogError(sqlEx, "Ürün pasife alma DB hatası. Ürün {ItemId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
+        return RedirectToPage(new { id });
+    }
+
     public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate, CancellationToken ct)
     {
         // UOM dönüşüm oranı ekler — IDOR: ürün bu firmaya ait olmalı

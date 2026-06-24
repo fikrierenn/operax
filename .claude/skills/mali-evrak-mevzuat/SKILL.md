@@ -4,10 +4,12 @@ description: >
   Operax mali/lojistik evrak (fatura, irsaliye, iade, e-Belge, iptal/düzeltme) modülü
   yazılırken VUK + KDV Kanunu + TTK mevzuat doğrulama rehberi. İade faturası,
   e-Fatura/e-Arşiv/e-İrsaliye senaryoları, VUK tarih kuralları (sevk/düzenleme/kayıt
-  + 7 gün), yanlış fatura iptal/düzeltme akışı, GİB'e gitmiş vs sistem-içi evrak ayrımı,
+  + 7 gün), irsaliye↔fatura kardinalitesi (N irsaliye→1 fatura consolidation, 1 irsaliye→N
+  fatura YASAK), yanlış fatura iptal/düzeltme akışı, GİB'e gitmiş vs sistem-içi evrak ayrımı,
   tevkifat, KDV iade, TTK ticari belge saklama. "iade faturası", "e-fatura senaryo",
-  "fatura iptal", "fatura düzelt", "yanlış fatura", "fatura tarihi kuralı", "mali evrak
-  mevzuat", "VUK" denildiğinde veya M03/M04/M11/e-Belge modülü yazarken çağrılır.
+  "fatura iptal", "fatura düzelt", "yanlış fatura", "fatura tarihi kuralı", "irsaliye fatura
+  kardinalite", "toplu fatura", "kısmi faturalama", "mali evrak mevzuat", "VUK" denildiğinde
+  veya M03/M04/M11/e-Belge modülü yazarken çağrılır.
   SALT-REHBER — mevzuatı dayatmaz, kod yazmadan önce doğrulanacak noktaları + kaynakları.
 allowed-tools: Read, Grep, Glob, WebSearch, WebFetch
 user-invocable: true
@@ -22,6 +24,7 @@ model: inherit
 > GİB-yetkili kaynaktan (gib.gov.tr, efatura.gov.tr kılavuz, ilgili tebliğ) teyit et. Tahmin YASAK.
 
 ## Ne zaman tetiklenir
+- İrsaliye↔fatura kardinalitesi / consolidation / kısmi faturalama (Receiving:Invoice = N:1 → §1.5)
 - Fatura iptal / düzeltme / soft-delete kararı (GİB'e gitti mi, sistem-içi mi?)
 - Yanlış girilen/kesilen fatura akışı
 - İade faturası/irsaliyesi modülü (B17/E2, MASTER_EXECUTION_PLAN M-F2.2)
@@ -61,8 +64,41 @@ Bir mali/lojistik evrakta tarihler KARIŞTIRILMAZ (Operax B19 / MIKRO §14):
 
 - **7 GÜN KURALI [DOC — VUK 231/5]:** Fatura, teslim/hizmet tarihinden **azami 7 gün** içinde düzenlenir;
   aşılırsa **"hiç düzenlenmemiş" sayılır** (özel usulsüzlük). Süre: teslim günü sayılmaz, 7. gün sonu biter (md.18).
-  → Operax: `sp_*InvoicePost`'ta `IF DATEDIFF(DAY,@DeliveryDate,@IssueDate)>7 THROW 51xxx Türkçe`.
+- **🔴 AY-SONU KAPAĞI — 7 gün ay atlamaz [DOC — KDV dönemi aylık]:** Fatura, malın teslim edildiği **AY içinde**
+  kesilmek ZORUNDA (KDV beyannamesi aylık → fatura teslimle aynı KDV dönemine düşmeli). Yani 7 gün bir sonraki
+  aya taşıyorsa **ayın son gününe kadar** çekilir. Örnek: irsaliye **30 Ocak** → 7 gün = 6 Şubat AMA fatura
+  **en geç 31 Ocak** (Şubat'a sarkamaz). İrsaliye **10 Ocak** → 7 gün = 17 Ocak, ay içinde, sorun yok.
+  **Kesin formül:** `FaturaSonTarih = MIN(DATEADD(DAY, 7, @DeliveryDate), EOMONTH(@DeliveryDate))`.
+  → Operax: `sp_*InvoicePost`'ta
+  `IF CAST(@IssueDate AS DATE) > MIN-formül → THROW 51xxx N'Fatura tarihi yasal süreyi aştı (teslim ayı + 7 gün, ay sonunu aşamaz).'`
 - Dönem guard'ı (`sp_GuardPeriodOpen`) **fiili hareket tarihiyle** (MovementDate) çalışmalı, sistem tarihiyle değil.
+
+## 1.5 İRSALİYE ↔ FATURA KARDİNALİTESİ [DOC — VUK 230/231, GİB toplu fatura]
+
+Sevk irsaliyesi (delivery note) ile fatura arasındaki ilişki YÖNLÜ ve asimetriktir. Her ikisi de **ayrı belge** —
+irsaliye malın fiziksel sevkini, fatura ticari/mali değeri belgeler; biri diğerinin yerine geçmez (VUK md.230).
+
+| Yön | İzin | Kural / Şart | Dayanak |
+|---|---|---|---|
+| **N irsaliye → 1 fatura** (consolidation) | ✅ EVET | Aynı alıcının birden çok sevk irsaliyesi tek faturada birleşir. Şart: **en ESKİ** irsaliyeye göre `MIN(en_eski + 7 gün, EOMONTH(en_eski))` — yani **ay atlamaz** (§1 ay-sonu kapağı). Faturaya birleştirilen TÜM irsaliye no'ları yazılır. Farklı aydaki irsaliyeler **aynı faturada birleşemez** (her ay ayrı KDV dönemi). | VUK 231/5 + GİB [DOC] |
+| **1 irsaliye → N fatura** (split) | ❌ HAYIR | "Bir sevk irsaliyesi için birden fazla fatura kesilemez." Bir irsaliye tek faturada **tamamen** kapanır; kısmen faturalanıp kalanı başka faturaya bölünemez. | VUK uygulama [DOC] |
+| **İrsaliyeli fatura** | ✅ EVET | Hem fatura hem sevk irsaliyesi şartlarını TEK belgede toplar; ayrıca sevk irsaliyesi aranmaz. | VUK md.230 [DOC] |
+
+**Kısım kısım teslim istisnası:** Montaj/parçalı teslimde fatura, montajın **tamamlandığı** tarihi izleyen 7 gün
+içinde düzenlenir; daha önce kesilen tüm irsaliye no'ları faturada belirtilir (GİB özelge 2016). Bu "1 irsaliye → N
+fatura" DEĞİL; "N parça-irsaliye → 1 fatura"dır.
+
+**Operax model sonucu (kod-bağlayıcı):**
+- **`Receiving : PurchaseInvoice = N:1`** (satış tarafı `Shipping : SalesInvoice = N:1` aynı). Yani:
+  - Bir Receiving (irsaliye) **en fazla 1** POSTED faturaya bağlanır → ikinci fatura üretimi **THROW** (51xxx Türkçe).
+    Mevcut guard: `DocumentLock.ReceivingHasInvoiceAsync` (UI) — SP-seviyesi `sp_Create*InvoiceFromReceiving`
+    girişinde de `IF EXISTS(POSTED/DRAFT invoice for ReceivingId) THROW` olmalı (defense-in-depth).
+  - Bir fatura **birden çok** Receiving'i birleştirebilmeli (consolidation) → fatura↔irsaliye **çoklu** bağ
+    (`PurchaseInvoiceLine.SourceReceivingLineId` zaten satır-bazlı; header tek-irsaliye varsayımı KIRILMAMALI).
+- **PO ile karıştırma:** Bu kardinalite Receiving↔Invoice'tir. PO→Receiving hâlâ **1:N** (bir sipariş çok sevkiyat).
+  Dolayısıyla PO-seviyesi forecast/PaymentPlan "ilk faturada iptal" KARARINI ETKİLEMEZ — PO estimate PO-seviyesinde
+  kalır (bkz. plan 55, erp-isleyis-danismani forecast-only kararı).
+- **7-gün + ay-sonu guard'ı consolidation'da en ESKİ irsaliyeye göre** hesaplanır (en yeni değil).
 
 ## 2. İADE FATURASI — güncel kurallar (28.03.2025 değişikliği)
 - **Kim keser:** İadeyi yapan **ALICI** keser (satıcı "satış iade faturası" kesmez). [YORUM, çok kaynak]

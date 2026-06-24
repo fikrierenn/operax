@@ -6,6 +6,7 @@ description: >
   TDHP (Tek Düzen Hesap Planı) hesap işleyişi (borç/alacak yönü), çek/senet muhasebe
   kaydı (101 Alınan Çekler / 103 Verilen Çekler, alış-anı cari kapama, karşılıksız iade),
   cari hesap (120 Alıcılar / 320 Satıcılar), VUK değerleme, şüpheli alacak (128/138).
+  Muhasebenin 12 temel kavramı (MSUGT — dönemsellik, ihtiyatlılık, özün önceliği, belgelendirme…) lensi.
   SALT-REHBER + ONLINE-DOĞRULA: kesin hesap kodu/oran/özel durum gerektiğinde WebSearch ile
   yetkili kaynaktan (vergidosyasi, muhasebetr, GİB, mevzuat.gov.tr) teyit edip KAYNAK belirtir.
   "muhasebe kaydı", "hesap planı", "TDHP", "borç alacak hangi yön", "çek muhasebe", "karşılıksız
@@ -26,6 +27,7 @@ model: inherit
 ## Ne zaman tetiklenir
 M5 Banka/Kasa · M6 Çek/Senet · M7 Kredi · M8 Gider · M11 Finans · GL muhasebeleştirme özelliği
 yazarken/denetlerken. Bir hesabın yönü/anı belirsizse → önce buraya bak, gerekirse online doğrula.
+Her finans/muhasebe kararında **muhasebenin 12 temel kavramı (§0)** lensini gözet (MSUGT — anayasa).
 
 ## Tamamlayıcılık (footprint-ladder — dup değil)
 | Skill | Bakış |
@@ -40,6 +42,34 @@ yazarken/denetlerken. Bir hesabın yönü/anı belirsizse → önce buraya bak, 
   → **WebSearch** yetkili kaynak (vergidosyasi.com, muhasebetr.com, alomaliye.com, GİB, mevzuat.gov.tr).
 - Bulguyu **kaynak linkiyle** raporla; ezbere hesap kodu yazma. Şüphe = ara, uydurma.
 - Mevzuat değişebilir (oran/tebliğ) → tarih-duyarlı; "2026 itibarıyla" diye not düş.
+
+---
+
+## 0. MUHASEBENİN 12 TEMEL KAVRAMI [DOC — MSUGT 1 Seri No'lu Tebliğ / ISMMMO]
+
+Türk muhasebesinin anayasası. **Her finans/muhasebe SP'si, ekranı, ledger kararı bu 12 kavramı GÖZETİR** —
+"kayıt doğru görünüyor" yetmez, hangi temel kavrama uyduğu/uymadığı sorgulanır. Operax SQL-First: kavram → SP/şema
+tasarım kuralına iner.
+
+| # | Kavram | Öz (MSUGT) | Operax tasarım karşılığı / kod-kontrolü |
+|---|---|---|---|
+| 1 | **Sosyal Sorumluluk** | Belli grup değil tüm toplum çıkarı; gerçeğe uygun, şeffaf raporlama | Denetlenebilir izler (`AuditLog`), doğru mali tablo; veri gizleme/çarpıtma yok |
+| 2 | **Kişilik** | İşletme sahip/ortak/personelden AYRI tüzel kişilik | `CompanyId` izolasyonu; şirket kasası ≠ şahıs; ortak/patron cari **ayrı Partner** (şahsi harcama şirkete yazılmaz) |
+| 3 | **İşletmenin Sürekliliği** | Faaliyet süresiz varsayılır (tasfiye değil) | Değerleme **maliyet esaslı** (likidasyon değeri değil); amortisman/itfa süreklilik varsayar |
+| 4 | 🔴 **Dönemsellik** | Sınırsız ömür dönemlere bölünür; her dönem **bağımsız**; gelir/gider **ait olduğu döneme** (tahakkuk) | `AccountingPeriod` OPEN/CLOSED/LOCKED + `sp_GuardPeriodOpen`; hareket **MovementDate** ile döneme düşer (sistem tarihi değil); 7-gün/ay-sonu fatura kuralı; tahakkuk eden gelir/gider doğru döneme |
+| 5 | **Parayla Ölçülme** | Yalnız para ile ölçülebilen olay kaydedilir; ortak ölçü TL | Tutarlar `DECIMAL(18,4)`; `Currency NVARCHAR(3)` + kur; ölçülemeyen değer (marka itibarı vb.) kaydedilmez |
+| 6 | **Maliyet Esası** | Varlık/hizmet **elde etme maliyetiyle** muhasebeleşir (para/alacak hariç) | `ItemCost` moving-avg; stok maliyet ledger; piyasa değeriyle yukarı-yazma YOK (ihtiyatlılık istisnası ayrı) |
+| 7 | 🔴 **Tarafsızlık ve Belgelendirme** | Kayıt **objektif belgeye** dayalı, gerçekçi, yöntem seçimi ön yargısız | Her `AccountMovement`/`StockMovement`/`FinancialTransaction` **`SourceDocType`+`SourceDocId` zorunlu** (belgesiz hareket yok); guard'lar |
+| 8 | **Tutarlılık** | Seçilen muhasebe politikası dönemler arası **değişmeden** uygulanır | Maliyet yöntemi (FIFO/MA), değerleme, statü kümeleri sabit; değişirse açıklama + tarih |
+| 9 | **Tam Açıklama** | Mali tablolar karar için yeterli/açık/anlaşılır | Detaylı ekran/rapor/dipnot; gizli netleştirme yok (örn. çift-sayım gizleme değil, kaynakta ayır) |
+| 10 | 🔴 **İhtiyatlılık (Muhafazakârlık)** | Şüpheli gider/zarar **karşılık** ayrılır; **gerçekleşmemiş kâr yazılmaz** | Şüpheli alacak (128/138) karşılık; gerçekleşmemiş kur farkı temkinli; gelir gerçekleşince (tahsil/teslim) yazılır, sipariş anında değil → **açık sipariş ledger-dışı** (MEMORY: open-orders-not-in-ledger) |
+| 11 | **Önemlilik** | Karara etki edebilen kalem atlanmaz/gizlenmez | Varyans maddiyet eşiği, yuvarlama toleransı; önemli fark gizlenmez (PriceVariance her sapmada DRAFT) |
+| 12 | 🔴 **Özün Önceliği** | Şekil değil **finansal öz**; işlemin gerçek mahiyeti | Finansal-araç tipi gerçek işleve göre (EFT≠Havale, vadeli çek=alacak, `InstrumentType`≠`PaymentMethod`); belgenin adı değil işlevi modellenir (erp-isleyis-danismani ile) |
+
+🔴 = en çok kod-bağlayıcı (dönemsellik, belgelendirme, ihtiyatlılık, özün önceliği). Yeni finans SP'si/ekranı
+yazarken bu 4'ü açıkça kontrol et.
+
+**Kaynak:** [ISMMMO — Muhasebenin Temel Kavramları (MSUGT 1 Seri No'lu Tebliğ)](https://ismmmo.org.tr/Mevzuat/I-Muhasebenin-Temel-Kavramlari---4003)
 
 ---
 
@@ -94,6 +124,8 @@ bakiye = `SUM(Borç − Alacak)`; cari müşteri borç-bakiye (120), tedarikçi 
 - Ledger append-only (`document-immutability.md`): düzeltme = ters kayıt (REVERSAL), silme yok.
 - Dönem kilidi: her muhasebe hareketi `sp_GuardPeriodOpen` (LOCKED dönem = e-Defter berat → THROW).
 - **Kod yazmadan önce:** hangi hesap, hangi yön, hangi an → 1-2 cümle + belirsizse online doğrula + kaynak.
+- **12 temel kavram lensi (§0):** finans SP/ekran/ledger kararında 4 kod-bağlayıcı kavramı (🔴 dönemsellik,
+  belgelendirme, ihtiyatlılık, özün önceliği) açıkça gözet — "kayıt doğru görünüyor" yetmez, hangi kavrama dayandığı.
 
 ## İlişkili
 - `.claude/skills/mali-evrak-mevzuat/SKILL.md` — evrak/e-belge VUK (tamamlayıcı)

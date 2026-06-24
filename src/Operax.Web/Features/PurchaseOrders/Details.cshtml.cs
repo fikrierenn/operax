@@ -330,15 +330,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         using var conn = db.Open();
         try
         {
+            // Atomiklik: statü geçişi + header iptal + PaymentPlan iptal tek transaction'da
+            // (kısmi-commit → hayalet borç önlenir; architecture §4 çok-adımlı yazma tek TX)
+            using var tx = conn.BeginTransaction();
+
             await conn.ExecuteAsync(new CommandDefinition("sp_ValidateStatusTransition",
                 new { CompanyId = company.Id, DocumentType = SourceDoc.PurchaseOrder,
                       FromStatus = DocStatus.Posted, ToStatus = DocStatus.Cancelled,
                       UserId = user.Id },
-                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
+                transaction: tx, commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
 
             await conn.ExecuteAsync(new CommandDefinition(
                 "UPDATE PurchaseOrderHeader SET Status=@Status, UpdatedAt=GETUTCDATE(), UpdatedBy=@UserId WHERE Id=@Id AND CompanyId=@CompanyId",
-                new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id }, cancellationToken: ct));
+                new { Status = DocStatus.Cancelled, UserId = user.Id, Id = id, CompanyId = company.Id },
+                transaction: tx, cancellationToken: ct));
+
+            // Hayalet borç önleme: PO'ya bağlı açık (tahmini) PaymentPlan'lar iptal edilir; ödenmişe dokunma.
+            // PO PaymentPlan'ı taahhüttür (fatura değil) — sipariş iptalinde kapatılmazsa cari raporda hayalet kalır.
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                UPDATE PaymentPlan SET Status = @CancelStatus, UpdatedAt = GETUTCDATE()
+                WHERE SourceDocType = @SrcPo AND SourceDocId = @Id AND CompanyId = @CompanyId
+                  AND Status NOT IN (@Paid, @CancelStatus)",
+                new { CancelStatus = PaymentPlanStatus.Cancelled, SrcPo = SourceDoc.PurchaseOrder,
+                      Id = id, CompanyId = company.Id, Paid = PaymentPlanStatus.Paid },
+                transaction: tx, cancellationToken: ct));
+
+            tx.Commit();
             await audit.LogAsync("CANCEL", "PurchaseOrderHeader", id, "Satınalma siparişi iptal edildi");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

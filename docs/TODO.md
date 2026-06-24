@@ -27,6 +27,9 @@
 - [ ] **M0 borcu:** Users/Edit IDOR (`Input.Id`→route+`[BindNever]`) · Dashboard `MovementType` magic string.
 - [ ] **P32-7** PO add-line SupplierItemCode görünürlük (hafif, PO Details dokunuşunda).
 
+### C-E (Plan 54 Faz 2'den devir) — PurchaseInvoices modülü kararı
+- [ ] **PO→fatura çift PaymentPlan:** `sp_PurchaseInvoicePost` PURCHASE_INVOICE planı üretiyor ama kaynak PO'nun PURCHASE_ORDER (tahmini) planını iptal/devir ETMİYOR → PaymentPlan listesinde estimate+actual birlikte. Aging+snapshot zaten PO'yu saymıyor (Plan 54 C-A/CRIT-1) → kozmetik. Karar: invoice post'ta PO planını CANCELLED yap (transfer-vs-regenerate). Kısmi-faturalama nüansı (PO çok faturaya bölünürse) ile birlikte PurchaseInvoices revizyonunda.
+
 ### D. SATIŞ MODÜLÜ — yapı kararı + gap'ler (2026-06-24, 3 danışman: erp-isleyis + competitor + mali)
 > **Yapı kararı:** Satış doğru decompose edilmiş — `SalesOrders` + `Shipping` + `SalesInvoices` AYRI feature (SAP B1/Logo/Mikro/Odoo standardı, satınalma ile simetrik). Tek "Sales" şemsiye klasörü ANTI-PATTERN. Yeni satış evrakı → ayrı feature (`Quotations/`, `SalesReturns/` …) + ModuleKeys + sidebar link (mevcut pattern tekrarı).
 > **Temizlik yapıldı:** boş/ölü klasörler silindi (`Sales`, `Incentives`, `Service`, `Project`, `Integration` — 0 dosya, git-tracked değildi, routing/nav/build etkisi yok). Niyet artık burada (roadmap), boş klasörde değil.

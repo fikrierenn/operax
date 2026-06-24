@@ -58,7 +58,7 @@ PurchaseOrders modülü çalışıyor ama: (a) kod kuralı ihlalleri (magic stri
 
 ## 5. Done Criteria
 - [x] ✅ Faz 1 (2026-06-24): SourceDoc.PurchaseOrder sabiti + magic string 0 (Details Cancel + PriceVariances) · PriceVariances 2 handler try/catch+ILogger (AntiForgery zaten auto-inject) · sp_ApprovePriceVariance @CompanyId (IDOR) · Details AddLine qty/itemId guard + OnPost ModelState guard + LoadFormDropdownsAsync helper. **filter {…} I-1/2/3 ATLANDI** (sabit param-fragman, gerçek injection yok). build 0/0 · fresh-DB 0 fail (SP 3 param) · code+sql-sp reviewer temiz (7 önceki kapandı) · smoke (3 sayfa 200, PriceVariances query, AddLine qty=0 red).
-- [ ] Faz 2: aging/PaymentPlan PO-dışı doğrulandı (kanıt) · sp_PoCancel PaymentPlan cascade · çift-plan yok. sql-sp-reviewer + smoke.
+- [x] ✅ Faz 2 (2026-06-24): tvf_PaymentPlanAging + **tvf_FinancialPosition** (sql-sp-reviewer CRIT-1 yakaladı) PO/SO PaymentPlan hariç (açık sipariş ledger-dışı) · OnPostCancel PaymentPlan cascade + **transaction sarması** (IMP-1) · C-D sp_GeneratePaymentPlanFromPO AccountMovement yazmıyor (teyit) · tvf_OpenItemAging AM-bazlı PO-free. Smoke: aging 273600→195600, snapshot borç 289700 (PO 78000 çıktı), cascade dry-run 1 satır. **C-E (invoice post PO planını iptal etmiyor, çift estimate+actual) → TODO** (C-A/CRIT-1 ile aging+snapshot zaten temiz; kalan kozmetik liste + kısmi-fatura kararı PurchaseInvoices modülünde).
 - [ ] Faz 3: PO tam kabulde CLOSED · kalan-iptal CLOSED_PARTIAL · StatusTransition seed · immutability matris · UI rozet Türkçe. fresh-DB ritüeli + smoke (POSTED→CLOSED).
 - [ ] Faz 4: Details doc-layout/form-grid/table-scroll · satır-sil · vade autofill · confirm · <300 split. screenshot + smoke.
 - [ ] HARİÇ gap'ler TODO'ya dokümante.

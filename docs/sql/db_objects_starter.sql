@@ -1493,6 +1493,10 @@ RETURN
     JOIN Partner p ON p.Id = pp.PartnerId
     WHERE pp.CompanyId = @CompanyId
       AND pp.Status IN ('OPEN', 'PARTIAL', 'OVERDUE') AND pp.IsDeleted = 0
+      -- "Açık sipariş ledger/aging'de olmaz": PO/SO'dan üretilen PaymentPlan TAHMİNİ vade çizelgesidir,
+      -- fatura kesilmeden borç doğmaz. Aging kovaları yalnız fatura-kaynaklı gerçek borç/alacağı sayar;
+      -- sipariş taahhüdü ayrı OpenOrderAmount sütununda gösterilir (çift-sayım + hayalet-borç önlenir).
+      AND pp.SourceDocType NOT IN ('PURCHASE_ORDER', 'SALES_ORDER')
     GROUP BY pp.PartnerId, p.Name, pp.Direction
 );
 GO
@@ -2422,6 +2426,8 @@ BEGIN
       AND pp.Direction = 'RECEIVABLE'
       AND pp.Status IN ('OPEN','PARTIAL','OVERDUE')
       AND CAST(pp.CreatedAt AS DATE) <= @AsOfDate
+      -- "Açık sipariş ledger-dışı": SO/PO tahmini vade planı bilançoda alacak/borç sayılmaz (fatura kesilince doğar)
+      AND pp.SourceDocType NOT IN ('PURCHASE_ORDER', 'SALES_ORDER')
     GROUP BY p.Code, p.Name
     HAVING SUM(pp.Amount - pp.PaidAmount) > 0;
 
@@ -2465,6 +2471,8 @@ BEGIN
       AND pp.Direction = 'PAYABLE'
       AND pp.Status IN ('OPEN','PARTIAL','OVERDUE')
       AND CAST(pp.CreatedAt AS DATE) <= @AsOfDate
+      -- "Açık sipariş ledger-dışı": SO/PO tahmini vade planı bilançoda alacak/borç sayılmaz (fatura kesilince doğar)
+      AND pp.SourceDocType NOT IN ('PURCHASE_ORDER', 'SALES_ORDER')
     GROUP BY p.Code, p.Name
     HAVING SUM(pp.Amount - pp.PaidAmount) > 0;
 

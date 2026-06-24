@@ -11,7 +11,7 @@ namespace Operax.Web.Features.PurchaseOrders;
 /// Yönetici onaylar (PO fiyatı + ItemCost güncellenir) veya reddeder.
 /// </summary>
 [Authorize]
-public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit) : PageModel
+public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ILogger<PriceVariancesModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string Tab { get; set; } = DocStatus.Draft;
 
@@ -31,20 +31,22 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
 
     private async Task LoadCountsAsync(System.Data.IDbConnection conn, object p, CancellationToken ct)
     {
-        // İş kuralı: durum parametreleri DocStatus sabitleriyle beslenir, magic string yok
+        // İş kuralı: durum/kaynak parametreleri DocStatus + SourceDoc sabitleriyle beslenir, magic string yok
         var counts = await conn.QuerySingleAsync<(int Draft, int Approved, int Rejected)>(new CommandDefinition(@"
             SELECT
                 SUM(CASE WHEN Status = @StDraft    THEN 1 ELSE 0 END) AS Draft,
                 SUM(CASE WHEN Status = @StApproved THEN 1 ELSE 0 END) AS Approved,
-                SUM(CASE WHEN Status = 'REJECTED'  THEN 1 ELSE 0 END) AS Rejected
+                SUM(CASE WHEN Status = @StRejected THEN 1 ELSE 0 END) AS Rejected
             FROM PriceVariance
-            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND SourceDocType = 'PURCHASE_ORDER'",
-            new { ((dynamic)p).CompanyId, StDraft = DocStatus.Draft, StApproved = DocStatus.Approved }, cancellationToken: ct));
+            WHERE CompanyId = @CompanyId AND IsDeleted = 0 AND SourceDocType = @SrcPo",
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StApproved = DocStatus.Approved,
+                  StRejected = DocStatus.Rejected, SrcPo = SourceDoc.PurchaseOrder }, cancellationToken: ct));
         DraftCount = counts.Draft;
         ApprovedCount = counts.Approved;
         RejectedCount = counts.Rejected;
     }
 
+    // Aktif sekme (Status) filtresine göre PO fiyat farkı satırlarını yükler
     private async Task LoadVariancesAsync(System.Data.IDbConnection conn, CancellationToken ct)
     {
         var sql = @"
@@ -60,21 +62,37 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
             LEFT JOIN Partner p ON p.Id = v.PartnerId
             LEFT JOIN PurchaseOrderHeader h ON h.Id = v.SourceDocId
             WHERE v.CompanyId = @CompanyId AND v.IsDeleted = 0
-              AND v.SourceDocType = 'PURCHASE_ORDER'
+              AND v.SourceDocType = @SrcPo
               AND v.Status = @Tab
             ORDER BY v.CreatedAt DESC";
         Variances = (await conn.QueryAsync<VarianceDto>(new CommandDefinition(sql,
-            new { CompanyId = company.Id, Tab }, cancellationToken: ct))).ToList();
+            new { CompanyId = company.Id, Tab, SrcPo = SourceDoc.PurchaseOrder }, cancellationToken: ct))).ToList();
     }
 
     public async Task<IActionResult> OnPostApproveAsync(Guid id, CancellationToken ct)
     {
         // İş kuralı: Fiyat farkı onaylanır — PO satır fiyatı + maliyet motoru güncellenir
         using var conn = db.Open();
-        await conn.ExecuteAsync(new CommandDefinition("sp_ApprovePriceVariance",
-            new { VarianceId = id, UserId = user.Id },
-            commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
-        await audit.LogAsync("APPROVE_VARIANCE", "PriceVariance", id, "Fiyat farkı onaylandı");
+        try
+        {
+            // CompanyId: SP yalnızca bu firmanın fiyat farkını onaylar (IDOR koruması)
+            await conn.ExecuteAsync(new CommandDefinition("sp_ApprovePriceVariance",
+                new { VarianceId = id, CompanyId = company.Id, UserId = user.Id },
+                commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));
+            await audit.LogAsync("APPROVE_VARIANCE", "PriceVariance", id, "Fiyat farkı onaylandı");
+            TempData["Success"] = "Fiyat farkı onaylandı.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — SP Türkçe yazdı, kullanıcıya gösterilebilir
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a
+            logger.LogError(sqlEx, "Fiyat farkı onay DB hatası. Variance {VarianceId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { tab = DocStatus.Draft });
     }
 
@@ -82,13 +100,29 @@ public class PriceVariancesModel(Db db, ICurrentCompany company, ICurrentUser us
     {
         // İş kuralı: Reddedildiğinde PO satır fiyatı değişmez, kayıt REJECTED işaretlenir
         using var conn = db.Open();
-        // İş kuralı: yalnızca DRAFT fiyat farkı reddedilebilir; REJECTED DocStatus dışı sabit
-        await conn.ExecuteAsync(new CommandDefinition(@"
-            UPDATE PriceVariance
-            SET Status = 'REJECTED', ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
-            WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
-            new { Id = id, UserId = user.Id, CompanyId = company.Id, StDraft = DocStatus.Draft }, cancellationToken: ct));
-        await audit.LogAsync("REJECT_VARIANCE", "PriceVariance", id, "Fiyat farkı reddedildi");
+        try
+        {
+            // İş kuralı: yalnızca DRAFT fiyat farkı reddedilebilir (CompanyId scope — IDOR)
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                UPDATE PriceVariance
+                SET Status = @StRejected, ApprovedBy = @UserId, ApprovedAt = GETUTCDATE()
+                WHERE Id = @Id AND CompanyId = @CompanyId AND Status = @StDraft",
+                new { Id = id, UserId = user.Id, CompanyId = company.Id,
+                      StDraft = DocStatus.Draft, StRejected = DocStatus.Rejected }, cancellationToken: ct));
+            await audit.LogAsync("REJECT_VARIANCE", "PriceVariance", id, "Fiyat farkı reddedildi");
+            TempData["Success"] = "Fiyat farkı reddedildi.";
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası — Türkçe mesaj kullanıcıya gösterilebilir (approve ile simetri)
+            TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a
+            logger.LogError(sqlEx, "Fiyat farkı red DB hatası. Variance {VarianceId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
+        }
         return RedirectToPage(new { tab = DocStatus.Draft });
     }
 

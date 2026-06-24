@@ -36,27 +36,9 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
     public async Task OnGetAsync(Guid? id, CancellationToken ct)
     {
         using var conn = db.Open();
-        var p = new { CompanyId = company.Id };
 
-        Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
-
-        Vendors = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'BOTH') AND IsDeleted = 0", p, cancellationToken: ct));
-
-        AvailableItems = await conn.QueryAsync<DdlDto>(new CommandDefinition(
-            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0", p, cancellationToken: ct));
-
-        // Ürün → önerilen alış fiyatı (son hareketli ortalama maliyet). Satır eklerken fiyat otomatik gelir.
-        // ItemCost ürün başına birden çok satır olabilir (depo bazlı) → GROUP BY ile tek değer (mükerrer key hatası önlenir).
-        var itemPrices = await conn.QueryAsync<(Guid Id, decimal AvgCost)>(new CommandDefinition(
-            @"SELECT i.Id, ISNULL(MAX(ic.AvgCost), 0) AS AvgCost
-              FROM Item i
-              LEFT JOIN ItemCost ic ON ic.ItemId = i.Id AND ic.CompanyId = @CompanyId
-              WHERE i.CompanyId = @CompanyId AND i.IsActive = 1 AND i.IsDeleted = 0
-              GROUP BY i.Id", p, cancellationToken: ct));
-        ItemPriceJson = System.Text.Json.JsonSerializer.Serialize(
-            itemPrices.ToDictionary(x => x.Id.ToString(), x => x.AvgCost));
+        // Form dropdown'ları (depo/tedarikçi/ürün + fiyat önerisi) — OnGet + OnPost hata reload ortak
+        await LoadFormDropdownsAsync(conn, ct);
 
         if (id.HasValue)
         {
@@ -85,6 +67,32 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             Header.Status    = DocStatus.Draft;
             Header.OrderNo   = "NEW";
         }
+    }
+
+    // Form dropdown verilerini yükler (depo/tedarikçi/ürün + ürün→önerilen fiyat sözlüğü)
+    private async Task LoadFormDropdownsAsync(System.Data.IDbConnection conn, CancellationToken ct)
+    {
+        var p = new { CompanyId = company.Id };
+
+        Warehouses = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Code, Name FROM Warehouse WHERE CompanyId = @CompanyId AND IsDeleted = 0", p, cancellationToken: ct));
+
+        Vendors = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Code, Name FROM Partner WHERE CompanyId = @CompanyId AND Type IN ('VENDOR', 'BOTH') AND IsDeleted = 0", p, cancellationToken: ct));
+
+        AvailableItems = await conn.QueryAsync<DdlDto>(new CommandDefinition(
+            "SELECT Id, Code, Name FROM Item WHERE CompanyId = @CompanyId AND IsActive = 1 AND IsDeleted = 0", p, cancellationToken: ct));
+
+        // Ürün → önerilen alış fiyatı (son hareketli ortalama maliyet). Satır eklerken fiyat otomatik gelir.
+        // ItemCost ürün başına birden çok satır olabilir (depo bazlı) → GROUP BY ile tek değer (mükerrer key hatası önlenir).
+        var itemPrices = await conn.QueryAsync<(Guid Id, decimal AvgCost)>(new CommandDefinition(
+            @"SELECT i.Id, ISNULL(MAX(ic.AvgCost), 0) AS AvgCost
+              FROM Item i
+              LEFT JOIN ItemCost ic ON ic.ItemId = i.Id AND ic.CompanyId = @CompanyId
+              WHERE i.CompanyId = @CompanyId AND i.IsActive = 1 AND i.IsDeleted = 0
+              GROUP BY i.Id", p, cancellationToken: ct));
+        ItemPriceJson = System.Text.Json.JsonSerializer.Serialize(
+            itemPrices.ToDictionary(x => x.Id.ToString(), x => x.AvgCost));
     }
 
     // Header detayı + Partner ek alanları
@@ -147,9 +155,22 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
             new { Id = id }, cancellationToken: ct));
     }
 
+    // Yeni veya mevcut PO'yu kaydeder; doğrulama başarısızsa formu yeniden gösterir
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         using var conn = db.Open();
+
+        // Guard: form doğrulaması başarısızsa kaydetme — dropdown'ları yükleyip formu geri göster
+        if (!ModelState.IsValid)
+        {
+            await LoadFormDropdownsAsync(conn, ct);
+            if (!IsNew)
+            {
+                await LoadHeaderAsync(conn, Header.Id, ct);
+                await LoadLinesAsync(conn, Header.Id, ct);
+            }
+            return Page();
+        }
 
         if (IsNew)
         {
@@ -188,8 +209,16 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         return RedirectToPage(new { id = Header.Id });
     }
 
+    // PO'ya yeni satır ekler; ürünün temel birimini yansıtır ve fiyat farkı (PriceVariance) kontrolü yapar
     public async Task<IActionResult> OnPostAddLineAsync(Guid id, Guid itemId, decimal qty, decimal? price, CancellationToken ct)
     {
+        // Guard: geçersiz satır girişi reddedilir (ürün seçili + pozitif miktar zorunlu)
+        if (itemId == Guid.Empty || qty <= 0)
+        {
+            TempData["Error"] = "Geçersiz satır: ürün seçimi ve pozitif miktar zorunlu.";
+            return RedirectToPage(new { id });
+        }
+
         using var conn = db.Open();
         // Evrak bütünlüğü: bu siparişe mal kabul yapılmışsa satır eklenemez (document-immutability §3)
         if (await DocumentLock.PoHasReceivingAsync(conn, id, company.Id))
@@ -302,7 +331,7 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         try
         {
             await conn.ExecuteAsync(new CommandDefinition("sp_ValidateStatusTransition",
-                new { CompanyId = company.Id, DocumentType = "PURCHASE_ORDER",
+                new { CompanyId = company.Id, DocumentType = SourceDoc.PurchaseOrder,
                       FromStatus = DocStatus.Posted, ToStatus = DocStatus.Cancelled,
                       UserId = user.Id },
                 commandType: System.Data.CommandType.StoredProcedure, cancellationToken: ct));

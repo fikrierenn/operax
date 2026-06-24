@@ -265,6 +265,7 @@ GO
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_ApprovePriceVariance
     @VarianceId UNIQUEIDENTIFIER,
+    @CompanyId  UNIQUEIDENTIFIER = NULL,
     @UserId     UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
@@ -277,9 +278,13 @@ BEGIN
         DECLARE @Status NVARCHAR(20), @SourceLineId UNIQUEIDENTIFIER,
                 @ActualPrice DECIMAL(18,4), @SourceDocType NVARCHAR(50);
 
+        -- CompanyId scope: yalnızca bu firmanın fiyat farkı (IDOR koruması).
+        -- @CompanyId NULL ise (geri uyum) firma filtresi uygulanmaz.
         SELECT @Status = Status, @SourceLineId = SourceLineId,
                @ActualPrice = ActualPrice, @SourceDocType = SourceDocType
-        FROM PriceVariance WHERE Id = @VarianceId AND IsDeleted = 0;
+        FROM PriceVariance
+        WHERE Id = @VarianceId AND IsDeleted = 0
+          AND (@CompanyId IS NULL OR CompanyId = @CompanyId);
 
         IF @Status IS NULL
             THROW 51101, N'Fiyat farkı kaydı bulunamadı.', 1;
@@ -292,12 +297,13 @@ BEGIN
             SET Price = @ActualPrice
             WHERE Id = @SourceLineId;
 
-        -- Variance kaydını onayla
+        -- Variance kaydını onayla (firma scope korunur)
         UPDATE PriceVariance
         SET Status     = 'APPROVED',
             ApprovedBy = @UserId,
             ApprovedAt = GETUTCDATE()
-        WHERE Id = @VarianceId;
+        WHERE Id = @VarianceId
+          AND (@CompanyId IS NULL OR CompanyId = @CompanyId);
 
         COMMIT TRANSACTION;
     END TRY

@@ -64,6 +64,7 @@ public static class DictType
 /// <summary>Kaynak belge tipleri (SourceDocType kolonu)</summary>
 public static class SourceDoc
 {
+    public const string PurchaseOrder = "PURCHASE_ORDER";
     public const string Receiving  = "RECEIVING";
     public const string Shipping   = "SHIPPING";
     public const string Transfer   = "TRANSFER";

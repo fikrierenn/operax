@@ -44,11 +44,11 @@
                 <div class="form-group">
                     <label class="form-label">Şube Tipi</label>
                     <select asp-for="Branch.BranchType" class="form-ctrl">
-                        <option value="SUBE">Şube</option>
-                        <option value="MERKEZ">Merkez</option>
-                        <option value="FABRIKA">Fabrika</option>
-                        <option value="MAGAZA">Mağaza</option>
-                        <option value="OFIS">Ofis</option>
+                        <option value="@Operax.Web.Lib.BranchType.Sube">Şube</option>
+                        <option value="@Operax.Web.Lib.BranchType.Merkez">Merkez</option>
+                        <option value="@Operax.Web.Lib.BranchType.Fabrika">Fabrika</option>
+                        <option value="@Operax.Web.Lib.BranchType.Magaza">Mağaza</option>
+                        <option value="@Operax.Web.Lib.BranchType.Ofis">Ofis</option>
                     </select>
                 </div>
                 <div class="form-group">

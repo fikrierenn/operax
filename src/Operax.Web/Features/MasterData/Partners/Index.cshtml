@@ -30,9 +30,9 @@
         </div>
         <select name="type" class="form-ctrl w-44 text-xs font-semibold" onchange="this.form.submit()">
             <option value="">Tüm Cari Tipleri</option>
-            <option value="CUSTOMER" selected="@(Model.Type == PartnerType.Customer)">Müşteri</option>
-            <option value="VENDOR" selected="@(Model.Type == PartnerType.Vendor)">Tedarikçi</option>
-            <option value="BOTH" selected="@(Model.Type == PartnerType.Both)">Hem Alıcı Hem Satıcı</option>
+            <option value="@PartnerType.Customer" selected="@(Model.Type == PartnerType.Customer)">Müşteri</option>
+            <option value="@PartnerType.Vendor" selected="@(Model.Type == PartnerType.Vendor)">Tedarikçi</option>
+            <option value="@PartnerType.Both" selected="@(Model.Type == PartnerType.Both)">Hem Alıcı Hem Satıcı</option>
         </select>
     </form>
     <table class="data-table w-full">

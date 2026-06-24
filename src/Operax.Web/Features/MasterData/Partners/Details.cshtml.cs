@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Operax.Web.Features.MasterData.Partners;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ParameterStore parameters, UdfService udfSvc) : PageModel
+public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INumberSeriesService numberSeries, ParameterStore parameters, UdfService udfSvc, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public PartnerDto Partner { get; set; } = new();
@@ -304,7 +304,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
+            // İş kuralı hatası — SP Türkçe yazdı, kullanıcıya gösterilebilir
             TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a
+            logger.LogError(sqlEx, "Mutabakat oluşturma DB hatası. Cari {PartnerId}", id);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id, tab = "mutabakat" });
     }
@@ -323,7 +330,14 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, INu
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
         {
+            // İş kuralı hatası — SP Türkçe yazdı, kullanıcıya gösterilebilir
             TempData["Error"] = sqlEx.Message;
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Sistem hatası — ham mesaj gösterilmez, detay log'a
+            logger.LogError(sqlEx, "Mutabakat yanıt DB hatası. Mutabakat {ReconciliationId}", reconciliationId);
+            TempData["Error"] = "Veritabanı hatası oluştu.";
         }
         return RedirectToPage(new { id, tab = "mutabakat" });
     }

@@ -168,9 +168,9 @@
                         <label class="form-label">Kalem Türü</label>
                         <select asp-for="Item.ItemType" class="form-ctrl">
                             @* Plan 52: ürün doğası (satış/sarf/üretim kullanımı evrak belirler — CONSUMABLE kaldırıldı) *@
-                            <option value="STOCK">Stok (fiziksel mal — satılır/üretilir/sarf olur)</option>
-                            <option value="SERVICE">Hizmet (stoksuz)</option>
-                            <option value="FIXED_ASSET">Sabit Kıymet (demirbaş)</option>
+                            <option value="@Operax.Web.Lib.ItemType.Stock">Stok (fiziksel mal — satılır/üretilir/sarf olur)</option>
+                            <option value="@Operax.Web.Lib.ItemType.Service">Hizmet (stoksuz)</option>
+                            <option value="@Operax.Web.Lib.ItemType.FixedAsset">Sabit Kıymet (demirbaş)</option>
                         </select>
                     </div>
                     <div>

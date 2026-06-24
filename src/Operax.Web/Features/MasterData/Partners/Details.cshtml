@@ -21,13 +21,13 @@
     {
         var pid = Model.Partner.Id;
         <div class="tabs" style="margin-bottom:14px;">
-            <a class="tab @(Model.Tab == "genel" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=genel">Genel</a>
-            <a class="tab @(Model.Tab == "ekstre" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=ekstre">Ekstre / Hareketler</a>
-            <a class="tab @(Model.Tab == "siparisler" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=siparisler">Siparişler</a>
-            <a class="tab @(Model.Tab == "faturalar" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=faturalar">Faturalar</a>
-            <a class="tab @(Model.Tab == "cekssenet" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=cekssenet">Çek / Senet</a>
-            <a class="tab @(Model.Tab == "mutabakat" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=mutabakat">Mutabakat</a>
-            <a class="tab @(Model.Tab == "fiyatlar" ? "active" : "")" href="/MasterData/Partners/Details/@pid?tab=fiyatlar">Fiyatlar</a>
+            <a class="tab @(Model.Tab == "genel" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="genel">Genel</a>
+            <a class="tab @(Model.Tab == "ekstre" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="ekstre">Ekstre / Hareketler</a>
+            <a class="tab @(Model.Tab == "siparisler" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="siparisler">Siparişler</a>
+            <a class="tab @(Model.Tab == "faturalar" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="faturalar">Faturalar</a>
+            <a class="tab @(Model.Tab == "cekssenet" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="cekssenet">Çek / Senet</a>
+            <a class="tab @(Model.Tab == "mutabakat" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="mutabakat">Mutabakat</a>
+            <a class="tab @(Model.Tab == "fiyatlar" ? "active" : "")" asp-page="./Details" asp-route-id="@pid" asp-route-tab="fiyatlar">Fiyatlar</a>
         </div>
     }
 
@@ -59,9 +59,9 @@
                             <div class="form-group">
                                 <label class="form-label">Cari Tipi <span class="req">*</span></label>
                                 <select asp-for="Partner.Type" class="form-ctrl" required>
-                                    <option value="VENDOR">Tedarikçi</option>
-                                    <option value="CUSTOMER">Müşteri</option>
-                                    <option value="BOTH">Her İkisi</option>
+                                    <option value="@Operax.Web.Lib.PartnerType.Vendor">Tedarikçi</option>
+                                    <option value="@Operax.Web.Lib.PartnerType.Customer">Müşteri</option>
+                                    <option value="@Operax.Web.Lib.PartnerType.Both">Her İkisi</option>
                                 </select>
                             </div>
                         </div>

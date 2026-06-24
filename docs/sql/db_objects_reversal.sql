@@ -463,6 +463,20 @@ BEGIN
             N'Satış Faturası İptali: ' + @InvoiceNo, @UserId
         );
 
+        -- Faturalama izini geri al: kaynak sevkiyat satırlarının InvoicedQty'sini düş (purchase ayna,
+        -- db_objects_docchain.sql sp_PurchaseInvoiceReverse:571-576). Aksi halde iptal sonrası sevkiyat
+        -- "faturalanmış" kalır → yeniden faturalanamaz (UI/SP çıkmazı). VUK 1:1 korunur: aynı anda yalnız
+        -- TEK aktif fatura; iptal edilince sevkiyat tekrar faturalanabilir hale gelir.
+        UPDATE sl
+        SET sl.InvoicedQty = sl.InvoicedQty - x.TotalQty
+        FROM ShippingLine sl
+        JOIN (
+            SELECT sil.SourceShipmentLineId, SUM(sil.Qty) AS TotalQty
+            FROM SalesInvoiceLine sil
+            WHERE sil.InvoiceId = @InvoiceId AND sil.SourceShipmentLineId IS NOT NULL
+            GROUP BY sil.SourceShipmentLineId
+        ) x ON x.SourceShipmentLineId = sl.Id;
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH

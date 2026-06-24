@@ -366,8 +366,10 @@ BEGIN
         DECLARE @userStr NVARCHAR(450) = CAST(@UserId AS NVARCHAR(450));
         EXEC dbo.sp_GuardPeriodOpen @CompanyId, @now, @userStr;
 
-        -- Bu sevkiyat için zaten fatura varsa hata (çift-post koruması)
-        IF EXISTS (SELECT 1 FROM SalesInvoice WHERE ShippingId = @ShippingId AND IsDeleted = 0)
+        -- VUK 1:1 (bir sevkiyat → bir AKTİF fatura): zaten aktif fatura varsa hata. CANCELLED hariç —
+        -- iptal sonrası sevkiyat yeniden faturalanabilir (C# DocumentLock.ShippingHasInvoiceAsync ile hizalı;
+        -- iptal sp_SalesInvoiceReverse InvoicedQty'yi sıfırlar). Çift aktif fatura = VUK ihlali, engellenir.
+        IF EXISTS (SELECT 1 FROM SalesInvoice WHERE ShippingId = @ShippingId AND IsDeleted = 0 AND Status <> 'CANCELLED')
             THROW 50203, N'Bu sevkiyat için zaten fatura oluşturulmuş.', 1;
 
         -- PartnerId boşsa ilk satırdaki SO'dan al

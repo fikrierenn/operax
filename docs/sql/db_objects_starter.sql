@@ -1683,8 +1683,18 @@ BEGIN
                SELECT 1 FROM PurchaseOrderLine
                WHERE HeaderId = @POId AND QtyReceived < QtyOrdered
            )
+        BEGIN
             UPDATE PurchaseOrderHeader SET Status = 'CLOSED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
             WHERE Id = @POId AND Status = 'POSTED';
+
+            -- Forecast hijyeni (Plan 55 F3): PO tam kabulle kapandı → tahmini (PURCHASE_ORDER) PaymentPlan
+            -- artık taahhüt değil, iptal edilir. PO cancel / kalanı-kapat (C# OnPostCancel/CloseRemaining) ile
+            -- aynı kural; kapanmış siparişin açık forecast'i kalmasın (ödenmişe dokunma). Plan 55 F2 zaten
+            -- forecast'i payable okuyuculardan dışlıyor → drift yok; bu yalnız hijyen (açık satır birikmesin).
+            UPDATE PaymentPlan SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE()
+            WHERE SourceDocType = 'PURCHASE_ORDER' AND SourceDocId = @POId AND CompanyId = @CompanyId
+              AND Status NOT IN ('PAID','CANCELLED');
+        END
 
         UPDATE ReceivingHeader
         SET Status = 'POSTED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId

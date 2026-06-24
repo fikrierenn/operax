@@ -62,15 +62,31 @@ else
         <form method="post" asp-page-handler="Confirm" asp-route-taskId="@Model.ActiveTask.Id" id="pick-form">
             <input type="hidden" name="lineId" value="@l.Id" />
 
-            @* Adım 1 — RAF (en büyük: operatör önce doğru rafa gider, kodu okutur/girer) *@
-            <div class="bg-slate-800 rounded-2xl p-5 mb-3">
-                <div class="text-[10px] text-indigo-300 uppercase font-bold mb-1">① Git: Raf</div>
-                <div class="text-4xl font-black text-indigo-400 font-mono mb-1">@(l.BinCode ?? "—")</div>
-                <div class="text-slate-400 text-xs mb-3">@l.WhCode</div>
-                <input name="binBarcode" data-pick-step="bin" type="text" autofocus autocomplete="off" inputmode="text"
-                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
-                       placeholder="Raf barkodu/kodu okut..." />
-            </div>
+            @if (l.SameRackAsPrevious)
+            {
+                @* Aynı raf optimizasyonu (Plan 56): operatör zaten bu rafta → tekrar doğrulama YOK,
+                   raf kodu hidden olarak gönderilir (SP yine veri-bütünlüğü için eşler), direkt ürüne geçilir. *@
+                <input type="hidden" name="binBarcode" value="@l.BinCode" />
+                <div class="bg-slate-800 rounded-2xl p-4 mb-3 flex items-center gap-3">
+                    <div class="text-green-400 text-2xl">✓</div>
+                    <div>
+                        <div class="text-[10px] text-green-300 uppercase font-bold">Aynı Raf (doğrulandı)</div>
+                        <div class="text-2xl font-black text-indigo-400 font-mono">@(l.BinCode ?? "—")</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @* Adım 1 — RAF (en büyük: operatör önce doğru rafa gider, kodu okutur/girer) *@
+                <div class="bg-slate-800 rounded-2xl p-5 mb-3">
+                    <div class="text-[10px] text-indigo-300 uppercase font-bold mb-1">① Git: Raf</div>
+                    <div class="text-4xl font-black text-indigo-400 font-mono mb-1">@(l.BinCode ?? "—")</div>
+                    <div class="text-slate-400 text-xs mb-3">@l.WhCode</div>
+                    <input name="binBarcode" data-pick-step="bin" type="text" autofocus autocomplete="off" inputmode="text"
+                           class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                           placeholder="Raf barkodu/kodu okut..." />
+                </div>
+            }
 
             @* Adım 2 — ÜRÜN *@
             <div class="bg-slate-800 rounded-2xl p-5 mb-3">
@@ -129,10 +145,13 @@ else
     // raf alanından ürüne, üründen miktara otomatik geç; miktarda Enter = Onayla (submit).
     // CSP-uyumlu vanilla (eval yok). Alpine YASAK.
     (function () {
-        var order = ['bin', 'item', 'qty'];
+        // Yalnız RENDER EDİLEN adımlar (aynı raf'ta 'bin' adımı yok → order'dan düşer, ilk='item')
+        var order = ['bin', 'item', 'qty'].filter(function (k) {
+            return document.querySelector('[data-pick-step="' + k + '"]');
+        });
         var steps = {};
         order.forEach(function (k) { steps[k] = document.querySelector('[data-pick-step="' + k + '"]'); });
-        if (steps.bin) steps.bin.focus();
+        if (steps[order[0]]) steps[order[0]].focus();
         order.forEach(function (k, i) {
             var el = steps[k];
             if (!el) return;

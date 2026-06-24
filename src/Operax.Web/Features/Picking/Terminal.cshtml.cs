@@ -50,7 +50,15 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             new CommandDefinition(@"
             SELECT TOP 1 l.Id, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase,
                    i.Code AS ItemCode, i.Name AS ItemName,
-                   b.Code AS BinCode, w.Code AS WhCode
+                   b.Code AS BinCode, w.Code AS WhCode,
+                   -- Aynı raf optimizasyonu (Plan 56): önceki İŞLENEN kalem (PickSeq sırasında son)
+                   -- aynı bin'deyse operatör zaten o rafta → raf-doğrulama adımı atlanır.
+                   CASE WHEN l.TargetBinId = (
+                       SELECT TOP 1 p.TargetBinId FROM PickTaskLine p
+                       WHERE p.PickTaskId = l.PickTaskId
+                         AND (p.QtyPickedBase > 0 OR p.ExceptionNote IS NOT NULL)
+                       ORDER BY p.PickSeq DESC
+                   ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS SameRackAsPrevious
             FROM PickTaskLine l
             JOIN PickTask pt ON pt.Id = l.PickTaskId
             JOIN Item i ON i.Id = l.ItemId
@@ -125,6 +133,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         public decimal QtyPickedBase { get; set; }
         public string? BinCode { get; set; }
         public string? WhCode { get; set; }
+        public bool SameRackAsPrevious { get; set; }   // önceki kalem aynı rafta → raf-doğrulama atla
         public decimal Remaining => QtyToPickBase - QtyPickedBase;
     }
 }

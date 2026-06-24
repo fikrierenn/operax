@@ -20,7 +20,7 @@
 - [x] ✅ **Faz 1 (CRITICAL) 2026-06-24:** `Bin.IsStorageArea` migration_53 + fresh-DB ritüeli (0 fail) · Item "Pasif Yap" OnPostDeactivate handler · Warehouse ModelState guard + [Required]. Smoke: raf-ekle IsStorageArea=1 ✓, Item IsActive=0 + audit ✓. Reviewer (kod/sql/security) temiz.
 - [x] ✅ **Faz 2 (HIGH) 2026-06-24:** Item/Warehouse/Branch soft-delete handler+Sil butonu (child-guard: hareket/stok/depo) · Locations bin Create/Edit/Delete işlevsel · Warehouse/Branch Details try-catch+ILogger · BranchType CHECK (migration_54) · P32-7 SupplierItemCode listede. Reviewer: Warehouse delete'e açık-PO/SO guard + transaction eklendi; UpdatedAt reddedildi (Warehouse'da kolon yok). Smoke: CHECK red(547)·Locations CRUD·Branch guard ✓.
 - [x] ✅ **Faz 3 (UI+hijyen) 2026-06-24:** tasarım (MasterData pass) + magic string→sabit (ItemType/BranchType/PartnerType option) + hardcoded URL→asp-page (Partner tab + Locations buton; Items Inventory deep-link href kaldı) + PriceLists sayaç→FilteredCount + reconciliation 2 handler generic catch+ILogger. Build 0/0, smoke 4 ekran 200.
-- [ ] **Faz 4:** Partners/Details 554→<300 (tab/service split) · Items/Details <300 · cari-leg + raf-ekle E2E smoke.
+- [x] ✅ **Faz 4 (2026-06-24):** Partners/Details 568→236 (partial split: Details.Loaders.cs + Details.Dtos.cs) · Items/Details 342→274 (Details.Dtos.cs + Details.Handlers.cs) · E2E smoke: 7 Partner tab + Items Details hepsi 200, raf-ekle (Faz 1) ✓. **Plan 50 M2 TÜMÜYLE KAPANDI → arşiv.**
 
 ### C. KAYIP OTURUM tasarım/debt kalıntıları
 - [ ] **Expenses/Details + Report/Index** Tailwind utility-salata (`class="label"/"input"`) → form-ctrl/form-label/_PageHeader (M18 UX-pass etkileşimi tamam, GÖRSEL katman ayrı — Belgeler modülünde).

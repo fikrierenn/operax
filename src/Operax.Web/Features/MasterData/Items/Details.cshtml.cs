@@ -7,7 +7,8 @@ using Operax.Web.Lib;
 namespace Operax.Web.Features.MasterData.Items;
 
 [Authorize]
-public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, SupplierItemService supplierItems, UdfService udfSvc, ILogger<DetailsModel> logger) : PageModel
+// Ürün detay ekranı — ana parça (form + tab handler'ları). DTO/record'lar Details.Dtos.cs partial dosyasında.
+public partial class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAuditService audit, ParameterStore parameters, SupplierItemService supplierItems, UdfService udfSvc, ILogger<DetailsModel> logger) : PageModel
 {
     [BindProperty]
     public ItemDto Item { get; set; } = new();
@@ -270,78 +271,4 @@ public class DetailsModel(Db db, ICurrentCompany company, ICurrentUser user, IAu
         }
         return RedirectToPage(new { id });
     }
-
-    public async Task<IActionResult> OnPostAddUomAsync(Guid id, Guid uomId, decimal rate, CancellationToken ct)
-    {
-        // UOM dönüşüm oranı ekler — IDOR: ürün bu firmaya ait olmalı
-        using var conn = db.Open();
-        var owned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
-        if (owned == 0) return RedirectToPage(new { id, tab = "uom" });
-        await conn.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO ItemUOM (ItemId, UomId, ConversionRate) VALUES (@ItemId, @UomId, @Rate)",
-            new { ItemId = id, UomId = uomId, Rate = rate }, cancellationToken: ct));
-        return RedirectToPage(new { id, tab = "uom" });
-    }
-
-    public async Task<IActionResult> OnPostDeleteUomAsync(Guid id, Guid uomConversionId, CancellationToken ct)
-    {
-        // UOM dönüşüm satırını siler — IDOR: yalnızca bu firmanın ürününe ait satır
-        using var conn = db.Open();
-        await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM ItemUOM WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
-            new { Id = uomConversionId, CompanyId = company.Id }, cancellationToken: ct));
-        return RedirectToPage(new { id, tab = "uom" });
-    }
-
-    public async Task<IActionResult> OnPostAddBarcodeAsync(Guid id, Guid uomId, string barcode, CancellationToken ct)
-    {
-        // Barkod ekler — IDOR: ürün bu firmaya ait olmalı
-        using var conn = db.Open();
-        var owned = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(1) FROM Item WHERE Id = @Id AND CompanyId = @CompanyId",
-            new { Id = id, CompanyId = company.Id }, cancellationToken: ct));
-        if (owned == 0) return RedirectToPage(new { id, tab = "barcodes" });
-        await conn.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO ItemBarcode (ItemId, UomId, Barcode) VALUES (@ItemId, @UomId, @Barcode)",
-            new { ItemId = id, UomId = uomId, Barcode = barcode }, cancellationToken: ct));
-        return RedirectToPage(new { id, tab = "barcodes" });
-    }
-
-    public async Task<IActionResult> OnPostDeleteBarcodeAsync(Guid id, Guid barcodeId, CancellationToken ct)
-    {
-        // Barkod siler — IDOR: yalnızca bu firmanın ürününe ait barkod
-        using var conn = db.Open();
-        await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM ItemBarcode WHERE Id = @Id AND ItemId IN (SELECT Id FROM Item WHERE CompanyId = @CompanyId)",
-            new { Id = barcodeId, CompanyId = company.Id }, cancellationToken: ct));
-        return RedirectToPage(new { id, tab = "barcodes" });
-    }
-
-    public record ItemDto
-    {
-        public Guid    Id               { get; set; }
-        public string  Code             { get; set; } = "";
-        public string  Name             { get; set; } = "";
-        public string? Description      { get; set; }
-        public Guid    BaseUomId        { get; set; }
-        public string? BaseUomCode      { get; set; }
-        public Guid?   CategoryId       { get; set; }
-        public string? CategoryName     { get; set; }
-        public decimal TaxRate          { get; set; } = 20;
-        public string  ItemType         { get; set; } = Operax.Web.Lib.ItemType.Stock;  // Ürün doğası: STOCK (fiziksel) | SERVICE (hizmet) | FIXED_ASSET (demirbaş) — Plan 52: CONSUMABLE kaldırıldı
-        public bool    IsLotTracked     { get; set; }
-        public bool    IsSerialTracked  { get; set; }
-        public bool    IsActive         { get; set; }
-
-        // Ürün-seviyesi emniyet stok limitleri (Plan 34 — eski Description-JSON MinQty/MaxQty'den terfi)
-        public decimal? MinStockLevel    { get; set; }
-        public decimal? MaxStockLevel    { get; set; }
-        // Dinamik UDF JSON çantası — servisle doldurulur, kullanıcı bind etmez
-        public string? AdditionalFields  { get; set; }
-    }
-
-    public record UomConversionDto(Guid Id, string UomCode, string UomName, decimal ConversionRate);
-    public record BarcodeDto(Guid Id, string Barcode, string UomCode);
 }

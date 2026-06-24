@@ -1,6 +1,6 @@
 # Plan 50 — M2 Master Veri Modül Tamamlama (DoD'a kapat)
 
-**Durum:** AKTİF · kod tarafı bekliyor. **NOT (2026-06-24):** Faz 3'ün TASARIM kısmı (page-hdr/card/data-table/token — MasterData ekranları) `plans/53` modül pass'inde YAPILDI. Bu plandan KALAN = Faz 1/2 (kod: schema+lifecycle+handler) + Faz 3 hijyen (magic string/URL/sayaç/logger) + Faz 4 (split+smoke). Tasarım rollout = plan 53; bu plan KOD revizyonunu kapsar. (Kayıp 2026-06-23 öğleden sonra oturumu audit'i — journal Oturum 3.)
+**Durum:** ✅ TAMAMLANDI (2026-06-24) — Faz 1-4 kapandı, arşive taşınıyor. HARİÇ kalan (çek cari-leg→M6, qty-break) TODO'da. **NOT (2026-06-24):** Faz 3'ün TASARIM kısmı (page-hdr/card/data-table/token — MasterData ekranları) `plans/53` modül pass'inde YAPILDI. Bu plandan KALAN = Faz 1/2 (kod: schema+lifecycle+handler) + Faz 3 hijyen (magic string/URL/sayaç/logger) + Faz 4 (split+smoke). Tasarım rollout = plan 53; bu plan KOD revizyonunu kapsar. (Kayıp 2026-06-23 öğleden sonra oturumu audit'i — journal Oturum 3.)
 **Tier:** 3 (çok dosya, schema + UI + SP, go-live kritik fresh-install bug)
 **Tarih:** 2026-06-23
 **Roadmap:** Plan 45 §3 sıra — M0 ✅ · M1 ✅ · **M2 sıradaki.** EXECUTION-FIRST: mevcut modülü DoD D1-D8'e kapat.
@@ -59,7 +59,7 @@ M2 (Partner/cari + Item/ürün + Warehouse/Bin/Branch) **işlevsel ama DoD altı
 - [x] ✅ Faz 1 (2026-06-24): Bin.IsStorageArea migration_53 + schema_all + fresh-DB ritüeli 0-fail · Item Pasif Yap (OnPostDeactivate) çalışıyor · Warehouse ModelState guard + [Required]. Smoke OK, 3 reviewer temiz.
 - [x] ✅ Faz 2 (2026-06-24): Item/Warehouse/Branch soft-delete (Sil butonu+child-guard) · Locations bin Create/Edit/Delete işlevsel · Warehouse/Branch Details catch+ILogger · BranchType CHECK (migration_54) · P32-7 SupplierItemCode. Warehouse delete: açık-PO/SO guard + transaction. fresh-DB 0 fail, 3 reviewer, smoke ✓.
 - [x] ✅ Faz 3 (2026-06-24): ui-standard (tasarım pass'inde) · magic string→sabit (ItemType/BranchType/PartnerType option value) · hardcoded URL→asp-page (Partner tab'ları + Locations buton; Items cross-feature Inventory deep-link href bırakıldı) · PriceLists sayaç Rows.Count()→FilteredCount · reconciliation 2 handler generic catch+ILogger. Build 0/0, smoke: 4 ekran 200 + option değerleri doğru.
-- [ ] Faz 4: Partners/Details + Items/Details <300 satır · cari-leg + raf-ekle E2E smoke
+- [x] ✅ Faz 4 (2026-06-24): Partners/Details 568→236 (partial: Loaders+Dtos) · Items/Details 342→274 (partial: Dtos+Handlers) · E2E smoke 7 tab+Items 200, raf-ekle ✓. TÜM partial dosyalar <300.
 - [ ] Her faz: build → code/sql-sp/security reviewer → smoke (phase-review-gate; schema değişince fresh-DB §3.5)
 - [ ] HARİÇ (çek cari-leg→M6, qty-break) dokümante + TODO
 - [ ] Plan arşive + journal

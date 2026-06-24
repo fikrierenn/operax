@@ -57,6 +57,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             LEFT JOIN Bin b ON b.Id = l.TargetBinId
             LEFT JOIN Warehouse w ON w.Id = l.TargetWarehouseId
             WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyRequestedBase
+              AND l.ExceptionNote IS NULL   -- istisna-işaretli (atla/short/hasar) satır akıştan düşer (Faz C)
               AND pt.CompanyId = @CompanyId
             ORDER BY l.PickSeq, b.Zone, b.SortNo, l.Id",
             new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
@@ -67,7 +68,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             var prog = await conn.QueryFirstOrDefaultAsync<(int Done, int Total)>(
                 new CommandDefinition(@"
                 SELECT
-                    SUM(CASE WHEN QtyPickedBase >= QtyRequestedBase THEN 1 ELSE 0 END) AS Done,
+                    SUM(CASE WHEN QtyPickedBase >= QtyRequestedBase OR ExceptionNote IS NOT NULL THEN 1 ELSE 0 END) AS Done,
                     COUNT(*) AS Total
                 FROM PickTaskLine WHERE PickTaskId = @TaskId",
                 new { TaskId = taskId }, cancellationToken: ct));
@@ -76,18 +77,28 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         }
     }
 
-    public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode, CancellationToken ct)
+    public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode,
+        string? binBarcode, decimal? actualQty, string? exceptionType, string? exceptionNote, CancellationToken ct)
     {
-        // Barkod onayı + satır tamamlama + durum geçişi — iş mantığı SP'de (SQL-First).
-        // sp_PickConfirm: barkod doğrula, satırı tamamla, DRAFT→IN_PROGRESS, bitince COMPLETED.
+        // Kılavuzlu onay (Plan 56 Faz C) — iş mantığı SP'de (SQL-First).
+        // sp_PickConfirm: raf doğrula + ürün doğrula + miktar(short-pick) / istisna(atla/hasar);
+        // DRAFT→IN_PROGRESS, tüm satır işlenince COMPLETED.
         using var conn = db.Open();
         try
         {
             await conn.ExecuteAsync(
                 new CommandDefinition("sp_PickConfirm",
-                    new { TaskId = taskId, LineId = lineId, Barcode = barcode, CompanyId = company.Id, UserId = user.Id },
+                    new { TaskId = taskId, LineId = lineId, Barcode = barcode ?? "",
+                          CompanyId = company.Id, UserId = user.Id,
+                          BinBarcode = binBarcode, ActualQty = actualQty,
+                          ExceptionType = exceptionType, ExceptionNote = exceptionNote },
                     commandType: CommandType.StoredProcedure, cancellationToken: ct));
-            TempData["Success"] = "Toplama onaylandı!";
+            TempData["Success"] = exceptionType switch
+            {
+                "SKIP"    => "Kalem atlandı.",
+                "DAMAGED" => "Hasarlı işaretlendi.",
+                _         => "Toplama onaylandı!"
+            };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (SqlException sqlEx) when (sqlEx.Number is >= 50000 and < 60000)

@@ -101,21 +101,26 @@ END
 GO
 
 -- =============================================================================
--- sp_PickConfirm — El terminali toplama barkod onayı (atomik durum geçişi)
--- NE YAPAR: Barkodu satır ürünüyle doğrular; eşleşirse satırı tamamlar
---           (QtyPickedBase = QtyRequestedBase), DRAFT görevi IN_PROGRESS'e geçirir,
---           tüm satırlar bitince görevi COMPLETED yapar.
--- NOT: Mevcut terminal davranışı birebir korunur — bu SP StockMovement YAZMAZ
---      (gerçek stok çıkışı sevkiyat/sp_PickLinePost yolunda; iki yol arası
---       stok-düşme semantiği ayrı domain kararı olarak Plan 33 DEBT'e işlendi).
--- THROW: 51580 satır bulunamadı · 51581 barkod eşleşmedi
+-- sp_PickConfirm — El terminali KILAVUZLU toplama onayı (atomik) — Plan 56 Faz C
+-- NE YAPAR: (1) Raf doğrula (@BinBarcode verilirse TargetBin.Code ile eşleşmeli — yanlış raf yakalanır)
+--           (2) Ürün doğrula (barkod ürün/ItemBarcode ile) (3) Miktar uygula (@ActualQty, default tam)
+--           kısmi (short-pick) ise satır AÇIK kalır ama ExceptionNote='SHORT' ile akıştan düşer.
+--           İstisna (@ExceptionType SKIP/DAMAGED) ürün/miktar atlanır, yalnız iz bırakılır.
+--           DRAFT→IN_PROGRESS; tüm satırlar tamamlanınca (veya istisna-işaretli) COMPLETED.
+-- GERİYE UYUMLU: @BinBarcode/@ActualQty/@ExceptionType NULL → eski tam-pick davranışı.
+-- NOT: StockMovement YAZMAZ (gerçek çıkış sp_ShippingPost — çift-düşüm fix korunur).
+-- THROW: 51580 satır yok · 51581 ürün barkod eşleşmedi · 51582 yanlış raf · 51583 miktar geçersiz
 -- =============================================================================
 CREATE OR ALTER PROCEDURE dbo.sp_PickConfirm
-    @TaskId    UNIQUEIDENTIFIER,
-    @LineId    UNIQUEIDENTIFIER,
-    @Barcode   NVARCHAR(100),
-    @CompanyId UNIQUEIDENTIFIER,
-    @UserId    NVARCHAR(450)
+    @TaskId        UNIQUEIDENTIFIER,
+    @LineId        UNIQUEIDENTIFIER,
+    @Barcode       NVARCHAR(100),
+    @CompanyId     UNIQUEIDENTIFIER,
+    @UserId        NVARCHAR(450),
+    @BinBarcode    NVARCHAR(100)  = NULL,   -- raf doğrulama (NULL = atla)
+    @ActualQty     DECIMAL(18,6)  = NULL,   -- toplanan miktar (NULL = tam istenen)
+    @ExceptionType NVARCHAR(20)   = NULL,   -- NULL=normal · SHORT · SKIP · DAMAGED
+    @ExceptionNote NVARCHAR(500)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -123,41 +128,68 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Satır + ürün kodu (görev şirket filtresiyle — IDOR koruması)
-        DECLARE @ItemId UNIQUEIDENTIFIER, @ItemCode NVARCHAR(100);
-        SELECT @ItemId = l.ItemId, @ItemCode = i.Code
+        -- Satır + ürün + hedef raf (görev şirket filtresiyle — IDOR koruması)
+        DECLARE @ItemId UNIQUEIDENTIFIER, @ItemCode NVARCHAR(100),
+                @BinCode NVARCHAR(100), @ReqBase DECIMAL(18,6);
+        SELECT @ItemId = l.ItemId, @ItemCode = i.Code,
+               @BinCode = b.Code, @ReqBase = l.QtyRequestedBase
         FROM PickTaskLine l
         JOIN PickTask pt ON pt.Id = l.PickTaskId
         JOIN Item i ON i.Id = l.ItemId
+        LEFT JOIN Bin b ON b.Id = l.TargetBinId
         WHERE l.Id = @LineId AND l.PickTaskId = @TaskId AND pt.CompanyId = @CompanyId;
 
         IF @ItemId IS NULL
             THROW 51580, N'Toplama satırı bulunamadı.', 1;
 
-        -- İş kuralı: barkod ürün koduyla VEYA ürünün barkod listesiyle eşleşmeli
-        DECLARE @Match BIT = 0;
-        IF UPPER(@Barcode) = UPPER(@ItemCode)
-            SET @Match = 1;
-        ELSE IF EXISTS (SELECT 1 FROM ItemBarcode WHERE ItemId = @ItemId AND Barcode = @Barcode)
-            SET @Match = 1;
+        -- İSTİSNA (atla/hasar): ürün/miktar doğrulaması atlanır, yalnız iz bırakılır (satır açıktan düşer)
+        IF @ExceptionType IN ('SKIP', 'DAMAGED')
+        BEGIN
+            UPDATE PickTaskLine
+            SET ExceptionNote = @ExceptionType + ISNULL(N': ' + @ExceptionNote, N'')
+            WHERE Id = @LineId;
+        END
+        ELSE
+        BEGIN
+            -- (1) RAF DOĞRULA: @BinBarcode verildiyse hedef rafla eşleşmeli (yanlış raftan toplama engeli)
+            IF @BinBarcode IS NOT NULL AND @BinCode IS NOT NULL
+               AND UPPER(LTRIM(RTRIM(@BinBarcode))) <> UPPER(@BinCode)
+                THROW 51582, N'Yanlış raf! Beklenen rafa gidin.', 1;
 
-        IF @Match = 0
-            THROW 51581, N'Barkod eşleşmedi! Beklenen ürün kodu farklı.', 1;
+            -- (2) ÜRÜN DOĞRULA: barkod ürün kodu VEYA ItemBarcode ile eşleşmeli
+            DECLARE @Match BIT = 0;
+            IF UPPER(@Barcode) = UPPER(@ItemCode)
+                SET @Match = 1;
+            ELSE IF EXISTS (SELECT 1 FROM ItemBarcode WHERE ItemId = @ItemId AND Barcode = @Barcode)
+                SET @Match = 1;
+            IF @Match = 0
+                THROW 51581, N'Barkod eşleşmedi! Beklenen ürün kodu farklı.', 1;
 
-        -- Satırı tamamla
-        UPDATE PickTaskLine
-        SET QtyPickedBase = QtyRequestedBase
-        WHERE Id = @LineId;
+            -- (3) MİKTAR: default tam istenen; girilmişse o (short-pick = istenenden az)
+            DECLARE @Qty DECIMAL(18,6) = ISNULL(@ActualQty, @ReqBase);
+            IF @Qty <= 0 OR @Qty > @ReqBase
+                THROW 51583, N'Geçersiz miktar (0 ile istenen arası olmalı).', 1;
 
-        -- İş kuralı: DRAFT toplama görevi ilk barkodla IN_PROGRESS'e geçer
+            -- Satırı işle: tam → tamamlandı; kısmi → ExceptionNote='SHORT' (satır açık ama akıştan düşer)
+            UPDATE PickTaskLine
+            SET QtyPickedBase = @Qty,
+                ExceptionNote = CASE WHEN @Qty < @ReqBase
+                                     THEN N'SHORT' + ISNULL(N': ' + @ExceptionNote, N'')
+                                     ELSE ExceptionNote END
+            WHERE Id = @LineId;
+        END
+
+        -- DRAFT görev ilk işlemle IN_PROGRESS
         UPDATE PickTask
         SET Status = 'IN_PROGRESS', AssignedUserId = @UserId
         WHERE Id = @TaskId AND Status = 'DRAFT';
 
-        -- Tüm satırlar tamamlandıysa görevi COMPLETED yap
+        -- Tüm satırlar İŞLENDİ (tam toplandı VEYA istisna-işaretli) ise görev COMPLETED
         IF NOT EXISTS (
             SELECT 1 FROM PickTaskLine
-            WHERE PickTaskId = @TaskId AND QtyPickedBase < QtyRequestedBase)
+            WHERE PickTaskId = @TaskId
+              AND QtyPickedBase < QtyRequestedBase
+              AND ExceptionNote IS NULL)
             UPDATE PickTask SET Status = 'COMPLETED' WHERE Id = @TaskId;
 
         COMMIT TRANSACTION;

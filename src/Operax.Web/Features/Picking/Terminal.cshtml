@@ -56,26 +56,59 @@ else
     @if (Model.CurrentLine != null)
     {
         var l = Model.CurrentLine;
-        <!-- Mevcut Satır -->
-        <div class="bg-slate-800 rounded-2xl p-5">
-            <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">Git: Raf</div>
-            <div class="text-4xl font-black text-indigo-400 font-mono mb-1">@(l.BinCode ?? "—")</div>
-            <div class="text-slate-400 text-xs mb-4">@l.WhCode</div>
+        var qtyVal = l.Remaining.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+        @* KILAVUZLU 3-ADIM (Plan 56 Faz C): raf-doğrula → ürün-doğrula → miktar. HID okuyucu Enter ile
+           sıradaki alana otomatik geçer (pick-step.js); raf yanlışsa SP THROW (51582). *@
+        <form method="post" asp-page-handler="Confirm" asp-route-taskId="@Model.ActiveTask.Id" id="pick-form">
+            <input type="hidden" name="lineId" value="@l.Id" />
 
-            <div class="bg-slate-700 rounded-xl p-3 mb-4">
-                <div class="font-black text-white text-lg">@l.ItemCode</div>
-                <div class="text-slate-400 text-sm">@l.ItemName</div>
-                <div class="text-3xl font-black text-amber-400 mt-2">× @l.Remaining.ToString("N2")</div>
+            @* Adım 1 — RAF (en büyük: operatör önce doğru rafa gider, kodu okutur/girer) *@
+            <div class="bg-slate-800 rounded-2xl p-5 mb-3">
+                <div class="text-[10px] text-indigo-300 uppercase font-bold mb-1">① Git: Raf</div>
+                <div class="text-4xl font-black text-indigo-400 font-mono mb-1">@(l.BinCode ?? "—")</div>
+                <div class="text-slate-400 text-xs mb-3">@l.WhCode</div>
+                <input name="binBarcode" data-pick-step="bin" type="text" autofocus autocomplete="off" inputmode="text"
+                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                       placeholder="Raf barkodu/kodu okut..." />
             </div>
 
+            @* Adım 2 — ÜRÜN *@
+            <div class="bg-slate-800 rounded-2xl p-5 mb-3">
+                <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">② Ürün</div>
+                <div class="font-black text-white text-lg">@l.ItemCode</div>
+                <div class="text-slate-400 text-sm mb-3">@l.ItemName</div>
+                <input name="barcode" data-pick-step="item" type="text" autocomplete="off"
+                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                       placeholder="Ürün barkodu okut..." />
+            </div>
+
+            @* Adım 3 — MİKTAR (default tam; az girilirse kısmi/short-pick) *@
+            <div class="bg-slate-800 rounded-2xl p-5 mb-3">
+                <div class="text-[10px] text-slate-400 uppercase font-bold mb-1">③ Miktar</div>
+                <div class="text-2xl font-black text-amber-400 mb-2">İstenen: × @l.Remaining.ToString("N2")</div>
+                <input name="actualQty" data-pick-step="qty" type="number" step="0.01" min="0" max="@qtyVal" value="@qtyVal" inputmode="numeric"
+                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-2xl text-center focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400" />
+                <div class="text-[10px] text-slate-500 mt-1">Eksik bulduysan az gir (kısmi toplama).</div>
+            </div>
+
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-500 active:scale-95 text-white py-5 rounded-2xl text-xl font-black uppercase tracking-wide transition-all">
+                Onayla ✓
+            </button>
+        </form>
+
+        @* İstisna: rafta yok / hasarlı — satırı akıştan düşürür (gözetmen takibi için iz kalır) *@
+        <div class="grid grid-cols-2 gap-2 mt-2">
             <form method="post" asp-page-handler="Confirm" asp-route-taskId="@Model.ActiveTask.Id">
                 <input type="hidden" name="lineId" value="@l.Id" />
-                <input name="barcode" type="text" autofocus autocomplete="off" required
-                       class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-4 text-white font-mono text-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 mb-3"
-                       placeholder="Ürün barkodunu okut..." />
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 active:scale-95 text-white py-5 rounded-2xl text-xl font-black uppercase tracking-wide transition-all">
-                    Onayla ✓
-                </button>
+                <input type="hidden" name="exceptionType" value="SKIP" />
+                <button type="submit" onclick="return confirm('Bu kalemi atla? Rafta yok/bulunamadı olarak işaretlenecek.')"
+                        class="w-full bg-slate-700 active:bg-slate-600 text-amber-300 py-4 rounded-xl font-bold text-sm">⤼ Rafta Yok / Atla</button>
+            </form>
+            <form method="post" asp-page-handler="Confirm" asp-route-taskId="@Model.ActiveTask.Id">
+                <input type="hidden" name="lineId" value="@l.Id" />
+                <input type="hidden" name="exceptionType" value="DAMAGED" />
+                <button type="submit" onclick="return confirm('Bu kalemi hasarlı işaretle?')"
+                        class="w-full bg-slate-700 active:bg-slate-600 text-red-300 py-4 rounded-xl font-bold text-sm">⚠ Hasarlı</button>
             </form>
         </div>
     }
@@ -83,7 +116,7 @@ else
     {
         <div class="bg-green-900 border border-green-700 rounded-2xl p-8 text-center">
             <div class="text-5xl mb-3">🎉</div>
-            <div class="text-green-300 font-black text-xl uppercase tracking-widest">Tüm Satırlar Tamamlandı!</div>
+            <div class="text-green-300 font-black text-xl uppercase tracking-widest">Tüm Satırlar İşlendi!</div>
             <a href="?" class="mt-4 inline-block bg-slate-700 text-white px-6 py-3 rounded-xl font-bold text-sm">Yeni Görev Seç</a>
         </div>
     }
@@ -92,9 +125,25 @@ else
 
 @section Scripts {
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const bc = document.querySelector('input[name="barcode"]');
-        if (bc) bc.focus();
-    });
+    // KILAVUZLU adım akışı (Plan 56 Faz C): HID barkod okuyucu kod sonrası Enter gönderir →
+    // raf alanından ürüne, üründen miktara otomatik geç; miktarda Enter = Onayla (submit).
+    // CSP-uyumlu vanilla (eval yok). Alpine YASAK.
+    (function () {
+        var order = ['bin', 'item', 'qty'];
+        var steps = {};
+        order.forEach(function (k) { steps[k] = document.querySelector('[data-pick-step="' + k + '"]'); });
+        if (steps.bin) steps.bin.focus();
+        order.forEach(function (k, i) {
+            var el = steps[k];
+            if (!el) return;
+            el.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();                 // form'u erken submit etme
+                var next = steps[order[i + 1]];
+                if (next) { next.focus(); if (next.select) next.select(); }
+                else { var f = document.getElementById('pick-form'); if (f) f.requestSubmit(); }
+            });
+        });
+    })();
 </script>
 }

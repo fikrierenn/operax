@@ -99,9 +99,9 @@ Kullanıcı net: "siparişleri toplama emirlerine dönüştür + en performansl�
 
 ## 7. Fazlar (footprint-ladder sırası)
 
-1. [ ] **Faz A (sıfır/küçük şema):** pick okuma sorgularına `ORDER BY Bin.Zone, Bin.SortNo` · `Bin.SortNo` Code-türevli backfill (migration) + Locations elle ezme · `PickTaskStatus.Released` + StatusTransition seed · build+smoke. **= "sıra ile raflarda gezdir" ilk değer.**
-2. [ ] **Faz B (şema):** `PickTaskLine.PickSeq`+`ExceptionNote` · `sp_ShippingCreatePickTask` multi-bin split (FIFO, ürün çok-adres) + serpentine PickSeq dondur · sql-sp-reviewer+fresh-DB+smoke.
-3. [ ] **Faz C (terminal UI):** guided multi-step (raf→ürün→miktar+short-pick+istisna) + aktif sayaç · `sp_PickConfirm` qty/exception genişletme · mobil-verify(375) · security(terminal POST).
+1. [x] ✅ **Faz A** pick sorguları `ORDER BY Zone,SortNo`→`PickSeq` · Bin.SortNo zaten seed'li · `PickTaskStatus.Released`+dict 'Havuzda'+terminal sayaç · build+smoke (6c21243)
+2. [x] ✅ **Faz B** `PickTaskLine.PickSeq`+`ExceptionNote` · `sp_ShippingCreatePickTask` multi-bin FIFO split + kısmi-pick + serpentine PickSeq + 3 IMP fix · sql-sp-reviewer+fresh-DB+E2E smoke (8dacf51)
+3. [x] ✅ **Faz C** guided 3-adım terminal (raf-doğrula→ürün→miktar) + HID auto-advance + short-pick + istisna(atla/hasar) menü · `sp_PickConfirm` 9-param (bin/qty/exception) · mobil-verify(375 overflow yok, autofocus, auto-advance, sayaç) + SP smoke (short-pick SHORT + yanlış-raf THROW 51582) + fresh-DB 0 fail
 4. [ ] **Faz D (Shipping staging):** Shipping `PICKING/PICKED` ara-statü + geçişler · pick COMPLETED→Shipping PICKED · sql-sp-reviewer+smoke (stok yalnız POSTED).
 5. [ ] **Faz E:** TODO/journal senkron + danışman-doğrulama notu.
 

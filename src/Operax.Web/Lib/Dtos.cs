@@ -273,8 +273,9 @@ public static class ProductionStatus
 /// <summary>Toplama görevi statüsü (Plan 41) — PickTask.Status. DocStatus'tan ayrı (görev atama yaşam döngüsü).</summary>
 public static class PickTaskStatus
 {
-    public const string Draft      = "DRAFT";        // Oluşturuldu
-    public const string Assigned   = "ASSIGNED";     // Personele atandı
+    public const string Draft      = "DRAFT";        // Oluşturuldu (henüz toplanabilir değil)
+    public const string Released   = "RELEASED";     // Havuza bırakıldı, atanmamış (operatör pull) — Plan 56
+    public const string Assigned   = "ASSIGNED";     // Personele atandı (push)
     public const string InProgress = "IN_PROGRESS";  // Toplanıyor
     public const string Completed  = "COMPLETED";    // Tamamlandı
     public const string Cancelled  = "CANCELLED";    // İptal

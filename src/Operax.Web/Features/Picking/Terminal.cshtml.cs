@@ -26,9 +26,10 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id) AS TotalLines,
                    (SELECT COUNT(*) FROM PickTaskLine WHERE PickTaskId = t.Id AND QtyPickedBase >= QtyRequestedBase) AS DoneLines
             FROM PickTask t
-            WHERE t.CompanyId = @CompanyId AND t.Status IN (@StDraft, @StAssigned, @StInProgress)
+            WHERE t.CompanyId = @CompanyId AND t.Status IN (@StDraft, @StReleased, @StAssigned, @StInProgress)
             ORDER BY t.CreatedAt ASC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress },
+            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StReleased = PickTaskStatus.Released,
+                  StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress },
             cancellationToken: ct));
 
         if (!taskId.HasValue) return;
@@ -42,7 +43,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
 
         if (ActiveTask == null) return;
 
-        // Tamamlanmamış ilk satır — FIFO sırası
+        // Tamamlanmamış ilk satır — RAF ROTASI (serpentine) sırası: operatör depoda zikzak değil
+        // koğuş+raf sırasıyla yürür (Plan 56). Bin.Zone+SortNo seed'li (R-A-01→1 ... R-B-02→5).
+        // PickSeq dondurulunca (Faz B) ORDER BY PickSeq olacak; şimdilik canlı Zone/SortNo.
         CurrentLine = await conn.QueryFirstOrDefaultAsync<CurrentLineDto>(
             new CommandDefinition(@"
             SELECT TOP 1 l.Id, l.QtyRequestedBase AS QtyToPickBase, l.QtyPickedBase,
@@ -55,8 +58,22 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             LEFT JOIN Warehouse w ON w.Id = l.TargetWarehouseId
             WHERE l.PickTaskId = @TaskId AND l.QtyPickedBase < l.QtyRequestedBase
               AND pt.CompanyId = @CompanyId
-            ORDER BY l.Id",
+            ORDER BY b.Zone, b.SortNo, l.Id",
             new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
+
+        // Aktif ekran ilerleme sayacı ("Kalem 3/10") — toplanan + toplam
+        if (ActiveTask != null)
+        {
+            var prog = await conn.QueryFirstOrDefaultAsync<(int Done, int Total)>(
+                new CommandDefinition(@"
+                SELECT
+                    SUM(CASE WHEN QtyPickedBase >= QtyRequestedBase THEN 1 ELSE 0 END) AS Done,
+                    COUNT(*) AS Total
+                FROM PickTaskLine WHERE PickTaskId = @TaskId",
+                new { TaskId = taskId }, cancellationToken: ct));
+            ActiveTask.DoneLines = prog.Done;
+            ActiveTask.TotalLines = prog.Total;
+        }
     }
 
     public async Task<IActionResult> OnPostConfirmAsync(Guid taskId, Guid lineId, string barcode, CancellationToken ct)
@@ -86,7 +103,7 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         return RedirectToPage(new { taskId });
     }
 
-    public record PickTaskTermDto { public Guid Id { get; set; } public string DocNo { get; set; } = ""; public string Status { get; set; } = ""; }
+    public record PickTaskTermDto { public Guid Id { get; set; } public string DocNo { get; set; } = ""; public string Status { get; set; } = ""; public int DoneLines { get; set; } public int TotalLines { get; set; } }
     public record PendingTaskDto { public Guid Id { get; set; } public string DocNo { get; set; } = ""; public string Status { get; set; } = ""; public int TotalLines { get; set; } public int DoneLines { get; set; } }
     public record CurrentLineDto
     {

@@ -105,6 +105,7 @@ INSERT INTO @V VALUES
  ('PRODUCTION_STATUS','CANCELLED','İptal','Cancelled',40),
 -- PICKTASK_STATUS
  ('PICKTASK_STATUS','DRAFT','Oluşturuldu','Created',10),
+ ('PICKTASK_STATUS','RELEASED','Havuzda','Released',15),
  ('PICKTASK_STATUS','ASSIGNED','Atandı','Assigned',20),
  ('PICKTASK_STATUS','IN_PROGRESS','Toplanıyor','In Progress',30),
  ('PICKTASK_STATUS','COMPLETED','Tamamlandı','Completed',40),

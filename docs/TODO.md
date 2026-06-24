@@ -27,6 +27,17 @@
 - [ ] **M0 borcu:** Users/Edit IDOR (`Input.Id`→route+`[BindNever]`) · Dashboard `MovementType` magic string.
 - [ ] **P32-7** PO add-line SupplierItemCode görünürlük (hafif, PO Details dokunuşunda).
 
+### D. SATIŞ MODÜLÜ — yapı kararı + gap'ler (2026-06-24, 3 danışman: erp-isleyis + competitor + mali)
+> **Yapı kararı:** Satış doğru decompose edilmiş — `SalesOrders` + `Shipping` + `SalesInvoices` AYRI feature (SAP B1/Logo/Mikro/Odoo standardı, satınalma ile simetrik). Tek "Sales" şemsiye klasörü ANTI-PATTERN. Yeni satış evrakı → ayrı feature (`Quotations/`, `SalesReturns/` …) + ModuleKeys + sidebar link (mevcut pattern tekrarı).
+> **Temizlik yapıldı:** boş/ölü klasörler silindi (`Sales`, `Incentives`, `Service`, `Project`, `Integration` — 0 dosya, git-tracked değildi, routing/nav/build etkisi yok). Niyet artık burada (roadmap), boş klasörde değil.
+- [ ] **🔴 P0 MEVZUAT-ZORUNLU satış gap'leri (mali danışman):**
+  - Sevk İrsaliyesi yasal belge + yazdır (VUK 230/240) · İrsaliyeli Fatura tek-belge (VUK 230)
+  - Satış İadesi (iade faturası, kaynak-fatura no+tarih bağı GİB UBL-TR; KDV **191 İndirilecek**, 391 değil; aynı dönem 610 / sonraki dönem 153)
+  - 7-gün guard + `SalesInvoice` IssueDate/DeliveryDate ayrımı (şu an tek InvoiceDate → VUK 231/5 üç-tarih ihlali) · `sp_SalesInvoicePost` DATEDIFF>7 THROW
+  - DOĞRULANACAK: `sp_ShippingPost` yasal irsaliye üretiyor mu?
+- [ ] **🟡 opsiyonel satış gap'leri:** Fiyat Teklifi (Quotation→Sipariş) · Müşteri Kredi Limit (mevcut AccountMovement+tvf_OpenSalesOrders altyapısı, düşük efor) · Fiyat Listesi/Kampanya UI (şema/SP hazır) · Plasiyer (SalesRepId).
+- [ ] **Gelecek modüller (boş klasör yerine roadmap niyeti):** Service (saha servis/bakım) · Project (proje muhasebesi) · Incentives (prim/teşvik) · Integration (M16 köprü, architecture.md §7) — gerektiğinde plan-first ile gerçek dosyalarla doğar.
+
 ---
 
 ## ⭐ SONRAKİ OTURUM — ÖNCELİK SIRASI (2026-06-22 notu)

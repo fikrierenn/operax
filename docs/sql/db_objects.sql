@@ -226,15 +226,18 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Eğer transition kuralı yoksa hata fırlat
+    -- Eğer transition kuralı yoksa hata fırlat.
+    -- Sistem-geneli fallback (CompanyId = Guid.Empty): her şirket sistem-tanımlı geçişleri
+    -- miras alır (fresh single-tenant kurulum per-company seed'e/zamanlamaya bağlı kalmaz —
+    -- "asla patlamaz"). Şirket-özel kural (Admin > StatusTransitions) tanımlanmışsa o da geçerlidir.
     IF NOT EXISTS (
-        SELECT 1 
-        FROM StatusTransition 
-        WHERE CompanyId = @CompanyId 
-          AND DocumentType = @DocumentType 
-          AND FromStatusCode = @FromStatus 
-          AND ToStatusCode = @ToStatus 
-          AND IsActive = 1 
+        SELECT 1
+        FROM StatusTransition
+        WHERE CompanyId IN (@CompanyId, '00000000-0000-0000-0000-000000000000')
+          AND DocumentType = @DocumentType
+          AND FromStatusCode = @FromStatus
+          AND ToStatusCode = @ToStatus
+          AND IsActive = 1
           AND IsDeleted = 0
     )
     BEGIN

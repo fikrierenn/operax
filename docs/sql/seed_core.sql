@@ -102,3 +102,32 @@ IF NOT EXISTS (SELECT 1 FROM StatusTransition WHERE CompanyId = @DemoCompanyId A
 IF NOT EXISTS (SELECT 1 FROM StatusTransition WHERE CompanyId = @DemoCompanyId AND DocumentType = 'PRODUCTION' AND FromStatusCode = 'DRAFT' AND ToStatusCode = 'COMPLETED')
     INSERT INTO StatusTransition (Id, CompanyId, DocumentType, FromStatusCode, ToStatusCode, ActionNameTr, ActionNameEn, OrderNo)
     VALUES (NEWID(), @DemoCompanyId, 'PRODUCTION', 'DRAFT', 'COMPLETED', 'Üretimi Tamamla', 'Complete Production', 10);
+
+-- ── EKSİKSİZ SİSTEM-GENELİ GEÇİŞ SETİ (Plan 54 Faz 3) ──────────────────────────
+-- sp_ValidateStatusTransition Guid.Empty (system) fallback yapar → her şirket bu seti
+-- miras alır (fresh kurulum per-company seed'e/zamanlamaya bağlı kalmaz). Set-based +
+-- idempotent (NOT EXISTS). Eksik olanları tamamlar: POSTED→CANCELLED (mevcut postable'lar)
+-- + PURCHASE_ORDER tam yaşam döngüsü (POSTED→CLOSED tam kabul, POSTED→CLOSED_PARTIAL kalan iptal).
+INSERT INTO StatusTransition (Id, CompanyId, DocumentType, FromStatusCode, ToStatusCode, ActionNameTr, ActionNameEn, OrderNo)
+SELECT NEWID(), @SystemCompanyId, t.DocumentType, t.FromStatusCode, t.ToStatusCode, t.ActionNameTr, t.ActionNameEn, t.OrderNo
+FROM (VALUES
+    ('RECEIVING',      'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
+    ('RECEIVING',      'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
+    ('SHIPMENT',       'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
+    ('SHIPMENT',       'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
+    ('TRANSFER',       'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
+    ('TRANSFER',       'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
+    ('CYCLE_COUNT',    'DRAFT',  'COMPLETED',      N'Tamamla',         'Complete',      10),
+    ('PRODUCTION',     'DRAFT',  'COMPLETED',      N'Tamamla',         'Complete',      10),
+    ('PURCHASE_ORDER', 'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
+    ('PURCHASE_ORDER', 'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
+    ('PURCHASE_ORDER', 'POSTED', 'CLOSED',         N'Kapat',           'Close',         30),
+    ('PURCHASE_ORDER', 'POSTED', 'CLOSED_PARTIAL', N'Kalanı Kapat',    'Close Partial', 40)
+) AS t(DocumentType, FromStatusCode, ToStatusCode, ActionNameTr, ActionNameEn, OrderNo)
+WHERE NOT EXISTS (
+    SELECT 1 FROM StatusTransition st
+    WHERE st.CompanyId = @SystemCompanyId
+      AND st.DocumentType = t.DocumentType
+      AND st.FromStatusCode = t.FromStatusCode
+      AND st.ToStatusCode = t.ToStatusCode
+);

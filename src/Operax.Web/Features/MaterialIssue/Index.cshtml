@@ -46,10 +46,10 @@
                 @foreach (var r in Model.Rows)
                 {
                     <tr class="cursor-pointer" onclick="window.location.href='/MaterialIssue/Details?id=@r.Id'">
-                        <td><span class="mono font-bold text-indigo-600">@r.DocNo</span></td>
-                        <td class="text-xs text-slate-500">@r.IssueDate.ToString("dd.MM.yyyy")</td>
+                        <td><span class="mono font-bold text-[var(--brand-600)]">@r.DocNo</span></td>
+                        <td class="text-xs text-[var(--text-3)]">@r.IssueDate.ToString("dd.MM.yyyy")</td>
                         <td class="text-sm">@r.WarehouseName</td>
-                        <td class="text-sm text-slate-500">@(r.CostCenterName ?? "—")</td>
+                        <td class="text-sm text-[var(--text-3)]">@(r.CostCenterName ?? "—")</td>
                         <td class="text-center">@r.LineCount</td>
                         <td class="text-center">@Html.Raw(Dict.StatusBadge(r.Status))</td>
                     </tr>

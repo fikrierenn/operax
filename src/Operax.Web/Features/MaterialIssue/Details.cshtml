@@ -101,7 +101,7 @@
                 </div>
                 @* Mücbir-sebep onay kutusu — checkbox + uzun açıklama; .chk (16px sabit) yerine saran flex label *@
                 <div class="form-group reason-extra hidden">
-                    <label class="form-label" style="display:flex;align-items:flex-start;gap:8px;font-weight:400">
+                    <label class="form-label font-normal" style="display:flex;align-items:flex-start;gap:8px">
                         <input asp-for="Header.IsForceMajeure" type="checkbox" disabled="@(!Model.IsDraft)" style="width:auto;margin-top:3px;flex:none" />
                         <span>Mücbir sebep (Maliye-ilan afet: deprem/sel/yangın) — bu durumda KDV korunur</span>
                     </label>
@@ -152,8 +152,8 @@
     @if (!Model.IsNew)
     {
         <div class="card overflow-hidden">
-            <div class="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
-                <h3 class="text-sm font-bold text-slate-800">Sarf Kalemleri</h3>
+            <div class="px-6 py-4 bg-[var(--bg-2)] border-b border-[var(--border)] flex items-center justify-between">
+                <h3 class="text-sm font-bold text-[var(--text)]">Sarf Kalemleri</h3>
                 @if (Model.IsDraft)
                 {
                     <button type="button" onclick="document.getElementById('add-line').classList.toggle('hidden')" class="btn btn-secondary btn-sm">+ Kalem Ekle</button>
@@ -162,7 +162,7 @@
 
             @if (Model.IsDraft)
             {
-                <div id="add-line" class="hidden p-4 bg-slate-50 border-b">
+                <div id="add-line" class="hidden p-4 bg-[var(--bg-2)] border-b border-[var(--border)]">
                     <form method="post" asp-page-handler="AddLine" asp-route-id="@Model.Header.Id" class="form-row">
                         @Html.AntiForgeryToken()
                         <div class="form-group">
@@ -191,7 +191,7 @@
                     @foreach (var l in Model.Lines)
                     {
                         <tr>
-                            <td class="font-medium text-slate-700">@l.ItemName <span class="text-slate-400 text-xs">@l.ItemCode</span></td>
+                            <td class="font-medium text-[var(--text-2)]">@l.ItemName <span class="text-[var(--text-4)] text-xs">@l.ItemCode</span></td>
                             <td class="text-right mono">@l.Qty.ToString("N3") @l.UomCode</td>
                             @if (Model.IsDraft)
                             {
@@ -199,7 +199,7 @@
                                     <form method="post" asp-page-handler="DeleteLine" asp-route-id="@Model.Header.Id" onsubmit="return confirm('Satırı sil?')">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="lineId" value="@l.Id" />
-                                        <button type="submit" class="text-red-500 text-xs font-bold">Sil</button>
+                                        <button type="submit" class="text-[var(--danger)] text-xs font-bold">Sil</button>
                                     </form>
                                 </td>
                             }
@@ -207,7 +207,7 @@
                     }
                     @if (!Model.Lines.Any())
                     {
-                        <tr><td colspan="3" class="text-center text-slate-400 italic py-8">Kalem yok. "Kalem Ekle" ile başlayın.</td></tr>
+                        <tr><td colspan="3" class="text-center text-[var(--text-4)] italic py-8">Kalem yok. "Kalem Ekle" ile başlayın.</td></tr>
                     }
                 </tbody>
             </table>

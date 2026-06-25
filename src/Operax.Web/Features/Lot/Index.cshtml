@@ -5,9 +5,9 @@
 }
 
 <div class="page-hdr">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">Lot & SKT Yönetimi</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Parti bazlı stok takibi, son kullanma tarihi ve FEFO yönetimi</p>
+    <div class="page-hdr-l">
+        <h1>Lot & SKT Yönetimi</h1>
+        <p class="page-hdr-sub">Parti bazlı stok takibi, son kullanma tarihi ve FEFO yönetimi</p>
     </div>
 </div>
 
@@ -15,22 +15,22 @@
 <div class="kpi-row">
     <div class="kpi">
         <span class="kpi-label">Toplam Lot</span>
-        <div class="kpi-val text-indigo-600">@Model.Lots.Count()</div>
+        <div class="kpi-val text-[var(--brand-600)]">@Model.Lots.Count()</div>
         <span class="kpi-sub">Kayıtlı parti sayısı</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">SKT Geçmiş</span>
-        <div class="kpi-val text-red-500">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate < DateTime.Now)</div>
+        <div class="kpi-val text-[var(--danger)]">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate < DateTime.Now)</div>
         <span class="kpi-sub">Son kullanma tarihi geçen</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">30 Günde Bitecek</span>
-        <div class="kpi-val text-amber-500">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate >= DateTime.Now && x.ExpiryDate <= DateTime.Now.AddDays(30))</div>
+        <div class="kpi-val text-[var(--warn-text)]">@Model.Lots.Count(x => x.ExpiryDate.HasValue && x.ExpiryDate >= DateTime.Now && x.ExpiryDate <= DateTime.Now.AddDays(30))</div>
         <span class="kpi-sub">Yakında son kullanma tarihi dolacak</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Bloke</span>
-        <div class="kpi-val text-slate-500">@Model.Lots.Count(x => x.Status == LotStatus.Blocked || x.Status == LotStatus.Quarantine)</div>
+        <div class="kpi-val text-[var(--text-3)]">@Model.Lots.Count(x => x.Status == LotStatus.Blocked || x.Status == LotStatus.Quarantine)</div>
         <span class="kpi-sub">Karantina veya bloke</span>
     </div>
 </div>
@@ -52,48 +52,43 @@
             {
                 var isExpired = l.ExpiryDate.HasValue && l.ExpiryDate < DateTime.Now;
                 var expiringSoon = !isExpired && l.ExpiryDate.HasValue && l.ExpiryDate <= DateTime.Now.AddDays(30);
-                <tr class="@(isExpired ? "bg-red-50" : expiringSoon ? "bg-amber-50" : "")">
+                <tr class="@(isExpired ? "bg-[var(--danger-bg)]" : expiringSoon ? "bg-[var(--warn-bg)]" : "")">
                     <td>
-                        <div class="font-bold text-slate-800">@l.ItemName</div>
-                        <div class="text-[10px] text-slate-400 font-mono">@l.ItemCode</div>
+                        <div class="font-bold text-[var(--text)]">@l.ItemName</div>
+                        <div class="text-[10px] text-[var(--text-4)] font-mono">@l.ItemCode</div>
                     </td>
-                    <td class="font-mono font-bold text-indigo-600">@l.LotNo</td>
+                    <td class="font-mono font-bold text-[var(--brand-600)]">@l.LotNo</td>
                     <td>
                         @if (l.ExpiryDate.HasValue)
                         {
-                            <span class="@(isExpired ? "text-red-600 font-bold" : expiringSoon ? "text-amber-600 font-bold" : "text-slate-600")">
+                            <span class="@(isExpired ? "text-[var(--danger)] font-bold" : expiringSoon ? "text-[var(--warn-text)] font-bold" : "text-[var(--text-2)]")">
                                 @l.ExpiryDate.Value.ToString("dd.MM.yyyy")
                             </span>
                             @if (isExpired)
                             {
-                                <span class="ml-2 badge b-red">SKT Geçti</span>
+                                <span class="ml-2 badge badge-danger">SKT Geçti</span>
                             }
                             else if (expiringSoon)
                             {
                                 var days = (int)(l.ExpiryDate!.Value - DateTime.Now).TotalDays;
-                                <span class="ml-2 badge b-amber">@days gün</span>
+                                <span class="ml-2 badge badge-warn">@days gün</span>
                             }
                         }
                         else
                         {
-                            <span class="text-slate-300">—</span>
+                            <span class="text-[var(--text-mute)]">—</span>
                         }
                     </td>
-                    <td class="text-right font-mono font-bold @(l.QtyOnHand == 0 ? "text-slate-300" : "text-slate-900")">
+                    <td class="text-right font-mono font-bold @(l.QtyOnHand == 0 ? "text-[var(--text-mute)]" : "text-[var(--text)]")">
                         @l.QtyOnHand.ToString("N2")
                     </td>
                     <td class="text-center">
-                        <span class="badge @(l.Status switch {
-                            LotStatus.Available  => "b-green",
-                            LotStatus.Quarantine => "b-amber",
-                            LotStatus.Blocked    => "b-red",
-                            _                    => "b-gray"
-                        })">@(l.Status switch {
+                        @Html.Raw(Operax.Web.Lib.UiHelpers.StatusBadgeHtml(l.Status, l.Status switch {
                             LotStatus.Available  => "Müsait",
                             LotStatus.Quarantine => "Karantina",
                             LotStatus.Blocked    => "Bloke",
                             _                    => l.Status
-                        })</span>
+                        }))
                     </td>
                     <td class="text-right">
                         <a asp-page="./Details" asp-route-id="@l.Id" class="btn btn-secondary btn-sm">Detay</a>

@@ -1,13 +1,14 @@
 @page
 @model Operax.Web.Features.Serial.IndexModel
+@using Operax.Web.Lib
 @{
     ViewData["Title"] = "Seri No Yönetimi";
 }
 
 <div class="page-hdr">
     <div>
-        <h2 class="text-2xl font-bold text-slate-800">Seri Numara Takibi</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Tekil ürün bazlı seri numarası ve konum izleme</p>
+        <h2 class="text-2xl font-bold text-[var(--text)]">Seri Numara Takibi</h2>
+        <p class="text-sm text-[var(--text-3)] mt-0.5">Tekil ürün bazlı seri numarası ve konum izleme</p>
     </div>
 </div>
 
@@ -15,22 +16,22 @@
 <div class="kpi-row">
     <div class="kpi">
         <span class="kpi-label">Toplam Seri No</span>
-        <div class="kpi-val text-indigo-600">@Model.Serials.Count()</div>
+        <div class="kpi-val text-[var(--brand-600)]">@Model.Serials.Count()</div>
         <span class="kpi-sub">Kayıtlı seriler</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Depoda</span>
-        <div class="kpi-val text-green-600">@Model.Serials.Count(x => x.Status == SerialStatus.InStock)</div>
+        <div class="kpi-val text-[var(--success)]">@Model.Serials.Count(x => x.Status == SerialStatus.InStock)</div>
         <span class="kpi-sub">Stokta bulunan</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Sevk Edildi</span>
-        <div class="kpi-val text-slate-500">@Model.Serials.Count(x => x.Status == SerialStatus.Shipped)</div>
+        <div class="kpi-val text-[var(--text-3)]">@Model.Serials.Count(x => x.Status == SerialStatus.Shipped)</div>
         <span class="kpi-sub">Müşteriye gönderilen</span>
     </div>
     <div class="kpi">
         <span class="kpi-label">Karantina</span>
-        <div class="kpi-val text-amber-500">@Model.Serials.Count(x => x.Status == SerialStatus.Quarantine)</div>
+        <div class="kpi-val text-[var(--warn-text)]">@Model.Serials.Count(x => x.Status == SerialStatus.Quarantine)</div>
         <span class="kpi-sub">Kontrol bekleyen</span>
     </div>
 </div>
@@ -40,7 +41,7 @@
     <div class="flex gap-2">
         <input type="text" name="q" value="@Model.Filter"
                placeholder="Seri no, ürün kodu veya ürün adı..."
-               class="flex-1 border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+               class="form-ctrl flex-1" />
         <button type="submit" class="btn btn-primary">Ara</button>
         @if (!string.IsNullOrEmpty(Model.Filter))
         {
@@ -66,40 +67,34 @@
             @foreach (var s in Model.Serials)
             {
                 <tr>
-                    <td class="font-mono font-bold text-indigo-600 tracking-tight">@s.SerialNo</td>
+                    <td class="font-mono font-bold text-[var(--brand-600)] tracking-tight">@s.SerialNo</td>
                     <td>
-                        <div class="font-bold text-slate-800 text-sm">@s.ItemCode</div>
-                        <div class="text-[10px] text-slate-400">@s.ItemName</div>
+                        <div class="font-bold text-[var(--text)] text-sm">@s.ItemCode</div>
+                        <div class="text-[10px] text-[var(--text-4)]">@s.ItemName</div>
                     </td>
                     <td>
-                        <span class="badge @(s.Status switch {
-                            SerialStatus.InStock    => "b-green",
-                            SerialStatus.Shipped    => "b-gray",
-                            SerialStatus.Scrapped   => "b-red",
-                            SerialStatus.Quarantine => "b-amber",
-                            _                       => "b-gray"
-                        })">@(s.Status switch {
+                        @Html.Raw(UiHelpers.StatusBadgeHtml(s.Status, s.Status switch {
                             SerialStatus.InStock    => "Depoda",
                             SerialStatus.Shipped    => "Sevk Edildi",
                             SerialStatus.Scrapped   => "Hurda",
                             SerialStatus.Quarantine => "Karantina",
                             _                       => s.Status
-                        })</span>
+                        }))
                     </td>
-                    <td class="font-mono text-slate-600 text-xs">@(s.LotNo ?? "—")</td>
+                    <td class="font-mono text-[var(--text-2)] text-xs">@(s.LotNo ?? "—")</td>
                     <td>
                         @if (s.WhCode != null)
                         {
-                            <span class="font-mono text-slate-500 text-xs">@s.WhCode</span>
+                            <span class="font-mono text-[var(--text-3)] text-xs">@s.WhCode</span>
                             @if (s.BinCode != null)
                             {
-                                <span class="text-slate-400 text-xs"> / </span>
-                                <span class="font-mono font-bold text-indigo-600 text-xs">@s.BinCode</span>
+                                <span class="text-[var(--text-4)] text-xs"> / </span>
+                                <span class="font-mono font-bold text-[var(--brand-600)] text-xs">@s.BinCode</span>
                             }
                         }
-                        else { <span class="text-slate-300 text-xs italic">Konum yok</span> }
+                        else { <span class="text-[var(--text-mute)] text-xs italic">Konum yok</span> }
                     </td>
-                    <td class="text-slate-500 text-xs">@s.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    <td class="text-[var(--text-3)] text-xs">@s.CreatedAt.ToString("dd.MM.yyyy")</td>
                     <td class="text-right">
                         <a asp-page="./Details" asp-route-id="@s.Id" class="btn btn-secondary btn-sm">Geçmiş</a>
                     </td>
@@ -129,7 +124,7 @@
     </table>
     @if (Model.Serials.Count() == 500)
     {
-        <div class="px-4 py-2 bg-amber-50 border-t text-xs text-amber-700 font-medium">
+        <div class="px-4 py-2 bg-[var(--warn-bg)] border-t border-[var(--warn-border)] text-xs text-[var(--warn-text)] font-medium">
             ⚠ En fazla 500 kayıt gösteriliyor. Listeyi daraltmak için arama yapın.
         </div>
     }

@@ -8,7 +8,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Lojistik</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-600)]">Lojistik</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">Mal Kabul</span>
         </div>
@@ -27,26 +27,26 @@
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <span class="kpi-label text-indigo-600">
-            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <span class="kpi-label text-[var(--brand-600)]">
+            <svg class="w-4 h-4 text-[var(--brand-600)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             Bekleyen Kabuller
         </span>
-        <div class="kpi-value text-indigo-600">
+        <div class="kpi-value text-[var(--brand-600)]">
             @Model.DraftCount
             <span class="kpi-unit">evrak</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">Onay bekleyen taslak girişler</span>
+            <span class="kpi-trend text-[var(--text-4)]">Onay bekleyen taslak girişler</span>
         </div>
     </div>
     
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <span class="kpi-label text-emerald-600">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <span class="kpi-label text-[var(--success)]">
+            <svg class="w-4 h-4 text-[var(--success)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
             Tamamlanan Girişler
         </span>
-        <div class="kpi-value text-emerald-600">
+        <div class="kpi-value text-[var(--success)]">
             @Model.PostedCount
             <span class="kpi-unit">post</span>
         </div>
@@ -57,26 +57,26 @@
     
     <div class="kpi">
         <div class="kpi-glow danger"></div>
-        <span class="kpi-label text-red-600">
-            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span class="kpi-label text-[var(--danger)]">
+            <svg class="w-4 h-4 text-[var(--danger)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             İptal Edilenler
         </span>
-        <div class="kpi-value text-red-600">
+        <div class="kpi-value text-[var(--danger)]">
             @Model.CancelledCount
             <span class="kpi-unit">evrak</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">İptal edilen kabuller</span>
+            <span class="kpi-trend text-[var(--text-4)]">İptal edilen kabuller</span>
         </div>
     </div>
 
     <a class="kpi" asp-page="./Index" asp-route-billing="AWAITING" style="text-decoration:none">
         <div class="kpi-glow warn"></div>
-        <span class="kpi-label text-amber-600">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <span class="kpi-label text-[var(--warn-text)]">
+            <svg class="w-4 h-4 text-[var(--warn-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             Fatura Bekleyen
         </span>
-        <div class="kpi-value text-amber-600">
+        <div class="kpi-value text-[var(--warn-text)]">
             @Model.AwaitingInvoiceCount
             <span class="kpi-unit">evrak</span>
         </div>
@@ -87,7 +87,7 @@
             }
             else
             {
-                <span class="kpi-trend text-slate-400">Mal girdi, fatura gelmedi (tıkla → filtrele)</span>
+                <span class="kpi-trend text-[var(--text-4)]">Mal girdi, fatura gelmedi (tıkla → filtrele)</span>
             }
         </div>
     </a>
@@ -130,10 +130,10 @@
             @foreach (var r in Model.Documents)
             {
                 <tr>
-                    <td class="font-mono font-bold text-indigo-600">#@r.DocNo</td>
-                    <td class="font-mono text-xs text-slate-500">@r.DocDate.ToString("dd.MM.yyyy")</td>
-                    <td class="font-semibold text-slate-700">@r.PartnerName</td>
-                    <td class="text-xs font-bold text-slate-500">@r.WarehouseCode</td>
+                    <td class="font-mono font-bold text-[var(--brand-600)]">#@r.DocNo</td>
+                    <td class="font-mono text-xs text-[var(--text-3)]">@r.DocDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-semibold text-[var(--text-2)]">@r.PartnerName</td>
+                    <td class="text-xs font-bold text-[var(--text-3)]">@r.WarehouseCode</td>
                     <td>@Html.Raw(Dict.StatusBadge(r.Status, "RECEIVING_STATUS"))</td>
                     <td>
                         @{
@@ -145,11 +145,11 @@
                             case "NONE":    <span class="badge badge-warn">Faturasız</span> break;
                             case "PARTIAL": <span class="badge badge-info">Kısmi</span> break;
                             case "FULL":    <span class="badge badge-success">Faturalı</span> break;
-                            default:        <span class="text-slate-300">—</span> break;
+                            default:        <span class="text-[var(--text-mute)]">—</span> break;
                         }
                         @if (awaiting)
                         {
-                            <span class="@(overdue ? "text-red-600 font-bold" : "text-slate-400") text-xs ml-1">
+                            <span class="@(overdue ? "text-[var(--danger)] font-bold" : "text-[var(--text-4)]") text-xs ml-1">
                                 @(overdue ? "⚠ " : "")@r.DaysSinceReceipt gün
                             </span>
                         }

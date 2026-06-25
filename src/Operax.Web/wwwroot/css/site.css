@@ -1352,11 +1352,17 @@
   .bg-\[var\(--surface-2\)\] {
     background-color: var(--surface-2);
   }
+  .bg-\[var\(--text-mute\)\] {
+    background-color: var(--text-mute);
+  }
   .bg-\[var\(--warn\)\] {
     background-color: var(--warn);
   }
   .bg-\[var\(--warn-bg\)\] {
     background-color: var(--warn-bg);
+  }
+  .bg-\[var\(--warn-text\)\] {
+    background-color: var(--warn-text);
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
@@ -1369,9 +1375,6 @@
   }
   .bg-black {
     background-color: var(--color-black);
-  }
-  .bg-blue-500 {
-    background-color: var(--color-blue-500);
   }
   .bg-emerald-50 {
     background-color: var(--color-emerald-50);
@@ -1427,17 +1430,11 @@
   .bg-indigo-900 {
     background-color: var(--color-indigo-900);
   }
-  .bg-orange-500 {
-    background-color: var(--color-orange-500);
-  }
   .bg-red-50 {
     background-color: var(--color-red-50);
   }
   .bg-red-100 {
     background-color: var(--color-red-100);
-  }
-  .bg-red-400 {
-    background-color: var(--color-red-400);
   }
   .bg-red-500 {
     background-color: var(--color-red-500);
@@ -1468,9 +1465,6 @@
   }
   .bg-slate-200 {
     background-color: var(--color-slate-200);
-  }
-  .bg-slate-400 {
-    background-color: var(--color-slate-400);
   }
   .bg-slate-600 {
     background-color: var(--color-slate-600);
@@ -1904,9 +1898,6 @@
   .text-amber-600 {
     color: var(--color-amber-600);
   }
-  .text-amber-700 {
-    color: var(--color-amber-700);
-  }
   .text-amber-800 {
     color: var(--color-amber-800);
   }
@@ -1936,9 +1927,6 @@
   }
   .text-green-700 {
     color: var(--color-green-700);
-  }
-  .text-indigo-200 {
-    color: var(--color-indigo-200);
   }
   .text-indigo-300 {
     color: var(--color-indigo-300);
@@ -2033,8 +2021,8 @@
   .underline {
     text-decoration-line: underline;
   }
-  .decoration-indigo-200 {
-    text-decoration-color: var(--color-indigo-200);
+  .decoration-\[var\(--brand-600\)\] {
+    text-decoration-color: var(--brand-600);
   }
   .antialiased {
     -webkit-font-smoothing: antialiased;
@@ -2054,9 +2042,6 @@
   }
   .opacity-0 {
     opacity: 0%;
-  }
-  .opacity-10 {
-    opacity: 10%;
   }
   .opacity-25 {
     opacity: 25%;

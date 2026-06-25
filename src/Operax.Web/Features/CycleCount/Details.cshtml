@@ -16,8 +16,8 @@
                     </svg>
                     Sayım Listesi
                 </a>
-                <span class="text-slate-400">/</span>
-                <span class="text-slate-600 font-semibold">Sayım Girişi</span>
+                <span class="text-[var(--text-4)]">/</span>
+                <span class="text-[var(--text-2)] font-semibold">Sayım Girişi</span>
             </div>
             <h1>@(Model.IsNew ? "Yeni Sayım Oturumu" : $"Sayım Oturumu: {Model.Header.DocNo}")</h1>
             <p class="page-hdr-sub">Fiziksel envanterinizi sistem kayıtları ile karşılaştırın ve doğrulayın</p>
@@ -50,7 +50,7 @@
 
     @if (Model.IsNew)
     {
-        <div class="card p-8 max-w-lg mx-auto bg-white">
+        <div class="card p-8 max-w-lg mx-auto bg-[var(--surface)]">
             <div class="flex flex-col gap-4">
                 <div class="form-group mb-0">
                     <label class="form-label">Sayım Yapılacak Depo</label>
@@ -62,7 +62,7 @@
                         }
                     </select>
                 </div>
-                <p class="text-xs text-slate-400 italic">Not: Bir sayım oturumu başlatmak, seçilen alandaki sistem stok hareketlerini geçici olarak kilitleyecektir.</p>
+                <p class="text-xs text-[var(--text-4)] italic">Not: Bir sayım oturumu başlatmak, seçilen alandaki sistem stok hareketlerini geçici olarak kilitleyecektir.</p>
             </div>
         </div>
     }
@@ -72,7 +72,7 @@
 {
     <!-- Sayım Satırları -->
     <div class="card mb-6">
-        <div class="card-hdr bg-slate-50/50">
+        <div class="card-hdr bg-[var(--bg-2)]">
             <span class="card-ttl">SAYIM SATIRLARI</span>
             @if (Model.Header.Status != DocStatus.Completed)
             {
@@ -97,16 +97,16 @@
                     {
                         <tr>
                             <td>
-                                <div class="font-bold text-slate-800">@line.ItemName</div>
-                                <div class="text-xs text-slate-400 font-mono">@line.ItemCode</div>
+                                <div class="font-bold text-[var(--text)]">@line.ItemName</div>
+                                <div class="text-xs text-[var(--text-4)] font-mono">@line.ItemCode</div>
                             </td>
-                            <td><span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-bold">@line.BinCode</span></td>
-                            <td class="text-right font-mono italic text-slate-400 font-semibold">@line.QtySystem.ToString("N2")</td>
-                            <td class="text-right font-mono font-bold text-slate-700">@line.QtyCounted.ToString("N2")</td>
+                            <td><span class="font-mono text-xs text-[var(--text-2)] bg-[var(--bg-2)] px-2 py-0.5 rounded font-bold">@line.BinCode</span></td>
+                            <td class="text-right font-mono italic text-[var(--text-4)] font-semibold">@line.QtySystem.ToString("N2")</td>
+                            <td class="text-right font-mono font-bold text-[var(--text-2)]">@line.QtyCounted.ToString("N2")</td>
                             <td class="text-right">
                                 @{
-                                    var diffColor = line.QtyDifference == 0 ? "text-slate-400"
-                                                  : (line.QtyDifference > 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600");
+                                    var diffColor = line.QtyDifference == 0 ? "text-[var(--text-4)]"
+                                                  : (line.QtyDifference > 0 ? "bg-[var(--success-bg)] text-[var(--success-text)]" : "bg-[var(--danger-bg)] text-[var(--danger)]");
                                 }
                                 <span class="font-mono font-bold px-2 py-0.5 rounded @diffColor">
                                     @(line.QtyDifference > 0 ? "+" : "")@line.QtyDifference.ToString("N2")
@@ -119,10 +119,10 @@
                         <tr>
                             <td colspan="5">
                                 <div class="empty-state">
-                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-[var(--text-mute)]">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
                                     </svg>
-                                    <p class="text-slate-400 font-medium">Bu sayım oturumunda henüz kayıt bulunmamaktadır. Başlamak için "+ Sayım Kaydet" düğmesine tıklayın.</p>
+                                    <p class="text-[var(--text-4)] font-medium">Bu sayım oturumunda henüz kayıt bulunmamaktadır. Başlamak için "+ Sayım Kaydet" düğmesine tıklayın.</p>
                                 </div>
                             </td>
                         </tr>
@@ -133,11 +133,11 @@
     </div>
 
     <!-- Ürün Sayım Kaydet Modalı (Simple Modal) -->
-    <div id="add-cnt-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
-            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-base text-slate-800">Fiziksel Sayım Kaydet</h3>
-                <button onclick="document.getElementById('add-cnt-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
+    <div id="add-cnt-modal" class="hidden fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+            <div class="p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-2)]">
+                <h3 class="font-bold text-base text-[var(--text)]">Fiziksel Sayım Kaydet</h3>
+                <button onclick="document.getElementById('add-cnt-modal').classList.add('hidden')" class="text-[var(--text-4)] hover:text-[var(--text-2)] transition-all text-2xl font-light" type="button">&times;</button>
             </div>
             <form method="post" asp-page-handler="AddLine">
                 <div class="p-6 space-y-4">
@@ -166,7 +166,7 @@
                         <input name="qtyCounted" type="number" step="0.0001" class="form-ctrl w-full font-bold text-lg text-center" placeholder="0.0000" required />
                     </div>
                 </div>
-                <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <div class="p-5 bg-[var(--bg-2)] border-t border-[var(--border)] flex justify-end gap-3">
                     <button type="button" onclick="document.getElementById('add-cnt-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
                     <button type="submit" class="btn btn-primary">Sayım Kaydını Ekle</button>
                 </div>

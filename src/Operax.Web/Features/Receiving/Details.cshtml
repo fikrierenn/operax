@@ -15,8 +15,8 @@
                     </svg>
                     Mal Kabul Listesi
                 </a>
-                <span class="text-slate-400">/</span>
-                <span class="text-slate-600 font-semibold">Belge Girişi</span>
+                <span class="text-[var(--text-4)]">/</span>
+                <span class="text-[var(--text-2)] font-semibold">Belge Girişi</span>
             </div>
             <h1>@(Model.IsNew ? "Yeni Mal Kabul Belgesi" : $"Mal Kabul: {Model.Header.DocNo}")</h1>
             <p class="page-hdr-sub">@(Model.IsNew ? "Mal kabul işlemine başlamak için belge başlık bilgilerini giriniz" : Model.Header.PartnerName)</p>
@@ -45,7 +45,7 @@
     </div>
 
     <!-- Belge Başlığı -->
-    <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-white">
+    <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-[var(--surface)]">
         <div class="form-group mb-0">
             <label class="form-label">Kabul Modu</label>
             @if (Model.IsNew)
@@ -200,7 +200,7 @@
 {
     <!-- Kabul Edilen Satırlar -->
     <div class="card mb-6">
-        <div class="card-hdr bg-slate-50/50">
+        <div class="card-hdr bg-[var(--bg-2)]">
             <span class="card-ttl">KABUL EDİLEN ÜRÜNLER</span>
             @if (Model.Header.Status == DocStatus.Draft)
             {
@@ -225,18 +225,18 @@
                     {
                         <tr>
                             <td>
-                                <div class="font-bold text-slate-800">@line.ItemName</div>
-                                <div class="text-xs text-slate-400 font-mono">@line.ItemCode</div>
+                                <div class="font-bold text-[var(--text)]">@line.ItemName</div>
+                                <div class="text-xs text-[var(--text-4)] font-mono">@line.ItemCode</div>
                             </td>
-                            <td class="font-semibold text-slate-700">@line.QtyOriginal.ToString("N2") @line.UomCode</td>
-                            <td class="font-bold text-indigo-600 font-mono">@line.QtyBase.ToString("N2") @line.BaseUomCode</td>
-                            <td class="text-slate-500 font-mono text-xs">
+                            <td class="font-semibold text-[var(--text-2)]">@line.QtyOriginal.ToString("N2") @line.UomCode</td>
+                            <td class="font-bold text-[var(--brand-600)] font-mono">@line.QtyBase.ToString("N2") @line.BaseUomCode</td>
+                            <td class="text-[var(--text-3)] font-mono text-xs">
                                 @(string.IsNullOrEmpty(line.LotNo) ? "-" : line.LotNo)
                             </td>
                             <td class="text-right">
                                 @if (Model.Header.Status == DocStatus.Draft)
                                 {
-                                    <button class="btn btn-secondary btn-sm !text-red-500 hover:!bg-red-50/50 hover:!border-red-200 transition" type="button">Çıkar</button>
+                                    <button class="btn btn-secondary btn-sm !text-[var(--danger)] hover:!bg-[var(--danger-bg)] hover:!border-[var(--border)] transition" type="button">Çıkar</button>
                                 }
                             </td>
                         </tr>
@@ -246,10 +246,10 @@
                         <tr>
                             <td colspan="5">
                                 <div class="empty-state">
-                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-[var(--text-mute)]">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
                                     </svg>
-                                    <p class="text-slate-400 font-medium">Henüz ürün eklenmemiş. Başlamak için "+ Ürün Ekle" düğmesine tıklayın.</p>
+                                    <p class="text-[var(--text-4)] font-medium">Henüz ürün eklenmemiş. Başlamak için "+ Ürün Ekle" düğmesine tıklayın.</p>
                                 </div>
                             </td>
                         </tr>
@@ -260,11 +260,11 @@
     </div>
 
     <!-- Ürün Ekleme Modalı (Simple Modal) -->
-    <div id="add-line-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
-            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-base text-slate-800">Mal Kabulüne Ürün Ekle</h3>
-                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
+    <div id="add-line-modal" class="hidden fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+            <div class="p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-2)]">
+                <h3 class="font-bold text-base text-[var(--text)]">Mal Kabulüne Ürün Ekle</h3>
+                <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-[var(--text-4)] hover:text-[var(--text-2)] transition-all text-2xl font-light" type="button">&times;</button>
             </div>
             <form method="post" asp-page-handler="AddLine">
                 <div class="p-6 space-y-4">
@@ -301,7 +301,7 @@
                         <input name="lotNo" type="text" class="form-ctrl w-full" placeholder="İsteğe bağlı lot/parti no girin" />
                     </div>
                 </div>
-                <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <div class="p-5 bg-[var(--bg-2)] border-t border-[var(--border)] flex justify-end gap-3">
                     <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
                     <button type="submit" class="btn btn-primary">Ürünü Kabul Et</button>
                 </div>

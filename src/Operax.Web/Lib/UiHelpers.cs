@@ -35,6 +35,10 @@ public static class UiHelpers
         SerialStatus.InStock or LotStatus.Available                    => "badge-success",
         SerialStatus.Scrapped or LotStatus.Blocked                     => "badge-danger",
         SerialStatus.Quarantine                                        => "badge-warn",
+        // LPN (palet/kap) statüsü — Available zaten LotStatus.Available (success) ile aynı kod, tekrar etme
+        LpnStatus.InUse                                                => "badge-success",
+        LpnStatus.Loaded                                               => "badge-warn",
+        LpnStatus.Shipped                                              => "badge-neutral",
         // Finansal hesap tipi (Accounts listesi rozeti)
         AccountType.Cash                                               => "badge-success",
         AccountType.Bank                                               => "badge-info",

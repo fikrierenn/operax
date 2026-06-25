@@ -7,7 +7,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Stok Kontrol</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-600)]">Stok Kontrol</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">Döngüsel Sayım</span>
         </div>
@@ -26,26 +26,26 @@
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <span class="kpi-label text-indigo-600">
-            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span class="kpi-label text-[var(--brand-600)]">
+            <svg class="w-4 h-4 text-[var(--brand-600)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
             Toplam Sayım Oturumu
         </span>
-        <div class="kpi-value text-indigo-600">
+        <div class="kpi-value text-[var(--brand-600)]">
             @Model.TotalSessions
             <span class="kpi-unit">oturum</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">Şirket genelinde açılan oturumlar</span>
+            <span class="kpi-trend text-[var(--text-4)]">Şirket genelinde açılan oturumlar</span>
         </div>
     </div>
     
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <span class="kpi-label text-emerald-600">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span class="kpi-label text-[var(--success)]">
+            <svg class="w-4 h-4 text-[var(--success)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             Aktif Sayılan Depolar
         </span>
-        <div class="kpi-value text-emerald-600">
+        <div class="kpi-value text-[var(--success)]">
             @Model.ActiveCountingWarehouses
             <span class="kpi-unit">depo</span>
         </div>
@@ -63,16 +63,16 @@
     
     <div class="kpi">
         <div class="kpi-glow warn"></div>
-        <span class="kpi-label text-amber-600">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        <span class="kpi-label text-[var(--warn-text)]">
+            <svg class="w-4 h-4 text-[var(--warn-text)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
             Sayılan Toplam Satır
         </span>
-        <div class="kpi-value text-amber-600">
+        <div class="kpi-value text-[var(--warn-text)]">
             @Model.TotalCountedLines.ToString("N0")
             <span class="kpi-unit">satır</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">Doğrulanan stok kalem adedi</span>
+            <span class="kpi-trend text-[var(--text-4)]">Doğrulanan stok kalem adedi</span>
         </div>
     </div>
 </div>
@@ -93,15 +93,15 @@
             @foreach (var c in Model.Counts)
             {
                 <tr>
-                    <td class="font-mono font-bold text-indigo-600">#@c.DocNo</td>
-                    <td class="font-semibold text-slate-700">@c.WarehouseCode</td>
-                    <td class="num text-slate-600">@c.LineCount.ToString("N0")</td>
-                    <td class="font-mono text-xs text-slate-500">@c.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td class="font-mono font-bold text-[var(--brand-600)]">#@c.DocNo</td>
+                    <td class="font-semibold text-[var(--text-2)]">@c.WarehouseCode</td>
+                    <td class="num text-[var(--text-2)]">@c.LineCount.ToString("N0")</td>
+                    <td class="font-mono text-xs text-[var(--text-3)]">@c.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
                     <td>
                         <span class="badge @(c.Status switch {
-                            DocStatus.Completed => "b-green",
-                            DocStatus.Counting  => "b-indigo",
-                            _                   => "b-gray"
+                            DocStatus.Completed => "badge-success",
+                            DocStatus.Counting  => "badge-info",
+                            _                   => "badge-neutral"
                         })">
                             @(c.Status switch {
                                 DocStatus.Completed => "Tamamlandı",

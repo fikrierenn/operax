@@ -128,12 +128,18 @@ Operax'ta ay-sonu kapanış = `AccountingPeriod(CompanyId, Year, Month, Status)`
 
 ## 5. Operax Obje Haritası (hızlı referans)
 
+> **🔑 Katman ilkesi (architecture.md §5):** Operax **ön muhasebe**; resmi GL/yevmiye/9xx-nazım katmanı
+> **YOK** ama tüm işlemler resmi-muhasebeye **eşlenebilir (posting-rule→yevmiye)** tasarlanır. Aşağıdaki
+> "GL" etiketli objeler aslında **subledger** (alt-defter); gerçek GL fişi ileride ayrı modül. Mutabakat
+> "GL↔subledger" derken GL ucu henüz operasyonel alt-defterin kendisi (doğru yön/an/belge-izi şart ki ileride postlanabilsin).
+
 | Muhasebe kavramı | Operax objesi | Dosya |
 |---|---|---|
 | Cari hesap defteri (subledger) | `AccountMovement` | `schema_M11_AccountMovement.sql` |
-| Kasa/banka GL | `FinancialTransaction` (`IsReconciled`) | `schema_M11_Finance.sql` |
+| Kasa/banka (subledger) | `FinancialTransaction` (`IsReconciled`) | `schema_M11_Finance.sql` |
 | Dönem kilidi | `AccountingPeriod` + `PeriodOverrideLog` + `sp_GuardPeriodOpen` | `schema_M11_LedgerIntegrity.sql` |
-| Mutabakat | `sp_Create/RespondReconciliation`, `tvf_OpenItem(Aging)`, `sp_(Un)ReconcileMovements` | `db_objects_reconciliation.sql` ⚠️migrate-dışı |
+| Mutabakat | `sp_Create/RespondReconciliation`, `tvf_OpenItem(Aging)`, `sp_(Un)ReconcileMovements` | `db_objects_reconciliation.sql` (Plan 48 migrate'te ✅) |
+| Kredi teminatı (off-balance) | `LoanCollateral` (nazım 90/91/92) — Plan 58 | `muhasebe-mevzuat §2.5` |
 | Fiyat varyansı | `PriceVariance` + `ItemCost.AvgCost` | `schema_M02_Costing.sql` |
 | Yaşlandırma | `Features/Finance/Aging` + `tvf_OpenItemAging` | — |
 

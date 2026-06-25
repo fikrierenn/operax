@@ -149,6 +149,10 @@ bakiye = `SUM(Borç − Alacak)`; cari müşteri borç-bakiye (120), tedarikçi 
 
 ## 3. Operax Eşleme + Disiplin
 
+- **🔑 Katman ilkesi (architecture.md §5 — TÜM işleyiş):** Operax **ön muhasebe**; resmi muhasebe
+  (GL yevmiye/TDHP-mizan/9xx nazım) katmanı **YOK** ama her işlem resmi-muhasebeye **eşlenebilir
+  (posting-rule→yevmiye) tasarlanır.** → doğru yön/an/belge-izi + off-balance ayrı tablo + TDHP kodu GÖMME.
+  "Kayıt çalışıyor" yetmez, resmi-muhasebe-uyumu önce gelir.
 - **AccountMovement = cari alt-defter** (120/320). Çek portföyü = `Cheque` tablosu (101/103). GL fişi
   (yevmiye) **henüz yok** — periyodik GL muhasebeleştirme ayrı modül (subledger→GL posting-rule).
 - Ledger append-only (`document-immutability.md`): düzeltme = ters kayıt (REVERSAL), silme yok.

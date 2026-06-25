@@ -10,6 +10,7 @@
     --color-red-50: oklch(97.1% 0.013 17.38);
     --color-red-100: oklch(93.6% 0.032 17.717);
     --color-red-200: oklch(88.5% 0.062 18.334);
+    --color-red-300: oklch(80.8% 0.114 19.571);
     --color-red-400: oklch(70.4% 0.191 22.216);
     --color-red-500: oklch(63.7% 0.237 25.331);
     --color-red-600: oklch(57.7% 0.245 27.325);
@@ -17,6 +18,7 @@
     --color-orange-500: oklch(70.5% 0.213 47.604);
     --color-amber-50: oklch(98.7% 0.022 95.277);
     --color-amber-100: oklch(96.2% 0.059 95.617);
+    --color-amber-300: oklch(87.9% 0.169 91.605);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-amber-500: oklch(76.9% 0.188 70.08);
     --color-amber-600: oklch(66.6% 0.179 58.318);
@@ -37,9 +39,7 @@
     --color-emerald-600: oklch(59.6% 0.145 163.225);
     --color-sky-50: oklch(97.7% 0.013 236.62);
     --color-sky-600: oklch(58.8% 0.158 241.966);
-    --color-blue-100: oklch(93.2% 0.032 255.585);
     --color-blue-500: oklch(62.3% 0.214 259.815);
-    --color-blue-700: oklch(48.8% 0.243 264.376);
     --color-indigo-50: oklch(96.2% 0.018 272.314);
     --color-indigo-100: oklch(93% 0.034 272.788);
     --color-indigo-200: oklch(87% 0.065 274.039);
@@ -904,6 +904,12 @@
   .min-w-\[640px\] {
     min-width: 640px;
   }
+  .min-w-\[680px\] {
+    min-width: 680px;
+  }
+  .min-w-\[760px\] {
+    min-width: 760px;
+  }
   .flex-1 {
     flex: 1;
   }
@@ -1527,8 +1533,8 @@
   .p-12 {
     padding: calc(var(--spacing) * 12);
   }
-  .p-24 {
-    padding: calc(var(--spacing) * 24);
+  .p-16 {
+    padding: calc(var(--spacing) * 16);
   }
   .px-0 {
     padding-inline: calc(var(--spacing) * 0);
@@ -1886,6 +1892,9 @@
   .text-\[var\(--warn-text\)\] {
     color: var(--warn-text);
   }
+  .text-amber-300 {
+    color: var(--color-amber-300);
+  }
   .text-amber-400 {
     color: var(--color-amber-400);
   }
@@ -1948,6 +1957,9 @@
   }
   .text-indigo-900 {
     color: var(--color-indigo-900);
+  }
+  .text-red-300 {
+    color: var(--color-red-300);
   }
   .text-red-400 {
     color: var(--color-red-400);
@@ -2161,11 +2173,6 @@
   }
   .transition-colors {
     transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
-  }
-  .transition-shadow {
-    transition-property: box-shadow;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
@@ -2397,6 +2404,13 @@
       }
     }
   }
+  .hover\:text-\[var\(--brand-600\)\] {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--brand-600);
+      }
+    }
+  }
   .hover\:text-\[var\(--danger\)\] {
     &:hover {
       @media (hover: hover) {
@@ -2415,6 +2429,13 @@
     &:hover {
       @media (hover: hover) {
         color: var(--text);
+      }
+    }
+  }
+  .hover\:text-\[var\(--text-2\)\] {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--text-2);
       }
     }
   }
@@ -2446,17 +2467,19 @@
       }
     }
   }
-  .hover\:shadow-md {
-    &:hover {
-      @media (hover: hover) {
-        --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 2px 4px -2px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-        box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-      }
+  .focus\:border-amber-400 {
+    &:focus {
+      border-color: var(--color-amber-400);
     }
   }
   .focus\:border-green-500 {
     &:focus {
       border-color: var(--color-green-500);
+    }
+  }
+  .focus\:border-indigo-400 {
+    &:focus {
+      border-color: var(--color-indigo-400);
     }
   }
   .focus\:border-indigo-500 {
@@ -2476,9 +2499,19 @@
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
   }
+  .focus\:ring-amber-400 {
+    &:focus {
+      --tw-ring-color: var(--color-amber-400);
+    }
+  }
   .focus\:ring-green-500 {
     &:focus {
       --tw-ring-color: var(--color-green-500);
+    }
+  }
+  .focus\:ring-indigo-400 {
+    &:focus {
+      --tw-ring-color: var(--color-indigo-400);
     }
   }
   .focus\:ring-indigo-500 {

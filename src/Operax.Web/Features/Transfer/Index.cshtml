@@ -1,5 +1,6 @@
 @page
 @model Operax.Web.Features.Transfer.IndexModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = "Stok Transferleri";
 }
@@ -7,7 +8,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Stok Modülü</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-600)]">Stok Modülü</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">Depolar Arası Transfer</span>
         </div>
@@ -26,23 +27,23 @@
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <div class="kpi-icon bg-indigo-50 text-indigo-600">⏱️</div>
+        <div class="kpi-icon bg-[var(--brand-tint-08)] text-[var(--brand-600)]">⏱️</div>
         <span class="kpi-label">Aktif Talepler</span>
-        <div class="kpi-val text-slate-800">@Model.DraftCount</div>
+        <div class="kpi-val text-[var(--text)]">@Model.DraftCount</div>
         <span class="kpi-sub">Onay bekleyen taslaklar</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <div class="kpi-icon bg-emerald-50 text-emerald-600">✅</div>
+        <div class="kpi-icon bg-[var(--success-bg)] text-[var(--success-text)]">✅</div>
         <span class="kpi-label">Tamamlanan Transferler</span>
-        <div class="kpi-val text-slate-800">@Model.PostedCount</div>
+        <div class="kpi-val text-[var(--text)]">@Model.PostedCount</div>
         <span class="kpi-sub">Depolar arası sevk edilen</span>
     </div>
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <div class="kpi-icon bg-sky-50 text-sky-600">📦</div>
+        <div class="kpi-icon bg-[var(--info-bg)] text-[var(--info-text)]">📦</div>
         <span class="kpi-label">Toplam Transfer Edilen</span>
-        <div class="kpi-val text-slate-800">@Model.TotalTransferQty.ToString("N0")</div>
+        <div class="kpi-val text-[var(--text)]">@Model.TotalTransferQty.ToString("N0")</div>
         <span class="kpi-sub">Adet bazında sevk edilen</span>
     </div>
 </div>
@@ -67,7 +68,8 @@
         </select>
     </form>
 
-    <table class="data-table">
+    <div class="table-scroll">
+    <table class="data-table min-w-[760px]">
         <thead>
             <tr>
                 <th>Transfer No</th>
@@ -85,26 +87,22 @@
             @foreach (var t in Model.Transfers)
             {
                 <tr>
-                    <td class="font-mono font-bold text-indigo-600">#@t.DocNo</td>
-                    <td class="font-mono text-xs text-slate-500">@t.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td class="font-mono font-bold text-[var(--brand-600)]">#@t.DocNo</td>
+                    <td class="font-mono text-xs text-[var(--text-3)]">@t.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
                     <td>
-                        <span class="badge b-indigo font-bold">@t.FromWhCode</span>
-                        @if (t.FromBranchName != null) { <div class="text-[10px] text-slate-400 mt-0.5">@t.FromBranchName</div> }
+                        <span class="badge badge-info font-bold">@t.FromWhCode</span>
+                        @if (t.FromBranchName != null) { <div class="text-[10px] text-[var(--text-4)] mt-0.5">@t.FromBranchName</div> }
                     </td>
-                    <td class="text-center text-slate-400">
+                    <td class="text-center text-[var(--text-4)]">
                         <svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                     </td>
                     <td>
-                        <span class="badge b-teal font-bold">@t.ToWhCode</span>
-                        @if (t.ToBranchName != null) { <div class="text-[10px] text-slate-400 mt-0.5">@t.ToBranchName</div> }
+                        <span class="badge badge-success font-bold">@t.ToWhCode</span>
+                        @if (t.ToBranchName != null) { <div class="text-[10px] text-[var(--text-4)] mt-0.5">@t.ToBranchName</div> }
                     </td>
-                    <td><span class="badge b-gray text-xs">@t.TypeLabel</span></td>
-                    <td class="font-semibold text-slate-700">@t.LineCount Kalem</td>
-                    <td>
-                        <span class="badge @(t.Status == DocStatus.Posted ? "b-green" : "b-amber")">
-                            @(t.Status == DocStatus.Posted ? "Tamamlandı" : "Taslak")
-                        </span>
-                    </td>
+                    <td><span class="badge badge-neutral text-xs">@t.TypeLabel</span></td>
+                    <td class="font-semibold text-[var(--text-2)]">@t.LineCount Kalem</td>
+                    <td>@Html.Raw(Dict.StatusBadge(t.Status))</td>
                     <td class="num">
                         <a asp-page="./Details" asp-route-id="@t.Id" class="btn btn-xs btn-secondary">Aç</a>
                     </td>
@@ -113,7 +111,7 @@
             @if (!Model.Transfers.Any())
             {
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                                 <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -125,6 +123,7 @@
             }
         </tbody>
     </table>
+    </div>
 </div>
 
 <partial name="_Pager" model="new Operax.Web.Lib.PagerVm(Model.Page, Model.TotalPages, Model.FilteredCount, Model.PageSize)" />

@@ -15,8 +15,8 @@
                     </svg>
                     Transfer Listesi
                 </a>
-                <span class="text-slate-400">/</span>
-                <span class="text-slate-600 font-semibold">Transfer Detayı</span>
+                <span class="text-[var(--text-4)]">/</span>
+                <span class="text-[var(--text-2)] font-semibold">Transfer Detayı</span>
             </div>
             <h1>Transfer Hareketi: #@Model.Header.DocNo</h1>
             <p class="page-hdr-sub">Depolar arası veya raflar arası stok hareket planlaması</p>
@@ -43,14 +43,14 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div class="lg:col-span-1">
-            <div class="card p-6 bg-white h-full">
-                <div class="card-ttl mb-4 pb-2 border-b border-slate-100">TRANSFER AYARLARI</div>
+            <div class="card p-6 h-full">
+                <div class="card-ttl mb-4 pb-2 border-b border-[var(--border)]">TRANSFER AYARLARI</div>
                 <div class="space-y-4">
                     @* Transfer tipi: kaynak/hedef depo seçilince JS türetir — hidden field DB'ye gider *@
                     <input type="hidden" asp-for="Header.TransferType" id="transfer-type-code" />
                     <div class="form-group mb-0">
                         <label class="form-label">Transfer Tipi</label>
-                        <div id="transfer-type-badge" class="badge b-indigo text-sm px-3 py-1.5">—</div>
+                        <div id="transfer-type-badge" class="badge badge-info text-sm px-3 py-1.5">—</div>
                     </div>
                     <div class="form-group mb-0">
                         <label class="form-label">Kaynak Depo</label>
@@ -78,13 +78,13 @@
 
         <div class="lg:col-span-2">
             <div class="card mb-6 h-full flex flex-col">
-                <div class="card-hdr bg-slate-50/50">
+                <div class="card-hdr bg-[var(--bg-2)]">
                     <span class="card-ttl">TRANSFER SATIRLARI</span>
                     <button onclick="document.getElementById('add-line-modal').classList.remove('hidden')" class="btn btn-primary btn-sm" type="button" data-shortcut="Alt+N">
                         + Hareket Ekle
                     </button>
                 </div>
-                <div class="overflow-x-auto flex-1">
+                <div class="table-scroll flex-1">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -99,12 +99,12 @@
                             {
                                 <tr>
                                     <td>
-                                        <div class="font-bold text-slate-800">@line.ItemName</div>
-                                        <div class="text-xs text-slate-400 font-mono">@line.ItemCode</div>
+                                        <div class="font-bold text-[var(--text)]">@line.ItemName</div>
+                                        <div class="text-xs text-[var(--text-4)] font-mono">@line.ItemCode</div>
                                     </td>
-                                    <td><span class="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">@line.FromBinCode</span></td>
-                                    <td><span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">@line.ToBinCode</span></td>
-                                    <td class="text-right font-bold text-slate-700">@line.Qty.ToString("N2")</td>
+                                    <td><span class="font-mono text-xs text-[var(--text-3)] bg-[var(--bg-2)] px-2 py-0.5 rounded">@line.FromBinCode</span></td>
+                                    <td><span class="font-mono text-xs font-bold text-[var(--brand-600)] bg-[var(--brand-tint-08)] px-2 py-0.5 rounded">@line.ToBinCode</span></td>
+                                    <td class="text-right font-bold text-[var(--text-2)]">@line.Qty.ToString("N2")</td>
                                 </tr>
                             }
                             @if (!Model.Lines.Any())
@@ -112,10 +112,10 @@
                                 <tr>
                                     <td colspan="4">
                                         <div class="empty-state">
-                                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-slate-300">
+                                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="w-10 h-10 text-[var(--text-mute)]">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
                                             </svg>
-                                            <p class="text-slate-400 font-medium">Henüz transfer satırı eklenmedi. Başlamak için "+ Hareket Ekle" düğmesine tıklayın.</p>
+                                            <p class="text-[var(--text-4)] font-medium">Henüz transfer satırı eklenmedi. Başlamak için "+ Hareket Ekle" düğmesine tıklayın.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -129,11 +129,11 @@
 </form>
 
 <!-- Modal -->
-<div id="add-line-modal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200">
-        <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-            <h3 class="font-bold text-base text-slate-800">Stok Hareketi Ekle</h3>
-            <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-all text-2xl font-light" type="button">&times;</button>
+<div id="add-line-modal" class="hidden fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-[var(--border)]">
+        <div class="p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-2)]">
+            <h3 class="font-bold text-base text-[var(--text)]">Stok Hareketi Ekle</h3>
+            <button onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="text-[var(--text-4)] hover:text-[var(--text-2)] transition-all text-2xl font-light" type="button">&times;</button>
         </div>
         <form method="post" asp-page-handler="AddLine">
             <div class="p-6 space-y-4">
@@ -175,7 +175,7 @@
                     <input type="number" name="qty" step="0.01" class="form-ctrl w-full" required />
                 </div>
             </div>
-            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+            <div class="p-5 bg-[var(--bg-2)] border-t border-[var(--border)] flex justify-end gap-3">
                 <button type="button" onclick="document.getElementById('add-line-modal').classList.add('hidden')" class="btn btn-secondary">İptal</button>
                 <button type="submit" class="btn btn-primary">Hareketi Ekle</button>
             </div>
@@ -224,4 +224,3 @@
 })();
 </script>
 }
-

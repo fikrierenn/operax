@@ -1,6 +1,8 @@
 # Plan 57 — Pick→Ship Ledger Handoff (toplanan-gerçek stok düşümü)
 
-**Durum:** Onay bekliyor · **Tier:** 3 · **Plan:** 56 Picking devamı (sql-sp-reviewer IMP-3)
+**Durum:** ✅ TAMAMLANDI 2026-06-25 (commit d87b198) · **Tier:** 3 · **Plan:** 56 Picking devamı (sql-sp-reviewer IMP-3)
+
+> **Çıktı:** sql-sp-reviewer CRITICAL yok · fresh-DB 0 fail · E2E smoke multi-bin(5000→2563+2437)+short(200→150)+skip(200→0) → çıkış -5150 (drift yok), ShippingLine reconcile doğru. Done criteria tümü ✓.
 
 ## Problem
 

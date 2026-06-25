@@ -18,6 +18,7 @@ Finance ledger/SP **doğruluğu temiz** (borç/alacak yön · ters-kayıt · dö
 - **Ciro (ENDORSED):** alınan müşteri çeki (101) tedarikçiye devir → **Borç 320 Satıcılar / Alacak 101**. Operax: `AccountMovement` **Debit** EndorsedToPartnerId üzerine (tedarikçi borcu kapanır) + Cheque ENDORSED. Belge izi (özün önceliği · belgelendirme kavramı).
 - **Verilen çek PAID:** çek VERİLDİĞİ an cari kapanmalı (Borç 320 / Alacak 103). ÖDENDİĞİ an (PAID): **Borç 103 / Alacak 102 Banka** → `FinancialTransaction` **EXPENSE**, **cari'ye DOKUNMA**. ⚠️ ÖN-KONTROL (Faz B adım 0): Operax verilen-çek girişinde AccountMovement yazıyor mu? Yazmıyorsa cari hiç kapanmıyor demektir → ayrı bulgu (issue-time cari), Faz B kapsamına alınır.
 - **Loan RESTRUCTURED:** eski kredi kalan anaparası yeni krediye taşınır → **borç transferi** (300/400 eski kapanır, yeni açılır). **Banka/kasa hareketi YOK**, **cari (120/320) etkisi YOK** (banka kredisi, partner değil). Yalnız Loan tablo statü+bakiye + yeni Loan FK izi.
+- **Kredi TEMİNATI (muhasebe-mevzuat §2.5 — NAZIM/off-balance):** verilen teminat (ipotek/rehin/menkul) **gerçek varlık/banka/cari ETKİLEMEZ** — yalnız nazım hesaplarda izlenir (Borç **920**/Alacak **921** tesis; ters kayıt çözüm). Operax: ayrı `LoanCollateral` kaydı (off-balance), FinancialTransaction/AccountMovement YAZMA. Teminat türü→grup: ipotek/rehin→92x, teminat mektubu→90x, kefalet/çek-senet ciro→91x. Anapara/faiz/taksit akışı AYNI; teminat ÜSTÜNE ayrı katman. **Yapılandırmada:** eski teminat çözülür (921/920), yeni krediye yeniden tesis (920/921).
 
 ## Scope
 
@@ -47,16 +48,23 @@ Finance ledger/SP **doğruluğu temiz** (borç/alacak yön · ters-kayıt · dö
 - **UI** "Ödendi İşaretle" butonu (Issued + PORTFOLIO/IN_BANK) + banka hesap seçim → OnPostPay.
 - **Smoke:** verilen çek → PAID → FinancialTransaction EXPENSE banka, cari DEĞİŞMEDİ, tvf_FinancialPosition artık "açık borç" göstermiyor.
 
-### Faz C — Loan Yapılandırma (RESTRUCTURED)
-- **Şema** `migration_58c_loan_restructure.sql`: `Loan.RestructuredFromLoanId UNIQUEIDENTIFIER NULL` (yeni krediden eskiye iz).
+### Faz C — Loan Yapılandırma (RESTRUCTURED) + Teminat (NAZIM/off-balance)
+- **Şema** `migration_58c_loan_restructure.sql`:
+  - `Loan.RestructuredFromLoanId UNIQUEIDENTIFIER NULL` (yeni krediden eskiye iz).
+  - **`LoanCollateral` tablosu (YENİ, off-balance teminat izleme):** Id · CompanyId · LoanId · CollateralType (IPOTEK/REHIN/MENKUL/TEMINAT_MEKTUBU/KEFALET) · NazimGroup (90/91/92/93) · Description · CollateralValue DECIMAL(18,2) · ValuationType (NOMINAL/EKSPERTIZ) · Status (ACTIVE/RELEASED) · PledgedDate · ReleasedDate + zorunlu audit kolonları. **Gerçek ledger DEĞİL** — koşullu yükümlülük kaydı.
+- **SP** `sp_AddLoanCollateral(@LoanId,@CompanyId,@UserId,@Type,@Value,@ValuationType,@Description,@Date)`:
+  - Guard: Loan ACTIVE. Teminat türünden NazimGroup türet (ipotek/rehin→92, mektup→90, kefalet→91). LoanCollateral ACTIVE INSERT. **FinancialTransaction/AccountMovement YAZMA** (off-balance — nazım 920/921 kavramsal iz).
+  - `sp_ReleaseLoanCollateral(@CollateralId,...)`: Status=RELEASED + ReleasedDate (ters nazım 921/920). Kredi kapanış/iptalde çağrılır.
 - **SP** `sp_RestructureLoan(@OldLoanId,@CompanyId,@UserId,@NewPrincipal,@NewTermMonths,@NewRate,@Date)`:
   - Guard: eski Loan Status=ACTIVE. `sp_GuardPeriodOpen` (kayıt tarihi).
-  - Eski Loan: Status=RESTRUCTURED, OutstandingBalance=0 (kalan yeni krediye taşındı).
-  - Yeni Loan INSERT (Principal=@NewPrincipal [genelde eski OutstandingBalance ± fark], RestructuredFromLoanId=@OldLoanId, Status=ACTIVE) — `sp_CreateLoan` mantığı yeniden kullan/çağır.
-  - **FinancialTransaction YOK** (nakit hareketi yok, borç transferi). Yeni taksit planı üret.
-  - XACT_ABORT+TRY/CATCH.
-- **UI** Loans/Details: "Yapılandır" butonu (ACTIVE iken) + yeni şart formu → OnPostRestructure.
-- **Smoke:** ACTIVE loan → restructure → eski RESTRUCTURED+OutstandingBalance=0, yeni ACTIVE loan RestructuredFromLoanId dolu, yeni taksit planı, FinancialTransaction YAZILMADI.
+  - Eski Loan: Status=RESTRUCTURED, OutstandingBalance=0.
+  - Yeni Loan INSERT (Principal=@NewPrincipal, RestructuredFromLoanId=@OldLoanId, Status=ACTIVE) — `sp_CreateLoan` mantığı + yeni taksit planı.
+  - **Teminat devri:** eski Loan'ın ACTIVE LoanCollateral kayıtları → yeni Loan'a taşınır (eski RELEASED, yeni ACTIVE kopya) VEYA LoanId güncellenir (karar: kopyala+iz, immutability). Nazım çöz+tesis kavramsal.
+  - **FinancialTransaction YOK** (nakit hareketi yok). XACT_ABORT+TRY/CATCH.
+- **UI** Loans/Details: "Yapılandır" butonu (ACTIVE) + yeni şart formu → OnPostRestructure · "Teminat Ekle" + teminat listesi (off-balance, "bilanço-dışı izleme" etiketiyle).
+- **Smoke:**
+  - Teminat: ACTIVE loan + ipotek teminat ekle → LoanCollateral ACTIVE (NazimGroup=92), **FinancialTransaction/AccountMovement YAZILMADI** (off-balance doğrula). Kapanışta release.
+  - Restructure: ACTIVE+teminatlı loan → restructure → eski RESTRUCTURED+OutstandingBalance=0+teminat çözüldü, yeni ACTIVE+teminat tesis+RestructuredFromLoanId+taksit, **FinancialTransaction YAZILMADI**.
 
 ### Faz D — OVERDUE Kozmetik Temizlik (düşük efor, smoke yok)
 - **Karar:** OVERDUE persist EDİLMEZ → hesaplanan alan kalır (tek-kaynak doğruluğu, drift yok). Statü kümesinden ÇIKAR:
@@ -80,6 +88,7 @@ Finance ledger/SP **doğruluğu temiz** (borç/alacak yön · ters-kayıt · dö
 - [ ] Faz A: alınan çek ciro → ENDORSED + AccountMovement Debit doğru tedarikçi, smoke net
 - [ ] Faz B: verilen çek → PAID + FinancialTransaction EXPENSE, cari doğru (Adım 0 sonucuna göre), tvf açık-borç göstermiyor
 - [ ] Faz C: loan restructure → eski RESTRUCTURED + yeni ACTIVE + FK iz + taksit, nakit yazılmadı
+- [ ] Faz C teminat: LoanCollateral off-balance (ipotek/rehin/mektup) — FinancialTransaction/AccountMovement YAZMADI; restructure'da teminat çözülüp yeni krediye tesis
 - [ ] Faz D: OVERDUE ölü-kod temiz, şema-yorum + THROW-yorum düzeltildi
 - [ ] Her Tier-3 faz: sql-sp-reviewer CRITICAL yok + fresh-DB 0 fail + smoke
 - [ ] Yetim statü kalmadı (her CHECK statüsünün yazan SP'si var veya bilinçli runtime-only)
@@ -101,7 +110,7 @@ Finance ledger/SP **doğruluğu temiz** (borç/alacak yön · ters-kayıt · dö
 - sp_CancelPayment / PaymentPlan.CANCELLED reversal akışı — DOĞRULANMADI.
 
 ## İlişkili
-- `.claude/skills/muhasebe-mevzuat/SKILL.md` §2 (çek/senet 3-an muhasebe) · §1 (TDHP yön)
+- `.claude/skills/muhasebe-mevzuat/SKILL.md` §2 (çek/senet 3-an muhasebe) · **§2.5 (kredi teminatı NAZIM/off-balance)** · §1 (TDHP yön)
 - `.claude/rules/document-immutability.md` §2.4 (Loan yapılandırma = yeni Loan) · §1.b (ledger append-only)
 - `.claude/rules/phase-review-gate.md` (her faz sql-sp-reviewer + smoke)
 - Finans SP'leri: `docs/sql/db_objects_starter.sql` (çek/senet/kredi) · `schema_M11_Finance.sql`

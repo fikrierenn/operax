@@ -117,6 +117,36 @@ bakiye = `SUM(Borç − Alacak)`; cari müşteri borç-bakiye (120), tedarikçi 
 
 ---
 
+## 2.5 Kredi Teminatı / NAZIM HESAPLAR (bilanço-dışı) (DOĞRULANMIŞ — 2026-06-25, kaynaklı)
+
+> **Temel kural:** Kredi için verilen teminat (ipotek/rehin/menkul/teminat mektubu) **gerçek varlığı,
+> bankayı, cariyi ETKİLEMEZ** — yalnız **nazım hesaplarda** (off-balance, 9xx grubu) izlenir. İşletmenin
+> sahibi olduğu ama riskini/yükümlülüğünü izlemek gereken değerler. 12 temel kavram: **tam açıklama**
+> (koşullu yükümlülük dipnotu) + **ihtiyatlılık**. Nazım kayıtta bir nazım borç ↔ diğer nazım alacak (kendi içinde dengeli).
+
+### Nazım hesap grupları (9xx)
+| Grup | Ad | Ne zaman |
+|---|---|---|
+| **90** | Teminat Hesaplar (mektup) | Banka teminat **MEKTUBU** (900 Alacaklar / 901 Borçlar) |
+| **91** | Cirolar, Kefaletler, Garantiler | **Çek/senet CİROSU** (§2 ENDORSED), kefalet, garanti |
+| **92** | Teminat ve Emanet **VERİLEN** Kıymetler | Biz veriyoruz: **ipotek/menkul rehni/araç** (920 Kıymetlerimizi Teminat Alanlar / 921 Teminattaki Kıymetlerimiz) |
+| **93** | Teminat ve Emanet **ALINAN** Kıymetler | Müşteriden teminat alıyoruz (92'nin ters tarafı) |
+
+### Kredi teminatı 2 an (verilen — ipotek/rehin)
+| An | Nazım kayıt | Operax |
+|---|---|---|
+| **Teminat VERİLDİ** (kredi alınırken) | Borç **920** / Alacak **921** | Loan'a bağlı **LoanCollateral** kaydı (off-balance) — FinancialTransaction/AccountMovement **YAZMA** |
+| **Teminat ÇÖZÜLDÜ** (kredi kapandı/iade) | Borç **921** / Alacak **920** (ters) | LoanCollateral.Status=RELEASED — gerçek ledger'a dokunma |
+
+- **Değerleme (maliyet esası):** menkul/senet **nominal**; emtia/gayrimenkul **ekspertiz** değeri üzerinden nazıma yazılır.
+- **Teminat türü → grup:** ipotek/araç/menkul rehni → 92x · teminat mektubu (banka bizim için) → 90x · kefalet/garanti/çek-senet ciro → 91x.
+- **Kredi YAPILANDIRMA (RESTRUCTURED):** eski kredi teminatı **çözülür (921/920)**, yeni krediye **yeniden tesis edilir (920/921)** — teminat krediyle birlikte taşınır; nazım dışında gerçek hareket yok.
+- **İşleyiş farkı (kullanıcı notu):** teminatlı kredide ana fark = **off-balance teminat takibi + kredi kapanış/yapılandırmada teminat çözme/devri**. Anapara/faiz/taksit ledger akışı (FinancialTransaction EXPENSE, OutstandingBalance) **AYNI**; teminat onun ÜSTÜNE ayrı nazım katman.
+
+**Kaynaklar:** [muhasebedersleri — Nazım Hesaplar](https://www.muhasebedersleri.com/genel-muhasebe-2/nazim-hesaplar.html) · [muhasebetr — Bilançoda Gözükmeyen Nazım Hesaplar](https://www.muhasebetr.com/yazarlarimiz/mustafaakcayir/069/) · [alomaliye — Nazım Hesapların Kullanılması](https://www.alomaliye.com/2014/03/10/nazim-hesaplarin-kullanilmasi-gerekiyor/)
+
+---
+
 ## 3. Operax Eşleme + Disiplin
 
 - **AccountMovement = cari alt-defter** (120/320). Çek portföyü = `Cheque` tablosu (101/103). GL fişi

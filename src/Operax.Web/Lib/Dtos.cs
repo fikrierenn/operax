@@ -36,6 +36,8 @@ public static class DocStatus
     public const string Pending    = "PENDING";    // Onay bekliyor
     public const string Closed         = "CLOSED";          // Sipariş tamamen kapandı
     public const string ClosedPartial  = "CLOSED_PARTIAL";  // Sipariş kısmen kapandı (kalan iptal)
+    public const string Picking        = "PICKING";         // Sevkiyat toplanıyor (Plan 56 Faz D staging)
+    public const string Picked         = "PICKED";          // Toplandı, sevke hazır (stok henüz çıkmadı; POSTED'da çıkar)
 }
 
 /// <summary>Stok hareket tipleri</summary>

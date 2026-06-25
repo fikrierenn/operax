@@ -371,6 +371,12 @@ BEGIN
             SET @TaskId = NULL;
         END
 
+        -- Plan 56 Faz D: toplama emri açıldı → sevkiyat DRAFT→PICKING (staging; stok HENÜZ çıkmadı,
+        -- çıkış yalnız sp_ShippingPost'ta). Yalnız task gerçekten oluştuysa.
+        IF @TaskId IS NOT NULL
+            UPDATE ShippingHeader SET Status = 'PICKING', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserGuid
+            WHERE Id = @HeaderId AND Status = 'DRAFT';
+
         COMMIT TRANSACTION;
         SELECT @TaskId AS TaskId;
     END TRY
@@ -839,6 +845,12 @@ BEGIN
         SET Status      = 'COMPLETED',
             CompletedAt = GETUTCDATE()
         WHERE Id = @TaskId;
+
+    -- Plan 56 Faz D: görev tamamlandı → bağlı sevkiyat PICKING→PICKED (sevke hazır; stok yalnız sp_ShippingPost)
+    UPDATE sh SET sh.Status = 'PICKED', sh.UpdatedAt = GETUTCDATE()
+    FROM ShippingHeader sh
+    JOIN PickTask pt ON pt.ShipmentId = sh.Id
+    WHERE pt.Id = @TaskId AND pt.Status = 'COMPLETED' AND sh.Status = 'PICKING';
 
         COMMIT TRANSACTION;
     END TRY

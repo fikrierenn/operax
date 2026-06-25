@@ -53,6 +53,8 @@ INSERT INTO @V VALUES
  ('STATUS','PENDING','Bekliyor','Pending',100),
  ('STATUS','CLOSED','Kapandı','Closed',110),
  ('STATUS','CLOSED_PARTIAL','Kısmen Kapandı','Partially Closed',120),
+ ('STATUS','PICKING','Toplanıyor','Picking',130),
+ ('STATUS','PICKED','Toplandı','Picked',140),
 -- SOURCE_DOC_TYPE
  ('SOURCE_DOC_TYPE','SALES_INVOICE','Satış Faturası','Sales Invoice',10),
  ('SOURCE_DOC_TYPE','PURCHASE_INVOICE','Alış Faturası','Purchase Invoice',20),

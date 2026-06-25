@@ -1,5 +1,6 @@
 @page "{id:guid?}"
 @model Operax.Web.Features.Shipping.DetailsModel
+@inject Operax.Web.Lib.IDictionaryLabels Dict
 @{
     ViewData["Title"] = Model.IsNew ? "Yeni Sevkiyat" : $"Sevkiyat {Model.Header.DocNo}";
 }
@@ -31,16 +32,23 @@
                     Sevkiyatı Kaydet
                 </button>
             }
-            @if (!Model.IsNew && Model.Header.Status == DocStatus.Draft)
+            @* Plan 56 Faz D: POST hem DRAFT (doğrudan) hem PICKING/PICKED'ten. Stok burada çıkar (çıkış kapısı). *@
+            @if (!Model.IsNew && (Model.Header.Status == DocStatus.Draft
+                 || Model.Header.Status == DocStatus.Picking || Model.Header.Status == DocStatus.Picked))
             {
                 <button type="submit" asp-page-handler="Post" class="btn btn-success" data-shortcut="Alt+P">
                     Sevkiyatı Tamamla (Onayla)
                 </button>
             }
-            @if (!Model.IsNew && Model.Header.Status == DocStatus.Posted)
+            @* İptal: POSTED → ters stok-flag; PICKING/PICKED → stok yok, sadece status+görev iptal (çıkış kapısı). *@
+            @if (!Model.IsNew && (Model.Header.Status == DocStatus.Posted
+                 || Model.Header.Status == DocStatus.Picking || Model.Header.Status == DocStatus.Picked))
             {
+                var revMsg = Model.Header.Status == DocStatus.Posted
+                    ? "Bu sevkiyat iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?"
+                    : "Bu sevkiyat iptal edilecek (stok henüz çıkmadı, bağlı toplama görevi de iptal olur). Onaylıyor musunuz?";
                 <button type="submit" asp-page-handler="Reverse" class="btn btn-danger"
-                        onclick="return confirm('Bu sevkiyat iptal edilecek ve ters stok hareketi yazılacak. Onaylıyor musunuz?');">
+                        onclick="return confirm('@revMsg');">
                     Sevkiyatı İptal Et
                 </button>
             }
@@ -70,9 +78,7 @@
         <div class="form-group mb-0 flex flex-col justify-between items-start md:items-end">
             <label class="form-label md:text-right">Sevkiyat Durumu</label>
             <div class="mt-1">
-                <span class="badge @(Model.Header.Status == DocStatus.Posted ? "b-green" : "b-amber") font-mono font-bold">
-                    @Model.Header.Status
-                </span>
+                @Html.Raw(Dict.StatusBadge(Model.Header.Status))
             </div>
         </div>
     </div>

@@ -2,7 +2,7 @@
 
 **Tarih:** 2026-06-24
 **Yazan:** Fikri / Claude
-**Durum:** `Onaylandı` (2026-06-24, "yapmışken tam yapalım" — A-D hepsi)
+**Durum:** `Tamamlandı` (2026-06-24, A-D hepsi · ledger sınırı korundu)
 **Modül:** M-WMS (Picking) + M04 (Shipping ara-statü)
 **Paket:** WMS_PRO
 
@@ -102,8 +102,8 @@ Kullanıcı net: "siparişleri toplama emirlerine dönüştür + en performansl�
 1. [x] ✅ **Faz A** pick sorguları `ORDER BY Zone,SortNo`→`PickSeq` · Bin.SortNo zaten seed'li · `PickTaskStatus.Released`+dict 'Havuzda'+terminal sayaç · build+smoke (6c21243)
 2. [x] ✅ **Faz B** `PickTaskLine.PickSeq`+`ExceptionNote` · `sp_ShippingCreatePickTask` multi-bin FIFO split + kısmi-pick + serpentine PickSeq + 3 IMP fix · sql-sp-reviewer+fresh-DB+E2E smoke (8dacf51)
 3. [x] ✅ **Faz C** guided 3-adım terminal (raf-doğrula→ürün→miktar) + HID auto-advance + short-pick + istisna(atla/hasar) menü · `sp_PickConfirm` 9-param (bin/qty/exception) · mobil-verify(375 overflow yok, autofocus, auto-advance, sayaç) + SP smoke (short-pick SHORT + yanlış-raf THROW 51582) + fresh-DB 0 fail
-4. [ ] **Faz D (Shipping staging):** Shipping `PICKING/PICKED` ara-statü + geçişler · pick COMPLETED→Shipping PICKED · sql-sp-reviewer+smoke (stok yalnız POSTED).
-5. [ ] **Faz E:** TODO/journal senkron + danışman-doğrulama notu.
+4. [x] ✅ **Faz D** Shipping `DRAFT→PICKING→PICKED→POSTED` ara-statü: sp_ShippingCreatePickTask→PICKING · sp_PickConfirm/PickLinePost COMPLETED→PICKED · POST DRAFT/PICKING/PICKED'ten · iptal PICKING/PICKED (exit gate, ledger'a dokunmaz, PickTask CANCELLED) · SHIPMENT geçiş seed + STATUS dict + badge fix · **E2E ledger smoke: stok YALNIZ POSTED'da (-5), staging 0** · sql-sp-reviewer (ledger temiz, IMP-1/2 exit gate düzeltildi) · fresh-DB 0 fail (UpdatedAt-bug yakalandı)
+5. [→] **Faz E:** TODO/journal senkron (sonraki). **Kalan gap (backlog):** PickTask cancel→shipping geri-DRAFT (IMP-3) · multi-pick-task guard (OBS-1) — düşük, statü-tamlık.
 
 > Faz A bağımsız değer üretir (bugün gezdir). B-D üstüne kurar.
 

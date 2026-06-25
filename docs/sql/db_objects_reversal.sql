@@ -116,6 +116,20 @@ BEGIN
             THROW 51310, N'Sevkiyat belgesi bulunamadı.', 1;
         IF @Status = 'CANCELLED'
             THROW 51311, N'Belge zaten iptal edilmiş.', 1;
+
+        -- Plan 56 Faz D: PICKING/PICKED staging iptali — stok HENÜZ ÇIKMADI (yalnız sp_ShippingPost çıkarır)
+        -- → ledger'a DOKUNULMAZ; yalnız sevkiyat CANCELLED + bağlı toplama görevi CANCELLED. Çıkış kapısı.
+        IF @Status IN ('PICKING', 'PICKED')
+        BEGIN
+            UPDATE PickTask SET Status = 'CANCELLED'
+            WHERE ShipmentId = @HeaderId AND Status <> 'CANCELLED';
+            UPDATE ShippingHeader
+            SET Status = 'CANCELLED', UpdatedAt = GETUTCDATE(), UpdatedBy = @UserId
+            WHERE Id = @HeaderId;
+            COMMIT TRANSACTION;
+            RETURN;
+        END
+
         IF @Status <> 'POSTED'
             THROW 51312, N'Yalnızca onaylanmış belgeler iptal edilebilir.', 1;
 

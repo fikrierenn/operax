@@ -192,6 +192,13 @@ BEGIN
               AND ExceptionNote IS NULL)
             UPDATE PickTask SET Status = 'COMPLETED' WHERE Id = @TaskId;
 
+        -- Plan 56 Faz D: görev tamamlandı → bağlı sevkiyat PICKING→PICKED (toplandı, sevke hazır).
+        -- Stok HÂLÂ çıkmadı (yalnız sp_ShippingPost) — staging görünürlüğü; kullanıcı POSTED yapar.
+        UPDATE sh SET sh.Status = 'PICKED', sh.UpdatedAt = GETUTCDATE()
+        FROM ShippingHeader sh
+        JOIN PickTask pt ON pt.ShipmentId = sh.Id
+        WHERE pt.Id = @TaskId AND pt.Status = 'COMPLETED' AND sh.Status = 'PICKING';
+
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH

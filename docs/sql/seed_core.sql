@@ -115,6 +115,12 @@ FROM (VALUES
     ('RECEIVING',      'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
     ('SHIPMENT',       'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
     ('SHIPMENT',       'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
+    -- Plan 56 Faz D: topla→sevk staging. DRAFT→PICKING (toplama emri açıldı, SP set eder) →
+    -- PICKED (toplama bitti, SP set) → POSTED (kullanıcı onaylar, stok burada çıkar). PICKING/PICKED'tan da sevk + iptal.
+    ('SHIPMENT',       'PICKING','POSTED',         N'Onayla',          'Approve',       15),
+    ('SHIPMENT',       'PICKED', 'POSTED',         N'Onayla',          'Approve',       16),
+    ('SHIPMENT',       'PICKING','CANCELLED',      N'İptal Et',        'Cancel',        25),
+    ('SHIPMENT',       'PICKED', 'CANCELLED',      N'İptal Et',        'Cancel',        26),
     ('TRANSFER',       'DRAFT',  'POSTED',         N'Onayla',          'Approve',       10),
     ('TRANSFER',       'POSTED', 'CANCELLED',      N'İptal Et',        'Cancel',        20),
     ('CYCLE_COUNT',    'DRAFT',  'COMPLETED',      N'Tamamla',         'Complete',      10),

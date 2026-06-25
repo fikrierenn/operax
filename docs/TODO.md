@@ -15,7 +15,7 @@
   - [x] ✅ Expenses Index+Report renk→token (01550da) · MaterialIssue Index+Details renk→token (c60e5fd).
   - [x] ✅ PurchaseInvoices Index+Details renk→token (amber variance paneli→warn token dahil).
   - [x] ✅ Expenses/Details + Report: DOĞRULANDI temiz — `class="input"/"label"`/raw-renk 0 oluşum (M18 UX-pass'inde gold-standard'a çekilmiş, satır 30/116 DEBT STALE'di). Yalnız birkaç benign `font-size:` inline (renk zaten token). **Belgeler grubu KAPANDI.**
-- [ ] **Finance** (17, çoğu std): inline-renk (Aging/Details, CreditCards/Index bespoke kart, Payments/Create) → semantic.
+- [x] ✅ **Finance** (17 ekran) — KAPANDI 2026-06-25. Tarama: ekranlar zaten token-temiz (inline'lar `var(--…)` + layout, inline-style-guard'a göre izinli). Tek gerçek ihlal Aging/Index.cshtml:90 `hsl(28 80% 38%)` → `var(--danger-text)` (61-90 kovası, escalation korundu). TODO notu (Aging/Details, CreditCards bespoke) STALE'di — zaten token.
 - [ ] **Admin kalan** (zaten M0'da Roles/Create·Modules·StatusTransitions·Parameters yapıldı) — Dictionary/Values vanilla teyit, gerisi std.
 - [ ] **Misc kalan: Budget** (`.input`/`.label`→form-ctrl) — Lot/LPN/Serial/Inventory yukarıda "WMS komple" ile KAPANDI 2026-06-25.
 

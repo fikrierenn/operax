@@ -283,6 +283,11 @@ BEGIN
         IF @WarehouseId IS NULL
             THROW 50001, N'Sevkiyat belgesi bulunamadı.', 1;
 
+        -- İdempotency (OBS-1): bu sevkiyat için zaten aktif (iptal edilmemiş) toplama görevi varsa
+        -- ikinci yetim görev açma. CANCELLED görev sonrası yeniden açılabilir (shipping DRAFT'a döndü).
+        IF EXISTS (SELECT 1 FROM PickTask WHERE ShipmentId = @HeaderId AND Status <> 'CANCELLED')
+            THROW 50006, N'Bu sevkiyat için zaten bir toplama görevi mevcut.', 1;
+
         DECLARE @TaskId    UNIQUEIDENTIFIER = NEWID();
         DECLARE @TaskDocNo NVARCHAR(50)     = 'PCK-' + @DocNo;
         -- CreatedBy kolonları UNIQUEIDENTIFIER; @UserId string olabilir → TRY_CAST (sp_TransferPost pattern, IMP-3)
@@ -379,6 +384,56 @@ BEGIN
 
         COMMIT TRANSACTION;
         SELECT @TaskId AS TaskId;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
+
+-- =============================================================================
+-- sp_PickTaskCancel — Toplama görevini iptal eder (Plan 56 IMP-3)
+-- NE YAPAR: PickTask → CANCELLED. Pick StockMovement YAZMAZ (stok yalnız sp_ShippingPost) → ledger'a
+--           DOKUNULMAZ. Bağlı sevkiyat PICKING'te + başka aktif görev yoksa → DRAFT'a geri döner
+--           (toplamadan vazgeçildi; sevkiyat yeniden toplanabilir/sevk edilebilir).
+-- THROW: 51590 görev yok · 51591 zaten iptal · 51592 tamamlanmış iptal edilemez
+-- =============================================================================
+CREATE OR ALTER PROCEDURE dbo.sp_PickTaskCancel
+    @TaskId    UNIQUEIDENTIFIER,
+    @CompanyId UNIQUEIDENTIFIER,
+    @UserId    NVARCHAR(450)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @Status NVARCHAR(20), @ShipmentId UNIQUEIDENTIFIER;
+        SELECT @Status = Status, @ShipmentId = ShipmentId
+        FROM PickTask WITH (UPDLOCK, ROWLOCK)
+        WHERE Id = @TaskId AND CompanyId = @CompanyId;
+
+        IF @Status IS NULL
+            THROW 51590, N'Toplama görevi bulunamadı.', 1;
+        IF @Status = 'CANCELLED'
+            THROW 51591, N'Görev zaten iptal edilmiş.', 1;
+        IF @Status = 'COMPLETED'
+            THROW 51592, N'Tamamlanmış görev iptal edilemez.', 1;
+
+        -- Görev iptal (ledger dokunulmaz — pick StockMovement yazmaz)
+        UPDATE PickTask SET Status = 'CANCELLED' WHERE Id = @TaskId;
+
+        -- Bağlı sevkiyat PICKING'te + başka aktif görev kalmadıysa → DRAFT'a geri (toplamadan vazgeçildi)
+        IF @ShipmentId IS NOT NULL
+            UPDATE ShippingHeader SET Status = 'DRAFT', UpdatedAt = GETUTCDATE(),
+                   UpdatedBy = TRY_CAST(@UserId AS UNIQUEIDENTIFIER)
+            WHERE Id = @ShipmentId AND Status = 'PICKING'
+              AND NOT EXISTS (SELECT 1 FROM PickTask
+                  WHERE ShipmentId = @ShipmentId AND Status NOT IN ('CANCELLED', 'COMPLETED'));
+
+        COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

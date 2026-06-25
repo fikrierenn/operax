@@ -82,6 +82,28 @@ public class DetailsModel(Db db, ICurrentCompany company, UserManager<IdentityUs
         return RedirectToPage(new { id });
     }
 
+    // sp_PickTaskCancel (Plan 56 IMP-3): görevi iptal eder; bağlı sevkiyat PICKING'te + başka aktif görev
+    // yoksa DRAFT'a döner. Pick stok yazmaz → ledger dokunulmaz. Tamamlanmış/iptal görev reddedilir.
+    public async Task<IActionResult> OnPostCancelTaskAsync(Guid id, CancellationToken ct)
+    {
+        using var conn = db.Open();
+        try
+        {
+            await conn.ExecuteAsync(
+                new CommandDefinition("sp_PickTaskCancel",
+                    new { TaskId = id, CompanyId = company.Id, UserId = userManager.GetUserId(User) ?? "" },
+                    commandType: CommandType.StoredProcedure, cancellationToken: ct));
+            TempData["Success"] = "Toplama görevi iptal edildi.";
+            return RedirectToPage("./Index");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number >= 50000 && sqlEx.Number < 60000)
+        {
+            // İş kuralı hatası (tamamlanmış/zaten iptal) — SP Türkçe mesaj fırlattı
+            TempData["Error"] = sqlEx.Message;
+            return RedirectToPage(new { id });
+        }
+    }
+
     public record StaffDto(string Id, string? UserName);
 
     public record PickTaskDto

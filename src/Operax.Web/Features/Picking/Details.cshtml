@@ -40,6 +40,15 @@
                     </div>
                 </div>
             }
+            @* Görevi İptal (Plan 56 IMP-3): terminal-olmayan statüde. Sevkiyat PICKING'te + başka görev yoksa DRAFT'a döner. *@
+            @if (Model.Task.Status != PickTaskStatus.Completed && Model.Task.Status != PickTaskStatus.Cancelled)
+            {
+                <form method="post" asp-page-handler="CancelTask">
+                    <input type="hidden" name="id" value="@Model.Task.Id" />
+                    <button type="submit" class="btn btn-danger btn-sm"
+                            onclick="return confirm('Toplama görevi iptal edilecek; bağlı sevkiyat tekrar taslağa dönebilir. Onaylıyor musunuz?')">Görevi İptal</button>
+                </form>
+            }
         </div>
     </div>
 

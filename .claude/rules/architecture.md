@@ -60,6 +60,19 @@ Her belge/evrak (Receiving, Shipping, Transfer, CycleCount, SalesOrder vb.) dete
 
 ---
 
+## 5. Ön Muhasebe ↔ Resmi Muhasebe Katmanı (TÜM İŞLEYİŞ İÇİN GEÇERLİ)
+
+*   **Kullanıcı kararı (26 Haziran 2026):** Operax bir **ön muhasebe** (operasyonel alt-defter) sistemidir. **Resmi muhasebe katmanı (GL yevmiye fişi, TDHP hesap-kodlu mizan, 9xx nazım hesaplar, beyanname) HENÜZ YOK** — ileride ayrı modül olarak gelebilir.
+*   **Değişmez ilke — mapping-ready tasarım:** Resmi katman olmasa da **her operasyonel işlem, gelecekteki resmi muhasebeye sorunsuz eşlenebilecek (posting-rule ile yevmiyeye dönüşebilecek) şekilde tasarlanır.** "Ön muhasebe yapıyoruz ama resmi muhasebeye uyumlu" — bu yapı tüm modüllerde (çek/senet, kredi, teminat, cari, kasa/banka, stok, fatura) geçerlidir.
+*   **Pratik sonuçları:**
+    *   **Yön + an doğru:** Her `AccountMovement`/`FinancialTransaction`/`StockMovement` doğru borç/alacak yönünde ve doğru ANDA (dönemsellik — `MovementDate`, alış-anı cari kapama vb.) yazılır → resmi katman bunu olduğu gibi posting'ler. Yanlış yön/an = ileride yevmiye yanlış.
+    *   **Belge izi zorunlu:** `SourceDocType`+`SourceDocId` her harekette (belgelendirme kavramı) → posting-rule kaynağı bulur.
+    *   **Off-balance ayrı:** Gerçek ledger'ı etkilemeyen ama resmi-muhasebede nazım gerektiren kalemler (kredi teminatı → 920/921, çek ciro → 91x, koşullu yükümlülük) **ayrı tabloda** (örn. `LoanCollateral`) **off-balance** tutulur; `FinancialTransaction`/`AccountMovement`'a YAZILMAZ — ama tür/grup/değer alanları (NazimGroup, ValuationType) saklanır ki resmi katman 9xx'e postlayabilsin.
+    *   **TDHP kodu gömülmez:** Operasyonel tablolar TDHP hesap kodu taşımaz (101/320/920…); resmi eşleme posting-rule katmanında yapılır. Ön muhasebe semantiği (Direction, MovementType, InstrumentType) → resmi hesap kodu dönüşümü ileride.
+*   **Tasarım kuralı:** Yeni finans/stok/evrak işleyişi yazarken sor: *"Bu işlem ileride yevmiyeye nasıl dönüşür? Doğru yön/an/belge-izi var mı? Off-balance mı?"* → `muhasebe-mevzuat` skill §2.5/§3 (nazım + subledger→GL posting deseni). Resmi-muhasebe uyumu, ön muhasebede "kayıt çalışıyor"dan önce gelir.
+
+---
+
 ## 6. Modüler Aktivasyon Kuralları (MRP vs. Ticari vs. Proje)
 
 *   **Modül Bağımlılığı Kontrolü:** Yeni bir modül geliştirildiğinde veya aktif edildiğinde, `docs/TODO.md` bağımlılık hiyerarşisine sadık kalınmalıdır.

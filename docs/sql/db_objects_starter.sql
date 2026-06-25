@@ -1778,36 +1778,98 @@ BEGIN
         SELECT TOP 1 @PickingBinId = Id
         FROM Bin WHERE WarehouseId = @WarehouseId AND IsPickingArea = 1;
 
-        -- Stok çıkışı: her satır için ATOMİK consume (Plan 44 — oversell/concurrency/idempotency).
-        -- sp_ConsumeInventory bakiyeyi sp_getapplock (item/bin exclusive) ile serialize eder, yetersizse THROW; bu transaction
-        -- içinde çağrılır → kilitler COMMIT'e kadar tutulur (eşzamanlı sevkiyatlar serialize olur).
-        -- UnitCost scalar subquery ile tek değer (ItemCost çok-depo satırı çoğaltma riski kapandı).
         DECLARE @ShipBranchId UNIQUEIDENTIFIER =
             ISNULL((SELECT BranchId FROM Warehouse WHERE Id = @WarehouseId), dbo.fn_DefaultBranchId(@CompanyId));
+
+        -- Plan 57: bu sevkiyat toplama (pick) ile mi yürüdü? Varsa ledger PICK GERÇEĞİNE (toplanan miktar +
+        -- gerçek bin) bağlanır; yoksa eski ShippingLine-temelli consume korunur (doğrudan sevkiyat).
+        DECLARE @HasPick BIT =
+            CASE WHEN EXISTS (SELECT 1 FROM PickTask
+                              WHERE ShipmentId = @HeaderId AND Status <> 'CANCELLED')
+                 THEN 1 ELSE 0 END;
+
+        -- Pick-driven RECONCILE: sevkiyat satırı = fiilen TOPLANAN (short-pick/skip → düşer; kalan SO'da açık).
+        -- Toplama satırı olmayan stok-kalemi (tümü deficit→üretim) 0'a iner. SERVICE satırları dokunulmaz
+        -- (fiziksel toplanmaz). Reconcile consume'dan ÖNCE → SO.QtyShipped + ItemCost gerçeği kullanır.
+        IF @HasPick = 1
+            UPDATE sl
+            SET sl.QtyBase     = ISNULL(agg.PickedBase, 0),
+                sl.QtyOriginal = ISNULL(agg.PickedOrig, 0)
+            FROM ShippingLine sl
+            JOIN Item i ON i.Id = sl.ItemId AND i.ItemType <> 'SERVICE'
+            LEFT JOIN (
+                SELECT ptl.ShipLineId,
+                       SUM(ptl.QtyPickedBase) AS PickedBase,
+                       SUM(ptl.QtyPicked)     AS PickedOrig
+                FROM PickTaskLine ptl
+                JOIN PickTask pt ON pt.Id = ptl.PickTaskId
+                WHERE pt.ShipmentId = @HeaderId AND pt.Status <> 'CANCELLED'
+                  AND ptl.ShipLineId IS NOT NULL
+                GROUP BY ptl.ShipLineId
+            ) agg ON agg.ShipLineId = sl.Id
+            WHERE sl.HeaderId = @HeaderId;
+
+        -- Stok çıkışı: her satır için ATOMİK consume (Plan 44 — oversell/concurrency/idempotency).
+        -- sp_ConsumeInventory bakiyeyi sp_getapplock (item/bin exclusive) ile serialize eder, yetersizse THROW.
         DECLARE @slId UNIQUEIDENTIFIER, @slItem UNIQUEIDENTIFIER, @slUom UNIQUEIDENTIFIER,
                 @slQty DECIMAL(18,6), @slBin UNIQUEIDENTIFIER, @slLot NVARCHAR(50), @slCost DECIMAL(18,6);
-        DECLARE c_ship CURSOR LOCAL FAST_FORWARD FOR
-            SELECT sl.Id, sl.ItemId, sl.UomId, sl.QtyBase,
-                   ISNULL(sl.BinId, @PickingBinId), sl.LotNo,
-                   ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
-                           WHERE ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId), 0)
-            FROM ShippingLine sl
-            -- Plan 52: hizmet (SERVICE) fiziksel taşınmaz → stok consume EDİLMEZ (hayalet stok engeli)
-            JOIN Item i ON i.Id = sl.ItemId AND i.ItemType <> 'SERVICE'
-            WHERE sl.HeaderId = @HeaderId;
-        OPEN c_ship;
-        FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
-        WHILE @@FETCH_STATUS = 0
+
+        IF @HasPick = 1
         BEGIN
-            EXEC dbo.sp_ConsumeInventory
-                @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @slBin,
-                @ItemId = @slItem, @UomId = @slUom, @QtyBase = @slQty, @LotNo = @slLot,
-                @SourceDocType = 'SHIPPING', @SourceDocId = @HeaderId, @SourceLineId = @slId,
-                @SourceDocNo = @DocNo, @UnitCost = @slCost, @UserId = @UserId,
-                @MovementDate = @nowGuard, @BranchId = @ShipBranchId;
-            FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+            -- PICK-DRIVEN consume: PickTaskLine başına (çoklu-bin → bin başına ayrı hareket).
+            -- Gerçek toplanan bin (PickedBinId, yoksa TargetBinId) + toplanan miktar (QtyPickedBase>0).
+            -- @SourceLineId = ShipLineId → idempotency (satır,tip,bin,lot) multi-bin'i destekler.
+            DECLARE c_pick CURSOR LOCAL FAST_FORWARD FOR
+                SELECT ptl.ShipLineId, ptl.ItemId, ptl.UomId, ptl.QtyPickedBase,
+                       ISNULL(ptl.PickedBinId, ptl.TargetBinId), sl.LotNo,
+                       ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
+                               WHERE ic.CompanyId = @CompanyId AND ic.ItemId = ptl.ItemId), 0)
+                FROM PickTaskLine ptl
+                JOIN PickTask pt ON pt.Id = ptl.PickTaskId
+                     AND pt.ShipmentId = @HeaderId AND pt.Status <> 'CANCELLED'
+                JOIN ShippingLine sl ON sl.Id = ptl.ShipLineId
+                JOIN Item i ON i.Id = ptl.ItemId AND i.ItemType <> 'SERVICE'
+                WHERE ptl.QtyPickedBase > 0;
+            OPEN c_pick;
+            FETCH NEXT FROM c_pick INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                EXEC dbo.sp_ConsumeInventory
+                    @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @slBin,
+                    @ItemId = @slItem, @UomId = @slUom, @QtyBase = @slQty, @LotNo = @slLot,
+                    @SourceDocType = 'SHIPPING', @SourceDocId = @HeaderId, @SourceLineId = @slId,
+                    @SourceDocNo = @DocNo, @UnitCost = @slCost, @UserId = @UserId,
+                    @MovementDate = @nowGuard, @BranchId = @ShipBranchId;
+                FETCH NEXT FROM c_pick INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+            END
+            CLOSE c_pick; DEALLOCATE c_pick;
         END
-        CLOSE c_ship; DEALLOCATE c_ship;
+        ELSE
+        BEGIN
+            -- DOĞRUDAN sevkiyat (pick'siz): mevcut ShippingLine-temelli consume (bin = satır bini veya picking).
+            DECLARE c_ship CURSOR LOCAL FAST_FORWARD FOR
+                SELECT sl.Id, sl.ItemId, sl.UomId, sl.QtyBase,
+                       ISNULL(sl.BinId, @PickingBinId), sl.LotNo,
+                       ISNULL((SELECT TOP 1 ic.AvgCost FROM ItemCost ic
+                               WHERE ic.CompanyId = @CompanyId AND ic.ItemId = sl.ItemId), 0)
+                FROM ShippingLine sl
+                -- Plan 52: hizmet (SERVICE) fiziksel taşınmaz → stok consume EDİLMEZ (hayalet stok engeli)
+                JOIN Item i ON i.Id = sl.ItemId AND i.ItemType <> 'SERVICE'
+                WHERE sl.HeaderId = @HeaderId;
+            OPEN c_ship;
+            FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                EXEC dbo.sp_ConsumeInventory
+                    @CompanyId = @CompanyId, @WarehouseId = @WarehouseId, @BinId = @slBin,
+                    @ItemId = @slItem, @UomId = @slUom, @QtyBase = @slQty, @LotNo = @slLot,
+                    @SourceDocType = 'SHIPPING', @SourceDocId = @HeaderId, @SourceLineId = @slId,
+                    @SourceDocNo = @DocNo, @UnitCost = @slCost, @UserId = @UserId,
+                    @MovementDate = @nowGuard, @BranchId = @ShipBranchId;
+                FETCH NEXT FROM c_ship INTO @slId, @slItem, @slUom, @slQty, @slBin, @slLot, @slCost;
+            END
+            CLOSE c_ship; DEALLOCATE c_ship;
+        END
 
         -- SO satirlarini guncelle
         UPDATE sol
@@ -1859,6 +1921,8 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF CURSOR_STATUS('local', 'c_lines') >= -1 BEGIN CLOSE c_lines; DEALLOCATE c_lines; END
+        IF CURSOR_STATUS('local', 'c_pick')  >= -1 BEGIN CLOSE c_pick;  DEALLOCATE c_pick;  END
+        IF CURSOR_STATUS('local', 'c_ship')  >= -1 BEGIN CLOSE c_ship;  DEALLOCATE c_ship;  END
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH

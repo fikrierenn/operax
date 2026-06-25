@@ -118,7 +118,8 @@ class Program
                         "migration_52_item_type.sql",           // Plan 52: ItemType sadeleştir (CONSUMABLE→STOCK + CHECK STOCK/SERVICE/FIXED_ASSET)
                         "migration_53_bin_storagearea.sql",     // Plan 50 Faz 1 (C1): Bin.IsStorageArea kolonu (fresh-install raf-ekle bug)
                         "migration_54_branchtype_check.sql",    // Plan 50 Faz 2 (H3): BranchType CHECK constraint (SUBE/MERKEZ/FABRIKA/MAGAZA/OFIS)
-                        "migration_56_picktask.sql"             // Plan 56 Faz B: PickTaskLine.PickSeq (serpentine sıra) + ExceptionNote (short-pick/istisna)
+                        "migration_56_picktask.sql",            // Plan 56 Faz B: PickTaskLine.PickSeq (serpentine sıra) + ExceptionNote (short-pick/istisna)
+                        "migration_57_pickline_shipline.sql"    // Plan 57: PickTaskLine.ShipLineId (pick→ship ledger handoff — db_objects.sql sp_ShippingCreatePickTask ÖNCE)
 
                     })
                     {

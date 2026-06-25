@@ -171,11 +171,17 @@ BEGIN
                 THROW 51583, N'Geçersiz miktar (0 ile istenen arası olmalı).', 1;
 
             -- Satırı işle: tam → tamamlandı; kısmi → ExceptionNote='SHORT' (satır açık ama akıştan düşer)
+            -- Plan 57: QtyPicked (orijinal birim, oranla) + toplama izi (bin/kullanıcı/zaman) de yazılır —
+            -- sp_ShippingPost pick-driven ledger reconcile'ı bu gerçek değerlere dayanır.
             UPDATE PickTaskLine
-            SET QtyPickedBase = @Qty,
-                ExceptionNote = CASE WHEN @Qty < @ReqBase
-                                     THEN N'SHORT' + ISNULL(N': ' + @ExceptionNote, N'')
-                                     ELSE ExceptionNote END
+            SET QtyPickedBase  = @Qty,
+                QtyPicked      = CAST(@Qty * QtyRequested / NULLIF(QtyRequestedBase, 0) AS DECIMAL(18,6)),
+                PickedBinId    = TargetBinId,
+                PickedByUserId = @UserId,
+                PickedAt       = GETUTCDATE(),
+                ExceptionNote  = CASE WHEN @Qty < @ReqBase
+                                      THEN N'SHORT' + ISNULL(N': ' + @ExceptionNote, N'')
+                                      ELSE ExceptionNote END
             WHERE Id = @LineId;
         END
 

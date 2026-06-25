@@ -323,9 +323,9 @@ BEGIN
         -- KISMİ-STOK (IMP-1): depo ihtiyacı tam karşılamasa bile MEVCUT stok pick'lenir; eksik kalan
         -- aşağıda ProductionOrder ile üretilir. (Eski "ya hep ya hiç" stoğu sahipsiz bırakıyordu.)
         INSERT INTO PickTaskLine
-            (PickTaskId, ItemId, UomId, TargetWarehouseId, TargetBinId, QtyRequested, QtyRequestedBase)
+            (PickTaskId, ShipLineId, ItemId, UomId, TargetWarehouseId, TargetBinId, QtyRequested, QtyRequestedBase)
         SELECT
-            @TaskId, a.ItemId, a.UomId, @WarehouseId, a.BinId,
+            @TaskId, a.ShipLineId, a.ItemId, a.UomId, @WarehouseId, a.BinId,
             -- QtyRequested (orijinal birim): bu bin'in base payı oranında (UOM korunur)
             CAST((CASE WHEN a.CumQty <= a.NeedBase THEN a.BinQty ELSE a.NeedBase - a.PrevCum END)
                  * a.NeedOrig / NULLIF(a.NeedBase, 0) AS DECIMAL(18,4)),

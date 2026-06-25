@@ -8,7 +8,7 @@
 <div class="page-hdr">
     <div class="page-hdr-l">
         <div class="breadcrumb">
-            <span class="breadcrumb-item hover:text-indigo-600">Lojistik</span>
+            <span class="breadcrumb-item hover:text-[var(--brand-600)]">Lojistik</span>
             <span class="breadcrumb-sep">/</span>
             <span class="breadcrumb-current">Sevkiyat Yönetimi</span>
         </div>
@@ -27,26 +27,26 @@
 <div class="kpi-grid">
     <div class="kpi">
         <div class="kpi-glow brand"></div>
-        <span class="kpi-label text-indigo-600">
-            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        <span class="kpi-label text-[var(--brand-600)]">
+            <svg class="w-4 h-4 text-[var(--brand-600)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
             Bekleyen Sevk Siparişleri
         </span>
-        <div class="kpi-value text-indigo-600">
+        <div class="kpi-value text-[var(--brand-600)]">
             @Model.DraftCount
             <span class="kpi-unit">evrak</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">Onay bekleyen taslak çıkışlar</span>
+            <span class="kpi-trend text-[var(--text-4)]">Onay bekleyen taslak çıkışlar</span>
         </div>
     </div>
     
     <div class="kpi">
         <div class="kpi-glow success"></div>
-        <span class="kpi-label text-emerald-600">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <span class="kpi-label text-[var(--success)]">
+            <svg class="w-4 h-4 text-[var(--success)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
             Tamamlanan Lojistik Çıkışlar
         </span>
-        <div class="kpi-value text-emerald-600">
+        <div class="kpi-value text-[var(--success)]">
             @Model.PostedCount
             <span class="kpi-unit">sevk</span>
         </div>
@@ -57,16 +57,16 @@
     
     <div class="kpi">
         <div class="kpi-glow danger"></div>
-        <span class="kpi-label text-red-600">
-            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span class="kpi-label text-[var(--danger)]">
+            <svg class="w-4 h-4 text-[var(--danger)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             İptal Edilen Sevkiyatlar
         </span>
-        <div class="kpi-value text-red-600">
+        <div class="kpi-value text-[var(--danger)]">
             @Model.CancelledCount
             <span class="kpi-unit">evrak</span>
         </div>
         <div class="kpi-foot">
-            <span class="kpi-trend text-slate-400">İptal statüsündeki çıkışlar</span>
+            <span class="kpi-trend text-[var(--text-4)]">İptal statüsündeki çıkışlar</span>
         </div>
     </div>
 </div>
@@ -90,16 +90,16 @@
             @foreach (var s in Model.Shipments)
             {
                 <tr>
-                    <td class="font-bold text-slate-900">#@s.DocNo</td>
-                    <td class="font-semibold text-slate-600">@s.WarehouseCode</td>
+                    <td class="font-bold text-[var(--text)]">#@s.DocNo</td>
+                    <td class="font-semibold text-[var(--text-2)]">@s.WarehouseCode</td>
                     <td>
                         <div class="row-strong">@s.CarrierName</div>
-                        <div class="row-sub text-slate-400">@s.VehiclePlate</div>
+                        <div class="row-sub text-[var(--text-4)]">@s.VehiclePlate</div>
                     </td>
                     <td>
                         @Html.Raw(Dict.StatusBadge(s.Status))
                     </td>
-                    <td class="font-mono text-xs text-slate-500">@s.DocDate.ToString("dd.MM.yyyy")</td>
+                    <td class="font-mono text-xs text-[var(--text-3)]">@s.DocDate.ToString("dd.MM.yyyy")</td>
                     <td class="num">
                         <a asp-page="./Details" asp-route-id="@s.Id" class="btn btn-xs btn-secondary">Detay</a>
                     </td>
@@ -108,7 +108,7 @@
             @if (!Model.Shipments.Any())
             {
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 italic font-medium">Sevkiyat kaydı bulunamadı.</td>
+                    <td colspan="6" class="px-6 py-12 text-center text-[var(--text-4)] italic font-medium">Sevkiyat kaydı bulunamadı.</td>
                 </tr>
             }
         </tbody>

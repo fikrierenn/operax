@@ -24,7 +24,8 @@ public static class UiHelpers
         DocStatus.Closed                                               => "badge-neutral",
         DocStatus.ClosedPartial or DocStatus.Counting
             or DocStatus.InProgress or DocStatus.Assigned
-            or DocStatus.Picking or DocStatus.Picked                   => "badge-info",
+            or DocStatus.Picking or DocStatus.Picked
+            or PickTaskStatus.Released                                 => "badge-info",
         // Finansal araç / ödeme planı
         ChequeStatus.Portfolio or PaymentPlanStatus.Open or LoanStatus.Active => "badge-info",
         ChequeStatus.InBank                                            => "badge-warn",

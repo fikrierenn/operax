@@ -283,6 +283,13 @@ public static class PickTaskStatus
     public const string Cancelled  = "CANCELLED";    // İptal
 }
 
+/// <summary>Toplama satırı istisna türü (Plan 56 Faz C) — PickTaskLine.ExceptionNote + sp_PickConfirm @ExceptionType.</summary>
+public static class PickExceptionType
+{
+    public const string Skip    = "SKIP";      // Kalem atlandı (rafta yok / bulunamadı)
+    public const string Damaged = "DAMAGED";   // Hasarlı — toplanmadı, kalite karantinasına
+}
+
 /// <summary>Bütçe statüsü (Plan 41) — Budget.Status.</summary>
 public static class BudgetStatus
 {

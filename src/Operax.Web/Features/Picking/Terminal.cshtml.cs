@@ -28,8 +28,8 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
             FROM PickTask t
             WHERE t.CompanyId = @CompanyId AND t.Status IN (@StDraft, @StReleased, @StAssigned, @StInProgress)
             ORDER BY t.CreatedAt ASC",
-            new { CompanyId = company.Id, StDraft = DocStatus.Draft, StReleased = PickTaskStatus.Released,
-                  StAssigned = DocStatus.Assigned, StInProgress = DocStatus.InProgress },
+            new { CompanyId = company.Id, StDraft = PickTaskStatus.Draft, StReleased = PickTaskStatus.Released,
+                  StAssigned = PickTaskStatus.Assigned, StInProgress = PickTaskStatus.InProgress },
             cancellationToken: ct));
 
         if (!taskId.HasValue) return;
@@ -73,13 +73,16 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
         // Aktif ekran ilerleme sayacı ("Kalem 3/10") — toplanan + toplam
         if (ActiveTask != null)
         {
+            // CompanyId guard: PickTaskLine'ın kendi CompanyId'si yok → PickTask üzerinden JOIN ile şirket-kapsamı (defense-in-depth)
             var prog = await conn.QueryFirstOrDefaultAsync<(int Done, int Total)>(
                 new CommandDefinition(@"
                 SELECT
-                    SUM(CASE WHEN QtyPickedBase >= QtyRequestedBase OR ExceptionNote IS NOT NULL THEN 1 ELSE 0 END) AS Done,
+                    SUM(CASE WHEN ptl.QtyPickedBase >= ptl.QtyRequestedBase OR ptl.ExceptionNote IS NOT NULL THEN 1 ELSE 0 END) AS Done,
                     COUNT(*) AS Total
-                FROM PickTaskLine WHERE PickTaskId = @TaskId",
-                new { TaskId = taskId }, cancellationToken: ct));
+                FROM PickTaskLine ptl
+                JOIN PickTask pt ON pt.Id = ptl.PickTaskId
+                WHERE ptl.PickTaskId = @TaskId AND pt.CompanyId = @CompanyId",
+                new { TaskId = taskId, CompanyId = company.Id }, cancellationToken: ct));
             ActiveTask.DoneLines = prog.Done;
             ActiveTask.TotalLines = prog.Total;
         }
@@ -103,9 +106,9 @@ public class TerminalModel(Db db, ICurrentCompany company, ICurrentUser user, IL
                     commandType: CommandType.StoredProcedure, cancellationToken: ct));
             TempData["Success"] = exceptionType switch
             {
-                "SKIP"    => "Kalem atlandı.",
-                "DAMAGED" => "Hasarlı işaretlendi.",
-                _         => "Toplama onaylandı!"
+                PickExceptionType.Skip    => "Kalem atlandı.",
+                PickExceptionType.Damaged => "Hasarlı işaretlendi.",
+                _                         => "Toplama onaylandı!"
             };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

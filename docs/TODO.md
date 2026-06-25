@@ -9,7 +9,7 @@
 
 ### A. Sıradaki modüller (worst-first, tasarım + kod birlikte) — plan 53
 - [ ] **M1 Manufacturing** (BOM/WorkCenters/WorkOrders ×5): util-renk AĞIR (~74/ekran) + `class="input"/"label"`→`.form-ctrl`/`.form-label` + bespoke help-panel (`bg-amber-50`→semantic). + code-reviewer Manufacturing PageModels.
-- [ ] **WMS-ops** (Transfer/Picking non-terminal): bespoke buton (`bg-indigo-600 rounded-lg`)+panel+header+table → semantic; util-renk.
+- [x] ✅ **WMS komple** (Transfer/Picking/Shipping/Receiving/CycleCount/Lot/LPN/Serial/Inventory) — KAPANDI 2026-06-25. Util-renk→token + dead b-*→badge-*/Dict.StatusBadge + bespoke→semantic. Terminal (dark-tema) ekranları kapsam-dışı. Commit'ler: 374af9c (Transfer) · 0e85a85 (Lot/LPN/Serial/CycleCount/Receiving) · 8aa6dc8 (Shipping/Inventory). 9 sayfa mobil-görsel-doğrulandı (0 konsol hatası).
 - [x] ✅ **Belgeler** (PurchaseInvoices ×2, Expenses, MaterialIssue): badge + util — KAPANDI 2026-06-24.
   - [x] ✅ Badge → `Dict.StatusBadge()` tüm Belgeler: Receiving (plan 55 RECEIVING_STATUS) · Expenses Index (01550da) · PurchaseInvoices/MaterialIssue zaten dict'ti. 🔴 İngilizce-enum kalmadı.
   - [x] ✅ Expenses Index+Report renk→token (01550da) · MaterialIssue Index+Details renk→token (c60e5fd).
@@ -17,7 +17,7 @@
   - [x] ✅ Expenses/Details + Report: DOĞRULANDI temiz — `class="input"/"label"`/raw-renk 0 oluşum (M18 UX-pass'inde gold-standard'a çekilmiş, satır 30/116 DEBT STALE'di). Yalnız birkaç benign `font-size:` inline (renk zaten token). **Belgeler grubu KAPANDI.**
 - [ ] **Finance** (17, çoğu std): inline-renk (Aging/Details, CreditCards/Index bespoke kart, Payments/Create) → semantic.
 - [ ] **Admin kalan** (zaten M0'da Roles/Create·Modules·StatusTransitions·Parameters yapıldı) — Dictionary/Values vanilla teyit, gerisi std.
-- [ ] **Misc** (Lot/LPN/Serial/Budget/Inventory): bespoke header (`<h2>`→page-hdr) + **LPN/Details** (bespoke buton+panel+`bg-indigo-900`) + **Budget/Details** `.input`/`.label`→form-ctrl.
+- [ ] **Misc kalan: Budget** (`.input`/`.label`→form-ctrl) — Lot/LPN/Serial/Inventory yukarıda "WMS komple" ile KAPANDI 2026-06-25.
 
 ### B. KAYIP OTURUM'dan kalan KOD işi — **Plan 50 (M2 Master Veri) AKTİF, 4 faz açık**
 `plans/50-module-M2-masterdata.md` — kayıp 2026-06-23 öğleden sonra oturumunun audit'i; **kod tarafı yapılmadı** (tasarım Faz 3 kısmen 2026-06-24 MasterData pass'inde yapıldı):

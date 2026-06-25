@@ -33,3 +33,34 @@ BEGIN
 END
 ELSE
     PRINT 'Test kullanicisi zaten company claim iceriyor veya bulunamadi.';
+
+-- =============================================================================
+-- Kullanıcı rol atamaları (idempotent) — depo@ depo operatörü, test@ salt-görüntüleyici.
+-- depo@ WarehouseManager rolünde OLMAZSA Picking/Details "Depo Personeli" önceliklendirme
+-- sorgusu (r.Name='WarehouseManager') hiç eşleşme bulamaz. test@ Viewer = güvenli minimum.
+-- =============================================================================
+DECLARE @DepoId NVARCHAR(450) = (SELECT Id FROM AspNetUsers WHERE NormalizedEmail = 'DEPO@OPERAX.COM');
+DECLARE @WhMgrRoleId NVARCHAR(450) = (SELECT Id FROM AspNetRoles WHERE NormalizedName = 'WAREHOUSEMANAGER');
+DECLARE @ViewerRoleId NVARCHAR(450) = (SELECT Id FROM AspNetRoles WHERE NormalizedName = 'VIEWER');
+
+-- depo@operax.com → WarehouseManager
+IF @DepoId IS NOT NULL AND @WhMgrRoleId IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM AspNetUserRoles WHERE UserId = @DepoId AND RoleId = @WhMgrRoleId
+)
+BEGIN
+    INSERT INTO AspNetUserRoles (UserId, RoleId) VALUES (@DepoId, @WhMgrRoleId);
+    PRINT 'depo@ kullanicisi WarehouseManager rolune eklendi.';
+END
+ELSE
+    PRINT 'depo@ zaten WarehouseManager rolunde veya kullanici/rol bulunamadi.';
+
+-- test@operax.com → Viewer
+IF @TestId IS NOT NULL AND @ViewerRoleId IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM AspNetUserRoles WHERE UserId = @TestId AND RoleId = @ViewerRoleId
+)
+BEGIN
+    INSERT INTO AspNetUserRoles (UserId, RoleId) VALUES (@TestId, @ViewerRoleId);
+    PRINT 'test@ kullanicisi Viewer rolune eklendi.';
+END
+ELSE
+    PRINT 'test@ zaten Viewer rolunde veya kullanici/rol bulunamadi.';
